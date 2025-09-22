@@ -48,7 +48,7 @@ YINI支持多种值类型
 - 坐标  ->  (x, y) / (x, y, z)
 - 键值对  ->  {key: value}
 - Map  ->  {{key1: value1}, {key2: value2}}
-- 颜色  ->  #RRGGBB / RGB(r,g,b) / rgb(r,g,b) / 255, 192, 203
+- 颜色  ->  #RRGGBB / RGB(r,g,b) / rgb(r,g,b) / color(255, 192, 203) / Color(255, 192, 203)
 (更多类型正在添加中)  
 
 ### 宏定义和变量引用
