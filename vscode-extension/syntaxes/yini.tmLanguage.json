@@ -1,0 +1,62 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "YINI",
+  "scopeName": "source.yini",
+  "patterns": [
+    { "include": "#comments" },
+    { "include": "#sections" },
+    { "include": "#keyValues" },
+    { "include": "#listAdd" },
+    { "include": "#literals" }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        { "name": "comment.line.double-slash.yini", "match": "//.*$" },
+        { "name": "comment.block.yini", "begin": "/\\*", "end": "\\*/" }
+      ]
+    },
+    "sections": {
+      "patterns": [
+        {
+          "name": "entity.name.section.yini",
+          "match": "^\\s*\\[[^\\]]+\\](?:\\s*:\\s*[^\n]+)?"
+        }
+      ]
+    },
+    "keyValues": {
+      "patterns": [
+        {
+          "name": "meta.key-value.yini",
+          "match": "^\\s*[A-Za-z_][\\w\-]*\\s*=\\s*.+$",
+          "captures": {
+            "1": { "name": "variable.other.key.yini" },
+            "2": { "name": "keyword.operator.assignment.yini" }
+          }
+        }
+      ]
+    },
+    "listAdd": {
+      "patterns": [
+        { "name": "keyword.operator.addassign.yini", "match": "^\\s*\\+=\\s+.+$" }
+      ]
+    },
+    "literals": {
+      "patterns": [
+        { "name": "string.quoted.double.yini", "begin": '"', "end": '"', "patterns": [{ "include": "#escape" }] },
+        { "name": "constant.numeric.float.yini", "match": "(?<![\\w])\\d+\\.\\d+(?![\\w])" },
+        { "name": "constant.numeric.integer.yini", "match": "(?<![\\w])\\d+(?![\\w])" },
+        { "name": "constant.language.boolean.yini", "match": "\\b(?:true|false)\\b" },
+        { "name": "meta.array.yini", "begin": "\\[", "end": "\\]" },
+        { "name": "meta.object.yini", "begin": "\\{", "end": "\\}" },
+        { "name": "meta.coordinates.yini", "begin": "\\(", "end": "\\)" },
+        { "name": "constant.other.color.hex.yini", "match": "#(?:[0-9A-Fa-f]{6})\b" }
+      ]
+    },
+    "escape": {
+      "patterns": [
+        { "name": "constant.character.escape.yini", "match": "\\\\." }
+      ]
+    }
+  }
+}

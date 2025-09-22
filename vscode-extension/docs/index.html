@@ -1,0 +1,39 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>YINI Docs</title>
+    <style>
+      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, 'Noto Sans', 'Helvetica Neue', Arial, 'Apple Color Emoji', 'Segoe UI Emoji'; margin: 24px; line-height: 1.6; }
+      code, pre { background: #f5f5f5; padding: 2px 4px; border-radius: 4px; }
+      pre { padding: 12px; overflow: auto; }
+      h1, h2 { border-bottom: 1px solid #eee; padding-bottom: 4px; }
+    </style>
+  </head>
+  <body>
+    <h1>YINI 官方文档</h1>
+    <p>根据仓库 <code>YINI.md</code> 概述：</p>
+    <ul>
+      <li>注释：<code>//</code> 与 <code>/* */</code></li>
+      <li>继承：<code>[Section] : Base1, Base2</code></li>
+      <li>快捷注册：<code>+= value</code></li>
+      <li>值类型：字符串、整数、浮点、布尔、数组、坐标、键值对、Map、颜色</li>
+      <li>宏与变量：<code>[#define]</code> 定义，<code>@name</code> 引用</li>
+      <li>文件关联：<code>[#include]</code> 与 <code>+= file.yini</code></li>
+      <li>YMETA：缓存已解析的 YINI</li>
+      <li>CLI：检查、编译、反编译</li>
+    </ul>
+    <h2>示例</h2>
+    <pre><code>[Config]
+key1 = value1
+key2 = value2
+
+[Config2]
+key3 = value3
+key4 = value4
+
+[Config3] : Config, Config2
+    </code></pre>
+  </body>
+  </html>

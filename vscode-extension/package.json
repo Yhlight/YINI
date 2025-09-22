@@ -1,0 +1,83 @@
+{
+  "name": "yini-vscode",
+  "displayName": "YINI Language Support",
+  "description": "Syntax highlighting, diagnostics, completions, and CLI integration for YINI.",
+  "version": "0.0.1",
+  "publisher": "yini",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "activationEvents": [
+    "onLanguage:yini",
+    "onCommand:yini.compile",
+    "onCommand:yini.decompile",
+    "onCommand:yini.openDocs",
+    "workspaceContains:**/*.yini",
+    "workspaceContains:**/*.YINI"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "yini",
+        "aliases": ["YINI", "yini"],
+        "extensions": [".yini", ".YINI"],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "yini",
+        "scopeName": "source.yini",
+        "path": "./syntaxes/yini.tmLanguage.json"
+      }
+    ],
+    "commands": [
+      {
+        "command": "yini.compile",
+        "title": "YINI: Compile to YMETA"
+      },
+      {
+        "command": "yini.decompile",
+        "title": "YINI: Decompile YMETA"
+      },
+      {
+        "command": "yini.openDocs",
+        "title": "YINI: Open Official Docs"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        { "command": "yini.compile", "when": "resourceExtname =~ /\\.(yini|YINI)$/" },
+        { "command": "yini.openDocs" }
+      ],
+      "explorer/context": [
+        { "command": "yini.compile", "when": "resourceExtname =~ /\\.(yini|YINI)$/" },
+        { "command": "yini.decompile", "when": "resourceExtname =~ /\\.(ymeta|YMETA)$/" },
+        { "command": "yini.openDocs" }
+      ],
+      "commandPalette": [
+        { "command": "yini.compile" },
+        { "command": "yini.decompile" },
+        { "command": "yini.openDocs" }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run build",
+    "build": "tsc -p .",
+    "watch": "tsc -watch -p .",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.85.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3",
+    "vsce": "^2.15.0"
+  },
+  "dependencies": {}
+}
