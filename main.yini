@@ -1,0 +1,6 @@
+[#include]
++= "base.yini"
+
+[Settings]
+fullscreen = false // Override
+vsync = true
