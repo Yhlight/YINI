@@ -1,0 +1,4 @@
+[Common]
+base_speed = 100
+base_health = 50
+name = "common_name"

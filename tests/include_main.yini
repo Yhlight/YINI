@@ -1,0 +1,7 @@
+[#include]
++= "include_common.yini"
+
+[Player] : Common
+health = 200 // Overrides base_health from Common (after merging)
+name = "main_name" // Overrides name from Common
+weapon = "sword"

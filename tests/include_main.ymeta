@@ -1,0 +1,29 @@
+{
+  "defines": {
+  },
+  "includes": [
+    "include_common.yini"
+  ],
+  "sections": [
+    {
+      "name": "Player",
+      "inherits": ["Common"],
+      "pairs": {
+        "health": 200,
+        "name": "main_name",
+        "weapon": "sword"
+      },
+      "anonymous_values": []
+    },
+    {
+      "name": "Common",
+      "inherits": [],
+      "pairs": {
+        "base_speed": 100,
+        "base_health": 50,
+        "name": "common_name"
+      },
+      "anonymous_values": []
+    }
+  ]
+}
