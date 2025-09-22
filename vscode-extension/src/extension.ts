@@ -63,14 +63,30 @@ function provideDiagnostics(doc: vscode.TextDocument, collection: vscode.Diagnos
 }
 
 const completionItems: vscode.CompletionItem[] = [
-    { label: '[#define]', kind: vscode.CompletionItemKind.Snippet, insertText: new vscode.SnippetString('[#define]\n$0') },
-    { label: '[#include]', kind: vscode.CompletionItemKind.Snippet, insertText: new vscode.SnippetString('[#include]\n+= $0') },
-    { label: '[Section]', kind: vscode.CompletionItemKind.Snippet, insertText: new vscode.SnippetString('[${1:Section}]$0') },
-    { label: 'key = value', kind: vscode.CompletionItemKind.Snippet, insertText: new vscode.SnippetString('${1:key} = ${2:value}$0') },
-    { label: '+= value', kind: vscode.CompletionItemKind.Snippet, insertText: new vscode.SnippetString('+= ${1:value}$0') },
-    { label: 'true', kind: vscode.CompletionItemKind.Keyword },
-    { label: 'false', kind: vscode.CompletionItemKind.Keyword }
+    newItem('[#define]', new vscode.SnippetString('[#define]\n$0'), '0000'),
+    newItem('[#include]', new vscode.SnippetString('[#include]\n+= $0'), '0001'),
+    newItem('[Section]', new vscode.SnippetString('[${1:Section}]$0'), '0002'),
+    newItem('key = value', new vscode.SnippetString('${1:key} = ${2:value}$0'), '0003'),
+    newItem('+= value', new vscode.SnippetString('+= ${1:value}$0'), '0004'),
+    keywordItem('true', '1000'),
+    keywordItem('false', '1001')
 ];
+
+function newItem(label: string, insertText: vscode.SnippetString, sort: string): vscode.CompletionItem
+{
+    const it = new vscode.CompletionItem(label, vscode.CompletionItemKind.Snippet);
+    it.insertText = insertText;
+    it.sortText = sort;
+    it.preselect = true;
+    return it;
+}
+
+function keywordItem(label: string, sort: string): vscode.CompletionItem
+{
+    const it = new vscode.CompletionItem(label, vscode.CompletionItemKind.Keyword);
+    it.sortText = sort;
+    return it;
+}
 
 export function activate(context: vscode.ExtensionContext)
 {
@@ -90,7 +106,7 @@ export function activate(context: vscode.ExtensionContext)
 
     context.subscriptions.push(vscode.languages.registerCompletionItemProvider('yini', {
         provideCompletionItems() { return completionItems; }
-    }));
+    }, '[', '+', '='));
 
     context.subscriptions.push(vscode.commands.registerCommand('yini.compile', compileActive));
     context.subscriptions.push(vscode.commands.registerCommand('yini.decompile', decompilePick));

@@ -49,6 +49,13 @@
         "title": "YINI: Open Official Docs"
       }
     ],
+    "configurationDefaults": {
+      "[yini]": {
+        "editor.wordBasedSuggestions": "off",
+        "editor.suggest.snippetsPreventQuickSuggestions": false,
+        "editor.suggest.showWords": false
+      }
+    },
     "menus": {
       "editor/context": [
         { "command": "yini.compile", "when": "resourceExtname =~ /\\.(yini|YINI)$/" },
