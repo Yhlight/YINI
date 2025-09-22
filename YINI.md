@@ -71,3 +71,14 @@ UIName = @name
 += file2.yini
 += file3.yini
 ```
+
+### YMETA
+在程序加载YINI文件之后，会为每一个YINI文件生成一个YMETA文件  
+YMETA缓存着YINI文件中所有的信息，避免重复加载  
+
+### CLI
+虽然YINI是一门简单的编程语言，但也具有相关的CLI工具  
+CLI工具采用阻塞式工作  
+
+### VSCode IDE
+没错，YINI也可以在VSCode IDE中开发  
