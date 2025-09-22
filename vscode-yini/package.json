@@ -1,0 +1,119 @@
+{
+  "name": "yini-vscode",
+  "displayName": "YINI Language Support",
+  "description": "VSCode IDE support for YINI: syntax highlighting, diagnostics, completion, compile/decompile, built-in CLI, and docs.",
+  "version": "0.1.0",
+  "publisher": "yini",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Linters",
+    "Other"
+  ],
+  "main": "./out/extension.js",
+  "activationEvents": [
+    "onLanguage:yini",
+    "onCommand:yini.compileCurrent",
+    "onCommand:yini.decompileCurrent",
+    "onCommand:yini.openDocs",
+    "onCommand:yini.openCli",
+    "onFileSystem:ymeta"
+  ],
+  "contributes": {
+    "configurationDefaults": {
+      "[yini]": {
+        "editor.wordBasedSuggestions": false,
+        "editor.suggest.showWords": false,
+        "editor.snippetSuggestions": "inline",
+        "editor.suggestSelection": "first",
+        "editor.quickSuggestions": { "other": true, "comments": false, "strings": false },
+        "editor.acceptSuggestionOnEnter": "off"
+      }
+    },
+    "languages": [
+      {
+        "id": "yini",
+        "aliases": ["YINI", "yini"],
+        "extensions": [".yini", ".YINI"],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "yini",
+        "scopeName": "source.yini",
+        "path": "./syntaxes/yini.tmLanguage.json"
+      }
+    ],
+    "commands": [
+      {
+        "command": "yini.compileCurrent",
+        "title": "YINI: Compile Current File"
+      },
+      {
+        "command": "yini.decompileCurrent",
+        "title": "YINI: Decompile Current YMETA"
+      },
+      {
+        "command": "yini.openDocs",
+        "title": "YINI: Open Official Docs"
+      },
+      {
+        "command": "yini.openCli",
+        "title": "YINI: Open CLI Terminal"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "when": "resourceLangId == yini",
+          "command": "yini.compileCurrent",
+          "group": "navigation@10"
+        },
+        {
+          "when": "resourceLangId == yini",
+          "command": "yini.openDocs",
+          "group": "navigation@11"
+        }
+      ],
+      "editor/title": [
+        {
+          "when": "resourceLangId == yini",
+          "command": "yini.compileCurrent",
+          "group": "navigation@10"
+        }
+      ],
+      "explorer/context": [
+        {
+          "when": "resourceExtname == .yini || resourceExtname == .YINI",
+          "command": "yini.compileCurrent",
+          "group": "navigation@10"
+        },
+        {
+          "when": "resourceExtname == .ymeta || resourceExtname == .YMETA",
+          "command": "yini.decompileCurrent",
+          "group": "navigation@11"
+        },
+        {
+          "command": "yini.openDocs",
+          "group": "navigation@12"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run build",
+    "build": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "lint": "echo 'No linter configured'"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.85.0",
+    "tslib": "^2.6.2",
+    "typescript": "^5.4.0"
+  }
+}
+
