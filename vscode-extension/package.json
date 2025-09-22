@@ -20,6 +20,16 @@
   ],
   "main": "./out/extension.js",
   "contributes": {
+    "configuration": {
+      "title": "YINI",
+      "properties": {
+        "yini.suggestions.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable YINI-specific completion suggestions"
+        }
+      }
+    },
     "languages": [
       {
         "id": "yini",
@@ -53,7 +63,9 @@
       "[yini]": {
         "editor.wordBasedSuggestions": "off",
         "editor.suggest.snippetsPreventQuickSuggestions": false,
-        "editor.suggest.showWords": false
+        "editor.suggest.showWords": false,
+        "editor.suggest.showSnippets": true,
+        "editor.suggestSelection": "first"
       }
     },
     "menus": {

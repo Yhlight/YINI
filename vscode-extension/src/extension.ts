@@ -105,7 +105,21 @@ export function activate(context: vscode.ExtensionContext)
     }
 
     context.subscriptions.push(vscode.languages.registerCompletionItemProvider('yini', {
-        provideCompletionItems() { return completionItems; }
+        provideCompletionItems(document, position) {
+            const cfg = vscode.workspace.getConfiguration('yini');
+            if (!cfg.get<boolean>('suggestions.enabled', true)) return [];
+            const line = document.lineAt(position.line).text;
+            const before = line.slice(0, position.character);
+            // Only suggest in meaningful YINI contexts to reduce noise
+            const inSection = /\s*\[[^\]]*$/.test(before);
+            const afterPlusEq = /\s*\+=\s*$/.test(before);
+            const afterKeyEq = /\s*[A-Za-z_][\w\-]*\s*=\s*$/.test(before);
+            const startLine = /^\s*$/.test(before);
+            if (inSection || afterPlusEq || afterKeyEq || startLine) {
+                return completionItems;
+            }
+            return [];
+        }
     }, '[', '+', '='));
 
     context.subscriptions.push(vscode.commands.registerCommand('yini.compile', compileActive));
