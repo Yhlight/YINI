@@ -80,9 +80,11 @@ YMETA使用.ymeta，.YMETA作为后缀
 ### CLI
 虽然YINI是一门简单的编程语言，但也具有相关的CLI工具  
 CLI工具采用阻塞式工作  
+CLI工具主要用来生成YMETA文件与检查是否语法错误  
 
 ### VSCode IDE
 没错，YINI也可以在VSCode IDE中开发  
+VSCcode IDE只需要提供语法提示和语法高亮即可  
 
 ### 项目开发建议
 #### 项目命名规范
