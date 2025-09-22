@@ -91,34 +91,66 @@ async function checkDocument(doc, collection) {
     }
     collection.set(doc.uri, diagnostics);
 }
+function isInCommentOrString(document, position) {
+    const lineText = document.lineAt(position.line).text;
+    const upToCursor = lineText.slice(0, position.character);
+    if (/\/\//.test(upToCursor)) {
+        return true;
+    }
+    const openBlock = (document.getText(new vscode.Range(new vscode.Position(0, 0), position)).match(/\/\*/g) || []).length;
+    const closeBlock = (document.getText(new vscode.Range(new vscode.Position(0, 0), position)).match(/\*\//g) || []).length;
+    if (openBlock > closeBlock) {
+        return true;
+    }
+    // naive string detection on current line
+    const quoteCount = (upToCursor.match(/"/g) || []).length;
+    return quoteCount % 2 === 1;
+}
 function registerCompletionProvider(context) {
     const provider = {
-        provideCompletionItems(document, position) {
+        provideCompletionItems(document, position, token, contextInfo) {
+            if (isInCommentOrString(document, position)) {
+                return [];
+            }
             const suggestions = [];
-            const push = (label, detail, insertText) => {
+            const push = (label, detail, insertText, sort) => {
                 const item = new vscode.CompletionItem(label, vscode.CompletionItemKind.Keyword);
                 item.detail = detail;
                 if (insertText) {
                     item.insertText = new vscode.SnippetString(insertText);
                 }
+                if (sort) {
+                    item.sortText = sort;
+                }
                 suggestions.push(item);
             };
-            push('[#define]', 'Define macro section', '[#define]\n$0');
-            push('[#include]', 'Include files section', '[#include]\n+= ${1:file1.yini}\n$0');
-            push('[Section]', 'New section header', '[$1]\n$0');
-            push('true', 'Boolean true');
-            push('false', 'Boolean false');
-            push('+=', 'Register/append entry');
-            push('RGB(r,g,b)', 'Color');
-            push('#RRGGBB', 'Hex color');
-            push('[1, 2, 3]', 'Array');
-            push('{{key: value}}', 'Map');
-            push('(x, y)', 'Coordinate 2D');
-            push('(x, y, z)', 'Coordinate 3D');
+            // Section header context: beginning of line or after empty spaces
+            const linePrefix = document.lineAt(position.line).text.slice(0, position.character);
+            const atLineStart = /^\s*$/.test(linePrefix);
+            if (atLineStart) {
+                push('[#define]', 'Define macro section', '[#define]\n$0', '01');
+                push('[#include]', 'Include files section', '[#include]\n+= ${1:file1.yini}\n$0', '02');
+                push('[Section]', 'New section header', '[$1]\n$0', '03');
+            }
+            // After key or equals sign context
+            if (/=\s*$/.test(linePrefix) || /\+=\s*$/.test(linePrefix)) {
+                push('true', 'Boolean true', 'true', '10');
+                push('false', 'Boolean false', 'false', '11');
+                push('RGB(r,g,b)', 'Color', 'RGB(${1:255}, ${2:255}, ${3:255})', '12');
+                push('#RRGGBB', 'Hex color', '#${1:FFFFFF}', '13');
+                push('[1, 2, 3]', 'Array', '[$1]', '14');
+                push('{{key: value}}', 'Map', '{{${1:key}: ${2:value}}}', '15');
+                push('(x, y)', 'Coordinate 2D', '(${1:x}, ${2:y})', '16');
+                push('(x, y, z)', 'Coordinate 3D', '(${1:x}, ${2:y}, ${3:z})', '17');
+            }
+            // Registration line
+            if (/^\s*\+=\s*$/.test(linePrefix)) {
+                push('value', 'Registration value', '${1:value}', '20');
+            }
             return suggestions;
         }
     };
-    context.subscriptions.push(vscode.languages.registerCompletionItemProvider('yini', provider));
+    context.subscriptions.push(vscode.languages.registerCompletionItemProvider('yini', provider, '[', '#', '=', '+'));
 }
 function registerCommands(context, collection) {
     context.subscriptions.push(vscode.commands.registerCommand('yini.compileCurrent', async () => {

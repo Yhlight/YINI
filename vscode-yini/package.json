@@ -22,6 +22,16 @@
     "onFileSystem:ymeta"
   ],
   "contributes": {
+    "configurationDefaults": {
+      "[yini]": {
+        "editor.wordBasedSuggestions": false,
+        "editor.suggest.showWords": false,
+        "editor.snippetSuggestions": "inline",
+        "editor.suggestSelection": "first",
+        "editor.quickSuggestions": { "other": true, "comments": false, "strings": false },
+        "editor.acceptSuggestionOnEnter": "off"
+      }
+    },
     "languages": [
       {
         "id": "yini",
