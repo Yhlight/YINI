@@ -6,6 +6,20 @@
 #include <sstream>
 #include <stdexcept>
 
+namespace
+{
+    // Helper function to extract the directory from a full path
+    std::string getDirectory(const std::string& path)
+    {
+        size_t found = path.find_last_of("/\\");
+        if (found != std::string::npos)
+        {
+            return path.substr(0, found + 1);
+        }
+        return "";
+    }
+}
+
 namespace Yini
 {
     // Forward declarations for recursive resolution
@@ -33,8 +47,8 @@ namespace Yini
                 throw std::runtime_error("Undefined macro: " + macroRef.name);
             }
             macroChain.insert(macroRef.name);
-            value = ast.definesMap.at(macroRef.name); // Replace the YiniValue
-            resolveValue(value, ast, macroChain); // Recursively resolve chained macros
+            value = ast.definesMap.at(macroRef.name);
+            resolveValue(value, ast, macroChain);
             macroChain.erase(macroRef.name);
         }
         else if (std::holds_alternative<YiniArray>(value.value))
@@ -66,7 +80,7 @@ namespace Yini
 
         std::set<std::string> processedFiles;
         processedFiles.insert(rootFilepath);
-        processIncludes(finalAst, processedFiles);
+        processIncludes(finalAst, rootFilepath, processedFiles);
 
         resolveMacros(finalAst);
         applyInheritance(finalAst);
@@ -114,7 +128,7 @@ namespace Yini
         }
     }
 
-    void Loader::processIncludes(YiniFile& ast, std::set<std::string>& processedFiles)
+    void Loader::processIncludes(YiniFile& ast, const std::string& basePath, std::set<std::string>& processedFiles)
     {
         if (ast.includePaths.empty())
         {
@@ -123,15 +137,18 @@ namespace Yini
         std::vector<std::string> includes = ast.includePaths;
         ast.includePaths.clear();
 
+        std::string baseDir = getDirectory(basePath);
+
         for (const auto& includePath : includes)
         {
-            if (processedFiles.count(includePath))
+            std::string fullPath = baseDir + includePath;
+            if (processedFiles.count(fullPath))
             {
                 continue;
             }
-            processedFiles.insert(includePath);
-            YiniFile includedAst = parseFile(includePath);
-            processIncludes(includedAst, processedFiles);
+            processedFiles.insert(fullPath);
+            YiniFile includedAst = parseFile(fullPath);
+            processIncludes(includedAst, fullPath, processedFiles);
             merge(ast, includedAst);
         }
     }

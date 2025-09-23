@@ -1,77 +1,63 @@
 ﻿using System;
-using System.Text;
+using System.Collections.Generic;
+using System.IO;
 using Yini;
 
-// This example demonstrates how to use the YINI C# wrapper.
-// It will create a test .yini file, load it using the native library,
-// read values from it, and print them to the console.
+// Define some C# types to deserialize into
+public record Entity(string Id, string Texture);
 
-// --- 1. Create a test YINI file ---
+// --- 1. Create a test YINI file with complex types ---
 const string yiniFile = "test.yini";
 File.WriteAllText(yiniFile, @"
-[Player]
-name = ""Jules""
-level = 99
-hp_percent = 98.6
-is_online = true
+[Display]
+title = ""YINI C# Example""
+
+[Entities]
+definitions = [
+    { id: ""player"", texture: ""player.png"" },
+    { id: ""enemy"",  texture: ""enemy.png"" }
+]
 ");
 
-Console.WriteLine("--- C# YINI P/Invoke Example ---");
+Console.WriteLine("--- C# YINI P/Invoke Example (Advanced) ---");
 Console.WriteLine($"Created temporary config file: '{yiniFile}'");
 
-IntPtr yiniHandle = IntPtr.Zero;
 try
 {
-    // --- 2. Load the YINI file using the native library ---
-    yiniHandle = Native.Load(yiniFile);
-    if (yiniHandle == IntPtr.Zero)
+    using (var yini = new YiniHandle(yiniFile))
     {
-        throw new InvalidOperationException("Failed to load YINI file. See console for C++ errors.");
-    }
-    Console.WriteLine("Successfully loaded YINI file with handle.");
+        Console.WriteLine("\nSuccessfully loaded YINI file.");
 
-    // --- 3. Retrieve values ---
-    Console.WriteLine("\nReading values from [Player] section:");
+        // --- Method 1: Easy access with JSON ---
+        Console.WriteLine("\n--- 1. Reading via JSON (GetValueAs<T>) ---");
+        var entities = yini.GetValueAs<List<Entity>>("Entities", "definitions");
+        Console.WriteLine("Got entity list via JSON deserialization:");
+        foreach (var entity in entities)
+        {
+            Console.WriteLine($"  - Entity ID: {entity.Id}, Texture: {entity.Texture}");
+        }
 
-    // Get String
-    StringBuilder nameBuffer = new StringBuilder(256);
-    if (Native.GetString(yiniHandle, "Player", "name", nameBuffer, nameBuffer.Capacity) != -1)
-    {
-        Console.WriteLine($"  - Name: {nameBuffer}");
-    }
-    else
-    {
-        Console.WriteLine("  - Failed to get 'name'.");
-    }
+        // --- Method 2: High-performance granular API ---
+        Console.WriteLine("\n--- 2. Reading via Granular API ---");
+        YiniValue listValue = yini.GetValue("Entities", "definitions");
 
-    // Get Int64
-    if (Native.GetInt64(yiniHandle, "Player", "level", out long level) == 1)
-    {
-        Console.WriteLine($"  - Level: {level}");
-    }
-    else
-    {
-        Console.WriteLine("  - Failed to get 'level'.");
-    }
+        if (listValue != null && listValue.Type == YiniValueType.Array)
+        {
+            YiniArray yiniArray = listValue.AsArray();
+            Console.WriteLine($"Iterating through array of size {yiniArray.Count} using granular API:");
 
-    // Get Double
-    if (Native.GetDouble(yiniHandle, "Player", "hp_percent", out double hp) == 1)
-    {
-        Console.WriteLine($"  - HP Percent: {hp}");
-    }
-    else
-    {
-        Console.WriteLine("  - Failed to get 'hp_percent'.");
-    }
-
-    // Get Bool
-    if (Native.GetBool(yiniHandle, "Player", "is_online", out bool isOnline) == 1)
-    {
-        Console.WriteLine($"  - Is Online: {isOnline}");
-    }
-    else
-    {
-        Console.WriteLine("  - Failed to get 'is_online'.");
+            foreach (YiniValue itemValue in yiniArray)
+            {
+                // Each item in the array is an object.
+                // We can now deserialize it directly from the value handle.
+                var entity = itemValue.As<Entity>();
+                Console.WriteLine($"  - Entity ID: {entity.Id}, Texture: {entity.Texture}");
+            }
+        }
+        else
+        {
+            Console.WriteLine("Could not get 'definitions' as an array via granular API.");
+        }
     }
 }
 catch (Exception ex)
@@ -82,14 +68,9 @@ catch (Exception ex)
 }
 finally
 {
-    // --- 4. Free the native library handle ---
-    if (yiniHandle != IntPtr.Zero)
+    if (File.Exists(yiniFile))
     {
-        Native.Free(yiniHandle);
-        Console.WriteLine("\nFreed YINI handle.");
+        File.Delete(yiniFile);
+        Console.WriteLine($"\nDeleted temporary config file: '{yiniFile}'");
     }
-
-    // Clean up the temporary file
-    File.Delete(yiniFile);
-    Console.WriteLine($"Deleted temporary config file: '{yiniFile}'");
 }

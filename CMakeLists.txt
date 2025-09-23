@@ -20,6 +20,7 @@ set(YINI_LIB_SOURCES
     src/Parser/YiniLoader.cpp
     src/Parser/Ymeta.cpp
     src/Interop/YiniInterop.cpp
+    src/Json/Json.cpp
 )
 
 # Add the shared library target
