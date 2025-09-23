@@ -45,10 +45,10 @@ YINI支持多种值类型
 - 布尔值  ->  true/false  
 - 数组  ->  [1, 2, 3]  
     - 二维数组使用  ->  [[1, 2], [3, 4]]  
-- 坐标  ->  (x, y) / (x, y, z)
+- 坐标  ->  Coord(x, y) / Coord(x, y, z) / coord(x, y) / coord(x, y, z)  
 - 键值对  ->  {key: value}
 - Map  ->  {{key1: value1}, {key2: value2}}
-- 颜色  ->  #RRGGBB / RGB(r,g,b) / rgb(r,g,b) / color(255, 192, 203) / Color(255, 192, 203)
+- 颜色  ->  #RRGGBB / color(255, 192, 203) / Color(255, 192, 203)
 (更多类型正在添加中)  
 
 ### 宏定义和变量引用
@@ -84,19 +84,8 @@ YMETA使用.ymeta，.YMETA作为后缀
 
 ### CLI
 虽然YINI是一门简单的编程语言，但也具有相关的CLI工具  
-CLI工具采用阻塞式工作  
+CLI工具需要采用阻塞式运行，意思是，CLI需要存在事件主进程事件循环，持续交互  
 CLI工具主要用来编译与反编译YMETA文件，以及检查是否语法错误  
-
-### VSCode IDE
-没错，YINI也可以在VSCode IDE中开发  
-VSCode IDE需要提供下述功能  
-- 语法高亮
-- 语法检查
-- 代码提示
-- 编译YINI文件
-- 反编译YMETA文件
-- 内置CLI
-- 右键打开官方文档(内置官方文档)
 
 ### 项目开发建议
 #### 项目命名规范
