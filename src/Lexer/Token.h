@@ -38,6 +38,7 @@ namespace Yini
         Integer,    // 123
         Float,      // 3.14
         String,     // "hello"
+        ColorLiteral, // #FFC0CB
 
         // Keywords (handled as Identifiers, but can be checked)
         // We will also check for case-insensitivity for these in the parser

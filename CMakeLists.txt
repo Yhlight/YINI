@@ -11,6 +11,10 @@ FetchContent_Declare(
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
 
+# --- Build Options ---
+option(YINI_BUILD_CLI "Build the YINI command-line tool" ON)
+option(YINI_BUILD_TESTS "Build the YINI unit tests" ON)
+
 # Set C++ standard to 17
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -30,5 +34,7 @@ install(TARGETS yini_core yini_cli
 install(FILES include/yini.h DESTINATION include)
 
 # --- Testing ---
-enable_testing()
-add_subdirectory(tests)
+if(YINI_BUILD_TESTS)
+    enable_testing()
+    add_subdirectory(tests)
+endif()

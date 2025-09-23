@@ -25,6 +25,11 @@ namespace Yini
         bool is_3d = false;
     };
 
+    struct Color
+    {
+        uint8_t r = 0, g = 0, b = 0;
+    };
+
     // Using shared_ptr to allow for recursive/shared ownership in complex structures
     using Array = std::vector<std::shared_ptr<Value>>;
     using Map = std::map<String, std::shared_ptr<Value>>;
@@ -39,6 +44,7 @@ namespace Yini
             Boolean,
             String,
             Coord,
+            Color,
             Array,
             Map
         > data;
@@ -66,6 +72,9 @@ namespace Yini
                 ss << "Coord(" << c.x << ", " << c.y;
                 if (c.is_3d) ss << ", " << c.z;
                 ss << ")";
+            },
+            [&](const Color& c) {
+                ss << "Color(" << (int)c.r << ", " << (int)c.g << ", " << (int)c.b << ")";
             },
             [&](const Array& a) {
                 ss << "[";

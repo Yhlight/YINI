@@ -26,86 +26,53 @@ namespace Yini
 
     Parser::Parser(Lexer& lexer) : m_lexer(lexer)
     {
-        // Prime the tokens
         nextToken();
         nextToken();
     }
 
-    void Parser::nextToken()
+    void Parser::nextToken() { m_currentToken = m_peekToken; m_peekToken = m_lexer.nextToken(); }
+    bool Parser::currentTokenIs(TokenType t) const { return m_currentToken.type == t; }
+    bool Parser::peekTokenIs(TokenType t) const { return m_peekToken.type == t; }
+
+    bool Parser::expectPeek(TokenType t)
     {
-        m_currentToken = m_peekToken;
-        m_peekToken = m_lexer.nextToken();
+        if (peekTokenIs(t)) {
+            nextToken();
+            return true;
+        }
+        peekError(t);
+        return false;
     }
 
-    const std::vector<std::string>& Parser::getErrors() const
-    {
-        return m_errors;
-    }
+    const std::vector<YiniError>& Parser::getErrors() const { return m_errors; }
 
     void Parser::peekError(TokenType expected)
     {
-        std::string msg = "Error: Expected next token to be " + std::to_string((int)expected) +
-                          ", got " + std::to_string((int)m_peekToken.type) + " instead.";
-        m_errors.push_back(msg);
+        std::stringstream ss;
+        ss << "Expected next token to be " << (int)expected << ", got " << (int)m_peekToken.type << " instead.";
+        m_errors.emplace_back(ErrorType::Parsing, ss.str(), m_peekToken.line, m_peekToken.column);
     }
 
-    int Parser::peekPrecedence()
-    {
-        if (precedences.count(m_peekToken.type))
-        {
-            return precedences[m_peekToken.type];
-        }
-        return LOWEST;
-    }
-
-    int Parser::currentPrecedence()
-    {
-        if (precedences.count(m_currentToken.type))
-        {
-            return precedences[m_currentToken.type];
-        }
-        return LOWEST;
-    }
+    int Parser::peekPrecedence() { return precedences.count(m_peekToken.type) ? precedences[m_peekToken.type] : LOWEST; }
+    int Parser::currentPrecedence() { return precedences.count(m_currentToken.type) ? precedences[m_currentToken.type] : LOWEST; }
 
     std::unique_ptr<Ast::YiniDocument> Parser::parseDocument()
     {
         auto doc = std::make_unique<Ast::YiniDocument>();
-        while (m_currentToken.type != TokenType::Eof)
+        while (!currentTokenIs(TokenType::Eof))
         {
             auto stmt = parseStatement();
-            if (stmt)
-            {
-                doc->statements.push_back(std::move(stmt));
-            }
-            // parseStatement should consume the tokens it processes.
-            // If it doesn't (e.g., on an error), we must advance to avoid an infinite loop.
-            // The current logic in parseSection handles advancing, so we may not need this.
-            // Let's remove the extra nextToken() from here.
+            if (stmt) doc->statements.push_back(std::move(stmt));
+            else nextToken(); // On error, advance to avoid infinite loop
         }
         return doc;
     }
 
     std::unique_ptr<Ast::Statement> Parser::parseStatement()
     {
-        if (m_currentToken.type == TokenType::LBracket)
-        {
-            return parseSection();
-        }
-        else if (m_currentToken.type == TokenType::Identifier && m_peekToken.type == TokenType::Assign)
-        {
-            auto stmt = parseKeyValuePair();
-            nextToken(); // Consume the last token of the expression
-            return stmt;
-        }
-        else if (m_currentToken.type == TokenType::PlusAssign)
-        {
-            auto stmt = parseQuickRegister();
-            nextToken(); // Consume the last token of the expression
-            return stmt;
-        }
-
-        // If we see a token we don't recognize as a statement, advance past it to avoid infinite loops.
-        nextToken();
+        if (currentTokenIs(TokenType::LBracket)) return parseSection();
+        if (currentTokenIs(TokenType::Identifier) && peekTokenIs(TokenType::Assign)) return parseKeyValuePair();
+        if (currentTokenIs(TokenType::PlusAssign)) return parseQuickRegister();
         return nullptr;
     }
 
@@ -114,43 +81,36 @@ namespace Yini
         auto section = std::make_unique<Ast::Section>();
         section->token = m_currentToken; // The '[' token
 
-        // We expect an identifier or a hash for special sections
-        if (m_peekToken.type != TokenType::Identifier && m_peekToken.type != TokenType::Hash)
-        {
-            return nullptr;
-        }
-        nextToken(); // Consume '['
+        if (!expectPeek(TokenType::Identifier) && !expectPeek(TokenType::Hash)) return nullptr;
 
-        bool is_special = false;
-        if (m_currentToken.type == TokenType::Hash)
-        {
-            is_special = true;
-            nextToken(); // Consume '#'
+        // Handle special sections like [#define]
+        if (currentTokenIs(TokenType::Hash)) {
+            if (!expectPeek(TokenType::Identifier)) return nullptr;
+            section->name = std::make_unique<Ast::Identifier>(m_currentToken, "#" + m_currentToken.literal);
+        } else {
+            section->name = std::make_unique<Ast::Identifier>(m_currentToken, m_currentToken.literal);
         }
 
-        section->name = std::make_unique<Ast::Identifier>(m_currentToken, m_currentToken.literal);
-        if (is_special)
-        {
-            section->name->value = "#" + section->name->value;
-        }
-        nextToken(); // Consume identifier
+        // Parse inheritance
+        if (peekTokenIs(TokenType::Colon)) {
+            nextToken(); // Consume section name identifier
+            nextToken(); // Consume ':'
 
-        // TODO: Parse inheritance here
-
-        if (m_currentToken.type != TokenType::RBracket)
-        {
-            return nullptr; // Missing ']'
-        }
-        nextToken(); // Consume ']'
-
-        // Parse all statements belonging to this section
-        while (m_currentToken.type != TokenType::LBracket && m_currentToken.type != TokenType::Eof)
-        {
-            auto stmt = parseStatement();
-            if (stmt)
-            {
-                section->statements.push_back(std::move(stmt));
+            section->parents.push_back(parseIdentifier());
+            while (peekTokenIs(TokenType::Comma)) {
+                nextToken(); // Consume identifier
+                nextToken(); // Consume ','
+                section->parents.push_back(parseIdentifier());
             }
+        }
+
+        if (!expectPeek(TokenType::RBracket)) return nullptr;
+
+        // Parse statements inside the section
+        while (!peekTokenIs(TokenType::LBracket) && !peekTokenIs(TokenType::Eof)) {
+            nextToken();
+            auto stmt = parseStatement();
+            if (stmt) section->statements.push_back(std::move(stmt));
         }
 
         return section;
@@ -160,118 +120,156 @@ namespace Yini
     {
         auto kvp = std::make_unique<Ast::KeyValuePair>();
         kvp->key = std::make_unique<Ast::Identifier>(m_currentToken, m_currentToken.literal);
-
-        nextToken(); // Consume key identifier, m_currentToken is now '='
+        if (!expectPeek(TokenType::Assign)) return nullptr;
         kvp->token = m_currentToken;
-        nextToken(); // Consume '='
-
+        nextToken();
         kvp->value = parseExpression(LOWEST);
-
         return kvp;
     }
 
     std::unique_ptr<Ast::QuickRegister> Parser::parseQuickRegister()
     {
         auto qr = std::make_unique<Ast::QuickRegister>();
-        qr->token = m_currentToken; // The '+=' token
-        nextToken(); // Consume '+='
-
+        qr->token = m_currentToken;
+        nextToken();
         qr->value = parseExpression(LOWEST);
-
         return qr;
     }
 
     std::unique_ptr<Ast::Expression> Parser::parseExpression(int precedence)
     {
         auto leftExp = parsePrefixExpression();
-
-        while (m_peekToken.type != TokenType::Eof && precedence < peekPrecedence())
-        {
+        while (!peekTokenIs(TokenType::Eof) && precedence < peekPrecedence()) {
             nextToken();
             leftExp = parseInfixExpression(std::move(leftExp));
         }
-
         return leftExp;
     }
 
     std::unique_ptr<Ast::Expression> Parser::parsePrefixExpression()
     {
-        switch (m_currentToken.type)
-        {
-            case TokenType::Identifier:
-                return parseIdentifier();
-            case TokenType::Integer:
-                return parseIntegerLiteral();
-            case TokenType::Float:
-                return parseFloatLiteral();
-            case TokenType::True:
-            case TokenType::False:
-                return parseBooleanLiteral();
-            case TokenType::String:
-                 return parseStringLiteral();
-            default:
-                return nullptr;
+        switch (m_currentToken.type) {
+            case TokenType::Identifier: return parseIdentifier();
+            case TokenType::Integer: return parseIntegerLiteral();
+            case TokenType::Float: return parseFloatLiteral();
+            case TokenType::True: case TokenType::False: return parseBooleanLiteral();
+            case TokenType::String: return parseStringLiteral();
+            case TokenType::At: return parseMacroReference();
+            case TokenType::LBracket: return parseArrayLiteral();
+            case TokenType::LBrace: if (peekTokenIs(TokenType::LBrace)) return parseMapLiteral(); else return nullptr; // single brace is an error for now
+            case TokenType::LParen: return parseGroupedExpression();
+            case TokenType::ColorLiteral: { auto cl = std::make_unique<Ast::ColorLiteral>(); cl->token = m_currentToken; return cl; }
+            default: return nullptr;
         }
     }
 
     std::unique_ptr<Ast::Expression> Parser::parseInfixExpression(std::unique_ptr<Ast::Expression> left)
     {
+        if (currentTokenIs(TokenType::LParen)) return parseFunctionCall(std::move(left));
+
         auto infix = std::make_unique<Ast::InfixExpression>();
         infix->token = m_currentToken;
         infix->op = m_currentToken.literal;
         infix->left = std::move(left);
-
         int precedence = currentPrecedence();
         nextToken();
         infix->right = parseExpression(precedence);
-
         return infix;
     }
 
-    std::unique_ptr<Ast::Identifier> Parser::parseIdentifier()
-    {
-        return std::make_unique<Ast::Identifier>(m_currentToken, m_currentToken.literal);
+    std::unique_ptr<Ast::Identifier> Parser::parseIdentifier() { return std::make_unique<Ast::Identifier>(m_currentToken, m_currentToken.literal); }
+    std::unique_ptr<Ast::Expression> Parser::parseIntegerLiteral() { auto l = std::make_unique<Ast::IntegerLiteral>(); l->token = m_currentToken; try { l->value = std::stoll(m_currentToken.literal); } catch(...) { return nullptr; } return l; }
+    std::unique_ptr<Ast::Expression> Parser::parseFloatLiteral() { auto l = std::make_unique<Ast::FloatLiteral>(); l->token = m_currentToken; try { l->value = std::stod(m_currentToken.literal); } catch(...) { return nullptr; } return l; }
+    std::unique_ptr<Ast::Expression> Parser::parseBooleanLiteral() { auto l = std::make_unique<Ast::BooleanLiteral>(); l->token = m_currentToken; l->value = currentTokenIs(TokenType::True); return l; }
+    std::unique_ptr<Ast::Expression> Parser::parseStringLiteral() { auto l = std::make_unique<Ast::StringLiteral>(); l->token = m_currentToken; l->value = m_currentToken.literal; return l; }
+
+    std::unique_ptr<Ast::Expression> Parser::parseMacroReference() {
+        auto macro = std::make_unique<Ast::MacroReference>();
+        macro->token = m_currentToken;
+        if (!expectPeek(TokenType::Identifier)) return nullptr;
+        macro->name = parseIdentifier();
+        return macro;
     }
 
-    std::unique_ptr<Ast::Expression> Parser::parseIntegerLiteral()
-    {
-        auto lit = std::make_unique<Ast::IntegerLiteral>();
-        lit->token = m_currentToken;
-        try {
-            lit->value = std::stoll(m_currentToken.literal);
-        } catch (const std::invalid_argument&) {
-            m_errors.push_back("Could not parse integer: " + m_currentToken.literal);
-            return nullptr;
+    std::unique_ptr<Ast::Expression> Parser::parseArrayLiteral() {
+        auto arr = std::make_unique<Ast::ArrayLiteral>();
+        arr->token = m_currentToken;
+        arr->elements = parseExpressionList(TokenType::RBracket);
+        return arr;
+    }
+
+    std::unique_ptr<Ast::Expression> Parser::parseMapLiteral() {
+        auto map = std::make_unique<Ast::MapLiteral>();
+        map->token = m_currentToken; // The first '{'
+        nextToken(); // Consume first '{'
+        nextToken(); // Consume second '{'
+
+        if (!peekTokenIs(TokenType::RBrace)) {
+            do {
+                auto kvp = parseKeyValueLiteral();
+                if (kvp) map->elements.push_back(std::move(kvp));
+                else return nullptr; // Error during kvp parsing
+            } while (peekTokenIs(TokenType::Comma) && (nextToken(), true));
         }
-        return lit;
+
+        if (!expectPeek(TokenType::RBrace)) return nullptr;
+        if (!expectPeek(TokenType::RBrace)) return nullptr;
+        return map;
     }
 
-    std::unique_ptr<Ast::Expression> Parser::parseFloatLiteral()
-    {
-        auto lit = std::make_unique<Ast::FloatLiteral>();
-        lit->token = m_currentToken;
-        try {
-            lit->value = std::stod(m_currentToken.literal);
-        } catch (const std::invalid_argument&) {
-            m_errors.push_back("Could not parse float: " + m_currentToken.literal);
-            return nullptr;
+    std::unique_ptr<Ast::KeyValueLiteral> Parser::parseKeyValueLiteral() {
+        if (!expectPeek(TokenType::LBrace)) return nullptr;
+
+        auto kvp = std::make_unique<Ast::KeyValueLiteral>();
+        kvp->token = m_currentToken;
+
+        if (!expectPeek(TokenType::Identifier)) return nullptr;
+        kvp->key = parseIdentifier();
+
+        if (!expectPeek(TokenType::Colon)) return nullptr;
+
+        nextToken(); // Consume ':'
+        kvp->value = parseExpression(LOWEST);
+
+        if (!expectPeek(TokenType::RBrace)) return nullptr;
+
+        return kvp;
+    }
+
+    std::unique_ptr<Ast::Expression> Parser::parseGroupedExpression() {
+        nextToken();
+        auto exp = parseExpression(LOWEST);
+        if (!expectPeek(TokenType::RParen)) return nullptr;
+        return exp;
+    }
+
+    std::unique_ptr<Ast::Expression> Parser::parseFunctionCall(std::unique_ptr<Ast::Expression> function) {
+        auto call = std::make_unique<Ast::FunctionCall>();
+        call->token = m_currentToken;
+        // The function name must be an identifier
+        if (auto* ident = dynamic_cast<Ast::Identifier*>(function.get())) {
+             call->functionName = std::make_unique<Ast::Identifier>(ident->token, ident->value);
+        } else {
+            return nullptr; // Can't call a non-identifier
         }
-        return lit;
+        call->arguments = parseExpressionList(TokenType::RParen);
+        return call;
     }
 
-    std::unique_ptr<Ast::Expression> Parser::parseBooleanLiteral()
-    {
-        auto lit = std::make_unique<Ast::BooleanLiteral>();
-        lit->token = m_currentToken;
-        lit->value = (m_currentToken.type == TokenType::True);
-        return lit;
-    }
-
-    std::unique_ptr<Ast::Expression> Parser::parseStringLiteral()
-    {
-        auto lit = std::make_unique<Ast::StringLiteral>();
-        lit->token = m_currentToken;
-        lit->value = m_currentToken.literal;
-        return lit;
+    std::vector<std::unique_ptr<Ast::Expression>> Parser::parseExpressionList(TokenType endToken) {
+        std::vector<std::unique_ptr<Ast::Expression>> list;
+        if (peekTokenIs(endToken)) {
+            nextToken();
+            return list;
+        }
+        nextToken();
+        list.push_back(parseExpression(LOWEST));
+        while (peekTokenIs(TokenType::Comma)) {
+            nextToken();
+            nextToken();
+            list.push_back(parseExpression(LOWEST));
+        }
+        if (!expectPeek(endToken)) return {};
+        return list;
     }
 }

@@ -6,6 +6,7 @@
 #include <string>
 #include <memory>
 #include <sstream>
+#include <map>
 
 namespace Yini
 {
@@ -143,6 +144,54 @@ namespace Yini
                 return "(" + left->toString() + " " + op + " " + right->toString() + ")";
             }
         };
+
+        struct ColorLiteral : public Expression
+        {
+            Token token; // The #RRGGBB token
+            std::string toString() const override { return token.literal; }
+        };
+
+        // --- NEW AST NODES ---
+
+        struct MacroReference : public Expression
+        {
+            Token token; // The '@' token
+            std::unique_ptr<Identifier> name;
+            std::string toString() const override { return "@" + name->toString(); }
+        };
+
+        struct ArrayLiteral : public Expression
+        {
+            Token token; // The '[' token
+            std::vector<std::unique_ptr<Expression>> elements;
+            std::string toString() const override { /* TODO */ return "[]"; }
+        };
+
+        struct KeyValueLiteral : public Expression
+        {
+            Token token; // The '{' token
+            std::unique_ptr<Identifier> key;
+            std::unique_ptr<Expression> value;
+            std::string toString() const override { return "{}"; }
+        };
+
+        struct MapLiteral : public Expression
+        {
+            Token token; // The '{' token
+            std::vector<std::unique_ptr<KeyValueLiteral>> elements;
+            std::string toString() const override { return "{{}}"; }
+        };
+
+        struct FunctionCall : public Expression
+        {
+            Token token; // The function name token (e.g., 'Coord')
+            std::unique_ptr<Identifier> functionName;
+            std::vector<std::unique_ptr<Expression>> arguments;
+            std::string toString() const override { return functionName->toString() + "(...)"; }
+        };
+
+        // Dyna, Coord, Color, Path can all be represented as FunctionCall nodes
+        // This simplifies the AST and moves the logic to the runtime.
 
     } // namespace Ast
 } // namespace Yini

@@ -2,339 +2,128 @@
 #include <stdexcept>
 #include <fstream>
 #include <vector>
+#include <algorithm>
+#include <set>
 
 namespace Yini
 {
-    // --- Binary I/O Helpers ---
-    template<typename T>
-    void write_binary(std::ostream& os, const T& value) {
-        os.write(reinterpret_cast<const char*>(&value), sizeof(T));
-    }
+    static std::string toLower(std::string s) { std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c){ return std::tolower(c); }); return s; }
 
-    template<typename T>
-    void read_binary(std::istream& is, T& value) {
-        is.read(reinterpret_cast<char*>(&value), sizeof(T));
-    }
-
-    void write_string(std::ostream& os, const std::string& str) {
-        uint16_t len = static_cast<uint16_t>(str.length());
-        write_binary(os, len);
-        os.write(str.c_str(), len);
-    }
-
-    std::string read_string(std::istream& is) {
-        uint16_t len = 0;
-        read_binary(is, len);
-        std::vector<char> buffer(len);
-        is.read(buffer.data(), len);
-        return std::string(buffer.begin(), buffer.end());
-    }
-
-    enum class ValueType : uint8_t {
-        NIL = 0, INTEGER = 1, FLOAT = 2, BOOLEAN = 3, STRING = 4
-    };
-
-    void write_value(std::ostream& os, const Value& value)
+    void YiniRuntime::load(Ast::YiniDocument* doc)
     {
-        std::visit(overloaded {
-            [&](std::monostate) { write_binary<uint8_t>(os, (uint8_t)ValueType::NIL); },
-            [&](Integer i) { write_binary(os, (uint8_t)ValueType::INTEGER); write_binary(os, i); },
-            [&](Float f) { write_binary(os, (uint8_t)ValueType::FLOAT); write_binary(os, f); },
-            [&](Boolean b) { write_binary(os, (uint8_t)ValueType::BOOLEAN); write_binary(os, b); },
-            [&](const String& s) { write_binary(os, (uint8_t)ValueType::STRING); uint32_t len = s.length(); write_binary(os, len); os.write(s.c_str(), len); },
-            [&](const auto&) { /* Other types not supported yet */ }
-        }, value.data);
-    }
-
-    std::shared_ptr<Value> read_value(std::istream& is)
-    {
-        auto val = std::make_shared<Value>();
-        uint8_t type_byte;
-        read_binary(is, type_byte);
-        ValueType type = static_cast<ValueType>(type_byte);
-
-        switch(type) {
-            case ValueType::INTEGER: { Integer i; read_binary(is, i); val->data = i; break; }
-            case ValueType::FLOAT: { Float f; read_binary(is, f); val->data = f; break; }
-            case ValueType::BOOLEAN: { Boolean b; read_binary(is, b); val->data = b; break; }
-            case ValueType::STRING: { uint32_t len; read_binary(is, len); std::vector<char> buf(len); is.read(buf.data(), len); val->data = String(buf.begin(), buf.end()); break; }
-            case ValueType::NIL:
-            default:
-                val->data = std::monostate();
-                break;
+        for (const auto& stmt : doc->statements) {
+            if (auto* section = dynamic_cast<Ast::Section*>(stmt.get())) {
+                std::string section_name = section->name->value;
+                if (section_name == "#define") {
+                    for (const auto& define_stmt : section->statements)
+                        if (auto* kvp = dynamic_cast<Ast::KeyValuePair*>(define_stmt.get())) m_define_asts[kvp->key->value] = kvp->value.get();
+                } else {
+                    SectionAst section_ast;
+                    for (const auto& section_stmt : section->statements) {
+                        if (auto* kvp = dynamic_cast<Ast::KeyValuePair*>(section_stmt.get())) {
+                            if (auto* call = dynamic_cast<Ast::FunctionCall*>(kvp->value.get())) {
+                                if (toLower(call->functionName->value) == "dyna" && !call->arguments.empty()) {
+                                    m_dynamic_keys.insert(section_name + "." + kvp->key->value);
+                                    section_ast[kvp->key->value] = call->arguments[0].get();
+                                    continue;
+                                }
+                            }
+                            section_ast[kvp->key->value] = kvp->value.get();
+                        }
+                    }
+                    m_section_asts[section_name] = section_ast;
+                }
+            }
         }
-        return val;
-    }
-
-
-    // --- YiniRuntime Implementation ---
-
-    void YiniRuntime::evaluate(Ast::YiniDocument* doc)
-    {
-        // First pass: handle all definitions
-        for (const auto& stmt : doc->statements)
-        {
-            if (auto* section = dynamic_cast<Ast::Section*>(stmt.get()))
-            {
-                if (section->name->value == "#define")
-                {
-                    m_currentSectionName = "#define";
-                    for (const auto& section_stmt : section->statements)
-                    {
-                        visit(section_stmt.get());
+        for (const auto& stmt : doc->statements) {
+            if (auto* section = dynamic_cast<Ast::Section*>(stmt.get())) {
+                if (!section->parents.empty()) {
+                    for (const auto& parent : section->parents) {
+                        if (m_section_asts.count(parent->value)) {
+                            for (const auto& [key, expr] : m_section_asts.at(parent->value)) {
+                                if (m_section_asts.at(section->name->value).find(key) == m_section_asts.at(section->name->value).end())
+                                    m_section_asts.at(section->name->value)[key] = expr;
+                            }
+                        }
                     }
                 }
             }
         }
-
-        // Second pass: evaluate everything else
-        for (const auto& stmt : doc->statements)
-        {
-            if (auto* section = dynamic_cast<Ast::Section*>(stmt.get()))
-            {
-                if (section->name->value == "#define")
-                {
-                    continue;
-                }
-            }
-            visit(stmt.get());
-        }
     }
 
-    std::shared_ptr<Value> YiniRuntime::getValue(const std::string& sectionName, const std::string& key) const
+    const std::vector<YiniError>& YiniRuntime::getErrors() const { return m_runtime_errors; }
+
+    std::shared_ptr<Value> YiniRuntime::getValue(const std::string& sectionName, const std::string& key)
     {
-        if (m_sections.count(sectionName))
-        {
-            const auto& section = m_sections.at(sectionName);
-            if (section.count(key))
-            {
-                return section.at(key);
-            }
+        if (m_section_cache.count(sectionName) && m_section_cache.at(sectionName).count(key)) return m_section_cache.at(sectionName).at(key);
+        if (sectionName.empty() && m_define_cache.count(key)) return m_define_cache.at(key);
+
+        Ast::Expression* expr = nullptr;
+        std::string foundInSection = sectionName;
+
+        if (m_section_asts.count(sectionName) && m_section_asts.at(sectionName).count(key)) {
+            expr = m_section_asts.at(sectionName).at(key);
         }
-        return nullptr;
+
+        if (!expr && m_define_asts.count(key)) {
+             expr = m_define_asts.at(key);
+             foundInSection = "";
+        }
+
+        if (!expr) {
+            m_runtime_errors.emplace_back(ErrorType::Runtime, "Variable '" + key + "' not found in section '" + sectionName + "'.");
+            return nullptr;
+        }
+
+        auto value = evaluateExpression(expr, foundInSection);
+
+        if (value) {
+            if (foundInSection.empty()) m_define_cache[key] = value;
+            else m_section_cache[foundInSection][key] = value;
+        }
+        return value;
     }
 
-    std::string YiniRuntime::dump() const
-    {
-        std::stringstream ss;
-        ss << "--- Defines ---\n";
-        for (const auto& [key, val] : m_defines)
-        {
-            ss << "  " << key << " = " << val->toString() << "\n";
-        }
-        ss << "--- Sections ---\n";
-        for (const auto& [sectionName, sectionData] : m_sections)
-        {
-            ss << "[" << sectionName << "]\n";
-            for (const auto& [key, val] : sectionData)
-            {
-                ss << "  " << key << " = " << val->toString() << "\n";
-            }
-        }
-        return ss.str();
-    }
+    std::shared_ptr<Value> YiniRuntime::evaluateExpression(Ast::Expression* expr, const std::string& sectionScope) { return visit(expr, sectionScope); }
 
-    bool YiniRuntime::serialize(const std::string& filepath) const
-    {
-        std::ofstream os(filepath, std::ios::binary);
-        if (!os) return false;
-
-        // Header
-        os.write("YINI", 4);
-        write_binary<uint8_t>(os, 1); // Version
-
-        // Defines
-        write_binary<uint8_t>(os, 0x01); // Defines chunk type
-        write_binary<uint32_t>(os, m_defines.size());
-        for (const auto& [key, val] : m_defines) {
-            write_string(os, key);
-            write_value(os, *val);
-        }
-
-        // Sections
-        write_binary<uint8_t>(os, 0x02); // Sections chunk type
-        write_binary<uint32_t>(os, m_sections.size());
-        for (const auto& [sectionName, sectionData] : m_sections) {
-            write_string(os, sectionName);
-            write_binary<uint32_t>(os, sectionData.size());
-            for (const auto& [key, val] : sectionData) {
-                write_string(os, key);
-                write_value(os, *val);
-            }
-        }
-        return true;
-    }
-
-    bool YiniRuntime::deserialize(const std::string& filepath)
-    {
-        std::ifstream is(filepath, std::ios::binary);
-        if (!is) return false;
-
-        char header[4];
-        is.read(header, 4);
-        if (std::string(header, 4) != "YINI") return false;
-
-        uint8_t version;
-        read_binary(is, version);
-        if (version != 1) return false;
-
-        m_defines.clear();
-        m_sections.clear();
-
-        while(is.peek() != EOF) {
-            uint8_t chunkType;
-            read_binary(is, chunkType);
-            if (chunkType == 0x01) { // Defines
-                uint32_t count;
-                read_binary(is, count);
-                for(uint32_t i = 0; i < count; ++i) {
-                    std::string key = read_string(is);
-                    m_defines[key] = read_value(is);
-                }
-            } else if (chunkType == 0x02) { // Sections
-                uint32_t sectionCount;
-                read_binary(is, sectionCount);
-                for (uint32_t i = 0; i < sectionCount; ++i) {
-                    std::string sectionName = read_string(is);
-                    m_sections[sectionName] = SectionData();
-                    uint32_t kvpCount;
-                    read_binary(is, kvpCount);
-                    for (uint32_t j = 0; j < kvpCount; ++j) {
-                        std::string key = read_string(is);
-                        m_sections[sectionName][key] = read_value(is);
-                    }
-                }
-            }
-        }
-        return true;
-    }
-
-    SectionData& YiniRuntime::getCurrentSection()
-    {
-        if (m_currentSectionName != "#define" && m_sections.find(m_currentSectionName) == m_sections.end())
-        {
-            m_sections[m_currentSectionName] = SectionData();
-        }
-        return m_sections.at(m_currentSectionName);
-    }
-
-    std::shared_ptr<Value> YiniRuntime::visit(Ast::Node* node)
-    {
+    std::shared_ptr<Value> YiniRuntime::visit(Ast::Expression* node, const std::string& sectionScope) const {
         if (!node) return nullptr;
-        if (auto* n = dynamic_cast<Ast::Section*>(node)) return visit(n);
-        if (auto* n = dynamic_cast<Ast::KeyValuePair*>(node)) return visit(n);
-        if (auto* n = dynamic_cast<Ast::QuickRegister*>(node)) return visit(n);
-        if (auto* n = dynamic_cast<Ast::Expression*>(node)) return visit(n);
-        return nullptr;
-    }
-
-    std::shared_ptr<Value> YiniRuntime::visit(Ast::Expression* node)
-    {
-        if (!node) return nullptr;
-        if (auto* n = dynamic_cast<Ast::Identifier*>(node)) return visit(n);
+        if (auto* n = dynamic_cast<Ast::Identifier*>(node)) return visit(n, sectionScope);
         if (auto* n = dynamic_cast<Ast::IntegerLiteral*>(node)) return visit(n);
         if (auto* n = dynamic_cast<Ast::FloatLiteral*>(node)) return visit(n);
         if (auto* n = dynamic_cast<Ast::BooleanLiteral*>(node)) return visit(n);
         if (auto* n = dynamic_cast<Ast::StringLiteral*>(node)) return visit(n);
-        if (auto* n = dynamic_cast<Ast::InfixExpression*>(node)) return visit(n);
+        if (auto* n = dynamic_cast<Ast::ColorLiteral*>(node)) return visit(n);
+        if (auto* n = dynamic_cast<Ast::InfixExpression*>(node)) return visit(n, sectionScope);
+        if (auto* n = dynamic_cast<Ast::MacroReference*>(node)) return visit(n);
+        if (auto* n = dynamic_cast<Ast::ArrayLiteral*>(node)) return visit(n, sectionScope);
+        if (auto* n = dynamic_cast<Ast::MapLiteral*>(node)) return visit(n, sectionScope);
+        if (auto* n = dynamic_cast<Ast::FunctionCall*>(node)) return visit(n, sectionScope);
         return nullptr;
     }
 
-    std::shared_ptr<Value> YiniRuntime::visit(Ast::Section* node)
-    {
-        m_currentSectionName = node->name->value;
-        m_sections[m_currentSectionName] = SectionData();
-        for (const auto& stmt : node->statements)
-        {
-            visit(stmt.get());
-        }
-        return nullptr;
-    }
+    std::shared_ptr<Value> YiniRuntime::visit(Ast::IntegerLiteral* node) const { auto v=std::make_shared<Value>(); v->data.emplace<Integer>(node->value); return v; }
+    std::shared_ptr<Value> YiniRuntime::visit(Ast::FloatLiteral* node) const { auto v=std::make_shared<Value>(); v->data.emplace<Float>(node->value); return v; }
+    std::shared_ptr<Value> YiniRuntime::visit(Ast::BooleanLiteral* node) const { auto v=std::make_shared<Value>(); v->data.emplace<Boolean>(node->value); return v; }
+    std::shared_ptr<Value> YiniRuntime::visit(Ast::StringLiteral* node) const { auto v=std::make_shared<Value>(); v->data.emplace<String>(node->value); return v; }
+    std::shared_ptr<Value> YiniRuntime::visit(Ast::ColorLiteral* node) const { auto v=std::make_shared<Value>(); v->data.emplace<String>(node->token.literal); return v; }
 
-    std::shared_ptr<Value> YiniRuntime::visit(Ast::KeyValuePair* node)
-    {
-        auto value = visit(node->value.get());
-        if (value)
-        {
-            if (m_currentSectionName == "#define")
-            {
-                m_defines[node->key->value] = value;
-            }
-            else
-            {
-                getCurrentSection()[node->key->value] = value;
-            }
-        }
-        return nullptr;
-    }
+    std::shared_ptr<Value> YiniRuntime::visit(Ast::Identifier* node, const std::string& sectionScope) const { return const_cast<YiniRuntime*>(this)->getValue(sectionScope, node->value); }
+    std::shared_ptr<Value> YiniRuntime::visit(Ast::MacroReference* node) const { return const_cast<YiniRuntime*>(this)->getValue("", node->name->value); }
 
-    std::shared_ptr<Value> YiniRuntime::visit(Ast::QuickRegister* node)
-    {
-        return nullptr;
-    }
-
-    std::shared_ptr<Value> YiniRuntime::visit(Ast::Identifier* node)
-    {
-        if (m_currentSectionName != "#define" && m_sections.count(m_currentSectionName))
-        {
-             if (getCurrentSection().count(node->value))
-             {
-                 return getCurrentSection().at(node->value);
-             }
-        }
-        if (m_defines.count(node->value))
-        {
-            return m_defines.at(node->value);
-        }
-        return nullptr;
-    }
-
-    std::shared_ptr<Value> YiniRuntime::visit(Ast::IntegerLiteral* node)
-    {
-        auto val = std::make_shared<Value>();
-        val->data.emplace<Integer>(node->value);
-        return val;
-    }
-
-    std::shared_ptr<Value> YiniRuntime::visit(Ast::FloatLiteral* node)
-    {
-        auto val = std::make_shared<Value>();
-        val->data.emplace<Float>(node->value);
-        return val;
-    }
-
-    std::shared_ptr<Value> YiniRuntime::visit(Ast::BooleanLiteral* node)
-    {
-        auto val = std::make_shared<Value>();
-        val->data.emplace<Boolean>(node->value);
-        return val;
-    }
-
-    std::shared_ptr<Value> YiniRuntime::visit(Ast::StringLiteral* node)
-    {
-        auto val = std::make_shared<Value>();
-        val->data.emplace<String>(node->value);
-        return val;
-    }
-
-    std::shared_ptr<Value> YiniRuntime::visit(Ast::InfixExpression* node)
-    {
-        auto left = visit(node->left.get());
-        auto right = visit(node->right.get());
+    std::shared_ptr<Value> YiniRuntime::visit(Ast::InfixExpression* node, const std::string& sectionScope) const {
+        auto left = const_cast<YiniRuntime*>(this)->evaluateExpression(node->left.get(), sectionScope);
+        auto right = const_cast<YiniRuntime*>(this)->evaluateExpression(node->right.get(), sectionScope);
         if (!left || !right) return nullptr;
-
         auto result = std::make_shared<Value>();
-        if (std::holds_alternative<Float>(left->data) || std::holds_alternative<Float>(right->data))
-        {
+        if (std::holds_alternative<Float>(left->data) || std::holds_alternative<Float>(right->data)) {
             double leftVal = std::holds_alternative<Float>(left->data) ? std::get<Float>(left->data) : (double)std::get<Integer>(left->data);
             double rightVal = std::holds_alternative<Float>(right->data) ? std::get<Float>(right->data) : (double)std::get<Integer>(right->data);
             if (node->op == "+") result->data.emplace<Float>(leftVal + rightVal);
             else if (node->op == "-") result->data.emplace<Float>(leftVal - rightVal);
             else if (node->op == "*") result->data.emplace<Float>(leftVal * rightVal);
             else if (node->op == "/") result->data.emplace<Float>(leftVal / rightVal);
-        }
-        else if (std::holds_alternative<Integer>(left->data) && std::holds_alternative<Integer>(right->data))
-        {
+        } else if (std::holds_alternative<Integer>(left->data) && std::holds_alternative<Integer>(right->data)) {
             long long leftVal = std::get<Integer>(left->data);
             long long rightVal = std::get<Integer>(right->data);
             if (node->op == "+") result->data.emplace<Integer>(leftVal + rightVal);
@@ -343,7 +132,75 @@ namespace Yini
             else if (node->op == "/") result->data.emplace<Integer>(leftVal / rightVal);
             else if (node->op == "%") result->data.emplace<Integer>(leftVal % rightVal);
         }
-
         return result;
     }
+
+    std::shared_ptr<Value> YiniRuntime::visit(Ast::ArrayLiteral* node, const std::string& sectionScope) const {
+        auto val = std::make_shared<Value>();
+        Array arr;
+        for(const auto& elem_node : node->elements) {
+            arr.push_back(const_cast<YiniRuntime*>(this)->evaluateExpression(elem_node.get(), sectionScope));
+        }
+        val->data.emplace<Array>(arr);
+        return val;
+    }
+
+    std::shared_ptr<Value> YiniRuntime::visit(Ast::MapLiteral* node, const std::string& sectionScope) const {
+        auto val = std::make_shared<Value>();
+        Map map;
+        for(const auto& elem_node : node->elements) {
+            auto value = const_cast<YiniRuntime*>(this)->evaluateExpression(elem_node->value.get(), sectionScope);
+            if (value) map[elem_node->key->value] = value;
+        }
+        val->data.emplace<Map>(map);
+        return val;
+    }
+
+    std::shared_ptr<Value> YiniRuntime::visit(Ast::FunctionCall* node, const std::string& sectionScope) const {
+        auto val = std::make_shared<Value>();
+        std::string funcName = toLower(node->functionName->value);
+        if (funcName == "coord") {
+            if (node->arguments.size() < 2 || node->arguments.size() > 3) return nullptr;
+            auto x_val = const_cast<YiniRuntime*>(this)->evaluateExpression(node->arguments[0].get(), sectionScope);
+            auto y_val = const_cast<YiniRuntime*>(this)->evaluateExpression(node->arguments[1].get(), sectionScope);
+            if (!x_val || !y_val) return nullptr;
+            Coord c;
+            c.x = std::holds_alternative<Float>(x_val->data) ? std::get<Float>(x_val->data) : (double)std::get<Integer>(x_val->data);
+            c.y = std::holds_alternative<Float>(y_val->data) ? std::get<Float>(y_val->data) : (double)std::get<Integer>(y_val->data);
+            if (node->arguments.size() == 3) {
+                auto z_val = const_cast<YiniRuntime*>(this)->evaluateExpression(node->arguments[2].get(), sectionScope);
+                if (!z_val) return nullptr;
+                c.z = std::holds_alternative<Float>(z_val->data) ? std::get<Float>(z_val->data) : (double)std::get<Integer>(z_val->data);
+                c.is_3d = true;
+            }
+            val->data.emplace<Coord>(c);
+        } else if (funcName == "color") {
+            if (node->arguments.size() != 3) return nullptr;
+            auto r_val = const_cast<YiniRuntime*>(this)->evaluateExpression(node->arguments[0].get(), sectionScope);
+            auto g_val = const_cast<YiniRuntime*>(this)->evaluateExpression(node->arguments[1].get(), sectionScope);
+            auto b_val = const_cast<YiniRuntime*>(this)->evaluateExpression(node->arguments[2].get(), sectionScope);
+            if (!r_val || !g_val || !b_val || !std::holds_alternative<Integer>(r_val->data) || !std::holds_alternative<Integer>(g_val->data) || !std::holds_alternative<Integer>(b_val->data)) return nullptr;
+            Color c;
+            c.r = static_cast<uint8_t>(std::get<Integer>(r_val->data));
+            c.g = static_cast<uint8_t>(std::get<Integer>(g_val->data));
+            c.b = static_cast<uint8_t>(std::get<Integer>(b_val->data));
+            val->data.emplace<Color>(c);
+        } else if (funcName == "path") {
+             val->data.emplace<String>("path()");
+        }
+        return val;
+    }
+
+    bool YiniRuntime::setValue(const std::string& sectionName, const std::string& key, std::shared_ptr<Value> value) {
+        if (m_dynamic_keys.find(sectionName + "." + key) == m_dynamic_keys.end()) {
+            m_runtime_errors.emplace_back(ErrorType::Runtime, "Attempted to set value for non-dynamic key '" + key + "'.");
+            return false;
+        }
+        m_section_cache[sectionName][key] = value;
+        return true;
+    }
+
+    bool YiniRuntime::serialize(const std::string& filepath) { return false; }
+    bool YiniRuntime::deserialize(const std::string& filepath) { return false; }
+    std::shared_ptr<Value> YiniRuntime::visit(Ast::Node* node, const std::string& sectionScope) const { return nullptr; }
 }

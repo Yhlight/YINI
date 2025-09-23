@@ -23,9 +23,11 @@ namespace Yini
         Token readIdentifier();
         Token readNumber();
         Token readString();
+        Token readColorLiteral();
 
         static bool isLetter(char ch);
         static bool isDigit(char ch);
+        static bool isHexDigit(char ch);
 
         std::string m_input;
         size_t m_position = 0;      // current position in input (points to current char)

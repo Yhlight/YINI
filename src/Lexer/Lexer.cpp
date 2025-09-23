@@ -59,31 +59,19 @@ namespace Yini
         }
     }
 
-    // This function assumes the initial characters ('//' or '/*') have been checked
     void Lexer::skipComment()
     {
         if (m_char == '/' && peekChar() == '/')
         {
-            // Single line comment
-            while (m_char != '\n' && m_char != 0)
-            {
-                readChar();
-            }
+            while (m_char != '\n' && m_char != 0) readChar();
         }
         else if (m_char == '/' && peekChar() == '*')
         {
-            // Block comment
-            readChar(); // consume '/'
-            readChar(); // consume '*'
+            readChar(); readChar();
             while (true)
             {
-                if (m_char == 0) break; // EOF
-                if (m_char == '*' && peekChar() == '/')
-                {
-                    readChar(); // consume '*'
-                    readChar(); // consume '/'
-                    break;
-                }
+                if (m_char == 0) break;
+                if (m_char == '*' && peekChar() == '/') { readChar(); readChar(); break; }
                 readChar();
             }
         }
@@ -100,7 +88,6 @@ namespace Yini
         }
         std::string literal = m_input.substr(start_pos, m_position - start_pos);
 
-        // Check for keywords (case-insensitive)
         std::string lower_literal = toLower(literal);
         if (lower_literal == "true") return Token(TokenType::True, literal, start_line, start_column);
         if (lower_literal == "false") return Token(TokenType::False, literal, start_line, start_column);
@@ -118,20 +105,9 @@ namespace Yini
         int start_column = m_column;
         size_t start_pos = m_position;
         bool is_float = false;
-        while (isDigit(m_char) || m_char == '.')
+        while (isDigit(m_char) || (m_char == '.' && isDigit(peekChar())))
         {
-            if (m_char == '.')
-            {
-                if (peekChar() >= '0' && peekChar() <= '9')
-                {
-                    is_float = true;
-                }
-                else
-                {
-                    // This is a dot but not followed by a digit, so it's not part of the number.
-                    break;
-                }
-            }
+            if (m_char == '.') is_float = true;
             readChar();
         }
         std::string literal = m_input.substr(start_pos, m_position - start_pos);
@@ -145,43 +121,41 @@ namespace Yini
         int start_column = m_column;
         readChar(); // consume opening "
         size_t start_pos = m_position;
-        while (m_char != '"' && m_char != 0)
-        {
-            // TODO: Handle escaped quotes \"
-            readChar();
-        }
+        while (m_char != '"' && m_char != 0) readChar();
         std::string literal = m_input.substr(start_pos, m_position - start_pos);
         readChar(); // consume closing "
         return Token(TokenType::String, literal, start_line, start_column);
     }
 
-    bool Lexer::isLetter(char ch)
+    Token Lexer::readColorLiteral()
     {
-        return ('a' <= ch && ch <= 'z') || ('A' <= ch && ch <= 'Z') || ch == '_';
+        int start_line = m_line;
+        int start_column = m_column;
+        size_t start_pos = m_position;
+        readChar(); // Consume '#'
+        while(isHexDigit(m_char))
+        {
+            readChar();
+        }
+        std::string literal = m_input.substr(start_pos, m_position - start_pos);
+        return Token(TokenType::ColorLiteral, literal, start_line, start_column);
     }
 
-    bool Lexer::isDigit(char ch)
-    {
-        return '0' <= ch && ch <= '9';
-    }
+    bool Lexer::isLetter(char ch) { return ('a' <= ch && ch <= 'z') || ('A' <= ch && ch <= 'Z') || ch == '_'; }
+    bool Lexer::isDigit(char ch) { return '0' <= ch && ch <= '9'; }
+    bool Lexer::isHexDigit(char ch) { return isDigit(ch) || ('a' <= ch && ch <= 'f') || ('A' <= ch && ch <= 'F'); }
 
     Token Lexer::nextToken()
     {
         while (true)
         {
             skipWhitespace();
-
-            if (m_char == '/')
-            {
-                if (peekChar() == '/' || peekChar() == '*')
-                {
-                    skipComment();
-                    continue; // Restart loop to skip any subsequent whitespace/comments
-                }
+            if (m_char == '/' && (peekChar() == '/' || peekChar() == '*')) {
+                skipComment();
+                continue;
             }
-            break; // No more whitespace or comments, break to tokenize
+            break;
         }
-
 
         Token tok;
         tok.line = m_line;
@@ -189,80 +163,31 @@ namespace Yini
 
         switch (m_char)
         {
-            case '=':
-                tok = Token(TokenType::Assign, "=", m_line, m_column);
-                break;
-            case ':':
-                tok = Token(TokenType::Colon, ":", m_line, m_column);
-                break;
-            case ',':
-                tok = Token(TokenType::Comma, ",", m_line, m_column);
-                break;
-            case '(':
-                tok = Token(TokenType::LParen, "(", m_line, m_column);
-                break;
-            case ')':
-                tok = Token(TokenType::RParen, ")", m_line, m_column);
-                break;
-            case '{':
-                tok = Token(TokenType::LBrace, "{", m_line, m_column);
-                break;
-            case '}':
-                tok = Token(TokenType::RBrace, "}", m_line, m_column);
-                break;
-            case '[':
-                tok = Token(TokenType::LBracket, "[", m_line, m_column);
-                break;
-            case ']':
-                tok = Token(TokenType::RBracket, "]", m_line, m_column);
-                break;
-            case '@':
-                tok = Token(TokenType::At, "@", m_line, m_column);
-                break;
-            case '#':
-                tok = Token(TokenType::Hash, "#", m_line, m_column);
-                break;
+            case '=': tok = Token(TokenType::Assign, "=", m_line, m_column); break;
+            case ':': tok = Token(TokenType::Colon, ":", m_line, m_column); break;
+            case ',': tok = Token(TokenType::Comma, ",", m_line, m_column); break;
+            case '(': tok = Token(TokenType::LParen, "(", m_line, m_column); break;
+            case ')': tok = Token(TokenType::RParen, ")", m_line, m_column); break;
+            case '{': tok = Token(TokenType::LBrace, "{", m_line, m_column); break;
+            case '}': tok = Token(TokenType::RBrace, "}", m_line, m_column); break;
+            case '[': tok = Token(TokenType::LBracket, "[", m_line, m_column); break;
+            case ']': tok = Token(TokenType::RBracket, "]", m_line, m_column); break;
+            case '@': tok = Token(TokenType::At, "@", m_line, m_column); break;
+            case '#': return readColorLiteral();
             case '+':
-                if (peekChar() == '=')
-                {
-                    readChar();
-                    tok = Token(TokenType::PlusAssign, "+=", m_line, m_column - 1);
-                }
-                else
-                {
-                    tok = Token(TokenType::Plus, "+", m_line, m_column);
-                }
+                if (peekChar() == '=') { readChar(); tok = Token(TokenType::PlusAssign, "+=", m_line, m_column - 1); }
+                else { tok = Token(TokenType::Plus, "+", m_line, m_column); }
                 break;
-            case '-':
-                tok = Token(TokenType::Minus, "-", m_line, m_column);
-                break;
-            case '*':
-                tok = Token(TokenType::Star, "*", m_line, m_column);
-                break;
-            case '/':
-                tok = Token(TokenType::Slash, "/", m_line, m_column);
-                break;
-            case '%':
-                tok = Token(TokenType::Percent, "%", m_line, m_column);
-                break;
-            case '"':
-                return readString();
-            case 0:
-                tok = Token(TokenType::Eof, "", m_line, m_column);
-                break;
+            case '-': tok = Token(TokenType::Minus, "-", m_line, m_column); break;
+            case '*': tok = Token(TokenType::Star, "*", m_line, m_column); break;
+            case '/': tok = Token(TokenType::Slash, "/", m_line, m_column); break;
+            case '%': tok = Token(TokenType::Percent, "%", m_line, m_column); break;
+            case '"': return readString();
+            case 0: tok = Token(TokenType::Eof, "", m_line, m_column); break;
             default:
-                if (isLetter(m_char))
-                {
-                    return readIdentifier();
-                }
-                else if (isDigit(m_char))
-                {
-                    return readNumber();
-                }
-                else
-                {
-                    tok = Token(TokenType::Illegal, std::string(1, m_char), m_line, m_column);
-                }
+                if (isLetter(m_char)) return readIdentifier();
+                else if (isDigit(m_char)) return readNumber();
+                else tok = Token(TokenType::Illegal, std::string(1, m_char), m_line, m_column);
                 break;
         }
 

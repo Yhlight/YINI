@@ -13,10 +13,6 @@ target_include_directories(yini_core PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}/../include" # For public C API
 )
 
-# Define the CLI executable
-add_executable(yini_cli
-    CLI/main.cpp
-)
-
-# Link the CLI against the core library
-target_link_libraries(yini_cli PRIVATE yini_core)
+if(YINI_BUILD_CLI)
+    add_subdirectory(CLI)
+endif()
