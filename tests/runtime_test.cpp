@@ -23,6 +23,12 @@ TEST(RuntimeCorrectionTest, TestNoKeyToKeyReference) {
     yini_free(handle);
 }
 
+TEST(HardFailTest, TestMissingMacro) {
+    std::string input = "value = @undefined_macro";
+    YINI_HANDLE handle = yini_load_from_string(input.c_str());
+    ASSERT_EQ(handle, nullptr);
+}
+
 TEST(RuntimeCorrectionTest, TestMacroInArithmetic) {
     std::string input = "[#define]\nmultiplier=10\n[Settings]\nresult=5*@multiplier";
 

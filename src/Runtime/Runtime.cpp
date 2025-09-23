@@ -182,8 +182,10 @@ namespace Yini
 
     std::shared_ptr<Value> YiniRuntime::visit(Ast::MacroReference* node) {
         if (m_defines.count(node->name->value)) return m_defines.at(node->name->value);
-        m_runtime_errors.emplace_back(ErrorType::Runtime, "Macro '@" + node->name->value + "' not found.", node->token.line, node->token.column);
-        return nullptr;
+
+        std::stringstream ss;
+        ss << "Runtime Error (L" << node->token.line << ":" << node->token.column << "): Macro '@" << node->name->value << "' not found.";
+        throw std::runtime_error(ss.str());
     }
 
     std::shared_ptr<Value> YiniRuntime::visit(Ast::IntegerLiteral* node) { auto v=std::make_shared<Value>(); v->data.emplace<Integer>(node->value); return v; }
