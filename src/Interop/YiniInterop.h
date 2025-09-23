@@ -35,6 +35,7 @@ typedef enum
     YINI_TYPE_DOUBLE,
     YINI_TYPE_BOOL,
     YINI_TYPE_ARRAY,
+    YINI_TYPE_PATH,
     YINI_TYPE_COORD,
     YINI_TYPE_COLOR,
     YINI_TYPE_OBJECT,
@@ -152,6 +153,13 @@ YINI_API Yini_Value_Type yini_value_get_type(YiniValueHandle* value_handle);
  * @return The number of bytes written, or -1 on failure/type mismatch.
  */
 YINI_API int yini_value_as_string(YiniValueHandle* value_handle, char* out_buffer, int buffer_size);
+
+/**
+ * @brief Gets the path string of a value.
+ * @param value_handle The handle to a path value.
+ * @return The number of bytes written, or -1 on failure/type mismatch.
+ */
+YINI_API int yini_value_as_path(YiniValueHandle* value_handle, char* out_buffer, int buffer_size);
 
 /**
  * @brief Gets the int64 representation of a value.

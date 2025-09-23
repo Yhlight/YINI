@@ -15,6 +15,11 @@ enum class TokenType
     HASH,
 
     // One or two character tokens
+    PLUS,
+    MINUS,
+    STAR,
+    SLASH,
+    PERCENT,
     PLUS_EQUAL, // +=
 
     // Literals

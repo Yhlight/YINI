@@ -39,8 +39,13 @@ private:
     void parseQuickRegistration(YiniSection& section);
 
     YiniValue parseValue();
+    YiniValue parseExpression();
+    YiniValue parseTerm();
+    YiniValue parseFactor();
+    YiniValue parseUnary();
     YiniValue parsePrimary();
     YiniValue parseArray();
+    YiniValue parsePath();
     YiniValue parseCoord();
     YiniValue parseColor();
     YiniValue parseObject();

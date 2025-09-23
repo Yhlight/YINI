@@ -211,6 +211,10 @@ YiniValue Parser::parseValue()
         {
             return parseColor();
         }
+        if (peek().lexeme == "Path" || peek().lexeme == "path")
+        {
+            return parsePath();
+        }
     }
 
     if (match({TokenType::HASH}))
@@ -226,6 +230,106 @@ YiniValue Parser::parseValue()
     if (match({TokenType::L_BRACKET}))
     {
         return parseArray();
+    }
+
+    return parseExpression();
+}
+
+YiniValue Parser::parseExpression()
+{
+    YiniValue left = parseTerm();
+
+    while (match({TokenType::PLUS, TokenType::MINUS}))
+    {
+        Token op = previous();
+        YiniValue right = parseTerm();
+
+        if (std::holds_alternative<int64_t>(left.value) && std::holds_alternative<int64_t>(right.value))
+        {
+            if (op.type == TokenType::PLUS)
+                left = YiniValue{std::get<int64_t>(left.value) + std::get<int64_t>(right.value)};
+            else
+                left = YiniValue{std::get<int64_t>(left.value) - std::get<int64_t>(right.value)};
+        }
+        else if ((std::holds_alternative<double>(left.value) || std::holds_alternative<int64_t>(left.value)) && (std::holds_alternative<double>(right.value) || std::holds_alternative<int64_t>(right.value)))
+        {
+            double left_val = std::holds_alternative<double>(left.value) ? std::get<double>(left.value) : static_cast<double>(std::get<int64_t>(left.value));
+            double right_val = std::holds_alternative<double>(right.value) ? std::get<double>(right.value) : static_cast<double>(std::get<int64_t>(right.value));
+            if (op.type == TokenType::PLUS)
+                left = YiniValue{left_val + right_val};
+            else
+                left = YiniValue{left_val - right_val};
+        }
+        else
+        {
+            throw ParserError(op, "Operands must be numbers.");
+        }
+    }
+
+    return left;
+}
+
+YiniValue Parser::parseTerm()
+{
+    YiniValue left = parseFactor();
+
+    while (match({TokenType::STAR, TokenType::SLASH, TokenType::PERCENT}))
+    {
+        Token op = previous();
+        YiniValue right = parseFactor();
+
+        if (std::holds_alternative<int64_t>(left.value) && std::holds_alternative<int64_t>(right.value))
+        {
+            if (op.type == TokenType::STAR)
+                left = YiniValue{std::get<int64_t>(left.value) * std::get<int64_t>(right.value)};
+            else if (op.type == TokenType::SLASH)
+                left = YiniValue{std::get<int64_t>(left.value) / std::get<int64_t>(right.value)};
+            else
+                left = YiniValue{std::get<int64_t>(left.value) % std::get<int64_t>(right.value)};
+        }
+        else if ((std::holds_alternative<double>(left.value) || std::holds_alternative<int64_t>(left.value)) && (std::holds_alternative<double>(right.value) || std::holds_alternative<int64_t>(right.value)))
+        {
+            double left_val = std::holds_alternative<double>(left.value) ? std::get<double>(left.value) : static_cast<double>(std::get<int64_t>(left.value));
+            double right_val = std::holds_alternative<double>(right.value) ? std::get<double>(right.value) : static_cast<double>(std::get<int64_t>(right.value));
+             if (op.type == TokenType::STAR)
+                left = YiniValue{left_val * right_val};
+            else if (op.type == TokenType::SLASH)
+                left = YiniValue{left_val / right_val};
+            else
+                throw ParserError(op, "Modulo operator requires integer operands.");
+        }
+        else
+        {
+            throw ParserError(op, "Operands must be numbers.");
+        }
+    }
+
+    return left;
+}
+
+YiniValue Parser::parseFactor()
+{
+    return parseUnary();
+}
+
+YiniValue Parser::parseUnary()
+{
+    if (match({TokenType::MINUS}))
+    {
+        Token op = previous();
+        YiniValue right = parseUnary();
+        if (std::holds_alternative<int64_t>(right.value))
+        {
+            return YiniValue{-std::get<int64_t>(right.value)};
+        }
+        else if (std::holds_alternative<double>(right.value))
+        {
+            return YiniValue{-std::get<double>(right.value)};
+        }
+        else
+        {
+            throw ParserError(op, "Operand must be a number.");
+        }
     }
 
     return parsePrimary();
@@ -245,6 +349,12 @@ YiniValue Parser::parsePrimary()
     {
         return YiniValue{std::stod(previous().lexeme)};
     }
+    if (match({TokenType::L_PAREN}))
+    {
+        YiniValue expr = parseExpression();
+        consume(TokenType::R_PAREN, "Expected ')' after expression.");
+        return expr;
+    }
 
     throw ParserError(peek(), "Expected a value.");
 }
@@ -261,6 +371,15 @@ YiniValue Parser::parseArray()
     }
     consume(TokenType::R_BRACKET, "Expected ']' after array elements.");
     return YiniValue{array};
+}
+
+YiniValue Parser::parsePath()
+{
+    consume(TokenType::IDENTIFIER, "Expected 'Path' or 'path'.");
+    consume(TokenType::L_PAREN, "Expected '(' after 'Path'.");
+    const Token& path_token = consume(TokenType::STRING, "Expected string for path.");
+    consume(TokenType::R_PAREN, "Expected ')' after path string.");
+    return YiniValue{YiniPath{path_token.lexeme}};
 }
 
 YiniValue Parser::parseCoord()

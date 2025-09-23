@@ -143,6 +143,7 @@ YINI_API Yini_Value_Type yini_value_get_type(YiniValueHandle* value_handle)
     if (std::holds_alternative<double>(val->value)) return YINI_TYPE_DOUBLE;
     if (std::holds_alternative<bool>(val->value)) return YINI_TYPE_BOOL;
     if (std::holds_alternative<YiniArray>(val->value)) return YINI_TYPE_ARRAY;
+    if (std::holds_alternative<YiniPath>(val->value)) return YINI_TYPE_PATH;
     if (std::holds_alternative<YiniCoord>(val->value)) return YINI_TYPE_COORD;
     if (std::holds_alternative<YiniColor>(val->value)) return YINI_TYPE_COLOR;
     if (std::holds_alternative<YiniObject>(val->value)) return YINI_TYPE_OBJECT;
@@ -153,6 +154,16 @@ YINI_API int yini_value_as_string(YiniValueHandle* value_handle, char* out_buffe
 {
     if (!value_handle || !std::holds_alternative<std::string>(reinterpret_cast<YiniValue*>(value_handle)->value) || !out_buffer || buffer_size <= 0) return -1;
     const std::string& str = std::get<std::string>(reinterpret_cast<YiniValue*>(value_handle)->value);
+    int bytes_to_copy = std::min((int)str.length(), buffer_size - 1);
+    memcpy(out_buffer, str.c_str(), bytes_to_copy);
+    out_buffer[bytes_to_copy] = '\0';
+    return bytes_to_copy;
+}
+
+YINI_API int yini_value_as_path(YiniValueHandle* value_handle, char* out_buffer, int buffer_size)
+{
+    if (!value_handle || !std::holds_alternative<YiniPath>(reinterpret_cast<YiniValue*>(value_handle)->value) || !out_buffer || buffer_size <= 0) return -1;
+    const std::string& str = std::get<YiniPath>(reinterpret_cast<YiniValue*>(value_handle)->value).path;
     int bytes_to_copy = std::min((int)str.length(), buffer_size - 1);
     memcpy(out_buffer, str.c_str(), bytes_to_copy);
     out_buffer[bytes_to_copy] = '\0';

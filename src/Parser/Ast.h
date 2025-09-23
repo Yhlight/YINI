@@ -12,6 +12,16 @@ struct YiniValue;
 
 using YiniArray = std::vector<YiniValue>;
 
+struct YiniPath
+{
+    std::string path;
+
+    bool operator==(const YiniPath& other) const
+    {
+        return path == other.path;
+    }
+};
+
 struct YiniCoord
 {
     double x = 0.0, y = 0.0, z = 0.0;
@@ -52,6 +62,7 @@ using YiniValueType = std::variant<
     double,
     bool,
     YiniArray,
+    YiniPath,
     YiniCoord,
     YiniColor,
     YiniObject,

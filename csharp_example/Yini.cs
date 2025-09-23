@@ -10,7 +10,7 @@ namespace Yini
     // C# representation of the C enum
     public enum YiniValueType
     {
-        Uninitialized, String, Int64, Double, Bool, Array, Coord, Color, Object
+        Uninitialized, String, Int64, Double, Bool, Array, Path, Coord, Color, Object
     }
 
     /// <summary>
@@ -104,6 +104,13 @@ namespace Yini
             IntPtr arrayHandle = Native.ValueAsArray(handle);
             return arrayHandle == IntPtr.Zero ? null : new YiniArray(arrayHandle);
         }
+
+        public string AsPath()
+        {
+            StringBuilder buffer = new StringBuilder(1024);
+            if (Native.ValueAsPath(handle, buffer, buffer.Capacity) != -1) return buffer.ToString();
+            return null;
+        }
     }
 
     /// <summary>
@@ -167,6 +174,9 @@ namespace Yini
 
         [DllImport(LibName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "yini_value_as_string")]
         public static extern int ValueAsString(IntPtr valueHandle, StringBuilder outBuffer, int bufferSize);
+
+        [DllImport(LibName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "yini_value_as_path")]
+        public static extern int ValueAsPath(IntPtr valueHandle, StringBuilder outBuffer, int bufferSize);
 
         [DllImport(LibName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "yini_value_as_int64")]
         public static extern int ValueAsInt64(IntPtr valueHandle, out long outValue);

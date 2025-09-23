@@ -46,9 +46,22 @@ std::vector<Token> Lexer::tokenize()
                 }
                 else
                 {
-                    tokens.push_back(makeToken(TokenType::UNEXPECTED, "+"));
+                    tokens.push_back(makeToken(TokenType::PLUS));
                 }
                 break;
+            case '-': tokens.push_back(makeToken(TokenType::MINUS)); break;
+            case '*': tokens.push_back(makeToken(TokenType::STAR)); break;
+            case '/':
+                if (peek() == '/' || peek() == '*')
+                {
+                    skipWhitespaceAndComments();
+                }
+                else
+                {
+                    tokens.push_back(makeToken(TokenType::SLASH));
+                }
+                break;
+            case '%': tokens.push_back(makeToken(TokenType::PERCENT)); break;
             case '"':
                 tokens.push_back(scanString());
                 break;
