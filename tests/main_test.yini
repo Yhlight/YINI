@@ -1,0 +1,7 @@
+[#include]
++= tests/include1.yini
++= tests/include2.yini
+
+[Final] : Child
+final_val = @message
+final_override = @val_override + 1

@@ -61,18 +61,29 @@ namespace Yini
         auto doc = std::make_unique<Ast::YiniDocument>();
         while (!currentTokenIs(TokenType::Eof))
         {
-            auto stmt = parseStatement();
+            auto stmt = parseStatement(""); // No section context at the top level
             if (stmt) doc->statements.push_back(std::move(stmt));
             else nextToken(); // On error, advance to avoid infinite loop
         }
         return doc;
     }
 
-    std::unique_ptr<Ast::Statement> Parser::parseStatement()
+    std::unique_ptr<Ast::Statement> Parser::parseStatement(const std::string& sectionName)
     {
         if (currentTokenIs(TokenType::LBracket)) return parseSection();
         if (currentTokenIs(TokenType::Identifier) && peekTokenIs(TokenType::Assign)) return parseKeyValuePair();
-        if (currentTokenIs(TokenType::PlusAssign)) return parseQuickRegister();
+        if (currentTokenIs(TokenType::PlusAssign))
+        {
+            if (sectionName == "#include")
+            {
+                auto stmt = std::make_unique<Ast::IncludeStatement>();
+                stmt->token = m_currentToken;
+                nextToken(); // consume '+='
+                stmt->filepath = parseExpression(LOWEST);
+                return stmt;
+            }
+            return parseQuickRegister();
+        }
         return nullptr;
     }
 
@@ -109,7 +120,7 @@ namespace Yini
         // Parse statements inside the section
         while (!peekTokenIs(TokenType::LBracket) && !peekTokenIs(TokenType::Eof)) {
             nextToken();
-            auto stmt = parseStatement();
+            auto stmt = parseStatement(section->name->value);
             if (stmt) section->statements.push_back(std::move(stmt));
         }
 

@@ -1,0 +1,6 @@
+[#define]
+message = "Hello from include1"
+
+[Base]
+val1 = 1
+val_override = 100

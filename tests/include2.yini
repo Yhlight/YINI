@@ -1,0 +1,8 @@
+[#define]
+message = "Hello from include2" // This should override the value from include1
+
+[Base]
+val_override = 200 // This should override the value from include1
+
+[Child] : Base
+val2 = 2

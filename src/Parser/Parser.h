@@ -25,7 +25,7 @@ namespace Yini
         bool peekTokenIs(TokenType t) const;
         bool expectPeek(TokenType t);
 
-        std::unique_ptr<Ast::Statement> parseStatement();
+        std::unique_ptr<Ast::Statement> parseStatement(const std::string& sectionName = "");
         std::unique_ptr<Ast::Section> parseSection();
         std::unique_ptr<Ast::KeyValuePair> parseKeyValuePair();
         std::unique_ptr<Ast::QuickRegister> parseQuickRegister();

@@ -1,17 +1,9 @@
 #include "../include/yini.h"
-#include "Lexer/Lexer.h"
-#include "Parser/Parser.h"
-#include "Runtime/Runtime.h"
+#include "c_api_internal.h"
+#include "../include/yini.h"
 #include <string>
 #include <vector>
 #include <cstring> // For strncpy
-
-struct YiniHandleInternal
-{
-    Yini::Lexer* lexer;
-    Yini::Parser* parser;
-    Yini::YiniRuntime* runtime;
-};
 
 static YiniHandleInternal* toHandle(YINI_HANDLE handle)
 {
@@ -21,19 +13,12 @@ static YiniHandleInternal* toHandle(YINI_HANDLE handle)
 YINI_HANDLE yini_load_from_string(const char* content)
 {
     if (!content) return nullptr;
-
-    auto* lexer = new Yini::Lexer(content);
-    auto* parser = new Yini::Parser(*lexer);
-    auto doc = parser->parseDocument();
-
+    // Loading from string does not support #include, so we can't use the parser
+    // as part of the handle for unified error reporting. This is a limitation.
+    // We will create a dummy parser.
     auto* runtime = new Yini::YiniRuntime();
-    // Only load into runtime if there are no parsing errors
-    if (parser->getErrors().empty())
-    {
-        runtime->load(doc.get());
-    }
-
-    auto* handle_internal = new YiniHandleInternal{lexer, parser, runtime};
+    runtime->loadFromString(content);
+    auto* handle_internal = new YiniHandleInternal{nullptr, nullptr, runtime};
     return handle_internal;
 }
 
@@ -41,8 +26,10 @@ YINI_HANDLE yini_load_from_file(const char* filepath)
 {
     if (!filepath) return nullptr;
     auto* runtime = new Yini::YiniRuntime();
-    if (runtime->deserialize(filepath))
+    if (runtime->loadFromFile(filepath))
     {
+        // For file loading, we don't have access to the parser's errors with this design.
+        // This is a known limitation that would require a deeper refactor.
         auto* handle_internal = new YiniHandleInternal{nullptr, nullptr, runtime};
         return handle_internal;
     }

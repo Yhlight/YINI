@@ -100,6 +100,17 @@ namespace Yini
             }
         };
 
+        // Represents an include statement, e.g., += file.yini
+        struct IncludeStatement : public Statement
+        {
+            Token token; // The '+=' token
+            std::unique_ptr<Expression> filepath;
+            std::string toString() const override
+            {
+                return "+= " + (filepath ? filepath->toString() : "null");
+            }
+        };
+
         // Represents a simple integer literal
         struct IntegerLiteral : public Expression
         {
