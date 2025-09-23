@@ -7,9 +7,8 @@
 
 struct YiniHandleInternal
 {
-    Yini::Lexer* lexer;
-    Yini::Parser* parser;
     Yini::YiniRuntime* runtime;
+    std::vector<Yini::YiniError> aggregated_errors;
 };
 
 #endif // YINI_C_API_INTERNAL_H

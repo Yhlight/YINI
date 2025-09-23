@@ -41,7 +41,7 @@ namespace Yini
     private:
         // Visitor methods for each AST node type
         void evaluate(Ast::YiniDocument* doc);
-        void loadAndMerge(const std::string& filepath, std::set<std::string>& processedFiles);
+        void loadAndMerge(const std::string& filepath, std::set<std::string>& processedFiles, std::vector<YiniError>& aggregated_errors);
         std::shared_ptr<Value> visit(Ast::Node* node);
         std::shared_ptr<Value> visit(Ast::Expression* node);
         void visit(Ast::Section* node); // Sections don't return a value
@@ -71,6 +71,9 @@ namespace Yini
 
         // Tracks which keys are dynamic ("section.key")
         std::set<std::string> m_dynamic_keys;
+
+        // Stores the backup history for dynamic keys
+        std::map<std::string, std::vector<std::shared_ptr<Value>>> m_dynamic_history;
     };
 }
 
