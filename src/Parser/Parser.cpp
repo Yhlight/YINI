@@ -16,7 +16,19 @@ ParserError::ParserError(const Token& token, const std::string& message)
 Parser::Parser(std::vector<Token> tokens)
     : tokenStream_(std::move(tokens))
 {
+    // Order is important here. More specific strategies should come before more general ones.
+    value_strategies_.push_back(std::make_unique<MacroRefStrategy>());
+    value_strategies_.push_back(std::make_unique<BoolStrategy>());
+    value_strategies_.push_back(std::make_unique<PathStrategy>());
+    value_strategies_.push_back(std::make_unique<CoordStrategy>());
+    value_strategies_.push_back(std::make_unique<ColorStrategy>());
+    value_strategies_.push_back(std::make_unique<ObjectStrategy>());
+    value_strategies_.push_back(std::make_unique<ArrayStrategy>());
+    value_strategies_.push_back(std::make_unique<StringStrategy>());
+    value_strategies_.push_back(std::make_unique<NumericExpressionStrategy>());
 }
+
+Parser::~Parser() = default;
 
 YiniFile Parser::parse()
 {
@@ -190,273 +202,13 @@ void Parser::parseQuickRegistration(YiniSection& section)
 
 YiniValue Parser::parseValue()
 {
-    if (match({TokenType::AT}))
+    for (auto& strategy : value_strategies_)
     {
-        const Token& name = consume(TokenType::IDENTIFIER, "Expected macro name after '@'.");
-        return YiniValue{YiniMacroRef{name.lexeme}};
-    }
-
-    if (peek().type == TokenType::IDENTIFIER)
-    {
-        if (peek().lexeme == "true" || peek().lexeme == "false")
+        auto result = strategy->try_parse(*this);
+        if (result.has_value())
         {
-            bool value = advance().lexeme == "true";
-            return YiniValue{value};
-        }
-        if (peek().lexeme == "Coord" || peek().lexeme == "coord")
-        {
-            return parseCoord();
-        }
-        if (peek().lexeme == "Color" || peek().lexeme == "color")
-        {
-            return parseColor();
-        }
-        if (peek().lexeme == "Path" || peek().lexeme == "path")
-        {
-            return parsePath();
+            return result.value();
         }
     }
-
-    if (match({TokenType::HASH}))
-    {
-        return parseColor();
-    }
-
-    if (check(TokenType::L_BRACE))
-    {
-        return parseObject();
-    }
-
-    if (match({TokenType::L_BRACKET}))
-    {
-        return parseArray();
-    }
-
-    return parseExpression();
-}
-
-YiniValue Parser::parseExpression()
-{
-    YiniValue left = parseTerm();
-
-    while (match({TokenType::PLUS, TokenType::MINUS}))
-    {
-        Token op = previous();
-        YiniValue right = parseTerm();
-
-        if (std::holds_alternative<int64_t>(left.value) && std::holds_alternative<int64_t>(right.value))
-        {
-            if (op.type == TokenType::PLUS)
-                left = YiniValue{std::get<int64_t>(left.value) + std::get<int64_t>(right.value)};
-            else
-                left = YiniValue{std::get<int64_t>(left.value) - std::get<int64_t>(right.value)};
-        }
-        else if ((std::holds_alternative<double>(left.value) || std::holds_alternative<int64_t>(left.value)) && (std::holds_alternative<double>(right.value) || std::holds_alternative<int64_t>(right.value)))
-        {
-            double left_val = std::holds_alternative<double>(left.value) ? std::get<double>(left.value) : static_cast<double>(std::get<int64_t>(left.value));
-            double right_val = std::holds_alternative<double>(right.value) ? std::get<double>(right.value) : static_cast<double>(std::get<int64_t>(right.value));
-            if (op.type == TokenType::PLUS)
-                left = YiniValue{left_val + right_val};
-            else
-                left = YiniValue{left_val - right_val};
-        }
-        else
-        {
-            throw ParserError(op, "Operands must be numbers.");
-        }
-    }
-
-    return left;
-}
-
-YiniValue Parser::parseTerm()
-{
-    YiniValue left = parseFactor();
-
-    while (match({TokenType::STAR, TokenType::SLASH, TokenType::PERCENT}))
-    {
-        Token op = previous();
-        YiniValue right = parseFactor();
-
-        if (std::holds_alternative<int64_t>(left.value) && std::holds_alternative<int64_t>(right.value))
-        {
-            if (op.type == TokenType::STAR)
-                left = YiniValue{std::get<int64_t>(left.value) * std::get<int64_t>(right.value)};
-            else if (op.type == TokenType::SLASH)
-                left = YiniValue{std::get<int64_t>(left.value) / std::get<int64_t>(right.value)};
-            else
-                left = YiniValue{std::get<int64_t>(left.value) % std::get<int64_t>(right.value)};
-        }
-        else if ((std::holds_alternative<double>(left.value) || std::holds_alternative<int64_t>(left.value)) && (std::holds_alternative<double>(right.value) || std::holds_alternative<int64_t>(right.value)))
-        {
-            double left_val = std::holds_alternative<double>(left.value) ? std::get<double>(left.value) : static_cast<double>(std::get<int64_t>(left.value));
-            double right_val = std::holds_alternative<double>(right.value) ? std::get<double>(right.value) : static_cast<double>(std::get<int64_t>(right.value));
-             if (op.type == TokenType::STAR)
-                left = YiniValue{left_val * right_val};
-            else if (op.type == TokenType::SLASH)
-                left = YiniValue{left_val / right_val};
-            else
-                throw ParserError(op, "Modulo operator requires integer operands.");
-        }
-        else
-        {
-            throw ParserError(op, "Operands must be numbers.");
-        }
-    }
-
-    return left;
-}
-
-YiniValue Parser::parseFactor()
-{
-    return parseUnary();
-}
-
-YiniValue Parser::parseUnary()
-{
-    if (match({TokenType::MINUS}))
-    {
-        Token op = previous();
-        YiniValue right = parseUnary();
-        if (std::holds_alternative<int64_t>(right.value))
-        {
-            return YiniValue{-std::get<int64_t>(right.value)};
-        }
-        else if (std::holds_alternative<double>(right.value))
-        {
-            return YiniValue{-std::get<double>(right.value)};
-        }
-        else
-        {
-            throw ParserError(op, "Operand must be a number.");
-        }
-    }
-
-    return parsePrimary();
-}
-
-YiniValue Parser::parsePrimary()
-{
-    if (match({TokenType::STRING}))
-    {
-        return YiniValue{previous().lexeme};
-    }
-    if (match({TokenType::INTEGER}))
-    {
-        return YiniValue{std::stoll(previous().lexeme)};
-    }
-    if (match({TokenType::FLOAT}))
-    {
-        return YiniValue{std::stod(previous().lexeme)};
-    }
-    if (match({TokenType::L_PAREN}))
-    {
-        YiniValue expr = parseExpression();
-        consume(TokenType::R_PAREN, "Expected ')' after expression.");
-        return expr;
-    }
-
-    throw ParserError(peek(), "Expected a value.");
-}
-
-YiniValue Parser::parseArray()
-{
-    YiniArray array;
-    if (!check(TokenType::R_BRACKET))
-    {
-        do
-        {
-            array.push_back(parseValue());
-        } while (match({TokenType::COMMA}) && !check(TokenType::R_BRACKET));
-    }
-    consume(TokenType::R_BRACKET, "Expected ']' after array elements.");
-    return YiniValue{array};
-}
-
-YiniValue Parser::parsePath()
-{
-    consume(TokenType::IDENTIFIER, "Expected 'Path' or 'path'.");
-    consume(TokenType::L_PAREN, "Expected '(' after 'Path'.");
-    const Token& path_token = consume(TokenType::STRING, "Expected string for path.");
-    consume(TokenType::R_PAREN, "Expected ')' after path string.");
-    return YiniValue{YiniPath{path_token.lexeme}};
-}
-
-YiniValue Parser::parseCoord()
-{
-    consume(TokenType::IDENTIFIER, "Expected 'Coord' or 'coord'.");
-    consume(TokenType::L_PAREN, "Expected '(' after 'Coord'.");
-    YiniCoord coord;
-
-    const Token& x = consume(TokenType::INTEGER, "Expected integer for x coordinate.");
-    consume(TokenType::COMMA, "Expected comma after x coordinate.");
-    const Token& y = consume(TokenType::INTEGER, "Expected integer for y coordinate.");
-
-    coord.x = std::stod(x.lexeme);
-    coord.y = std::stod(y.lexeme);
-
-    if(match({TokenType::COMMA}))
-    {
-        const Token& z = consume(TokenType::INTEGER, "Expected integer for z coordinate.");
-        coord.z = std::stod(z.lexeme);
-        coord.is_3d = true;
-    }
-
-    consume(TokenType::R_PAREN, "Expected ')' after coordinates.");
-    return YiniValue{coord};
-}
-
-YiniValue Parser::parseColor()
-{
-    YiniColor color;
-    if (previous().type == TokenType::HASH)
-    {
-        const Token& hex = consume(TokenType::IDENTIFIER, "Expected hex code after '#'.");
-        if (hex.lexeme.length() != 6)
-        {
-            throw ParserError(hex, "Hex color code must be 6 characters long.");
-        }
-        try
-        {
-            color.r = std::stoi(hex.lexeme.substr(0, 2), nullptr, 16);
-            color.g = std::stoi(hex.lexeme.substr(2, 2), nullptr, 16);
-            color.b = std::stoi(hex.lexeme.substr(4, 2), nullptr, 16);
-        }
-        catch(const std::invalid_argument& e)
-        {
-            throw ParserError(hex, "Invalid hex color code.");
-        }
-    }
-    else
-    {
-        consume(TokenType::IDENTIFIER, "Expected 'color' identifier.");
-        consume(TokenType::L_PAREN, "Expected '(' after 'color'.");
-        const Token& r = consume(TokenType::INTEGER, "Expected integer for red value.");
-        consume(TokenType::COMMA, "Expected comma after red value.");
-        const Token& g = consume(TokenType::INTEGER, "Expected integer for green value.");
-        consume(TokenType::COMMA, "Expected comma after green value.");
-        const Token& b = consume(TokenType::INTEGER, "Expected integer for blue value.");
-        consume(TokenType::R_PAREN, "Expected ')' after color values.");
-        color.r = std::stoi(r.lexeme);
-        color.g = std::stoi(g.lexeme);
-        color.b = std::stoi(b.lexeme);
-    }
-    return YiniValue{color};
-}
-
-YiniValue Parser::parseObject()
-{
-    consume(TokenType::L_BRACE, "Expected '{' to start object.");
-    YiniObject obj;
-    if (!check(TokenType::R_BRACE))
-    {
-        do
-        {
-            const Token& key = consume(TokenType::IDENTIFIER, "Expected key in object.");
-            consume(TokenType::COLON, "Expected ':' after key in object.");
-            obj[key.lexeme] = parseValue();
-        } while (match({TokenType::COMMA}) && !check(TokenType::R_BRACE));
-    }
-    consume(TokenType::R_BRACE, "Expected '}' after object.");
-    return YiniValue{obj};
+    throw ParserError(peek(), "Could not parse value.");
 }

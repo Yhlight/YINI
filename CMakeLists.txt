@@ -17,6 +17,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(YINI_LIB_SOURCES
     src/Lexer/Lexer.cpp
     src/Parser/Parser.cpp
+    src/Parser/Strategies.cpp
     src/Parser/YiniLoader.cpp
     src/Parser/Ymeta.cpp
     src/Interop/YiniInterop.cpp

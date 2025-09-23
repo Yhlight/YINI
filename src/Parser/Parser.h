@@ -2,8 +2,10 @@
 
 #include "../Lexer/Token.h"
 #include "Ast.h"
+#include "Strategies.h"
 #include <vector>
 #include <stdexcept>
+#include <memory>
 
 class ParserError : public std::runtime_error
 {
@@ -15,9 +17,10 @@ class Parser
 {
 public:
     Parser(std::vector<Token> tokens);
+    ~Parser();
     YiniFile parse();
 
-private:
+public:
     // Token stream management
     const Token& peek();
     const Token& previous();
@@ -27,7 +30,12 @@ private:
     bool match(const std::vector<TokenType>& types);
     const Token& consume(TokenType type, const std::string& errorMessage);
 
-    // Parsing methods
+public:
+    // The new entry point for parsing any value
+    YiniValue parseValue();
+
+private:
+    // State-machine based parsing methods
     void parseTopLevel();
     void parseSection();
     void parseDefineSection();
@@ -38,19 +46,8 @@ private:
     void parseKeyValuePair(YiniSection& section);
     void parseQuickRegistration(YiniSection& section);
 
-    YiniValue parseValue();
-    YiniValue parseExpression();
-    YiniValue parseTerm();
-    YiniValue parseFactor();
-    YiniValue parseUnary();
-    YiniValue parsePrimary();
-    YiniValue parseArray();
-    YiniValue parsePath();
-    YiniValue parseCoord();
-    YiniValue parseColor();
-    YiniValue parseObject();
-
     const std::vector<Token> tokenStream_;
     size_t current_ = 0;
     YiniFile yiniFile_;
+    std::vector<std::unique_ptr<ValueParsingStrategy>> value_strategies_;
 };
