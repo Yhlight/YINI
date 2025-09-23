@@ -1,0 +1,10 @@
+// This is a valid YINI file for testing the CLI.
+[User]
+name = "Jules"
+level = 99
+exp = 1.2e5
+
+[Graphics]
+resolution = Coord(1920, 1080)
+fullscreen = true
+extra_values = [1, 2, "hello"]
