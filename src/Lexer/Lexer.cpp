@@ -19,7 +19,7 @@ std::vector<Token> Lexer::tokenize()
             break;
         }
 
-        start_ = current_; // Reset start after skipping whitespace
+        start_ = current_;
         char c = advance();
 
         switch (c)
@@ -34,7 +34,10 @@ std::vector<Token> Lexer::tokenize()
             case ':': tokens.push_back(makeToken(TokenType::COLON)); break;
             case '=': tokens.push_back(makeToken(TokenType::EQUAL)); break;
             case '@': tokens.push_back(makeToken(TokenType::AT)); break;
-            case '#': tokens.push_back(makeToken(TokenType::HASH)); break;
+            case '#':
+                tokens.push_back(makeToken(TokenType::HASH));
+                tokens.push_back(scanHexLiteral());
+                break;
             case '+':
                 if (peek() == '=')
                 {
@@ -108,20 +111,18 @@ void Lexer::skipWhitespaceAndComments()
             case '/':
                 if (current_ + 1 < source_code_.length() && source_code_[current_ + 1] == '/')
                 {
-                    // Single line comment
                     while (peek() != '\n' && !isAtEnd()) advance();
                 }
                 else if (current_ + 1 < source_code_.length() && source_code_[current_ + 1] == '*')
                 {
-                    // Multi-line comment
-                    advance(); // consume /
-                    advance(); // consume *
+                    advance();
+                    advance();
                     while (!isAtEnd())
                     {
                         if (peek() == '*' && current_ + 1 < source_code_.length() && source_code_[current_ + 1] == '/')
                         {
-                            advance(); // consume *
-                            advance(); // consume /
+                            advance();
+                            advance();
                             break;
                         }
                         if (peek() == '\n')
@@ -134,7 +135,7 @@ void Lexer::skipWhitespaceAndComments()
                 }
                 else
                 {
-                    return; // Not a comment
+                    return;
                 }
                 break;
             default:
@@ -163,6 +164,16 @@ Token Lexer::scanIdentifier()
     return makeToken(TokenType::IDENTIFIER, text);
 }
 
+Token Lexer::scanHexLiteral()
+{
+    start_ = current_;
+    while (std::isxdigit(peek()))
+    {
+        advance();
+    }
+    return makeToken(TokenType::IDENTIFIER);
+}
+
 Token Lexer::scanString()
 {
     while (peek() != '"' && !isAtEnd())
@@ -180,7 +191,7 @@ Token Lexer::scanString()
         return makeToken(TokenType::UNEXPECTED, "Unterminated string.");
     }
 
-    advance(); // The closing "
+    advance();
     std::string value = source_code_.substr(start_ + 1, current_ - start_ - 2);
     return makeToken(TokenType::STRING, value);
 }
@@ -196,7 +207,7 @@ Token Lexer::scanNumber()
     if (peek() == '.' && std::isdigit(source_code_[current_ + 1]))
     {
         is_float = true;
-        advance(); // consume the '.'
+        advance();
         while (std::isdigit(peek()))
         {
             advance();

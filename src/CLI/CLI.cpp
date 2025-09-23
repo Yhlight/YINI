@@ -31,6 +31,24 @@ namespace
     {
         std::cout << "Coord(" << coord.x << ", " << coord.y << (coord.is_3d ? ", " + std::to_string(coord.z) : "") << ")";
     }
+    void printColor(const YiniColor& color)
+    {
+        std::cout << "Color(" << color.r << ", " << color.g << ", " << color.b << ")";
+    }
+    void printObject(const YiniObject& obj, int indent);
+    void printObject(const YiniObject& obj, int indent)
+    {
+        std::cout << "{\n";
+        for (const auto& [key, val] : obj)
+        {
+            printIndent(indent + 1);
+            std::cout << key << ": ";
+            printValue(val, indent + 1);
+            std::cout << ",\n";
+        }
+        printIndent(indent);
+        std::cout << "}";
+    }
     void printValue(const YiniValue& yiniValue, int indent)
     {
         std::visit([&](auto&& arg)
@@ -42,6 +60,8 @@ namespace
             else if constexpr (std::is_same_v<T, bool>) std::cout << (arg ? "true" : "false");
             else if constexpr (std::is_same_v<T, YiniArray>) printArray(arg, indent);
             else if constexpr (std::is_same_v<T, YiniCoord>) printCoord(arg);
+            else if constexpr (std::is_same_v<T, YiniColor>) printColor(arg);
+            else if constexpr (std::is_same_v<T, YiniObject>) printObject(arg, indent);
             else if constexpr (std::is_same_v<T, YiniMacroRef>) std::cout << "@" << arg.name;
             else std::cout << "Unhandled_Type";
         }, yiniValue.value);

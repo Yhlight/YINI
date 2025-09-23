@@ -1,5 +1,6 @@
 #include "Parser.h"
 #include <iostream>
+#include <sstream>
 
 // --- ParserError Implementation ---
 ParserError::ParserError(const Token& token, const std::string& message)
@@ -19,16 +20,9 @@ Parser::Parser(std::vector<Token> tokens)
 
 YiniFile Parser::parse()
 {
-    try
+    while (!isAtEnd())
     {
-        while (!isAtEnd())
-        {
-            parseTopLevel();
-        }
-    }
-    catch (const ParserError& e)
-    {
-        std::cerr << e.what() << std::endl;
+        parseTopLevel();
     }
     return yiniFile_;
 }
@@ -130,8 +124,7 @@ void Parser::parseDefineSection()
     {
         const Token& key = consume(TokenType::IDENTIFIER, "Expected identifier for define key.");
         consume(TokenType::EQUAL, "Expected '=' after define key.");
-        const Token& value = consume(TokenType::STRING, "Expected string value for define.");
-        yiniFile_.definesMap[key.lexeme] = { YiniValue{value.lexeme} };
+        yiniFile_.definesMap[key.lexeme] = parseValue();
     }
 }
 
@@ -203,23 +196,36 @@ YiniValue Parser::parseValue()
         return YiniValue{YiniMacroRef{name.lexeme}};
     }
 
-    if (peek().type == TokenType::IDENTIFIER && (peek().lexeme == "true" || peek().lexeme == "false"))
+    if (peek().type == TokenType::IDENTIFIER)
     {
-        bool value = advance().lexeme == "true";
-        return YiniValue{value};
+        if (peek().lexeme == "true" || peek().lexeme == "false")
+        {
+            bool value = advance().lexeme == "true";
+            return YiniValue{value};
+        }
+        if (peek().lexeme == "Coord" || peek().lexeme == "coord")
+        {
+            return parseCoord();
+        }
+        if (peek().lexeme == "Color" || peek().lexeme == "color")
+        {
+            return parseColor();
+        }
     }
-    if (match({TokenType::L_BRACKET}))
+
+    if (match({TokenType::HASH}))
     {
-        return parseArray();
+        return parseColor();
     }
-    if (match({TokenType::L_BRACE}))
+
+    if (check(TokenType::L_BRACE))
     {
         return parseObject();
     }
 
-    if (peek().type == TokenType::IDENTIFIER && (peek().lexeme == "Coord" || peek().lexeme == "coord"))
+    if (match({TokenType::L_BRACKET}))
     {
-        return parseCoord();
+        return parseArray();
     }
 
     return parsePrimary();
@@ -248,9 +254,10 @@ YiniValue Parser::parseArray()
     YiniArray array;
     if (!check(TokenType::R_BRACKET))
     {
-        do {
+        do
+        {
             array.push_back(parseValue());
-        } while (match({TokenType::COMMA}));
+        } while (match({TokenType::COMMA}) && !check(TokenType::R_BRACKET));
     }
     consume(TokenType::R_BRACKET, "Expected ']' after array elements.");
     return YiniValue{array};
@@ -280,31 +287,57 @@ YiniValue Parser::parseCoord()
     return YiniValue{coord};
 }
 
+YiniValue Parser::parseColor()
+{
+    YiniColor color;
+    if (previous().type == TokenType::HASH)
+    {
+        const Token& hex = consume(TokenType::IDENTIFIER, "Expected hex code after '#'.");
+        if (hex.lexeme.length() != 6)
+        {
+            throw ParserError(hex, "Hex color code must be 6 characters long.");
+        }
+        try
+        {
+            color.r = std::stoi(hex.lexeme.substr(0, 2), nullptr, 16);
+            color.g = std::stoi(hex.lexeme.substr(2, 2), nullptr, 16);
+            color.b = std::stoi(hex.lexeme.substr(4, 2), nullptr, 16);
+        }
+        catch(const std::invalid_argument& e)
+        {
+            throw ParserError(hex, "Invalid hex color code.");
+        }
+    }
+    else
+    {
+        consume(TokenType::IDENTIFIER, "Expected 'color' identifier.");
+        consume(TokenType::L_PAREN, "Expected '(' after 'color'.");
+        const Token& r = consume(TokenType::INTEGER, "Expected integer for red value.");
+        consume(TokenType::COMMA, "Expected comma after red value.");
+        const Token& g = consume(TokenType::INTEGER, "Expected integer for green value.");
+        consume(TokenType::COMMA, "Expected comma after green value.");
+        const Token& b = consume(TokenType::INTEGER, "Expected integer for blue value.");
+        consume(TokenType::R_PAREN, "Expected ')' after color values.");
+        color.r = std::stoi(r.lexeme);
+        color.g = std::stoi(g.lexeme);
+        color.b = std::stoi(b.lexeme);
+    }
+    return YiniValue{color};
+}
+
 YiniValue Parser::parseObject()
 {
+    consume(TokenType::L_BRACE, "Expected '{' to start object.");
     YiniObject obj;
     if (!check(TokenType::R_BRACE))
     {
-        do {
+        do
+        {
             const Token& key = consume(TokenType::IDENTIFIER, "Expected key in object.");
             consume(TokenType::COLON, "Expected ':' after key in object.");
             obj[key.lexeme] = parseValue();
-        } while(match({TokenType::COMMA}));
+        } while (match({TokenType::COMMA}) && !check(TokenType::R_BRACE));
     }
     consume(TokenType::R_BRACE, "Expected '}' after object.");
     return YiniValue{obj};
-}
-
-YiniValue Parser::parseMap()
-{
-    YiniMap map;
-    consume(TokenType::L_BRACE, "Expected '{' to start map.");
-    if (!check(TokenType::R_BRACE))
-    {
-        do {
-            map.push_back(std::get<YiniObject>(parseObject().value));
-        } while (match({TokenType::COMMA}));
-    }
-    consume(TokenType::R_BRACE, "Expected '}' to end map.");
-    return YiniValue{map};
 }

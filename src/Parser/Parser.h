@@ -42,8 +42,8 @@ private:
     YiniValue parsePrimary();
     YiniValue parseArray();
     YiniValue parseCoord();
+    YiniValue parseColor();
     YiniValue parseObject();
-    YiniValue parseMap();
 
     const std::vector<Token> tokenStream_;
     size_t current_ = 0;

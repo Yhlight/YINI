@@ -1,6 +1,6 @@
 #include "CLI/CLI.h"
 
-int main(int argc, char* argv[])
+int main()
 {
     CLI yini_cli;
     yini_cli.run();

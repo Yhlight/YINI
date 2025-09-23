@@ -20,6 +20,7 @@ private:
     Token scanIdentifier();
     Token scanString();
     Token scanNumber();
+    Token scanHexLiteral();
 
     std::string source_code_;
     size_t start_ = 0;

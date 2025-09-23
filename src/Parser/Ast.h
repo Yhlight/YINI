@@ -36,8 +36,8 @@ struct YiniColor
 // A key-value pair, e.g., {key: value}
 using YiniObject = std::map<std::string, YiniValue>;
 
-// A map of key-value pairs, e.g., {{key1: val1}, {key2: val2}}
-using YiniMap = std::vector<YiniObject>;
+// A map of key-value pairs is represented by a YiniArray of YiniObjects.
+// using YiniMap = std::vector<YiniObject>;
 
 
 struct YiniMacroRef {
@@ -55,7 +55,7 @@ using YiniValueType = std::variant<
     YiniCoord,
     YiniColor,
     YiniObject,
-    YiniMap,
+    // YiniMap is now handled by YiniArray
     YiniMacroRef
 >;
 

@@ -2,6 +2,7 @@
 #include "../Lexer/Lexer.h"
 #include "Parser.h"
 #include <fstream>
+#include <iostream>
 #include <sstream>
 #include <stdexcept>
 
@@ -65,7 +66,7 @@ namespace Yini
 
         std::set<std::string> processedFiles;
         processedFiles.insert(rootFilepath);
-        processIncludes(finalAst, rootFilepath, processedFiles);
+        processIncludes(finalAst, processedFiles);
 
         resolveMacros(finalAst);
         applyInheritance(finalAst);
@@ -113,7 +114,7 @@ namespace Yini
         }
     }
 
-    void Loader::processIncludes(YiniFile& ast, const std::string& basePath, std::set<std::string>& processedFiles)
+    void Loader::processIncludes(YiniFile& ast, std::set<std::string>& processedFiles)
     {
         if (ast.includePaths.empty())
         {
@@ -130,7 +131,7 @@ namespace Yini
             }
             processedFiles.insert(includePath);
             YiniFile includedAst = parseFile(includePath);
-            processIncludes(includedAst, includePath, processedFiles);
+            processIncludes(includedAst, processedFiles);
             merge(ast, includedAst);
         }
     }

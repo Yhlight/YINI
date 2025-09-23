@@ -139,6 +139,21 @@ namespace Ymeta
                 write_binary<uint8_t>(stream, static_cast<uint8_t>(MetaTag::COORD));
                 write_binary(stream, arg);
             }
+            else if constexpr (std::is_same_v<T, YiniColor>)
+            {
+                write_binary<uint8_t>(stream, static_cast<uint8_t>(MetaTag::COLOR));
+                write_binary(stream, arg);
+            }
+            else if constexpr (std::is_same_v<T, YiniObject>)
+            {
+                write_binary<uint8_t>(stream, static_cast<uint8_t>(MetaTag::OBJECT));
+                write_binary<uint32_t>(stream, arg.size());
+                for(const auto& [k, v] : arg)
+                {
+                    write_string(stream, k);
+                    serializeValue(stream, v);
+                }
+            }
             else if constexpr (std::is_same_v<T, YiniMacroRef>)
             {
                 throw std::runtime_error("Cannot serialize an unresolved macro reference: @" + arg.name);
@@ -237,6 +252,18 @@ namespace Ymeta
                 return YiniValue{arr};
             }
             case MetaTag::COORD: return YiniValue{read_binary<YiniCoord>(stream)};
+            case MetaTag::COLOR: return YiniValue{read_binary<YiniColor>(stream)};
+            case MetaTag::OBJECT:
+            {
+                uint32_t size = read_binary<uint32_t>(stream);
+                YiniObject obj;
+                for(uint32_t i = 0; i < size; ++i)
+                {
+                    std::string key = read_string(stream);
+                    obj[key] = deserializeValue(stream);
+                }
+                return YiniValue{obj};
+            }
             default: throw std::runtime_error("Unknown or unsupported tag in YMETA file.");
         }
     }
