@@ -49,7 +49,14 @@ YINI支持多种值类型
 - 键值对  ->  {key: value}
 - Map  ->  {{key1: value1}, {key2: value2}}
 - 颜色  ->  #RRGGBB / color(255, 192, 203) / Color(255, 192, 203)
+- 路径  ->  path() / Path()  
 (更多类型正在添加中)  
+
+### 算术运算
+YINI支持常见的算术运算  
+包括 + - * / %  
+可以使用括号进行优先级的控制  
+仅限于基本数据类型  
 
 ### 宏定义和变量引用
 [#define]
@@ -67,6 +74,7 @@ UIName = @name
 ### 文件关联
 现在，你可以使用[#include]关联其他文件  
 这些文件将根据顺序决定覆写顺序  
+[#include]无需使用path，直接写路径即可  
 
 ```YINI
 [#include]
@@ -75,7 +83,7 @@ UIName = @name
 += file3.yini
 ```
 
-按照顺序，合并同名的配置块  
+按照顺序，合并同名的配置块 
 
 ### YMETA
 在程序加载YINI文件之后，会为每一个YINI文件生成一个YMETA文件  
