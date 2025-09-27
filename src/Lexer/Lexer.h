@@ -18,6 +18,7 @@ namespace YINI
         void skip_single_line_comment();
         void skip_multi_line_comment();
         std::string read_identifier();
+        std::string read_string();
 
         std::string m_input;
         size_t m_position;      // current position in input (points to current char)

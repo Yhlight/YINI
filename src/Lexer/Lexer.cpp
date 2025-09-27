@@ -85,9 +85,23 @@ namespace YINI
         return m_input.substr(start_pos, m_position - start_pos);
     }
 
+    std::string Lexer::read_string()
+    {
+        size_t start_pos = m_position;
+        readChar(); // Consume the opening quote
+        while (m_char != '"' && m_char != 0)
+        {
+            readChar();
+        }
+        std::string literal = m_input.substr(start_pos + 1, m_position - start_pos - 1);
+        readChar(); // Consume the closing quote
+        return literal;
+    }
 
     Token Lexer::nextToken()
     {
+        // This loop handles skipping whitespace and comments.
+        // It will continue until a character is found that is part of a token.
         while (true) {
             skip_whitespace();
 
@@ -98,7 +112,7 @@ namespace YINI
                     readChar(); // consume first '/'
                     readChar(); // consume second '/'
                     skip_single_line_comment();
-                    continue; // restart loop to skip any subsequent whitespace
+                    continue; // restart loop to find next token
                 }
                 else if (peekChar() == '*')
                 {
@@ -108,7 +122,6 @@ namespace YINI
                     continue; // restart loop
                 }
             }
-
             // If we're not in a comment or whitespace, we can break and process the token
             break;
         }
@@ -117,24 +130,47 @@ namespace YINI
         token.line = m_line;
         token.column = m_column;
 
+        // Handle multi-character tokens first
         if (is_letter(m_char))
         {
             token.literal = read_identifier();
             token.type = TokenType::Identifier;
-            return token;
+            return token; // read_identifier already advanced the char, so we return early.
         }
 
-        if (m_char == 0)
+        if (m_char == '"')
         {
-            token.type = TokenType::EndOfFile;
-            token.literal = "";
-            return token;
+            token.literal = read_string();
+            token.type = TokenType::String;
+            return token; // read_string already advanced the char, so we return early.
         }
 
-        // If we don't recognize the character, it's illegal
-        token.type = TokenType::Illegal;
-        token.literal = std::string(1, m_char);
-        readChar();
+        // Handle single-character tokens
+        switch(m_char)
+        {
+            case '=':
+                token.type = TokenType::Assign;
+                token.literal = "=";
+                break;
+            case '[':
+                token.type = TokenType::LBracket;
+                token.literal = "[";
+                break;
+            case ']':
+                token.type = TokenType::RBracket;
+                token.literal = "]";
+                break;
+            case 0:
+                token.type = TokenType::EndOfFile;
+                token.literal = "";
+                break;
+            default:
+                token.type = TokenType::Illegal;
+                token.literal = std::string(1, m_char);
+                break;
+        }
+
+        readChar(); // Advance to the next character for single-char tokens
         return token;
     }
 }

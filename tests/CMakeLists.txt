@@ -1,5 +1,5 @@
 # Define the test executable
-add_executable(yini_tests main.cpp LexerTests.cpp)
+add_executable(yini_tests main.cpp LexerTests.cpp ParserTests.cpp)
 
 # Link against GTest and our core library
 target_link_libraries(yini_tests

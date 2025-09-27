@@ -6,6 +6,7 @@ target_sources(yini_core
     PRIVATE
         Lexer/Lexer.cpp
         Interop.cpp
+        Parser/Parser.cpp
 )
 
 # Public headers
