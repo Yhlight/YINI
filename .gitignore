@@ -1,0 +1,33 @@
+# CMake
+build/
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+
+# Visual Studio
+*.sln
+*.vcxproj
+*.vcxproj.filters
+
+# Binaries
+*.exe
+*.dll
+*.so
+*.a
+*.lib
+*.out
+
+# YINI specific
+*.ymeta
+*.YMETA
+
+# C# / .NET
+[Bb]in/
+[Oo]bj/
+
+# VSCode Extension
+node_modules/
+out/
+.vscode-test/
+*.vsix

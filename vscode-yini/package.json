@@ -1,0 +1,31 @@
+{
+    "name": "yini",
+    "displayName": "YINI Language Support",
+    "description": "Syntax highlighting and language support for the YINI configuration language.",
+    "version": "0.0.1",
+    "engines": {
+        "vscode": "^1.80.0"
+    },
+    "categories": [
+        "Programming Languages"
+    ],
+    "activationEvents": [],
+    "main": "./out/extension.js",
+    "contributes": {
+        "languages": [{
+            "id": "yini",
+            "aliases": ["YINI", "yini"],
+            "extensions": [".yini", ".YINI"],
+            "configuration": "./language-configuration.json"
+        }]
+    },
+    "scripts": {
+        "vscode:prepublish": "npm run compile",
+        "compile": "tsc -p ./",
+        "watch": "tsc -watch -p ./"
+    },
+    "devDependencies": {
+        "@types/vscode": "^1.80.0",
+        "typescript": "^5.0.0"
+    }
+}
