@@ -8,6 +8,11 @@ namespace YINI
         return isalpha(ch) || ch == '_';
     }
 
+    // Helper to check if a character is a digit
+    bool is_digit(char ch) {
+        return isdigit(ch);
+    }
+
     Lexer::Lexer(const std::string& input)
         : m_input(input), m_position(0), m_readPosition(0), m_char(0), m_line(1), m_column(0)
     {
@@ -98,6 +103,30 @@ namespace YINI
         return literal;
     }
 
+    Token Lexer::read_number()
+    {
+        Token token;
+        token.line = m_line;
+        token.column = m_column;
+        token.type = TokenType::Integer; // Assume integer by default
+
+        size_t start_pos = m_position;
+        while (is_digit(m_char)) {
+            readChar();
+        }
+
+        if (m_char == '.' && is_digit(peekChar())) {
+            token.type = TokenType::Float;
+            readChar(); // consume the '.'
+            while (is_digit(m_char)) {
+                readChar();
+            }
+        }
+
+        token.literal = m_input.substr(start_pos, m_position - start_pos);
+        return token;
+    }
+
     Token Lexer::nextToken()
     {
         // This loop handles skipping whitespace and comments.
@@ -134,7 +163,14 @@ namespace YINI
         if (is_letter(m_char))
         {
             token.literal = read_identifier();
-            token.type = TokenType::Identifier;
+            // Check if the identifier is a keyword
+            if (token.literal == "true") {
+                token.type = TokenType::True;
+            } else if (token.literal == "false") {
+                token.type = TokenType::False;
+            } else {
+                token.type = TokenType::Identifier;
+            }
             return token; // read_identifier already advanced the char, so we return early.
         }
 
@@ -145,12 +181,51 @@ namespace YINI
             return token; // read_string already advanced the char, so we return early.
         }
 
+        if (is_digit(m_char)) {
+            return read_number();
+        }
+
         // Handle single-character tokens
         switch(m_char)
         {
             case '=':
                 token.type = TokenType::Assign;
                 token.literal = "=";
+                break;
+            case '+':
+                if (peekChar() == '=') {
+                    char ch = m_char;
+                    readChar();
+                    token.type = TokenType::PlusAssign;
+                    token.literal = std::string(1, ch) + std::string(1, m_char);
+                } else {
+                    token.type = TokenType::Plus;
+                    token.literal = "+";
+                }
+                break;
+            case '-':
+                token.type = TokenType::Minus;
+                token.literal = "-";
+                break;
+            case '*':
+                token.type = TokenType::Asterisk;
+                token.literal = "*";
+                break;
+            case '/':
+                token.type = TokenType::Slash;
+                token.literal = "/";
+                break;
+            case '%':
+                token.type = TokenType::Percent;
+                token.literal = "%";
+                break;
+            case '(':
+                token.type = TokenType::LParen;
+                token.literal = "(";
+                break;
+            case ')':
+                token.type = TokenType::RParen;
+                token.literal = ")";
                 break;
             case '[':
                 token.type = TokenType::LBracket;

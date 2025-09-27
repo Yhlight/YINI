@@ -40,10 +40,62 @@ namespace YINI
         std::string tokenLiteral() const override { return token.literal; }
     };
 
+    // Base class for all expression nodes
+    struct Expression : public Node {
+        // A dummy method to satisfy the pure virtual function in Node
+        std::string tokenLiteral() const override { return ""; }
+    };
+
     // Represents a key-value pair, e.g., key = "value"
     struct KeyValuePairStatement : public Statement {
         Token token; // The key's token (an Identifier)
-        Token value; // The value's token
+        std::unique_ptr<Expression> value; // The expression on the right side of '='
+
+        std::string tokenLiteral() const override { return token.literal; }
+    };
+
+    // Expression nodes for literal values
+    struct StringLiteral : public Expression {
+        Token token;
+        std::string value;
+        std::string tokenLiteral() const override { return token.literal; }
+    };
+
+    struct IntegerLiteral : public Expression {
+        Token token;
+        int64_t value;
+        std::string tokenLiteral() const override { return token.literal; }
+    };
+
+    struct FloatLiteral : public Expression {
+        Token token;
+        double value;
+        std::string tokenLiteral() const override { return token.literal; }
+    };
+
+    struct BooleanLiteral : public Expression {
+        Token token;
+        bool value;
+        std::string tokenLiteral() const override { return token.literal; }
+    };
+
+    struct InfixExpression : public Expression {
+        std::unique_ptr<Expression> left;
+        Token operator_token; // The operator token, e.g. +
+        std::unique_ptr<Expression> right;
+        std::string tokenLiteral() const override { return operator_token.literal; }
+    };
+
+    struct PrefixExpression : public Expression {
+        Token operator_token; // The prefix token, e.g. -
+        std::unique_ptr<Expression> right;
+        std::string tokenLiteral() const override { return operator_token.literal; }
+    };
+
+    // Represents a quick registration, e.g., += value
+    struct QuickRegisterStatement : public Statement {
+        Token token; // The '+=' token
+        std::unique_ptr<Expression> value;
 
         std::string tokenLiteral() const override { return token.literal; }
     };
