@@ -1,0 +1,36 @@
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+*.cmake
+
+# Build artifacts
+build/
+bin/
+lib/
+*.so
+*.a
+*.dll
+*.exe
+*.o
+
+# IDE specific
+.vscode/
+.idea/
+
+# YMETA files
+*.ymeta
+*.YMETA
+
+# Test executables
+tests/test_runner
+tests/gtest/
+CTestTestfile.cmake
+
+# C# build artifacts
+csharp/bin/
+csharp/obj/
+
+# OS specific
+.DS_Store

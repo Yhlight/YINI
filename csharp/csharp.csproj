@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <Target Name="CopyNativeLibrary" AfterTargets="Build">
+    <Message Text="Copying native library..." Importance="high" />
+    <Copy SourceFiles="/app/build/lib/libyini.so" DestinationFolder="$(TargetDir)" />
+  </Target>
+
+</Project>
