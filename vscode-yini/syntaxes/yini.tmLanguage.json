@@ -1,0 +1,105 @@
+{
+    "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+    "name": "YINI",
+    "scopeName": "source.yini",
+    "patterns": [
+        { "include": "#comments" },
+        { "include": "#sections" },
+        { "include": "#key-value" }
+    ],
+    "repository": {
+        "comments": {
+            "patterns": [
+                {
+                    "name": "comment.line.double-slash.yini",
+                    "match": "//.*"
+                },
+                {
+                    "name": "comment.block.yini",
+                    "begin": "/\\*",
+                    "end": "\\*/"
+                }
+            ]
+        },
+        "sections": {
+            "name": "entity.name.section.yini",
+            "begin": "\\[",
+            "end": "\\]",
+            "beginCaptures": {
+                "0": { "name": "punctuation.definition.section.begin.yini" }
+            },
+            "endCaptures": {
+                "0": { "name": "punctuation.definition.section.end.yini" }
+            },
+            "patterns": [
+                {
+                    "match": "#(define|include)",
+                    "name": "keyword.control.directive.yini"
+                },
+                {
+                    "match": "[a-zA-Z0-9_]+",
+                    "name": "entity.name.section.yini"
+                }
+            ]
+        },
+        "key-value": {
+            "patterns": [
+                {
+                    "name": "meta.key-value.yini",
+                    "match": "^\\s*([a-zA-Z0-9_]+)\\s*(=)\\s*(.*)",
+                    "captures": {
+                        "1": { "name": "variable.parameter.yini" },
+                        "2": { "name": "keyword.operator.assignment.yini" },
+                        "3": { "patterns": [{ "include": "#values" }] }
+                    }
+                },
+                {
+                    "name": "meta.quick-registration.yini",
+                    "match": "^\\s*(\\+=)\\s*(.*)",
+                    "captures": {
+                        "1": { "name": "keyword.operator.assignment.yini" },
+                        "2": { "patterns": [{ "include": "#values" }] }
+                    }
+                }
+            ]
+        },
+        "values": {
+            "patterns": [
+                { "include": "#comments" },
+                {
+                    "name": "string.quoted.double.yini",
+                    "begin": "\"",
+                    "end": "\"",
+                    "patterns": [
+                        {
+                            "name": "constant.character.escape.yini",
+                            "match": "\\\\."
+                        }
+                    ]
+                },
+                {
+                    "name": "constant.numeric.yini",
+                    "match": "\\b-?[0-9]+(\\.[0-9]+)?\\b"
+                },
+                {
+                    "name": "constant.language.boolean.yini",
+                    "match": "\\b(true|false)\\b"
+                },
+                {
+                    "name": "meta.array.yini",
+                    "begin": "\\[",
+                    "end": "\\]",
+                    "beginCaptures": { "0": { "name": "punctuation.definition.array.begin.yini" } },
+                    "endCaptures": { "0": { "name": "punctuation.definition.array.end.yini" } },
+                    "patterns": [
+                        { "include": "#values" },
+                        {
+                            "name": "punctuation.separator.array.yini",
+                            "match": ","
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+}

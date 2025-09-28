@@ -1,0 +1,22 @@
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+*.cmake
+
+# Build artifacts
+build/
+bin/
+lib/
+*.a
+*.so
+*.dll
+*.exe
+
+# VSCode
+.vscode/
+
+# YMETA files
+*.ymeta
+*.YMETA
