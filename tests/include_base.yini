@@ -1,0 +1,9 @@
+[#define]
+base_macro = "base"
+
+[Shared]
+key1 = "from_base"
+key2 = "base_value"
+
+[BaseOnly]
+base_key = true

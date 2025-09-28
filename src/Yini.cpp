@@ -12,8 +12,8 @@ YINI_API YiniDocumentHandle* yini_parse(const char* content)
 {
     if (!content) return nullptr;
     auto* handle = new YiniDocumentHandle();
-    YINI::Parser parser(content);
-    handle->doc = parser.parse();
+    YINI::Parser parser(content, handle->doc, ".");
+    parser.parse();
     return handle;
 }
 

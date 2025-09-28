@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Yini")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+d79ac3f29e844e1687f37a22a966424a4b42cd5a")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+af38d9c88e81039c9370a2b8d169352ba608f6d1")]
 [assembly: System.Reflection.AssemblyProductAttribute("Yini")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Yini")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

@@ -6,6 +6,7 @@
 #include <variant>
 #include <map>
 #include <memory>
+#include <algorithm>
 
 namespace YINI
 {
@@ -82,6 +83,93 @@ namespace YINI
         const std::vector<YiniSection>& getSections() const
         {
             return sections;
+        }
+
+    public:
+        void addDefine(const std::string& key, const YiniValue& value)
+        {
+            defines[key] = value;
+        }
+
+        bool getDefine(const std::string& key, YiniValue& value) const
+        {
+            auto it = defines.find(key);
+            if (it != defines.end())
+            {
+                value = it->second;
+                return true;
+            }
+            return false;
+        }
+
+    public:
+        const YiniSection* findSection(const std::string& name) const
+        {
+            auto it = std::find_if(sections.begin(), sections.end(), [&](const YiniSection& s) {
+                return s.name == name;
+            });
+
+            if (it != sections.end())
+            {
+                return &(*it);
+            }
+
+            return nullptr;
+        }
+
+        YiniSection* getOrCreateSection(const std::string& name)
+        {
+            auto it = std::find_if(sections.begin(), sections.end(), [&](const YiniSection& s) {
+                return s.name == name;
+            });
+
+            if (it != sections.end())
+            {
+                return &(*it);
+            }
+            else
+            {
+                sections.push_back({name});
+                return &sections.back();
+            }
+        }
+
+        void merge(const YiniDocument& other)
+        {
+            for (const auto& [key, value] : other.defines)
+            {
+                this->addDefine(key, value);
+            }
+
+            for (const auto& other_section : other.getSections())
+            {
+                if (other_section.name == "#include") continue;
+
+                YiniSection* target_section = getOrCreateSection(other_section.name);
+
+                if (other_section.name == "#define") continue;
+
+                for (const auto& other_pair : other_section.pairs)
+                {
+                    auto it = std::find_if(target_section->pairs.begin(), target_section->pairs.end(),
+                        [&](const YiniKeyValuePair& p) { return p.key == other_pair.key; });
+
+                    if (it != target_section->pairs.end())
+                    {
+                        it->value = other_pair.value;
+                    }
+                    else
+                    {
+                        target_section->pairs.push_back(other_pair);
+                    }
+                }
+
+                target_section->registrationList.insert(
+                    target_section->registrationList.end(),
+                    other_section.registrationList.begin(),
+                    other_section.registrationList.end()
+                );
+            }
         }
 
     private:

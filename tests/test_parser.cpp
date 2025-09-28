@@ -1,12 +1,23 @@
 #include <gtest/gtest.h>
 #include "YINI/YiniData.hpp"
 #include "YINI/Parser.hpp"
+#include <fstream>
+#include <streambuf>
+
+static std::string read_file_content(const std::string& path) {
+    std::ifstream t(path);
+    if (!t.is_open()) return "";
+    std::string str((std::istreambuf_iterator<char>(t)),
+                     std::istreambuf_iterator<char>());
+    return str;
+}
 
 TEST(ParserTest, ParseSimpleSection)
 {
     const std::string input = "[TestSection]\nkey = \"value\"";
-    YINI::Parser parser(input);
-    YINI::YiniDocument doc = parser.parse();
+    YINI::YiniDocument doc;
+    YINI::Parser parser(input, doc);
+    parser.parse();
 
     ASSERT_EQ(doc.getSections().size(), 1);
     const auto& section = doc.getSections()[0];
@@ -17,6 +28,82 @@ TEST(ParserTest, ParseSimpleSection)
     EXPECT_EQ(std::get<std::string>(pair.value.data), "value");
 }
 
+TEST(ParserTest, ParseArithmetic)
+{
+    const std::string input =
+        "[#define]\n"
+        "base_val = 10\n"
+        "factor = 2\n"
+        "[Data]\n"
+        "val1 = 5 + @base_val\n"
+        "val2 = @base_val * (3 + @factor)\n"
+        "val3 = 100 / 4 - 5\n"
+        "val4 = 3.5 * 2\n";
+    YINI::YiniDocument doc;
+    YINI::Parser parser(input, doc);
+    parser.parse();
+
+    const auto* data_section = doc.findSection("Data");
+    ASSERT_NE(data_section, nullptr);
+
+    auto p1_it = std::find_if(data_section->pairs.begin(), data_section->pairs.end(), [](const auto& p){ return p.key == "val1"; });
+    ASSERT_NE(p1_it, data_section->pairs.end());
+    EXPECT_EQ(std::get<int>(p1_it->value.data), 15);
+
+    auto p2_it = std::find_if(data_section->pairs.begin(), data_section->pairs.end(), [](const auto& p){ return p.key == "val2"; });
+    ASSERT_NE(p2_it, data_section->pairs.end());
+    EXPECT_EQ(std::get<int>(p2_it->value.data), 50);
+
+    auto p3_it = std::find_if(data_section->pairs.begin(), data_section->pairs.end(), [](const auto& p){ return p.key == "val3"; });
+    ASSERT_NE(p3_it, data_section->pairs.end());
+    EXPECT_EQ(std::get<int>(p3_it->value.data), 20);
+
+    auto p4_it = std::find_if(data_section->pairs.begin(), data_section->pairs.end(), [](const auto& p){ return p.key == "val4"; });
+    ASSERT_NE(p4_it, data_section->pairs.end());
+    EXPECT_EQ(std::get<double>(p4_it->value.data), 7.0);
+}
+
+TEST(ParserTest, ParseFileIncludes)
+{
+    const std::string input = read_file_content("../../tests/include_test.yini");
+    ASSERT_FALSE(input.empty());
+
+    YINI::YiniDocument doc;
+    YINI::Parser parser(input, doc, "../../tests");
+    parser.parse();
+
+    ASSERT_EQ(doc.getSections().size(), 3); // Shared, BaseOnly, MainOnly
+
+    YINI::YiniValue val;
+    ASSERT_TRUE(doc.getDefine("base_macro", val));
+    EXPECT_EQ(std::get<std::string>(val.data), "base");
+
+    const auto* shared_section = doc.findSection("Shared");
+    ASSERT_NE(shared_section, nullptr);
+    ASSERT_EQ(shared_section->pairs.size(), 3);
+
+    auto key1_it = std::find_if(shared_section->pairs.begin(), shared_section->pairs.end(), [](const auto& p){ return p.key == "key1"; });
+    ASSERT_NE(key1_it, shared_section->pairs.end());
+    EXPECT_EQ(std::get<std::string>(key1_it->value.data), "from_base");
+
+    auto key2_it = std::find_if(shared_section->pairs.begin(), shared_section->pairs.end(), [](const auto& p){ return p.key == "key2"; });
+    ASSERT_NE(key2_it, shared_section->pairs.end());
+    EXPECT_EQ(std::get<std::string>(key2_it->value.data), "overridden");
+
+    auto key3_it = std::find_if(shared_section->pairs.begin(), shared_section->pairs.end(), [](const auto& p){ return p.key == "key3"; });
+    ASSERT_NE(key3_it, shared_section->pairs.end());
+    EXPECT_EQ(std::get<std::string>(key3_it->value.data), "from_main");
+
+    ASSERT_NE(doc.findSection("BaseOnly"), nullptr);
+
+    const auto* main_only_section = doc.findSection("MainOnly");
+    ASSERT_NE(main_only_section, nullptr);
+    ASSERT_EQ(main_only_section->pairs.size(), 2);
+    auto ref_it = std::find_if(main_only_section->pairs.begin(), main_only_section->pairs.end(), [](const auto& p){ return p.key == "ref"; });
+    ASSERT_NE(ref_it, main_only_section->pairs.end());
+    EXPECT_EQ(std::get<std::string>(ref_it->value.data), "base");
+}
+
 TEST(ParserTest, ParseValueTypes)
 {
     const std::string input =
@@ -25,8 +112,9 @@ TEST(ParserTest, ParseValueTypes)
         "float = 3.14\n"
         "boolean_true = true\n"
         "boolean_false = false\n";
-    YINI::Parser parser(input);
-    YINI::YiniDocument doc = parser.parse();
+    YINI::YiniDocument doc;
+    YINI::Parser parser(input, doc);
+    parser.parse();
 
     ASSERT_EQ(doc.getSections().size(), 1);
     const auto& section = doc.getSections()[0];
@@ -55,8 +143,9 @@ TEST(ParserTest, ParseArrayValue)
     const std::string input =
         "[Arrays]\n"
         "int_array = [1, 2, 3]\n";
-    YINI::Parser parser(input);
-    YINI::YiniDocument doc = parser.parse();
+    YINI::YiniDocument doc;
+    YINI::Parser parser(input, doc);
+    parser.parse();
 
     ASSERT_EQ(doc.getSections().size(), 1);
     const auto& section = doc.getSections()[0];
@@ -76,8 +165,9 @@ TEST(ParserTest, ParseArrayValue)
 TEST(ParserTest, ParseSectionInheritance)
 {
     const std::string input = "[Derived] : Base1, Base2";
-    YINI::Parser parser(input);
-    YINI::YiniDocument doc = parser.parse();
+    YINI::YiniDocument doc;
+    YINI::Parser parser(input, doc);
+    parser.parse();
 
     ASSERT_EQ(doc.getSections().size(), 1);
     const auto& section = doc.getSections()[0];
@@ -94,8 +184,9 @@ TEST(ParserTest, ParseQuickRegistration)
         "+= 1\n"
         "+= \"two\"\n"
         "+= true\n";
-    YINI::Parser parser(input);
-    YINI::YiniDocument doc = parser.parse();
+    YINI::YiniDocument doc;
+    YINI::Parser parser(input, doc);
+    parser.parse();
 
     ASSERT_EQ(doc.getSections().size(), 1);
     const auto& section = doc.getSections()[0];
@@ -106,14 +197,36 @@ TEST(ParserTest, ParseQuickRegistration)
     EXPECT_EQ(std::get<bool>(section.registrationList[2].data), true);
 }
 
+TEST(ParserTest, ParseMacros)
+{
+    const std::string input =
+        "[#define]\n"
+        "name = \"YINI\"\n"
+        "[UI]\n"
+        "UIName = @name\n";
+    YINI::YiniDocument doc;
+    YINI::Parser parser(input, doc);
+    parser.parse();
+
+    ASSERT_EQ(doc.getSections().size(), 1);
+
+    const auto* ui_section = doc.findSection("UI");
+    ASSERT_NE(ui_section, nullptr);
+    ASSERT_EQ(ui_section->pairs.size(), 1);
+    const auto& pair = ui_section->pairs[0];
+    EXPECT_EQ(pair.key, "UIName");
+    EXPECT_EQ(std::get<std::string>(pair.value.data), "YINI");
+}
+
 TEST(ParserTest, ParseSectionWithComments)
 {
     const std::string input =
         "// This is a whole line comment\n"
         "[TestSection] // This is an inline comment\n"
         "key = \"value\"\n";
-    YINI::Parser parser(input);
-    YINI::YiniDocument doc = parser.parse();
+    YINI::YiniDocument doc;
+    YINI::Parser parser(input, doc);
+    parser.parse();
 
     ASSERT_EQ(doc.getSections().size(), 1);
     const auto& section = doc.getSections()[0];

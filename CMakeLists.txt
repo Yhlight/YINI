@@ -13,3 +13,8 @@ add_subdirectory(src)
 
 enable_testing()
 add_subdirectory(tests)
+
+add_executable(yini-cli
+    src/CLI/main.cpp
+)
+target_link_libraries(yini-cli PRIVATE yini)

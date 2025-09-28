@@ -65,6 +65,31 @@ namespace YINI
             return {TokenType::PlusEquals, "+=", m_line, m_column - 2};
         }
 
+        if (current_char == '@')
+        {
+            m_position++;
+            m_column++;
+            return {TokenType::At, "@", m_line, m_column - 1};
+        }
+
+        switch (current_char)
+        {
+            case '+': m_position++; m_column++; return {TokenType::Plus, "+", m_line, m_column - 1};
+            case '-': m_position++; m_column++; return {TokenType::Minus, "-", m_line, m_column - 1};
+            case '*': m_position++; m_column++; return {TokenType::Star, "*", m_line, m_column - 1};
+            case '/': m_position++; m_column++; return {TokenType::Slash, "/", m_line, m_column - 1};
+            case '%': m_position++; m_column++; return {TokenType::Percent, "%", m_line, m_column - 1};
+            case '(': m_position++; m_column++; return {TokenType::LeftParen, "(", m_line, m_column - 1};
+            case ')': m_position++; m_column++; return {TokenType::RightParen, ")", m_line, m_column - 1};
+        }
+
+        if (current_char == '#')
+        {
+            m_position++;
+            m_column++;
+            return {TokenType::Hash, "#", m_line, m_column - 1};
+        }
+
         if (current_char == '"')
         {
             return string();
@@ -159,7 +184,7 @@ namespace YINI
     {
         std::string value;
         int start_col = m_column;
-        while (m_position < m_input.length() && (isalnum(m_input[m_position]) || m_input[m_position] == '_'))
+        while (m_position < m_input.length() && (isalnum(m_input[m_position]) || m_input[m_position] == '_' || m_input[m_position] == '.'))
         {
             value += m_input[m_position];
             m_position++;

@@ -11,18 +11,23 @@ namespace YINI
     class Parser
     {
     public:
-        Parser(const std::string& content);
-        YiniDocument parse();
+        Parser(const std::string& content, YiniDocument& document, const std::string& basePath = ".");
+        void parse();
 
     private:
-        void parseSection(YiniSection& section);
+        void parseSection();
         void parseKeyValuePair(YiniSection& section);
         void parseQuickRegistration(YiniSection& section);
         YiniValue parseValue();
         std::unique_ptr<YiniArray> parseArray();
+        YiniValue parseExpression();
+        YiniValue parseTerm();
+        YiniValue parseFactor();
 
         Lexer m_lexer;
         Token m_currentToken;
+        YiniDocument& m_document;
+        std::string m_basePath;
         void nextToken();
     };
 }
