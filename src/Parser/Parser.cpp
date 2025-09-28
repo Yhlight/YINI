@@ -138,13 +138,23 @@ namespace YINI
     {
         std::unique_ptr<Expr> expr = primary();
 
-        while (true) {
-            if (match({TokenType::LParen})) {
+        if (match({TokenType::LParen})) {
+            LiteralExpr* callee = dynamic_cast<LiteralExpr*>(expr.get());
+            if (callee && (callee->token.lexeme == "Dyna" || callee->token.lexeme == "dyna"))
+            {
+                std::unique_ptr<Expr> value = expression();
+                consume(TokenType::RParen, "Expect ')' after Dyna value.");
+                return std::make_unique<DynaExpr>(std::move(value));
+            }
+            else
+            {
                 expr = finishCall(std::move(expr));
-            } else {
-                break;
+                while (match({TokenType::LParen})) {
+                    expr = finishCall(std::move(expr));
+                }
             }
         }
+
         return expr;
     }
 
@@ -180,9 +190,30 @@ namespace YINI
             return array();
         }
 
+        if (match({TokenType::LBrace}))
+        {
+            return map();
+        }
+
         // If no expression matches, it's an error.
         error(peek(), "Expect expression.");
         return nullptr;
+    }
+
+    std::unique_ptr<Expr> Parser::map()
+    {
+        std::vector<std::unique_ptr<KeyValuePairExpr>> pairs;
+        if (!check(TokenType::RBrace))
+        {
+            do {
+                Token key = consume(TokenType::Identifier, "Expect key in map element.");
+                consume(TokenType::Colon, "Expect ':' after key in map element.");
+                std::unique_ptr<Expr> value = expression();
+                pairs.push_back(std::make_unique<KeyValuePairExpr>(key, std::move(value)));
+            } while (match({TokenType::Comma}));
+        }
+        consume(TokenType::RBrace, "Expect '}' to close map.");
+        return std::make_unique<MapExpr>(std::move(pairs));
     }
 
     std::unique_ptr<Expr> Parser::array()

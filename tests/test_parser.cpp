@@ -206,6 +206,59 @@ TEST(ParserTest, TestIncludeSection)
     EXPECT_EQ(std::get<std::string>(val2->token.literal), "file2.yini");
 }
 
+TEST(ParserTest, TestMapExpression)
+{
+    std::string source = "data = {key1: \"value1\", key2: 2}";
+    YINI::Lexer lexer(source);
+    std::vector<YINI::Token> tokens = lexer.scanTokens();
+    YINI::Parser parser(tokens);
+    std::vector<std::unique_ptr<YINI::Stmt>> ast = parser.parse();
+
+    ASSERT_EQ(ast.size(), 1);
+    YINI::KeyValueStmt* kv = dynamic_cast<YINI::KeyValueStmt*>(ast[0].get());
+    ASSERT_NE(kv, nullptr);
+
+    YINI::MapExpr* map_expr = dynamic_cast<YINI::MapExpr*>(kv->value.get());
+    ASSERT_NE(map_expr, nullptr);
+    ASSERT_EQ(map_expr->pairs.size(), 2);
+
+    // Check first pair
+    YINI::KeyValuePairExpr* pair1 = map_expr->pairs[0].get();
+    ASSERT_NE(pair1, nullptr);
+    EXPECT_EQ(pair1->key.lexeme, "key1");
+    YINI::LiteralExpr* val1 = dynamic_cast<YINI::LiteralExpr*>(pair1->value.get());
+    ASSERT_NE(val1, nullptr);
+    EXPECT_EQ(std::get<std::string>(val1->token.literal), "value1");
+
+    // Check second pair
+    YINI::KeyValuePairExpr* pair2 = map_expr->pairs[1].get();
+    ASSERT_NE(pair2, nullptr);
+    EXPECT_EQ(pair2->key.lexeme, "key2");
+    YINI::LiteralExpr* val2 = dynamic_cast<YINI::LiteralExpr*>(pair2->value.get());
+    ASSERT_NE(val2, nullptr);
+    EXPECT_EQ(std::get<long long>(val2->token.literal), 2);
+}
+
+TEST(ParserTest, TestDynaExpression)
+{
+    std::string source = "key = Dyna(123)";
+    YINI::Lexer lexer(source);
+    std::vector<YINI::Token> tokens = lexer.scanTokens();
+    YINI::Parser parser(tokens);
+    std::vector<std::unique_ptr<YINI::Stmt>> ast = parser.parse();
+
+    ASSERT_EQ(ast.size(), 1);
+    YINI::KeyValueStmt* kv = dynamic_cast<YINI::KeyValueStmt*>(ast[0].get());
+    ASSERT_NE(kv, nullptr);
+
+    YINI::DynaExpr* dyna_expr = dynamic_cast<YINI::DynaExpr*>(kv->value.get());
+    ASSERT_NE(dyna_expr, nullptr);
+
+    YINI::LiteralExpr* literal = dynamic_cast<YINI::LiteralExpr*>(dyna_expr->expression.get());
+    ASSERT_NE(literal, nullptr);
+    EXPECT_EQ(std::get<long long>(literal->token.literal), 123);
+}
+
 TEST(ParserTest, TestRegisterStatement)
 {
     std::string source = "[Reg]\n+= value1\n+= 2";

@@ -16,6 +16,9 @@ namespace YINI
     struct ArrayExpr;
     struct CallExpr;
     struct RegisterStmt;
+    struct KeyValuePairExpr;
+    struct DynaExpr;
+    struct MapExpr;
 
     // Visitor pattern for expressions
     class ExprVisitor
@@ -27,6 +30,9 @@ namespace YINI
         virtual void visit(const GroupingExpr& expr) = 0;
         virtual void visit(const ArrayExpr& expr) = 0;
         virtual void visit(const CallExpr& expr) = 0;
+        virtual void visit(const KeyValuePairExpr& expr) = 0;
+        virtual void visit(const MapExpr& expr) = 0;
+        virtual void visit(const DynaExpr& expr) = 0;
     };
 
     // Base class for all expression nodes
@@ -81,6 +87,34 @@ namespace YINI
         std::unique_ptr<Expr> callee;
         Token paren; // To store the location of the '(', for error reporting
         std::vector<std::unique_ptr<Expr>> arguments;
+    };
+
+    // Key-value pair expression for map literals
+    struct KeyValuePairExpr : Expr
+    {
+        KeyValuePairExpr(Token key, std::unique_ptr<Expr> value)
+            : key(key), value(std::move(value)) {}
+        void accept(ExprVisitor& visitor) const override { visitor.visit(*this); }
+        Token key;
+        std::unique_ptr<Expr> value;
+    };
+
+    // Map expression
+    struct MapExpr : Expr
+    {
+        MapExpr(std::vector<std::unique_ptr<KeyValuePairExpr>> pairs)
+            : pairs(std::move(pairs)) {}
+        void accept(ExprVisitor& visitor) const override { visitor.visit(*this); }
+        std::vector<std::unique_ptr<KeyValuePairExpr>> pairs;
+    };
+
+    // Dyna expression for dynamic values
+    struct DynaExpr : Expr
+    {
+        DynaExpr(std::unique_ptr<Expr> expression)
+            : expression(std::move(expression)) {}
+        void accept(ExprVisitor& visitor) const override { visitor.visit(*this); }
+        std::unique_ptr<Expr> expression;
     };
 
     // Visitor pattern for statements

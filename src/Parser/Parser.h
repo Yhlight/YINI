@@ -39,6 +39,7 @@ namespace YINI
         std::unique_ptr<Expr> call();
         std::unique_ptr<Expr> primary();
         std::unique_ptr<Expr> array();
+        std::unique_ptr<Expr> map();
         std::unique_ptr<Expr> finishCall(std::unique_ptr<Expr> callee);
 
         void error(const Token& token, const std::string& message);

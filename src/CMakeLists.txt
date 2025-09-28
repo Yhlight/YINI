@@ -6,6 +6,7 @@ target_sources(yini
     PRIVATE
         Lexer/Lexer.cpp
         Parser/Parser.cpp
+        Parser/AstSerializer.cpp
         yini_c_api.cpp
 )
 
@@ -18,6 +19,8 @@ target_include_directories(yini
         ${CMAKE_CURRENT_SOURCE_DIR}/Lexer
         ${CMAKE_CURRENT_SOURCE_DIR}/Parser
 )
+
+target_link_libraries(yini PUBLIC nlohmann_json::nlohmann_json)
 
 # CLI executable
 add_executable(yini-cli CLI/main.cpp)
