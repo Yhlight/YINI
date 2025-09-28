@@ -10,6 +10,8 @@ FetchContent_MakeAvailable(googletest)
 
 add_executable(yini_tests
     test_parser.cpp
+    test_serializer.cpp
+    test_manager.cpp
 )
 
 target_link_libraries(yini_tests yini gtest_main)

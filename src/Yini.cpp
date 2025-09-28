@@ -106,6 +106,10 @@ YINI_API YiniType yini_value_get_type(const YiniValueHandle* value_handle)
     if (std::holds_alternative<bool>(value->data)) return YINI_TYPE_BOOL;
     if (std::holds_alternative<std::unique_ptr<YINI::YiniArray>>(value->data)) return YINI_TYPE_ARRAY;
     if (std::holds_alternative<std::unique_ptr<YINI::YiniMap>>(value->data)) return YINI_TYPE_MAP;
+    if (std::holds_alternative<std::unique_ptr<YINI::YiniDynaValue>>(value->data)) return YINI_TYPE_DYNA;
+    if (std::holds_alternative<std::unique_ptr<YINI::YiniCoord>>(value->data)) return YINI_TYPE_COORD;
+    if (std::holds_alternative<std::unique_ptr<YINI::YiniColor>>(value->data)) return YINI_TYPE_COLOR;
+    if (std::holds_alternative<std::unique_ptr<YINI::YiniPath>>(value->data)) return YINI_TYPE_PATH;
     return YINI_TYPE_NONE;
 }
 
@@ -121,7 +125,7 @@ YINI_API int yini_value_get_int(const YiniValueHandle* value_handle)
 {
     if (!value_handle) return 0;
     auto* value = reinterpret_cast<const YINI::YiniValue*>(value_handle);
-    if (!std::holds_alternative<int>(value->data)) return 0; // Or throw error? For now, return 0.
+    if (!std::holds_alternative<int>(value->data)) return 0;
     return std::get<int>(value->data);
 }
 
@@ -139,6 +143,62 @@ YINI_API bool yini_value_get_bool(const YiniValueHandle* value_handle)
     auto* value = reinterpret_cast<const YINI::YiniValue*>(value_handle);
     if (!std::holds_alternative<bool>(value->data)) return false;
     return std::get<bool>(value->data);
+}
+
+YINI_API void yini_value_get_coord(const YiniValueHandle* value_handle, double* x, double* y, double* z, bool* is_3d)
+{
+    if (!value_handle || !x || !y || !z || !is_3d) return;
+    auto* value = reinterpret_cast<const YINI::YiniValue*>(value_handle);
+    if (!std::holds_alternative<std::unique_ptr<YINI::YiniCoord>>(value->data)) return;
+    const auto& coord = std::get<std::unique_ptr<YINI::YiniCoord>>(value->data);
+    *x = coord->x;
+    *y = coord->y;
+    *z = coord->z;
+    *is_3d = coord->is_3d;
+}
+
+YINI_API void yini_value_get_color(const YiniValueHandle* value_handle, unsigned char* r, unsigned char* g, unsigned char* b)
+{
+    if (!value_handle || !r || !g || !b) return;
+    auto* value = reinterpret_cast<const YINI::YiniValue*>(value_handle);
+    if (!std::holds_alternative<std::unique_ptr<YINI::YiniColor>>(value->data)) return;
+    const auto& color = std::get<std::unique_ptr<YINI::YiniColor>>(value->data);
+    *r = color->r;
+    *g = color->g;
+    *b = color->b;
+}
+
+YINI_API int yini_value_get_path(const YiniValueHandle* value_handle, char* buffer, int buffer_size)
+{
+    if (!value_handle) return 0;
+    auto* value = reinterpret_cast<const YINI::YiniValue*>(value_handle);
+    if (!std::holds_alternative<std::unique_ptr<YINI::YiniPath>>(value->data)) return 0;
+    const auto& path = std::get<std::unique_ptr<YINI::YiniPath>>(value->data);
+    return safe_strncpy(buffer, path->path_value, buffer_size);
+}
+
+YINI_API int yini_array_get_size(const YiniValueHandle* value_handle)
+{
+    if (!value_handle) return 0;
+    auto* value = reinterpret_cast<const YINI::YiniValue*>(value_handle);
+    if (!std::holds_alternative<std::unique_ptr<YINI::YiniArray>>(value->data)) return 0;
+
+    const auto& arr_ptr = std::get<std::unique_ptr<YINI::YiniArray>>(value->data);
+    if (!arr_ptr) return 0;
+
+    return arr_ptr->elements.size();
+}
+
+YINI_API const YiniValueHandle* yini_array_get_value_by_index(const YiniValueHandle* value_handle, int index)
+{
+    if (!value_handle) return nullptr;
+    auto* value = reinterpret_cast<const YINI::YiniValue*>(value_handle);
+    if (!std::holds_alternative<std::unique_ptr<YINI::YiniArray>>(value->data)) return nullptr;
+
+    const auto& arr_ptr = std::get<std::unique_ptr<YINI::YiniArray>>(value->data);
+    if (!arr_ptr || index < 0 || index >= arr_ptr->elements.size()) return nullptr;
+
+    return reinterpret_cast<const YiniValueHandle*>(&arr_ptr->elements[index]);
 }
 
 } // extern "C"

@@ -29,6 +29,67 @@ TEST(ParserTest, ParseSimpleSection)
     EXPECT_EQ(std::get<std::string>(pair.value.data), "value");
 }
 
+TEST(ParserTest, ParseCustomValueTypes)
+{
+    const std::string input = R"([CustomTypes]
+pos2d = Coord(1.5, 2.5)
+pos3d = Coord(1, 2, 3)
+color_hex = #FF00FF
+color_func = Color(255, 128, 0)
+asset_path = Path(characters/player.fbx)
+)";
+    YINI::YiniDocument doc;
+    YINI::Parser parser(input, doc);
+    parser.parse();
+
+    const auto* section = doc.findSection("CustomTypes");
+    ASSERT_NE(section, nullptr);
+
+    // Test Coord(2D)
+    auto p1_it = std::find_if(section->pairs.begin(), section->pairs.end(), [](const auto& p){ return p.key == "pos2d"; });
+    ASSERT_NE(p1_it, section->pairs.end());
+    auto& coord2d_ptr = std::get<std::unique_ptr<YINI::YiniCoord>>(p1_it->value.data);
+    ASSERT_NE(coord2d_ptr, nullptr);
+    EXPECT_FALSE(coord2d_ptr->is_3d);
+    EXPECT_EQ(coord2d_ptr->x, 1.5);
+    EXPECT_EQ(coord2d_ptr->y, 2.5);
+
+    // Test Coord(3D)
+    auto p2_it = std::find_if(section->pairs.begin(), section->pairs.end(), [](const auto& p){ return p.key == "pos3d"; });
+    ASSERT_NE(p2_it, section->pairs.end());
+    auto& coord3d_ptr = std::get<std::unique_ptr<YINI::YiniCoord>>(p2_it->value.data);
+    ASSERT_NE(coord3d_ptr, nullptr);
+    EXPECT_TRUE(coord3d_ptr->is_3d);
+    EXPECT_EQ(coord3d_ptr->x, 1);
+    EXPECT_EQ(coord3d_ptr->y, 2);
+    EXPECT_EQ(coord3d_ptr->z, 3);
+
+    // Test Color (Hex)
+    auto p3_it = std::find_if(section->pairs.begin(), section->pairs.end(), [](const auto& p){ return p.key == "color_hex"; });
+    ASSERT_NE(p3_it, section->pairs.end());
+    auto& color_hex_ptr = std::get<std::unique_ptr<YINI::YiniColor>>(p3_it->value.data);
+    ASSERT_NE(color_hex_ptr, nullptr);
+    EXPECT_EQ(color_hex_ptr->r, 255);
+    EXPECT_EQ(color_hex_ptr->g, 0);
+    EXPECT_EQ(color_hex_ptr->b, 255);
+
+    // Test Color (Func)
+    auto p4_it = std::find_if(section->pairs.begin(), section->pairs.end(), [](const auto& p){ return p.key == "color_func"; });
+    ASSERT_NE(p4_it, section->pairs.end());
+    auto& color_func_ptr = std::get<std::unique_ptr<YINI::YiniColor>>(p4_it->value.data);
+    ASSERT_NE(color_func_ptr, nullptr);
+    EXPECT_EQ(color_func_ptr->r, 255);
+    EXPECT_EQ(color_func_ptr->g, 128);
+    EXPECT_EQ(color_func_ptr->b, 0);
+
+    // Test Path
+    auto p5_it = std::find_if(section->pairs.begin(), section->pairs.end(), [](const auto& p){ return p.key == "asset_path"; });
+    ASSERT_NE(p5_it, section->pairs.end());
+    auto& path_ptr = std::get<std::unique_ptr<YINI::YiniPath>>(p5_it->value.data);
+    ASSERT_NE(path_ptr, nullptr);
+    EXPECT_EQ(path_ptr->path_value, "characters/player.fbx");
+}
+
 TEST(ParserTest, ParseDynaValue)
 {
     const std::string input = "[Config]\nkey = Dyna(1)";

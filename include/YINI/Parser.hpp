@@ -23,6 +23,9 @@ namespace YINI
         YiniValue parseExpression();
         YiniValue parseTerm();
         YiniValue parseFactor();
+        std::unique_ptr<YiniCoord> parseCoord();
+        std::unique_ptr<YiniColor> parseColor();
+        std::unique_ptr<YiniPath> parsePath();
 
         Lexer m_lexer;
         Token m_currentToken;

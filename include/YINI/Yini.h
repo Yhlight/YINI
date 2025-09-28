@@ -30,7 +30,11 @@ typedef enum {
     YINI_TYPE_DOUBLE,
     YINI_TYPE_BOOL,
     YINI_TYPE_ARRAY,
-    YINI_TYPE_MAP
+    YINI_TYPE_MAP,
+    YINI_TYPE_DYNA,
+    YINI_TYPE_COORD,
+    YINI_TYPE_COLOR,
+    YINI_TYPE_PATH
 } YiniType;
 
 // Document API
@@ -52,6 +56,11 @@ YINI_API int yini_value_get_string(const YiniValueHandle* value_handle, char* bu
 YINI_API int yini_value_get_int(const YiniValueHandle* value_handle);
 YINI_API double yini_value_get_double(const YiniValueHandle* value_handle);
 YINI_API bool yini_value_get_bool(const YiniValueHandle* value_handle);
+YINI_API void yini_value_get_coord(const YiniValueHandle* value_handle, double* x, double* y, double* z, bool* is_3d);
+YINI_API void yini_value_get_color(const YiniValueHandle* value_handle, unsigned char* r, unsigned char* g, unsigned char* b);
+YINI_API int yini_value_get_path(const YiniValueHandle* value_handle, char* buffer, int buffer_size);
+YINI_API int yini_array_get_size(const YiniValueHandle* value_handle);
+YINI_API const YiniValueHandle* yini_array_get_value_by_index(const YiniValueHandle* value_handle, int index);
 
 #ifdef __cplusplus
 }

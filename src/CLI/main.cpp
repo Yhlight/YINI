@@ -1,37 +1,31 @@
 #include <iostream>
 #include <fstream>
 #include <streambuf>
-#include "YINI/Parser.hpp"
+#include <string>
+#include <vector>
+#include <sstream>
+#include "YINI/YiniManager.hpp"
 #include "YINI/YiniException.hpp"
+#include "YINI/Parser.hpp"
 
-static std::string readFile(const std::string& path) {
-    std::ifstream t(path);
-    if (!t.is_open()) {
-        return "";
-    }
-    return std::string((std::istreambuf_iterator<char>(t)),
-                     std::istreambuf_iterator<char>());
+void printHelp() {
+    std::cout << "YINI CLI - Interactive Mode\n";
+    std::cout << "Available commands:\n";
+    std::cout << "  check <filepath>   - Checks the syntax of a .yini file.\n";
+    std::cout << "  compile <filepath> - Compiles a .yini file to .ymeta.\n";
+    std::cout << "  help               - Shows this help message.\n";
+    std::cout << "  exit               - Exits the CLI.\n";
 }
 
-int main(int argc, char* argv[])
-{
-    if (argc != 2)
-    {
-        std::cerr << "Usage: yini-cli <file_path>" << std::endl;
-        return 1;
+void handleCheck(const std::string& filePath) {
+    std::ifstream file(filePath);
+    if (!file.is_open()) {
+        std::cerr << "Error: Could not open file: " << filePath << std::endl;
+        return;
     }
+    std::string content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
 
-    std::string filePath = argv[1];
-    std::string content = readFile(filePath);
-
-    if (content.empty())
-    {
-        std::cerr << "Error: Could not read file or file is empty: " << filePath << std::endl;
-        return 1;
-    }
-
-    try
-    {
+    try {
         YINI::YiniDocument doc;
         std::string basePath = ".";
         size_t last_slash_idx = filePath.rfind('/');
@@ -39,21 +33,60 @@ int main(int argc, char* argv[])
         {
             basePath = filePath.substr(0, last_slash_idx);
         }
-
         YINI::Parser parser(content, doc, basePath);
         parser.parse();
-
-        std::cout << "Syntax check passed for " << filePath << std::endl;
-    }
-    catch (const YINI::YiniException& e)
-    {
+        std::cout << "Syntax OK: " << filePath << std::endl;
+    } catch (const YINI::YiniException& e) {
         std::cerr << "Syntax Error in " << filePath << " [" << e.getLine() << ":" << e.getColumn() << "]: " << e.what() << std::endl;
-        return 1;
-    }
-    catch (const std::exception& e)
-    {
+    } catch (const std::exception& e) {
         std::cerr << "An unexpected error occurred: " << e.what() << std::endl;
-        return 1;
+    }
+}
+
+void handleCompile(const std::string& filePath) {
+    YINI::YiniDocument doc;
+    if (YINI::YiniManager::loadFromFile(filePath, doc)) {
+        std::cout << "Successfully compiled " << filePath << " to .ymeta" << std::endl;
+    } else {
+        std::cerr << "Error: Failed to load or compile " << filePath << ". Check for syntax errors or file access issues." << std::endl;
+    }
+}
+
+int main() {
+    std::string line;
+    printHelp();
+
+    while (true) {
+        std::cout << "> ";
+        std::getline(std::cin, line);
+
+        std::stringstream ss(line);
+        std::string command;
+        ss >> command;
+
+        if (command == "exit") {
+            break;
+        } else if (command == "help") {
+            printHelp();
+        } else if (command == "check") {
+            std::string filePath;
+            ss >> filePath;
+            if (filePath.empty()) {
+                std::cerr << "Usage: check <filepath>" << std::endl;
+            } else {
+                handleCheck(filePath);
+            }
+        } else if (command == "compile") {
+            std::string filePath;
+            ss >> filePath;
+            if (filePath.empty()) {
+                std::cerr << "Usage: compile <filepath>" << std::endl;
+            } else {
+                handleCompile(filePath);
+            }
+        } else if (!command.empty()) {
+            std::cerr << "Unknown command: " << command << ". Type 'help' for a list of commands." << std::endl;
+        }
     }
 
     return 0;

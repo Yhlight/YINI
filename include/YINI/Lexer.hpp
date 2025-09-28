@@ -33,6 +33,7 @@ namespace YINI
         PlusEquals,
         At,
         Hash,
+        HexColor,
         Identifier,
         Unknown
     };

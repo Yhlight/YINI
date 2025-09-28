@@ -3,6 +3,8 @@ add_library(yini SHARED
     Lexer/Lexer.cpp
     Parser/Parser.cpp
     Yini.cpp
+    JsonSerializer.cpp
+    YiniManager.cpp
 )
 
 target_include_directories(yini PUBLIC ../include)

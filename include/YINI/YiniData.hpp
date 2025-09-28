@@ -15,6 +15,9 @@ namespace YINI
     struct YiniArray;
     struct YiniMap;
     struct YiniDynaValue;
+    struct YiniCoord;
+    struct YiniColor;
+    struct YiniPath;
 
     // YiniVariant holds the possible types. Recursive types are held by unique_ptr.
     using YiniVariant = std::variant<
@@ -24,7 +27,10 @@ namespace YINI
         bool,
         std::unique_ptr<YiniArray>,
         std::unique_ptr<YiniMap>,
-        std::unique_ptr<YiniDynaValue>
+        std::unique_ptr<YiniDynaValue>,
+        std::unique_ptr<YiniCoord>,
+        std::unique_ptr<YiniColor>,
+        std::unique_ptr<YiniPath>
     >;
 
     // YiniValue is a wrapper around the variant to enable recursion.
@@ -58,6 +64,19 @@ namespace YINI
     // YiniDynaValue wraps another YiniValue.
     struct YiniDynaValue {
         YiniValue value;
+    };
+
+    struct YiniCoord {
+        double x, y, z;
+        bool is_3d;
+    };
+
+    struct YiniColor {
+        unsigned char r, g, b;
+    };
+
+    struct YiniPath {
+        std::string path_value;
     };
 
     struct YiniKeyValuePair

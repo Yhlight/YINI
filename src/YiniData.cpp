@@ -25,6 +25,15 @@ namespace YINI
                 auto new_dyna = std::make_unique<YiniDynaValue>();
                 new_dyna->value = arg->value; // relies on YiniValue's copy constructor
                 return new_dyna;
+            } else if constexpr (std::is_same_v<T, std::unique_ptr<YiniCoord>>) {
+                if (!arg) return std::unique_ptr<YiniCoord>(nullptr);
+                return std::make_unique<YiniCoord>(*arg);
+            } else if constexpr (std::is_same_v<T, std::unique_ptr<YiniColor>>) {
+                if (!arg) return std::unique_ptr<YiniColor>(nullptr);
+                return std::make_unique<YiniColor>(*arg);
+            } else if constexpr (std::is_same_v<T, std::unique_ptr<YiniPath>>) {
+                if (!arg) return std::unique_ptr<YiniPath>(nullptr);
+                return std::make_unique<YiniPath>(*arg);
             } else {
                 return arg; // For non-pointer types, copy is fine
             }

@@ -85,6 +85,24 @@ namespace YINI
 
         if (current_char == '#')
         {
+            // Check for hex color like #RRGGBB
+            if (m_position + 7 <= m_input.length())
+            {
+                bool is_hex = true;
+                for (int i = 1; i <= 6; ++i) {
+                    if (!isxdigit(m_input[m_position + i])) {
+                        is_hex = false;
+                        break;
+                    }
+                }
+                if (is_hex) {
+                    std::string hex_value = m_input.substr(m_position + 1, 6);
+                    m_position += 7;
+                    m_column += 7;
+                    return {TokenType::HexColor, hex_value, m_line, m_column - 7};
+                }
+            }
+            // Otherwise, it's a directive hash
             m_position++;
             m_column++;
             return {TokenType::Hash, "#", m_line, m_column - 1};

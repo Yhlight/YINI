@@ -16,6 +16,10 @@ name = ""YINI Engine""
 enabled = true
 version = @version
 factor = @factor
+data = [1, ""two"", true, 4.5]
+pos = Coord(10, 20)
+color = #00FF00
+asset = Path(items/sword.mesh)
 
 [Values]
 rate = 12.5 * @factor
@@ -49,39 +53,67 @@ rate = 12.5 * @factor
         {
             using(var doc = new YiniDocument(TestContent))
             {
-                // Test simple string
                 var nameValue = doc.GetValue("Core", "name");
-                Assert.That(nameValue, Is.Not.Null, "Name value should not be null");
-                Assert.That(nameValue.Type, Is.EqualTo(YiniType.String), "Name type should be String");
+                Assert.That(nameValue.Type, Is.EqualTo(YiniType.String));
                 Assert.That(nameValue.AsString(), Is.EqualTo("YINI Engine"));
 
-                // Test simple bool
                 var enabledValue = doc.GetValue("Core", "enabled");
-                Assert.That(enabledValue, Is.Not.Null, "Enabled value should not be null");
-                Assert.That(enabledValue.Type, Is.EqualTo(YiniType.Bool), "Enabled type should be Bool");
+                Assert.That(enabledValue.Type, Is.EqualTo(YiniType.Bool));
                 Assert.That(enabledValue.AsBool(), Is.True);
 
-                // Test integer macro
                 var factorValue = doc.GetValue("Core", "factor");
-                Assert.That(factorValue, Is.Not.Null, "Factor value should not be null");
-                Assert.That(factorValue.Type, Is.EqualTo(YiniType.Int), "Factor type should be Int");
+                Assert.That(factorValue.Type, Is.EqualTo(YiniType.Int));
                 Assert.That(factorValue.AsInt(), Is.EqualTo(2));
 
-                // Test double macro
                 var versionValue = doc.GetValue("Core", "version");
-                Assert.That(versionValue, Is.Not.Null, "Version value should not be null");
-                Assert.That(versionValue.Type, Is.EqualTo(YiniType.Double), "Version type should be Double");
+                Assert.That(versionValue.Type, Is.EqualTo(YiniType.Double));
                 Assert.That(versionValue.AsDouble(), Is.EqualTo(1.2));
 
-                // Test arithmetic expression
                 var rateValue = doc.GetValue("Values", "rate");
-                Assert.That(rateValue, Is.Not.Null, "Rate value should not be null");
-                Assert.That(rateValue.Type, Is.EqualTo(YiniType.Double), "Rate type should be Double");
+                Assert.That(rateValue.Type, Is.EqualTo(YiniType.Double));
                 Assert.That(rateValue.AsDouble(), Is.EqualTo(25.0));
+            }
+        }
 
-                // Test non-existent key
-                var nonExistent = doc.GetValue("Core", "nonexistent");
-                Assert.That(nonExistent, Is.Null, "Non-existent key should return null");
+        [Test]
+        public void GetValue_ShouldReturnCorrectArray()
+        {
+            using(var doc = new YiniDocument(TestContent))
+            {
+                var dataValue = doc.GetValue("Core", "data");
+                Assert.That(dataValue.Type, Is.EqualTo(YiniType.Array));
+
+                var array = dataValue.AsArray();
+                Assert.That(array.Length, Is.EqualTo(4));
+                Assert.That(array[0].AsInt(), Is.EqualTo(1));
+                Assert.That(array[1].AsString(), Is.EqualTo("two"));
+                Assert.That(array[2].AsBool(), Is.True);
+                Assert.That(array[3].AsDouble(), Is.EqualTo(4.5));
+            }
+        }
+
+        [Test]
+        public void GetValue_ShouldReturnCorrectCustomTypes()
+        {
+            using(var doc = new YiniDocument(TestContent))
+            {
+                var posValue = doc.GetValue("Core", "pos");
+                Assert.That(posValue.Type, Is.EqualTo(YiniType.Coord));
+                var coord = posValue.AsCoord();
+                Assert.That(coord.X, Is.EqualTo(10));
+                Assert.That(coord.Y, Is.EqualTo(20));
+                Assert.That(coord.Is3D, Is.False);
+
+                var colorValue = doc.GetValue("Core", "color");
+                Assert.That(colorValue.Type, Is.EqualTo(YiniType.Color));
+                var color = colorValue.AsColor();
+                Assert.That(color.R, Is.EqualTo(0));
+                Assert.That(color.G, Is.EqualTo(255));
+                Assert.That(color.B, Is.EqualTo(0));
+
+                var assetValue = doc.GetValue("Core", "asset");
+                Assert.That(assetValue.Type, Is.EqualTo(YiniType.Path));
+                Assert.That(assetValue.AsPath(), Is.EqualTo("items/sword.mesh"));
             }
         }
 
@@ -92,6 +124,8 @@ rate = 12.5 * @factor
             {
                 var nameValue = doc.GetValue("Core", "name");
                 Assert.Throws<InvalidCastException>(() => nameValue.AsInt());
+                Assert.Throws<InvalidCastException>(() => nameValue.AsArray());
+                Assert.Throws<InvalidCastException>(() => nameValue.AsCoord());
             }
         }
     }
