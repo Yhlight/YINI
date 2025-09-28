@@ -9,6 +9,10 @@
     "categories": [
         "Programming Languages"
     ],
+    "activationEvents": [
+        "onLanguage:yini"
+    ],
+    "main": "./extension.js",
     "contributes": {
         "languages": [{
             "id": "yini",
@@ -20,6 +24,16 @@
             "language": "yini",
             "scopeName": "source.yini",
             "path": "./syntaxes/yini.tmLanguage.json"
-        }]
+        }],
+        "configuration": {
+            "title": "YINI",
+            "properties": {
+                "yini.cli.path": {
+                    "type": "string",
+                    "default": "",
+                    "description": "Specifies the absolute path to the yini-cli executable for syntax checking."
+                }
+            }
+        }
     }
 }

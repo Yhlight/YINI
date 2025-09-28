@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 #include "YINI/YiniData.hpp"
 #include "YINI/Parser.hpp"
+#include "YINI/YiniException.hpp"
 #include <fstream>
 #include <streambuf>
 
@@ -26,6 +27,48 @@ TEST(ParserTest, ParseSimpleSection)
     const auto& pair = section.pairs[0];
     EXPECT_EQ(pair.key, "key");
     EXPECT_EQ(std::get<std::string>(pair.value.data), "value");
+}
+
+TEST(ParserTest, ParseDynaValue)
+{
+    const std::string input = "[Config]\nkey = Dyna(1)";
+    YINI::YiniDocument doc;
+    YINI::Parser parser(input, doc);
+    parser.parse();
+
+    const auto* config_section = doc.findSection("Config");
+    ASSERT_NE(config_section, nullptr);
+    ASSERT_EQ(config_section->pairs.size(), 1);
+
+    const auto& pair = config_section->pairs[0];
+    EXPECT_EQ(pair.key, "key");
+
+    auto& dyna_ptr = std::get<std::unique_ptr<YINI::YiniDynaValue>>(pair.value.data);
+    ASSERT_NE(dyna_ptr, nullptr);
+    EXPECT_EQ(std::get<int>(dyna_ptr->value.data), 1);
+}
+
+TEST(ParserTest, ThrowOnUnclosedSection)
+{
+    const std::string input = "[TestSection";
+    YINI::YiniDocument doc;
+    YINI::Parser parser(input, doc);
+
+    try
+    {
+        parser.parse();
+        FAIL() << "Expected YINI::YiniException";
+    }
+    catch(const YINI::YiniException& e)
+    {
+        EXPECT_EQ(e.getLine(), 1);
+        EXPECT_EQ(e.getColumn(), 13);
+        EXPECT_STREQ("Expected ']' to close section header.", e.what());
+    }
+    catch(...)
+    {
+        FAIL() << "Expected YINI::YiniException";
+    }
 }
 
 TEST(ParserTest, ParseArithmetic)
@@ -164,7 +207,7 @@ TEST(ParserTest, ParseArrayValue)
 
 TEST(ParserTest, ParseSectionInheritance)
 {
-    const std::string input = "[Derived] : Base1, Base2";
+    const std::string input = "[Derived : Base1, Base2]";
     YINI::YiniDocument doc;
     YINI::Parser parser(input, doc);
     parser.parse();

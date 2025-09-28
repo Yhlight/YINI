@@ -2,6 +2,7 @@
 #include <fstream>
 #include <streambuf>
 #include "YINI/Parser.hpp"
+#include "YINI/YiniException.hpp"
 
 static std::string readFile(const std::string& path) {
     std::ifstream t(path);
@@ -32,7 +33,6 @@ int main(int argc, char* argv[])
     try
     {
         YINI::YiniDocument doc;
-        // Assuming the file path can be used as the base path for includes.
         std::string basePath = ".";
         size_t last_slash_idx = filePath.rfind('/');
         if (std::string::npos != last_slash_idx)
@@ -44,11 +44,15 @@ int main(int argc, char* argv[])
         parser.parse();
 
         std::cout << "Syntax check passed for " << filePath << std::endl;
-        // Here we could add logic to print the parsed document or compile to YMETA
+    }
+    catch (const YINI::YiniException& e)
+    {
+        std::cerr << "Syntax Error in " << filePath << " [" << e.getLine() << ":" << e.getColumn() << "]: " << e.what() << std::endl;
+        return 1;
     }
     catch (const std::exception& e)
     {
-        std::cerr << "Syntax error: " << e.what() << std::endl;
+        std::cerr << "An unexpected error occurred: " << e.what() << std::endl;
         return 1;
     }
 

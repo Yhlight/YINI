@@ -1,4 +1,5 @@
 #include "YINI/Parser.hpp"
+#include "YINI/YiniException.hpp"
 #include <stdexcept>
 #include <fstream>
 #include <streambuf>
@@ -76,6 +77,10 @@ namespace YINI
             }
             else
             {
+                if (m_currentToken.type != TokenType::Eof)
+                {
+                     throw YiniException("Unexpected token at root level.", m_currentToken.line, m_currentToken.column);
+                }
                 nextToken();
             }
         }
@@ -83,14 +88,14 @@ namespace YINI
 
     void Parser::parseSection()
     {
-        nextToken();
+        nextToken(); // Consume '['
 
         bool is_define_section = false;
         bool is_include_section = false;
 
         if (m_currentToken.type == TokenType::Hash)
         {
-            nextToken();
+            nextToken(); // Consume '#'
             if (m_currentToken.type == TokenType::Identifier && m_currentToken.value == "define")
             {
                 is_define_section = true;
@@ -105,7 +110,10 @@ namespace YINI
 
         if (is_define_section)
         {
-            if (m_currentToken.type == TokenType::RightBracket) { nextToken(); }
+            if (m_currentToken.type != TokenType::RightBracket) {
+                 throw YiniException("Expected ']' to close #define directive.", m_currentToken.line, m_currentToken.column);
+            }
+            nextToken(); // Consume ']'
             while (m_currentToken.type != TokenType::LeftBracket && m_currentToken.type != TokenType::Eof)
             {
                 if (m_currentToken.type == TokenType::Identifier) {
@@ -120,7 +128,10 @@ namespace YINI
         }
         else if (is_include_section)
         {
-            if (m_currentToken.type == TokenType::RightBracket) { nextToken(); }
+            if (m_currentToken.type != TokenType::RightBracket) {
+                 throw YiniException("Expected ']' to close #include directive.", m_currentToken.line, m_currentToken.column);
+            }
+            nextToken(); // Consume ']'
             while (m_currentToken.type != TokenType::LeftBracket && m_currentToken.type != TokenType::Eof)
             {
                 if (m_currentToken.type == TokenType::PlusEquals)
@@ -133,26 +144,24 @@ namespace YINI
                         std::string included_content = read_file_content_internal(full_path);
                         if (!included_content.empty())
                         {
-                            YiniDocument included_doc;
-                            Parser sub_parser(included_content, included_doc, m_basePath);
+                            Parser sub_parser(included_content, m_document, m_basePath);
                             sub_parser.parse();
-                            m_document.merge(included_doc);
                         }
                         nextToken();
                     } else { nextToken(); }
                 } else { nextToken(); }
             }
         }
-        else
+        else // Regular data section
         {
             std::string section_name_val;
             if (m_currentToken.type == TokenType::Identifier)
             {
                 section_name_val = m_currentToken.value;
                 nextToken();
+            } else {
+                throw YiniException("Invalid section name.", m_currentToken.line, m_currentToken.column);
             }
-
-            if (m_currentToken.type == TokenType::RightBracket) { nextToken(); }
 
             YiniSection* section = m_document.getOrCreateSection(section_name_val);
 
@@ -167,6 +176,12 @@ namespace YINI
                     else { break; }
                 }
             }
+
+            if (m_currentToken.type != TokenType::RightBracket)
+            {
+                throw YiniException("Expected ']' to close section header.", m_currentToken.line, m_currentToken.column);
+            }
+            nextToken(); // Consume ']'
 
             while (m_currentToken.type != TokenType::LeftBracket && m_currentToken.type != TokenType::Eof)
             {
@@ -238,15 +253,36 @@ namespace YINI
                 val.data = parseArray();
                 return val;
             }
-            // If it's a number, macro, or parenthesis, it's an expression
+            case TokenType::Identifier:
+                if (m_currentToken.value == "Dyna" || m_currentToken.value == "dyna")
+                {
+                    nextToken(); // consume 'Dyna'
+                    if (m_currentToken.type != TokenType::LeftParen) {
+                        throw YiniException("Expected '(' after Dyna.", m_currentToken.line, m_currentToken.column);
+                    }
+                    nextToken(); // consume '('
+
+                    auto dyna_val = std::make_unique<YiniDynaValue>();
+                    dyna_val->value = parseValue();
+
+                    if (m_currentToken.type != TokenType::RightParen) {
+                        throw YiniException("Expected ')' to close Dyna expression.", m_currentToken.line, m_currentToken.column);
+                    }
+                    nextToken(); // consume ')'
+
+                    YiniValue result;
+                    result.data = std::move(dyna_val);
+                    return result;
+                }
+                throw YiniException("Unexpected identifier in value.", m_currentToken.line, m_currentToken.column);
+
             case TokenType::Number:
             case TokenType::At:
             case TokenType::LeftParen:
-            case TokenType::Minus: // For unary minus
+            case TokenType::Minus:
                 return parseExpression();
             default:
-                nextToken();
-                return {};
+                throw YiniException("Unexpected token when parsing value.", m_currentToken.line, m_currentToken.column);
         }
     }
 
@@ -263,20 +299,21 @@ namespace YINI
                 nextToken();
                 break;
             case TokenType::LeftParen:
-                nextToken(); // Consume '('
+                nextToken();
                 result = parseExpression();
-                if (m_currentToken.type == TokenType::RightParen)
-                    nextToken(); // Consume ')'
+                if (m_currentToken.type != TokenType::RightParen)
+                    throw YiniException("Expected ')' to close expression.", m_currentToken.line, m_currentToken.column);
+                nextToken();
                 break;
             case TokenType::At:
-                nextToken(); // Consume '@'
+                nextToken();
                 if (m_currentToken.type == TokenType::Identifier)
                 {
                     m_document.getDefine(m_currentToken.value, result);
                     nextToken();
                 }
                 break;
-            case TokenType::Minus: // Unary minus
+            case TokenType::Minus:
                 nextToken();
                 result = parseFactor();
                 if(is_numeric(result))
@@ -335,10 +372,11 @@ namespace YINI
             }
         }
 
-        if (m_currentToken.type == TokenType::RightBracket)
+        if (m_currentToken.type != TokenType::RightBracket)
         {
-            nextToken();
+            throw YiniException("Expected ']' to close array.", m_currentToken.line, m_currentToken.column);
         }
+        nextToken();
         return arr;
     }
 }

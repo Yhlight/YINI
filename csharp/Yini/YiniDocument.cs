@@ -1,5 +1,6 @@
 using System;
 using System.Runtime.InteropServices;
+using System.Text;
 
 namespace YINI
 {
@@ -10,32 +11,52 @@ namespace YINI
         private bool _disposed = false;
 
         [DllImport(LibName, EntryPoint = "yini_parse")]
-        private static extern IntPtr Parse(string content);
+        private static extern IntPtr Parse(string content, StringBuilder errorBuffer, int errorBufferSize);
 
         [DllImport(LibName, EntryPoint = "yini_free_document")]
         private static extern void FreeDocument(IntPtr handle);
 
         [DllImport(LibName, EntryPoint = "yini_get_section_count")]
-        private static extern int GetSectionCount(IntPtr handle);
+        private static extern int GetSectionCountInternal(IntPtr handle);
 
-        [DllImport(LibName, EntryPoint = "yini_get_section_name")]
-        private static extern IntPtr GetSectionNameInternal(IntPtr handle, int sectionIndex);
+        [DllImport(LibName, EntryPoint = "yini_get_section_by_index")]
+        private static extern IntPtr GetSectionByIndexInternal(IntPtr handle, int index);
+
+        [DllImport(LibName, EntryPoint = "yini_get_section_by_name")]
+        private static extern IntPtr GetSectionByNameInternal(IntPtr handle, string name);
 
         public YiniDocument(string content)
         {
-            _handle = Parse(content);
+            var errorBuffer = new StringBuilder(1024);
+            _handle = Parse(content, errorBuffer, errorBuffer.Capacity);
             if (_handle == IntPtr.Zero)
             {
-                throw new InvalidOperationException("Failed to parse YINI content.");
+                throw new InvalidOperationException($"Failed to parse YINI content: {errorBuffer.ToString()}");
             }
         }
 
-        public int SectionCount => GetSectionCount(_handle);
+        public int SectionCount => GetSectionCountInternal(_handle);
 
-        public string GetSectionName(int sectionIndex)
+        public YiniSection GetSection(int index)
         {
-            IntPtr namePtr = GetSectionNameInternal(_handle, sectionIndex);
-            return Marshal.PtrToStringAnsi(namePtr);
+            if (index < 0 || index >= SectionCount)
+            {
+                throw new ArgumentOutOfRangeException(nameof(index));
+            }
+            IntPtr sectionHandle = GetSectionByIndexInternal(_handle, index);
+            return sectionHandle == IntPtr.Zero ? null : new YiniSection(sectionHandle);
+        }
+
+        public YiniSection GetSection(string name)
+        {
+            IntPtr sectionHandle = GetSectionByNameInternal(_handle, name);
+            return sectionHandle == IntPtr.Zero ? null : new YiniSection(sectionHandle);
+        }
+
+        public YiniValue GetValue(string sectionName, string key)
+        {
+            var section = GetSection(sectionName);
+            return section?.GetValue(key);
         }
 
         public void Dispose()

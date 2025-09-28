@@ -1,0 +1,5 @@
+[GoodSection]
+key = value
+
+[BadSection // Missing closing bracket
+another_key = 123

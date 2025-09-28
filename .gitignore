@@ -17,6 +17,10 @@ lib/
 # VSCode
 .vscode/
 
+# C#
+csharp/**/bin/
+csharp/**/obj/
+
 # YMETA files
 *.ymeta
 *.YMETA
