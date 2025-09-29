@@ -119,12 +119,10 @@ namespace YINI
             {
                 if (m_currentToken.type == TokenType::Identifier) {
                     std::string key = m_currentToken.value;
-                    int line = m_currentToken.line;
-                    int column = m_currentToken.column;
                     nextToken();
                     if (m_currentToken.type == TokenType::Equals) {
                         nextToken();
-                        m_document.addDefine(key, parseValue(), line, column);
+                        m_document.addDefine(key, parseValue());
                     } else { nextToken(); }
                 } else { nextToken(); }
             }
