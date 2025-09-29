@@ -72,6 +72,13 @@ my_map = {
     yini_map_get_key_by_index(map_value, 1, key_buffer, sizeof(key_buffer));
     EXPECT_STREQ(key_buffer, "key2");
 
+    // Test value-to-string conversion
+    char string_val_buffer[256];
+    yini_value_to_string(map_value, string_val_buffer, sizeof(string_val_buffer));
+    // Note: std::map sorts keys alphabetically.
+    const char* expected_map_str = "{\"key1\": \"value1\", \"key2\": 42, \"key3\": true}";
+    EXPECT_STREQ(string_val_buffer, expected_map_str);
+
 
     // Test Quick Registration API
     EXPECT_EQ(yini_section_get_registration_count(section), 2);

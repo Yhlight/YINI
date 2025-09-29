@@ -1,6 +1,7 @@
 #include "YINI/Yini.h"
 #include "YINI/Parser.hpp"
 #include "YINI/YiniException.hpp"
+#include "YiniValueToString.hpp"
 #include <algorithm>
 #include <cstring> // For strncpy
 
@@ -278,6 +279,14 @@ YINI_API int yini_value_get_path(const YiniValueHandle* value_handle, char* buff
     if (!std::holds_alternative<std::unique_ptr<YINI::YiniPath>>(value->data)) return 0;
     const auto& path = std::get<std::unique_ptr<YINI::YiniPath>>(value->data);
     return safe_strncpy(buffer, path->pathValue, buffer_size);
+}
+
+YINI_API int yini_value_to_string(const YiniValueHandle* value_handle, char* buffer, int buffer_size)
+{
+    if (!value_handle) return 0;
+    auto* value = reinterpret_cast<const YINI::YiniValue*>(value_handle);
+    std::string str_value = YINI::valueToString(*value);
+    return safe_strncpy(buffer, str_value, buffer_size);
 }
 
 YINI_API int yini_array_get_size(const YiniValueHandle* value_handle)

@@ -293,6 +293,19 @@ YINI_API bool yini_value_get_color(const YiniValueHandle* value_handle, unsigned
 YINI_API int yini_value_get_path(const YiniValueHandle* value_handle, char* buffer, int buffer_size);
 
 /**
+ * @brief Converts a YINI value to its string representation.
+ *
+ * This function serializes any YINI value, including complex types like maps and arrays,
+ * into a human-readable string that follows YINI syntax.
+ *
+ * @param value_handle The handle to the value to serialize.
+ * @param buffer A buffer to write the resulting string into.
+ * @param buffer_size The size of the buffer.
+ * @return The required buffer size for the full string. Returns 0 if the handle is invalid.
+ */
+YINI_API int yini_value_to_string(const YiniValueHandle* value_handle, char* buffer, int buffer_size);
+
+/**
  * @brief Gets the size of an array value.
  * @param value_handle The value handle.
  * @return The number of elements in the array, or 0 if the value is not an array.

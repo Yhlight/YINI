@@ -22,6 +22,10 @@ add_subdirectory(src)
 enable_testing()
 add_subdirectory(tests)
 
+if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+    add_subdirectory(fuzz)
+endif()
+
 add_executable(yini-cli
     src/CLI/main.cpp
 )
