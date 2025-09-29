@@ -27,8 +27,18 @@ add_executable(yini-cli
 )
 target_include_directories(yini-cli PRIVATE src)
 target_link_libraries(yini-cli PRIVATE yini)
+install(TARGETS yini-cli DESTINATION bin)
 
 add_executable(yini-lsp
     src/LSP/main.cpp
 )
 target_link_libraries(yini-lsp PRIVATE yini nlohmann_json::nlohmann_json)
+install(TARGETS yini-lsp DESTINATION bin)
+
+# --- CPack Configuration ---
+include(CPack)
+set(CPACK_GENERATOR "TGZ")
+set(CPACK_PACKAGE_NAME ${PROJECT_NAME})
+set(CPACK_PACKAGE_VERSION "1.0.0")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "YINI Configuration File Library and Tools")
+set(CPACK_SOURCE_GENERATOR "TGZ")

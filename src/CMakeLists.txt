@@ -15,3 +15,7 @@ target_include_directories(yini PUBLIC ../include)
 target_compile_definitions(yini PRIVATE YINI_EXPORTS)
 
 target_link_libraries(yini PRIVATE nlohmann_json::nlohmann_json)
+
+# Install the library and its public headers
+install(TARGETS yini DESTINATION lib)
+install(DIRECTORY ../include/YINI DESTINATION include)

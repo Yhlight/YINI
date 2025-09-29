@@ -142,7 +142,11 @@ Token Lexer::getNextToken()
       }
       if (is_hex)
       {
-        std::string hex_value = inputStr.substr(position + 1, 6);
+        std::string hex_value;
+        hex_value.reserve(6);
+        for(int i = 1; i <= 6; ++i) {
+            hex_value += inputStr[position + i];
+        }
         position += 7;
         column_num += 7;
         return {TokenType::HexColor, hex_value, line_num, column_num - 7};
