@@ -6,12 +6,11 @@
 #include <cstdio> // For std::remove
 
 // Helper to read file content
-static std::string readFileContent(const std::string &path)
-{
+static std::string readFileContent(const std::string& path) {
     std::ifstream t(path);
-    if (!t.is_open())
-        return "";
-    return std::string((std::istreambuf_iterator<char>(t)), std::istreambuf_iterator<char>());
+    if (!t.is_open()) return "";
+    return std::string((std::istreambuf_iterator<char>(t)),
+                     std::istreambuf_iterator<char>());
 }
 
 TEST(YiniManagerTest, LoadFromFileCreatesYmeta)
@@ -26,14 +25,13 @@ TEST(YiniManagerTest, LoadFromFileCreatesYmeta)
     std::remove(ymetaPath.c_str());
 
     YINI::YiniManager manager(yiniPath);
-    const auto &doc = manager.getDocument();
+    const auto& doc = manager.getDocument();
 
     // Check that the document was loaded correctly
-    const auto *section = doc.findSection("Test");
+    const auto* section = doc.findSection("Test");
     ASSERT_NE(section, nullptr);
 
-    auto it =
-        std::find_if(section->pairs.begin(), section->pairs.end(), [](const auto &p) { return p.key == "value"; });
+    auto it = std::find_if(section->pairs.begin(), section->pairs.end(), [](const auto& p){ return p.key == "value"; });
     ASSERT_NE(it, section->pairs.end());
     EXPECT_EQ(std::get<std::string>(it->value.data), "Hello");
 
@@ -62,16 +60,14 @@ TEST(YiniManagerTest, SetValueCreatesBackups)
 
     // Clean up any previous files
     std::remove(ymetaPath.c_str());
-    for (int i = 1; i <= 6; ++i)
-    {
+    for (int i = 1; i <= 6; ++i) {
         std::remove((ymetaPath + "." + std::to_string(i)).c_str());
     }
 
     YINI::YiniManager manager(yiniPath);
 
     // Modify the value 6 times to trigger backup rotation
-    for (int i = 1; i <= 6; ++i)
-    {
+    for (int i = 1; i <= 6; ++i) {
         manager.setIntValue("Data", "value", i);
     }
 
@@ -85,11 +81,11 @@ TEST(YiniManagerTest, SetValueCreatesBackups)
     // The 5th backup file should now contain the value from the second save (value 1)
     EXPECT_TRUE(readFileContent(ymetaPath + ".5").find("\"value\":1") != std::string::npos);
 
+
     // Clean up all created files
     std::remove(yiniPath.c_str());
     std::remove(ymetaPath.c_str());
-    for (int i = 1; i <= 5; ++i)
-    {
+    for (int i = 1; i <= 5; ++i) {
         std::remove((ymetaPath + "." + std::to_string(i)).c_str());
     }
 }
@@ -129,14 +125,13 @@ TEST(YiniManagerTest, LoadFromFilePrioritizesYmetaCache)
     std::ofstream(ymetaPath) << "{\"CachedSection\":{\"value\":\"from_cache\"}}";
 
     YINI::YiniManager manager(yiniPath);
-    const auto &doc = manager.getDocument();
+    const auto& doc = manager.getDocument();
 
     // Check that the document was loaded from the .ymeta cache, not the .yini file.
-    const auto *section = doc.findSection("CachedSection");
+    const auto* section = doc.findSection("CachedSection");
     ASSERT_NE(section, nullptr);
 
-    auto it =
-        std::find_if(section->pairs.begin(), section->pairs.end(), [](const auto &p) { return p.key == "value"; });
+    auto it = std::find_if(section->pairs.begin(), section->pairs.end(), [](const auto& p){ return p.key == "value"; });
     ASSERT_NE(it, section->pairs.end());
     EXPECT_EQ(std::get<std::string>(it->value.data), "from_cache");
 

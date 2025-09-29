@@ -30,6 +30,20 @@ TEST(ParserTest, ParseSimpleSection)
     EXPECT_EQ(std::get<std::string>(pair.value.data), "value");
 }
 
+TEST(ParserTest, ParseMacroDefinitionLocation)
+{
+    const std::string input = "[#define]\n  my_macro = 123";
+    YINI::YiniDocument doc;
+    YINI::Parser parser(input, doc);
+    parser.parse();
+
+    const YINI::MacroDefinition* def = doc.getMacroDefinition("my_macro");
+    ASSERT_NE(def, nullptr);
+    EXPECT_EQ(def->location.line, 2);
+    EXPECT_EQ(def->location.column, 3);
+    EXPECT_EQ(std::get<int>(def->value.data), 123);
+}
+
 TEST(ParserTest, ParseCustomValueTypes)
 {
     const std::string input = R"([CustomTypes]
