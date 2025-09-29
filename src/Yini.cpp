@@ -126,6 +126,19 @@ YINI_API const YiniValueHandle* yini_get_define_by_index(const YiniDocumentHandl
     return reinterpret_cast<const YiniValueHandle*>(&it->second);
 }
 
+YINI_API const YiniValueHandle* yini_get_define_by_key(const YiniDocumentHandle* handle, const char* key)
+{
+    if (!handle || !key) {
+        return nullptr;
+    }
+    const auto& defines = handle->doc.getDefines();
+    auto it = defines.find(key);
+    if (it != defines.end()) {
+        return reinterpret_cast<const YiniValueHandle*>(&it->second);
+    }
+    return nullptr;
+}
+
 
 // Section API
 YINI_API int yini_section_get_name(const YiniSectionHandle* section_handle, char* buffer, int buffer_size)
@@ -259,7 +272,7 @@ YINI_API int yini_value_get_path(const YiniValueHandle* value_handle, char* buff
     auto* value = reinterpret_cast<const YINI::YiniValue*>(value_handle);
     if (!std::holds_alternative<std::unique_ptr<YINI::YiniPath>>(value->data)) return 0;
     const auto& path = std::get<std::unique_ptr<YINI::YiniPath>>(value->data);
-    return safe_strncpy(buffer, path->path_value, buffer_size);
+    return safe_strncpy(buffer, path->pathValue, buffer_size);
 }
 
 YINI_API int yini_array_get_size(const YiniValueHandle* value_handle)

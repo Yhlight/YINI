@@ -51,6 +51,7 @@ YINI_API void yini_set_double_value(YiniDocumentHandle* handle, const char* sect
 YINI_API void yini_set_bool_value(YiniDocumentHandle* handle, const char* section, const char* key, bool value);
 YINI_API int yini_get_define_count(const YiniDocumentHandle* handle);
 YINI_API const YiniValueHandle* yini_get_define_by_index(const YiniDocumentHandle* handle, int index, char* key_buffer, int key_buffer_size);
+YINI_API const YiniValueHandle* yini_get_define_by_key(const YiniDocumentHandle* handle, const char* key);
 
 // Section API
 YINI_API int yini_section_get_name(const YiniSectionHandle* section_handle, char* buffer, int buffer_size);

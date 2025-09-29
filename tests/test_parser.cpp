@@ -222,7 +222,7 @@ asset_path = Path(characters/player.fbx)
   ASSERT_NE(p5_it, section->pairs.end());
   auto &path_ptr = std::get<std::unique_ptr<YINI::YiniPath>>(p5_it->value.data);
   ASSERT_NE(path_ptr, nullptr);
-  EXPECT_EQ(path_ptr->path_value, "characters/player.fbx");
+  EXPECT_EQ(path_ptr->pathValue, "characters/player.fbx");
 }
 
 TEST(ParserTest, ParseDynaValue)

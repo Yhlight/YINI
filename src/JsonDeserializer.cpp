@@ -112,7 +112,7 @@ static bool parseJsonPath(const json &j_path, YiniValue &value)
   auto path = std::make_unique<YiniPath>();
   if (j_path.is_string())
   {
-    path->path_value = j_path.get<std::string>();
+    path->pathValue = j_path.get<std::string>();
   }
   value.data = std::move(path);
   return true;

@@ -168,7 +168,7 @@ void serializeValue(std::stringstream &ss, const YINI::YiniValue &value)
     ss << "{\"__type__\":\"Path\",\"value\":";
     if (ptr)
     {
-      ss << std::quoted(ptr->path_value);
+      ss << std::quoted(ptr->pathValue);
     }
     else
     {

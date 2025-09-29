@@ -113,7 +113,7 @@ YiniValue &YiniValue::operator=(const YiniValue &other)
 void YiniDocument::resolveInheritance()
 {
   std::set<std::string> resolved;
-  for (auto &section : sections)
+  for (auto &section : sectionList)
   {
     if (resolved.find(section.name) == resolved.end())
     {

@@ -56,14 +56,14 @@ namespace YINI
         void skipWhitespace();
         void skipComment();
         void skipBlockComment();
-        Token string();
-        Token number();
-        Token identifier();
+        Token parseString();
+        Token parseNumber();
+        Token parseIdentifier();
 
-        std::string m_input;
-        size_t m_position;
-        int m_line;
-        int m_column;
+        std::string inputStr;
+        size_t position;
+        int line_num;
+        int column_num;
     };
 }
 

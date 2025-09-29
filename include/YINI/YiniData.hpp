@@ -91,7 +91,7 @@ struct YiniColor
 
 struct YiniPath
 {
-  std::string path_value;
+  std::string pathValue;
 };
 
 struct YiniKeyValuePair
@@ -111,25 +111,25 @@ struct YiniSection
 class YiniDocument
 {
 public:
-  void addSection(const YiniSection &section) { sections.push_back(section); }
+  void addSection(const YiniSection &section) { sectionList.push_back(section); }
 
   void addSection(YiniSection &&section)
   {
-    sections.push_back(std::move(section));
+    sectionList.push_back(std::move(section));
   }
 
-  std::vector<YiniSection> &getSections() { return sections; }
+  std::vector<YiniSection> &getSections() { return sectionList; }
 
-  const std::vector<YiniSection> &getSections() const { return sections; }
+  const std::vector<YiniSection> &getSections() const { return sectionList; }
 
 public:
   YiniSection *findSection(const std::string &name)
   {
     auto it =
-        std::find_if(sections.begin(), sections.end(),
+        std::find_if(sectionList.begin(), sectionList.end(),
                      [&](const YiniSection &s) { return s.name == name; });
 
-    if (it != sections.end())
+    if (it != sectionList.end())
     {
       return &(*it);
     }
@@ -139,13 +139,13 @@ public:
 
   void addDefine(const std::string &key, const YiniValue &value)
   {
-    defines[key] = value;
+    defineMap[key] = value;
   }
 
   bool getDefine(const std::string &key, YiniValue &value) const
   {
-    auto it = defines.find(key);
-    if (it != defines.end())
+    auto it = defineMap.find(key);
+    if (it != defineMap.end())
     {
       value = it->second;
       return true;
@@ -153,7 +153,7 @@ public:
     return false;
   }
 
-  const std::map<std::string, YiniValue> &getDefines() const { return defines; }
+  const std::map<std::string, YiniValue> &getDefines() const { return defineMap; }
 
 public:
   void resolveInheritance();
@@ -167,10 +167,10 @@ public:
   const YiniSection *findSection(const std::string &name) const
   {
     auto it =
-        std::find_if(sections.begin(), sections.end(),
+        std::find_if(sectionList.begin(), sectionList.end(),
                      [&](const YiniSection &s) { return s.name == name; });
 
-    if (it != sections.end())
+    if (it != sectionList.end())
     {
       return &(*it);
     }
@@ -181,23 +181,23 @@ public:
   YiniSection *getOrCreateSection(const std::string &name)
   {
     auto it =
-        std::find_if(sections.begin(), sections.end(),
+        std::find_if(sectionList.begin(), sectionList.end(),
                      [&](const YiniSection &s) { return s.name == name; });
 
-    if (it != sections.end())
+    if (it != sectionList.end())
     {
       return &(*it);
     }
     else
     {
-      sections.push_back({name});
-      return &sections.back();
+      sectionList.push_back({name});
+      return &sectionList.back();
     }
   }
 
   void merge(const YiniDocument &other)
   {
-    for (const auto &[key, value] : other.defines)
+    for (const auto &[key, value] : other.defineMap)
     {
       this->addDefine(key, value);
     }
@@ -236,8 +236,8 @@ public:
   }
 
 private:
-  std::vector<YiniSection> sections;
-  std::map<std::string, YiniValue> defines;
+  std::vector<YiniSection> sectionList;
+  std::map<std::string, YiniValue> defineMap;
 };
 } // namespace YINI
 

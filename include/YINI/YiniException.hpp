@@ -10,14 +10,14 @@ namespace YINI
     {
     public:
         YiniException(const std::string& message, int line, int column)
-            : std::runtime_error(message), m_line(line), m_column(column) {}
+            : std::runtime_error(message), line_num(line), column_num(column) {}
 
-        int getLine() const { return m_line; }
-        int getColumn() const { return m_column; }
+        int getLine() const { return line_num; }
+        int getColumn() const { return column_num; }
 
     private:
-        int m_line;
-        int m_column;
+        int line_num;
+        int column_num;
     };
 }
 

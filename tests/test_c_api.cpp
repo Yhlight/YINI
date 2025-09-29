@@ -26,20 +26,19 @@ my_map = {
     char key_buffer[64];
     const YiniValueHandle* macro_val;
 
-    // Assuming order is preserved for testing purposes.
-    macro_val = yini_get_define_by_index(doc, 0, key_buffer, sizeof(key_buffer));
-    EXPECT_STREQ(key_buffer, "another_macro");
+    // Test macros by key for robustness
+    char value_buffer[64];
+
+    macro_val = yini_get_define_by_key(doc, "my_macro");
+    ASSERT_NE(macro_val, nullptr);
+    EXPECT_EQ(yini_value_get_type(macro_val), YINI_TYPE_STRING);
+    yini_value_get_string(macro_val, value_buffer, sizeof(value_buffer));
+    EXPECT_STREQ(value_buffer, "hello world");
+
+    macro_val = yini_get_define_by_key(doc, "another_macro");
     ASSERT_NE(macro_val, nullptr);
     EXPECT_EQ(yini_value_get_type(macro_val), YINI_TYPE_INT);
     EXPECT_EQ(yini_value_get_int(macro_val), 123);
-
-    macro_val = yini_get_define_by_index(doc, 1, key_buffer, sizeof(key_buffer));
-    EXPECT_STREQ(key_buffer, "my_macro");
-    ASSERT_NE(macro_val, nullptr);
-    EXPECT_EQ(yini_value_get_type(macro_val), YINI_TYPE_STRING);
-    char value_buffer[64];
-    yini_value_get_string(macro_val, value_buffer, sizeof(value_buffer));
-    EXPECT_STREQ(value_buffer, "hello world");
 
 
     // Test Section and Map API
