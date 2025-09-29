@@ -169,11 +169,14 @@ TEST(ParserTest, ParseArithmetic)
 
 TEST(ParserTest, ParseFileIncludes)
 {
-    const std::string input = read_file_content("../../tests/include_test.yini");
+    std::string test_dir = TEST_SOURCE_DIR;
+    std::string include_test_path = test_dir + "/include_test.yini";
+
+    const std::string input = read_file_content(include_test_path);
     ASSERT_FALSE(input.empty());
 
     YINI::YiniDocument doc;
-    YINI::Parser parser(input, doc, "../../tests");
+    YINI::Parser parser(input, doc, test_dir);
     parser.parse();
 
     ASSERT_EQ(doc.getSections().size(), 3); // Shared, BaseOnly, MainOnly

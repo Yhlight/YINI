@@ -17,5 +17,8 @@ add_executable(yini_tests
 
 target_link_libraries(yini_tests yini gtest_main)
 
+# Pass the test source directory to the test executable as a string literal
+target_compile_definitions(yini_tests PRIVATE "TEST_SOURCE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}\"")
+
 include(GoogleTest)
 gtest_discover_tests(yini_tests)
