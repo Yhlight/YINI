@@ -29,6 +29,48 @@ TEST(ParserTest, ParseSimpleSection)
     EXPECT_EQ(std::get<std::string>(pair.value.data), "value");
 }
 
+TEST(ParserTest, ParsePairValue)
+{
+    const std::string input = "[Data]\nmy_pair = {key: 123}";
+    YINI::YiniDocument doc;
+    YINI::Parser parser(input, doc);
+    parser.parse();
+
+    const auto* section = doc.findSection("Data");
+    ASSERT_NE(section, nullptr);
+    ASSERT_EQ(section->pairs.size(), 1);
+
+    const auto& p = section->pairs[0];
+    EXPECT_EQ(p.key, "my_pair");
+
+    auto& pair_ptr = std::get<std::unique_ptr<YINI::YiniPair>>(p.value.data);
+    ASSERT_NE(pair_ptr, nullptr);
+    EXPECT_EQ(pair_ptr->key, "key");
+    EXPECT_EQ(std::get<int>(pair_ptr->value.data), 123);
+}
+
+TEST(ParserTest, ParseMapValue)
+{
+    const std::string input = "[Data]\nmy_map = {{key1: \"value1\", key2: true}}";
+    YINI::YiniDocument doc;
+    YINI::Parser parser(input, doc);
+    parser.parse();
+
+    const auto* section = doc.findSection("Data");
+    ASSERT_NE(section, nullptr);
+    ASSERT_EQ(section->pairs.size(), 1);
+
+    const auto& p = section->pairs[0];
+    EXPECT_EQ(p.key, "my_map");
+
+    auto& map_ptr = std::get<std::unique_ptr<YINI::YiniMap>>(p.value.data);
+    ASSERT_NE(map_ptr, nullptr);
+    ASSERT_EQ(map_ptr->elements.size(), 2);
+
+    EXPECT_EQ(std::get<std::string>(map_ptr->elements["key1"].data), "value1");
+    EXPECT_EQ(std::get<bool>(map_ptr->elements["key2"].data), true);
+}
+
 TEST(ParserTest, ParseCustomValueTypes)
 {
     const std::string input = R"([CustomTypes]

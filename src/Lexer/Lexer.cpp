@@ -81,6 +81,8 @@ namespace YINI
             case '%': m_position++; m_column++; return {TokenType::Percent, "%", m_line, m_column - 1};
             case '(': m_position++; m_column++; return {TokenType::LeftParen, "(", m_line, m_column - 1};
             case ')': m_position++; m_column++; return {TokenType::RightParen, ")", m_line, m_column - 1};
+            case '{': m_position++; m_column++; return {TokenType::LeftBrace, "{", m_line, m_column - 1};
+            case '}': m_position++; m_column++; return {TokenType::RightBrace, "}", m_line, m_column - 1};
         }
 
         if (current_char == '#')

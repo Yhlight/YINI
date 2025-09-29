@@ -14,6 +14,7 @@ namespace YINI
     struct YiniValue;
     struct YiniArray;
     struct YiniMap;
+    struct YiniPair;
     struct YiniDynaValue;
     struct YiniCoord;
     struct YiniColor;
@@ -27,6 +28,7 @@ namespace YINI
         bool,
         std::unique_ptr<YiniArray>,
         std::unique_ptr<YiniMap>,
+        std::unique_ptr<YiniPair>,
         std::unique_ptr<YiniDynaValue>,
         std::unique_ptr<YiniCoord>,
         std::unique_ptr<YiniColor>,
@@ -59,6 +61,12 @@ namespace YINI
     // YiniMap contains a map of string to YiniValue.
     struct YiniMap {
         std::map<std::string, YiniValue> elements;
+    };
+
+    // YiniPair represents a single {key: value} construct.
+    struct YiniPair {
+        std::string key;
+        YiniValue value;
     };
 
     // YiniDynaValue wraps another YiniValue.

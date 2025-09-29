@@ -20,6 +20,8 @@ namespace YINI
         void parseQuickRegistration(YiniSection& section);
         YiniValue parseValue();
         std::unique_ptr<YiniArray> parseArray();
+        std::unique_ptr<YiniPair> parsePair();
+        std::unique_ptr<YiniMap> parseMap();
         YiniValue parseExpression();
         YiniValue parseTerm();
         YiniValue parseFactor();

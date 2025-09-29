@@ -18,6 +18,18 @@ void serializeArray(std::stringstream& ss, const YINI::YiniArray& array) {
     ss << "]";
 }
 
+void serializeMap(std::stringstream& ss, const YINI::YiniMap& map) {
+    ss << "{";
+    for (auto it = map.elements.cbegin(); it != map.elements.cend(); ) {
+        ss << "\"" << it->first << "\":";
+        serializeValue(ss, it->second);
+        if (++it != map.elements.cend()) {
+            ss << ",";
+        }
+    }
+    ss << "}";
+}
+
 void serializeValue(std::stringstream& ss, const YINI::YiniValue& value) {
     if (std::holds_alternative<std::string>(value.data)) {
         ss << "\"" << std::get<std::string>(value.data) << "\"";
@@ -35,6 +47,19 @@ void serializeValue(std::stringstream& ss, const YINI::YiniValue& value) {
         const auto& arr_ptr = std::get<std::unique_ptr<YINI::YiniArray>>(value.data);
         if (arr_ptr) serializeArray(ss, *arr_ptr);
         else ss << "null";
+    } else if (std::holds_alternative<std::unique_ptr<YINI::YiniMap>>(value.data)) {
+        const auto& map_ptr = std::get<std::unique_ptr<YINI::YiniMap>>(value.data);
+        if (map_ptr) serializeMap(ss, *map_ptr);
+        else ss << "null";
+    } else if (std::holds_alternative<std::unique_ptr<YINI::YiniPair>>(value.data)) {
+        const auto& pair_ptr = std::get<std::unique_ptr<YINI::YiniPair>>(value.data);
+        if (pair_ptr) {
+            ss << "{\"" << pair_ptr->key << "\":";
+            serializeValue(ss, pair_ptr->value);
+            ss << "}";
+        } else {
+            ss << "null";
+        }
     } else if (std::holds_alternative<std::unique_ptr<YINI::YiniDynaValue>>(value.data)) {
         const auto& dyna_ptr = std::get<std::unique_ptr<YINI::YiniDynaValue>>(value.data);
         ss << "{\"Dyna\":";

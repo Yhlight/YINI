@@ -249,6 +249,19 @@ namespace YINI
             case TokenType::LeftBracket:
                 val.data = parseArray();
                 return val;
+            case TokenType::LeftBrace:
+                nextToken(); // Consume '{'
+                if (m_currentToken.type == TokenType::LeftBrace)
+                {
+                    // Map starts with {{
+                    val.data = parseMap();
+                }
+                else
+                {
+                    // Pair starts with {
+                    val.data = parsePair();
+                }
+                return val;
             case TokenType::HexColor:
                 val.data = parseColor();
                 return val;
@@ -477,5 +490,84 @@ namespace YINI
         if (m_currentToken.type != TokenType::RightParen) throw YiniException("Expected ')' to close Path expression.", m_currentToken.line, m_currentToken.column);
         nextToken();
         return path;
+    }
+
+    std::unique_ptr<YiniPair> Parser::parsePair()
+    {
+        auto pair = std::make_unique<YiniPair>();
+
+        if (m_currentToken.type != TokenType::Identifier)
+        {
+            throw YiniException("Expected identifier for pair key.", m_currentToken.line, m_currentToken.column);
+        }
+        pair->key = m_currentToken.value;
+        nextToken();
+
+        if (m_currentToken.type != TokenType::Colon)
+        {
+            throw YiniException("Expected ':' after pair key.", m_currentToken.line, m_currentToken.column);
+        }
+        nextToken(); // Consume ':'
+
+        pair->value = parseValue();
+
+        if (m_currentToken.type != TokenType::RightBrace)
+        {
+            throw YiniException("Expected '}' to close pair.", m_currentToken.line, m_currentToken.column);
+        }
+        nextToken(); // Consume '}'
+
+        return pair;
+    }
+
+    std::unique_ptr<YiniMap> Parser::parseMap()
+    {
+        auto map = std::make_unique<YiniMap>();
+        nextToken(); // consume the inner '{'
+
+        while (m_currentToken.type != TokenType::RightBrace)
+        {
+            if (m_currentToken.type != TokenType::Identifier)
+            {
+                throw YiniException("Expected identifier for map key.", m_currentToken.line, m_currentToken.column);
+            }
+            std::string key = m_currentToken.value;
+            nextToken();
+
+            if (m_currentToken.type != TokenType::Colon)
+            {
+                throw YiniException("Expected ':' after map key.", m_currentToken.line, m_currentToken.column);
+            }
+            nextToken(); // Consume ':'
+
+            map->elements[key] = parseValue();
+
+            if (m_currentToken.type == TokenType::Comma)
+            {
+                nextToken();
+            }
+            else if (m_currentToken.type == TokenType::RightBrace)
+            {
+                break;
+            }
+            else
+            {
+                throw YiniException("Expected ',' or '}' in map definition.", m_currentToken.line, m_currentToken.column);
+            }
+        }
+
+        if (m_currentToken.type != TokenType::RightBrace)
+        {
+            throw YiniException("Expected '}' to close map.", m_currentToken.line, m_currentToken.column);
+        }
+        nextToken(); // consume inner '}'
+
+        if (m_currentToken.type != TokenType::RightBrace)
+        {
+            throw YiniException("Expected '}}' to close map.", m_currentToken.line, m_currentToken.column);
+        }
+        nextToken(); // consume outer '}'
+
+        return map;
     }
 }

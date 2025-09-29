@@ -25,6 +25,12 @@ namespace YINI
                 auto new_dyna = std::make_unique<YiniDynaValue>();
                 new_dyna->value = arg->value; // relies on YiniValue's copy constructor
                 return new_dyna;
+            } else if constexpr (std::is_same_v<T, std::unique_ptr<YiniPair>>) {
+                if (!arg) return std::unique_ptr<YiniPair>(nullptr);
+                auto new_pair = std::make_unique<YiniPair>();
+                new_pair->key = arg->key;
+                new_pair->value = arg->value; // relies on YiniValue's copy constructor
+                return new_pair;
             } else if constexpr (std::is_same_v<T, std::unique_ptr<YiniCoord>>) {
                 if (!arg) return std::unique_ptr<YiniCoord>(nullptr);
                 return std::make_unique<YiniCoord>(*arg);
