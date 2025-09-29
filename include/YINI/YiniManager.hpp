@@ -13,6 +13,7 @@ namespace YINI
         // Constructor loads a YINI document from a given .yini file path.
         // It prioritizes the .ymeta cache if it exists.
         explicit YiniManager(const std::string& yiniFilePath);
+        ~YiniManager();
 
         // Provides read-only access to the document
         const YiniDocument& getDocument() const;
@@ -27,6 +28,7 @@ namespace YINI
     private:
         bool load();
         bool save(); // Saves the current document state to the .ymeta file
+        void writeBackDynaValues();
 
         std::string yiniFilePath;
         std::string ymetaFilePath;

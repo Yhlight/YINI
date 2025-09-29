@@ -196,3 +196,44 @@ TEST(YiniManagerTest, IgnoresStaleCache)
     fs::remove(yiniPath);
     fs::remove(ymetaPath);
 }
+
+TEST(YiniManagerTest, DynaValueIsWrittenBack)
+{
+    const std::string yiniPath = "dyna_writeback_test.yini";
+    const std::string ymetaPath = "dyna_writeback_test.ymeta";
+    const std::string initialContent = "[Settings]\n; Volume setting\nvolume = Dyna(100)\nmusic = 50\n";
+
+    // 1. Setup: Create the initial .yini file and clean up old files
+    {
+        std::ofstream outFile(yiniPath);
+        outFile << initialContent;
+        fs::remove(ymetaPath);
+        for (int i = 1; i <= 5; ++i) {
+            fs::remove(ymetaPath + ".bak" + std::to_string(i));
+        }
+    }
+
+    // 2. Action: Create a manager, modify the Dyna value, and let it go out of scope
+    {
+        YINI::YiniManager manager(yiniPath);
+        ASSERT_TRUE(manager.isLoaded());
+        manager.setIntValue("Settings", "volume", 75);
+    } // ~YiniManager() is called here, triggering the write-back
+
+    // 3. Verification: Read the file back and check its content
+    std::string finalContent = readFileContent(yiniPath);
+
+    // The expected content should have the updated Dyna value
+    // The write-back logic should preserve comments and other lines
+    std::string expected_line = "volume = Dyna(75)";
+    EXPECT_NE(finalContent.find(expected_line), std::string::npos);
+    EXPECT_NE(finalContent.find("music = 50"), std::string::npos);
+    EXPECT_NE(finalContent.find("; Volume setting"), std::string::npos);
+
+    // Cleanup
+    fs::remove(yiniPath);
+    fs::remove(ymetaPath);
+     for (int i = 1; i <= 5; ++i) {
+        fs::remove(ymetaPath + ".bak" + std::to_string(i));
+    }
+}
