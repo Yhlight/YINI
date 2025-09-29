@@ -4,6 +4,7 @@ add_library(yini SHARED
     Parser/Parser.cpp
     Yini.cpp
     JsonSerializer.cpp
+    YiniSerializer.cpp
     YiniManager.cpp
     JsonDeserializer.cpp
 )
