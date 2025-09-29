@@ -108,6 +108,24 @@ YINI_API void yini_set_bool_value(YiniDocumentHandle* handle, const char* sectio
     if(pair) pair->value.data = value;
 }
 
+YINI_API int yini_get_define_count(const YiniDocumentHandle* handle)
+{
+    if (!handle) return 0;
+    return handle->doc.getDefines().size();
+}
+
+YINI_API const YiniValueHandle* yini_get_define_by_index(const YiniDocumentHandle* handle, int index, char* key_buffer, int key_buffer_size)
+{
+    if (!handle || index < 0 || index >= handle->doc.getDefines().size()) {
+        return nullptr;
+    }
+    const auto& defines = handle->doc.getDefines();
+    auto it = defines.begin();
+    std::advance(it, index);
+    safe_strncpy(key_buffer, it->first, key_buffer_size);
+    return reinterpret_cast<const YiniValueHandle*>(&it->second);
+}
+
 
 // Section API
 YINI_API int yini_section_get_name(const YiniSectionHandle* section_handle, char* buffer, int buffer_size)
@@ -142,6 +160,21 @@ YINI_API const YiniValueHandle* yini_section_get_value_by_key(const YiniSectionH
         return reinterpret_cast<const YiniValueHandle*>(&it->value);
     }
     return nullptr;
+}
+
+YINI_API int yini_section_get_registration_count(const YiniSectionHandle* section_handle)
+{
+    if (!section_handle) return 0;
+    auto* section = reinterpret_cast<const YINI::YiniSection*>(section_handle);
+    return section->registrationList.size();
+}
+
+YINI_API const YiniValueHandle* yini_section_get_registered_value_by_index(const YiniSectionHandle* section_handle, int index)
+{
+    if (!section_handle) return nullptr;
+    auto* section = reinterpret_cast<const YINI::YiniSection*>(section_handle);
+    if (index < 0 || index >= section->registrationList.size()) return nullptr;
+    return reinterpret_cast<const YiniValueHandle*>(&section->registrationList[index]);
 }
 
 
@@ -293,6 +326,48 @@ YINI_API const YiniValueHandle* yini_set_get_value_by_index(const YiniValueHandl
     const auto& set_ptr = std::get<std::unique_ptr<YINI::YiniSet>>(value->data);
     if (!set_ptr || index < 0 || index >= set_ptr->elements.size()) return nullptr;
     return reinterpret_cast<const YiniValueHandle*>(&set_ptr->elements[index]);
+}
+
+// Map API
+YINI_API int yini_map_get_size(const YiniValueHandle* value_handle)
+{
+    if (!value_handle) return 0;
+    auto* value = reinterpret_cast<const YINI::YiniValue*>(value_handle);
+    if (!std::holds_alternative<std::unique_ptr<YINI::YiniMap>>(value->data)) return 0;
+    const auto& map_ptr = std::get<std::unique_ptr<YINI::YiniMap>>(value->data);
+    if (!map_ptr) return 0;
+    return map_ptr->elements.size();
+}
+
+YINI_API int yini_map_get_key_by_index(const YiniValueHandle* value_handle, int index, char* buffer, int buffer_size)
+{
+    if (!value_handle) return 0;
+    auto* value = reinterpret_cast<const YINI::YiniValue*>(value_handle);
+    if (!std::holds_alternative<std::unique_ptr<YINI::YiniMap>>(value->data)) return 0;
+
+    const auto& map_ptr = std::get<std::unique_ptr<YINI::YiniMap>>(value->data);
+    if (!map_ptr || index < 0 || index >= map_ptr->elements.size()) return 0;
+
+    auto it = map_ptr->elements.begin();
+    std::advance(it, index);
+    return safe_strncpy(buffer, it->first, buffer_size);
+}
+
+YINI_API const YiniValueHandle* yini_map_get_value_by_key(const YiniValueHandle* value_handle, const char* key)
+{
+    if (!value_handle || !key) return nullptr;
+    auto* value = reinterpret_cast<const YINI::YiniValue*>(value_handle);
+    if (!std::holds_alternative<std::unique_ptr<YINI::YiniMap>>(value->data)) return nullptr;
+
+    const auto& map_ptr = std::get<std::unique_ptr<YINI::YiniMap>>(value->data);
+    if (!map_ptr) return nullptr;
+
+    auto it = map_ptr->elements.find(key);
+    if (it != map_ptr->elements.end()) {
+        return reinterpret_cast<const YiniValueHandle*>(&it->second);
+    }
+
+    return nullptr;
 }
 
 } // extern "C"

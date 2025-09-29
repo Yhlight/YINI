@@ -49,12 +49,16 @@ YINI_API void yini_set_string_value(YiniDocumentHandle* handle, const char* sect
 YINI_API void yini_set_int_value(YiniDocumentHandle* handle, const char* section, const char* key, int value);
 YINI_API void yini_set_double_value(YiniDocumentHandle* handle, const char* section, const char* key, double value);
 YINI_API void yini_set_bool_value(YiniDocumentHandle* handle, const char* section, const char* key, bool value);
+YINI_API int yini_get_define_count(const YiniDocumentHandle* handle);
+YINI_API const YiniValueHandle* yini_get_define_by_index(const YiniDocumentHandle* handle, int index, char* key_buffer, int key_buffer_size);
 
 // Section API
 YINI_API int yini_section_get_name(const YiniSectionHandle* section_handle, char* buffer, int buffer_size);
 YINI_API int yini_section_get_pair_count(const YiniSectionHandle* section_handle);
 YINI_API int yini_section_get_pair_key_by_index(const YiniSectionHandle* section_handle, int index, char* buffer, int buffer_size);
 YINI_API const YiniValueHandle* yini_section_get_value_by_key(const YiniSectionHandle* section_handle, const char* key);
+YINI_API int yini_section_get_registration_count(const YiniSectionHandle* section_handle);
+YINI_API const YiniValueHandle* yini_section_get_registered_value_by_index(const YiniSectionHandle* section_handle, int index);
 
 // Value API
 YINI_API YiniType yini_value_get_type(const YiniValueHandle* value_handle);
@@ -75,6 +79,11 @@ YINI_API const YiniValueHandle* yini_list_get_value_by_index(const YiniValueHand
 // Set API
 YINI_API int yini_set_get_size(const YiniValueHandle* value_handle);
 YINI_API const YiniValueHandle* yini_set_get_value_by_index(const YiniValueHandle* value_handle, int index);
+
+// Map API
+YINI_API int yini_map_get_size(const YiniValueHandle* value_handle);
+YINI_API int yini_map_get_key_by_index(const YiniValueHandle* value_handle, int index, char* buffer, int buffer_size);
+YINI_API const YiniValueHandle* yini_map_get_value_by_key(const YiniValueHandle* value_handle, const char* key);
 
 #ifdef __cplusplus
 }
