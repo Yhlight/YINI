@@ -4,6 +4,7 @@
 #include "YINI/JsonDeserializer.hpp"
 #include <fstream>
 #include <string>
+#include <cstdio> // For std::rename, std::remove
 
 namespace YINI
 {
@@ -45,7 +46,9 @@ namespace YINI
     {
         std::string ymetaContent = read_file_content(m_ymetaFilePath);
         if (!ymetaContent.empty()) {
-            if (JsonDeserializer::deserialize(ymetaContent, m_doc)) {
+            YiniDocument tempDoc;
+            if (JsonDeserializer::deserialize(ymetaContent, tempDoc)) {
+                m_doc = std::move(tempDoc);
                 return true;
             }
         }
@@ -78,6 +81,22 @@ namespace YINI
 
     bool YiniManager::save()
     {
+        const int max_backups = 5;
+        std::string oldest_backup = m_ymetaFilePath + "." + std::to_string(max_backups);
+        std::remove(oldest_backup.c_str());
+
+        for (int i = max_backups - 1; i > 0; --i) {
+            std::string current_backup = m_ymetaFilePath + "." + std::to_string(i);
+            std::string next_backup = m_ymetaFilePath + "." + std::to_string(i + 1);
+            std::rename(current_backup.c_str(), next_backup.c_str());
+        }
+
+        std::ifstream current_ymeta(m_ymetaFilePath.c_str());
+        if (current_ymeta.good()) {
+            std::string first_backup = m_ymetaFilePath + ".1";
+            std::rename(m_ymetaFilePath.c_str(), first_backup.c_str());
+        }
+
         std::ofstream outFile(m_ymetaFilePath);
         if (!outFile.is_open()) {
             return false;
