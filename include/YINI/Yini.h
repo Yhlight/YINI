@@ -43,6 +43,10 @@ YINI_API void yini_free_document(YiniDocumentHandle* handle);
 YINI_API int yini_get_section_count(const YiniDocumentHandle* handle);
 YINI_API const YiniSectionHandle* yini_get_section_by_index(const YiniDocumentHandle* handle, int index);
 YINI_API const YiniSectionHandle* yini_get_section_by_name(const YiniDocumentHandle* handle, const char* name);
+YINI_API void yini_set_string_value(YiniDocumentHandle* handle, const char* section, const char* key, const char* value);
+YINI_API void yini_set_int_value(YiniDocumentHandle* handle, const char* section, const char* key, int value);
+YINI_API void yini_set_double_value(YiniDocumentHandle* handle, const char* section, const char* key, double value);
+YINI_API void yini_set_bool_value(YiniDocumentHandle* handle, const char* section, const char* key, bool value);
 
 // Section API
 YINI_API int yini_section_get_name(const YiniSectionHandle* section_handle, char* buffer, int buffer_size);

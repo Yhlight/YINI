@@ -24,10 +24,8 @@ TEST(YiniManagerTest, LoadFromFileCreatesYmeta)
     // Clean up any previous ymeta file
     std::remove(ymetaPath.c_str());
 
-    YINI::YiniDocument doc;
-    bool success = YINI::YiniManager::loadFromFile(yiniPath, doc);
-
-    ASSERT_TRUE(success);
+    YINI::YiniManager manager(yiniPath);
+    const auto& doc = manager.getDocument();
 
     // Check that the document was loaded correctly
     const auto* section = doc.findSection("Test");
@@ -47,7 +45,33 @@ TEST(YiniManagerTest, LoadFromFileCreatesYmeta)
     EXPECT_NE(ymetaContent.find("\"Test\""), std::string::npos);
     EXPECT_NE(ymetaContent.find("\"value\":\"Hello\""), std::string::npos);
 
-    // Clean up the created ymeta file
+    // Clean up the created files
+    std::remove(yiniPath.c_str());
+    std::remove(ymetaPath.c_str());
+}
+
+TEST(YiniManagerTest, SetValueSavesToYmeta)
+{
+    const std::string yiniPath = "autosave_test.yini";
+    const std::string ymetaPath = "autosave_test.ymeta";
+
+    // Create a dummy file
+    std::ofstream(yiniPath) << "[Settings]\nvolume = 100";
+    std::remove(ymetaPath.c_str()); // Ensure no old cache exists
+
+    // Load the file, which creates the initial .ymeta
+    YINI::YiniManager manager(yiniPath);
+
+    // Modify a value, which should trigger an auto-save
+    manager.setIntValue("Settings", "volume", 75);
+
+    // Read the ymeta file from disk to check if it was updated
+    std::string ymetaContent = readFileContent(ymetaPath);
+    ASSERT_FALSE(ymetaContent.empty());
+    EXPECT_NE(ymetaContent.find("\"volume\":75"), std::string::npos);
+
+    // Clean up
+    std::remove(yiniPath.c_str());
     std::remove(ymetaPath.c_str());
 }
 
@@ -60,10 +84,8 @@ TEST(YiniManagerTest, LoadFromFilePrioritizesYmetaCache)
     std::ofstream(yiniPath) << "[CachedSection]\nvalue = \"from_yini_file_should_be_ignored\"";
     std::ofstream(ymetaPath) << "{\"CachedSection\":{\"value\":\"from_cache\"}}";
 
-    YINI::YiniDocument doc;
-    bool success = YINI::YiniManager::loadFromFile(yiniPath, doc);
-
-    ASSERT_TRUE(success);
+    YINI::YiniManager manager(yiniPath);
+    const auto& doc = manager.getDocument();
 
     // Check that the document was loaded from the .ymeta cache, not the .yini file.
     const auto* section = doc.findSection("CachedSection");
@@ -72,4 +94,8 @@ TEST(YiniManagerTest, LoadFromFilePrioritizesYmetaCache)
     auto it = std::find_if(section->pairs.begin(), section->pairs.end(), [](const auto& p){ return p.key == "value"; });
     ASSERT_NE(it, section->pairs.end());
     EXPECT_EQ(std::get<std::string>(it->value.data), "from_cache");
+
+    // Clean up the created files
+    std::remove(yiniPath.c_str());
+    std::remove(ymetaPath.c_str());
 }

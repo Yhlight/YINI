@@ -128,5 +128,34 @@ rate = 12.5 * @factor
                 Assert.Throws<InvalidCastException>(() => nameValue.AsCoord());
             }
         }
+
+        [Test]
+        public void SetValue_ShouldModifyAndAddValues()
+        {
+            using(var doc = new YiniDocument(TestContent))
+            {
+                // Modify existing value
+                doc.SetValue("Core", "name", "New YINI");
+                var modifiedName = doc.GetValue("Core", "name");
+                Assert.That(modifiedName, Is.Not.Null);
+                Assert.That(modifiedName.Type, Is.EqualTo(YiniType.String));
+                Assert.That(modifiedName.AsString(), Is.EqualTo("New YINI"));
+
+                // Add new value to existing section
+                doc.SetValue("Core", "new_key", 999);
+                var newValue = doc.GetValue("Core", "new_key");
+                Assert.That(newValue, Is.Not.Null);
+                Assert.That(newValue.Type, Is.EqualTo(YiniType.Int));
+                Assert.That(newValue.AsInt(), Is.EqualTo(999));
+
+                // Add new value to new section
+                doc.SetValue("NewSection", "data", true);
+                var newSectionValue = doc.GetValue("NewSection", "data");
+                Assert.That(newSectionValue, Is.Not.Null);
+                Assert.That(newSectionValue.Type, Is.EqualTo(YiniType.Bool));
+                Assert.That(newSectionValue.AsBool(), Is.True);
+                Assert.That(doc.SectionCount, Is.EqualTo(3));
+            }
+        }
     }
 }

@@ -106,12 +106,31 @@ namespace YINI
             sections.push_back(std::move(section));
         }
 
+        std::vector<YiniSection>& getSections()
+        {
+            return sections;
+        }
+
         const std::vector<YiniSection>& getSections() const
         {
             return sections;
         }
 
     public:
+        YiniSection* findSection(const std::string& name)
+        {
+            auto it = std::find_if(sections.begin(), sections.end(), [&](const YiniSection& s) {
+                return s.name == name;
+            });
+
+            if (it != sections.end())
+            {
+                return &(*it);
+            }
+
+            return nullptr;
+        }
+
         void addDefine(const std::string& key, const YiniValue& value)
         {
             defines[key] = value;

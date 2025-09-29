@@ -15,6 +15,21 @@ static int safe_strncpy(char* dest, const std::string& src, int buffer_size) {
     return src.length() + 1; // Return the required buffer size
 }
 
+// Helper to find or create a key-value pair
+static YINI::YiniKeyValuePair* find_or_create_pair(YINI::YiniSection* section, const char* key) {
+    if (!section || !key) return nullptr;
+
+    auto it = std::find_if(section->pairs.begin(), section->pairs.end(),
+        [&](const YINI::YiniKeyValuePair& p) { return p.key == key; });
+
+    if (it != section->pairs.end()) {
+        return &(*it);
+    } else {
+        section->pairs.push_back({std::string(key), {}});
+        return &section->pairs.back();
+    }
+}
+
 // C-style wrapper functions
 extern "C" {
 
@@ -60,6 +75,39 @@ YINI_API const YiniSectionHandle* yini_get_section_by_name(const YiniDocumentHan
     return reinterpret_cast<const YiniSectionHandle*>(handle->doc.findSection(name));
 }
 
+YINI_API void yini_set_string_value(YiniDocumentHandle* handle, const char* section_name, const char* key, const char* value)
+{
+    if (!handle || !section_name || !key || !value) return;
+    YINI::YiniSection* section = handle->doc.getOrCreateSection(section_name);
+    auto* pair = find_or_create_pair(section, key);
+    if(pair) pair->value.data = std::string(value);
+}
+
+YINI_API void yini_set_int_value(YiniDocumentHandle* handle, const char* section_name, const char* key, int value)
+{
+    if (!handle || !section_name || !key) return;
+    YINI::YiniSection* section = handle->doc.getOrCreateSection(section_name);
+    auto* pair = find_or_create_pair(section, key);
+    if(pair) pair->value.data = value;
+}
+
+YINI_API void yini_set_double_value(YiniDocumentHandle* handle, const char* section_name, const char* key, double value)
+{
+    if (!handle || !section_name || !key) return;
+    YINI::YiniSection* section = handle->doc.getOrCreateSection(section_name);
+    auto* pair = find_or_create_pair(section, key);
+    if(pair) pair->value.data = value;
+}
+
+YINI_API void yini_set_bool_value(YiniDocumentHandle* handle, const char* section_name, const char* key, bool value)
+{
+    if (!handle || !section_name || !key) return;
+    YINI::YiniSection* section = handle->doc.getOrCreateSection(section_name);
+    auto* pair = find_or_create_pair(section, key);
+    if(pair) pair->value.data = value;
+}
+
+
 // Section API
 YINI_API int yini_section_get_name(const YiniSectionHandle* section_handle, char* buffer, int buffer_size)
 {
@@ -94,6 +142,7 @@ YINI_API const YiniValueHandle* yini_section_get_value_by_key(const YiniSectionH
     }
     return nullptr;
 }
+
 
 // Value API
 YINI_API YiniType yini_value_get_type(const YiniValueHandle* value_handle)

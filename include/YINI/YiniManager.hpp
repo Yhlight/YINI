@@ -3,19 +3,35 @@
 
 #include "YiniData.hpp"
 #include <string>
+#include <memory>
 
 namespace YINI
 {
     class YiniManager
     {
     public:
-        // Loads a YINI document from a given .yini file path.
-        // If successful, it also creates/updates the corresponding .ymeta file.
-        static bool loadFromFile(const std::string& filePath, YiniDocument& doc);
+        // Constructor loads a YINI document from a given .yini file path.
+        // It prioritizes the .ymeta cache if it exists.
+        explicit YiniManager(const std::string& yiniFilePath);
+
+        // Provides read-only access to the document
+        const YiniDocument& getDocument() const;
+        bool isLoaded() const;
+
+        // Methods to modify values, which will trigger persistence to .ymeta
+        void setStringValue(const std::string& section, const std::string& key, const std::string& value);
+        void setIntValue(const std::string& section, const std::string& key, int value);
+        void setDoubleValue(const std::string& section, const std::string& key, double value);
+        void setBoolValue(const std::string& section, const std::string& key, bool value);
 
     private:
-        // Helper to save document to a .ymeta file.
-        static bool saveYmeta(const std::string& yiniFilePath, const YiniDocument& doc);
+        bool load();
+        bool save(); // Saves the current document state to the .ymeta file
+
+        std::string m_yiniFilePath;
+        std::string m_ymetaFilePath;
+        YiniDocument m_doc;
+        bool m_isLoaded;
     };
 }
 

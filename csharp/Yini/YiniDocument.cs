@@ -25,6 +25,18 @@ namespace YINI
         [DllImport(LibName, EntryPoint = "yini_get_section_by_name")]
         private static extern IntPtr GetSectionByNameInternal(IntPtr handle, string name);
 
+        [DllImport(LibName, EntryPoint = "yini_set_string_value")]
+        private static extern void SetStringValueInternal(IntPtr handle, string section, string key, string value);
+
+        [DllImport(LibName, EntryPoint = "yini_set_int_value")]
+        private static extern void SetIntValueInternal(IntPtr handle, string section, string key, int value);
+
+        [DllImport(LibName, EntryPoint = "yini_set_double_value")]
+        private static extern void SetDoubleValueInternal(IntPtr handle, string section, string key, double value);
+
+        [DllImport(LibName, EntryPoint = "yini_set_bool_value")]
+        private static extern void SetBoolValueInternal(IntPtr handle, string section, string key, bool value);
+
         public YiniDocument(string content)
         {
             var errorBuffer = new StringBuilder(1024);
@@ -58,6 +70,11 @@ namespace YINI
             var section = GetSection(sectionName);
             return section?.GetValue(key);
         }
+
+        public void SetValue(string sectionName, string key, string value) => SetStringValueInternal(_handle, sectionName, key, value);
+        public void SetValue(string sectionName, string key, int value) => SetIntValueInternal(_handle, sectionName, key, value);
+        public void SetValue(string sectionName, string key, double value) => SetDoubleValueInternal(_handle, sectionName, key, value);
+        public void SetValue(string sectionName, string key, bool value) => SetBoolValueInternal(_handle, sectionName, key, value);
 
         public void Dispose()
         {

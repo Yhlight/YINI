@@ -44,8 +44,8 @@ void handleCheck(const std::string& filePath) {
 }
 
 void handleCompile(const std::string& filePath) {
-    YINI::YiniDocument doc;
-    if (YINI::YiniManager::loadFromFile(filePath, doc)) {
+    YINI::YiniManager manager(filePath);
+    if (manager.isLoaded()) {
         std::cout << "Successfully compiled " << filePath << " to .ymeta" << std::endl;
     } else {
         std::cerr << "Error: Failed to load or compile " << filePath << ". Check for syntax errors or file access issues." << std::endl;
