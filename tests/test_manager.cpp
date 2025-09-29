@@ -4,6 +4,11 @@
 #include <fstream>
 #include <gtest/gtest.h>
 #include <string>
+#include <filesystem>
+#include <thread>
+#include <chrono>
+
+namespace fs = std::filesystem;
 
 // Helper to read file content
 static std::string readFileContent(const std::string &path)
@@ -15,6 +20,13 @@ static std::string readFileContent(const std::string &path)
                      std::istreambuf_iterator<char>());
 }
 
+// Helper to create a file and set its last write time
+void createFileWithTimestamp(const std::string& path, const std::string& content, fs::file_time_type timestamp) {
+    std::ofstream(path) << content;
+    fs::last_write_time(path, timestamp);
+}
+
+
 TEST(YiniManagerTest, LoadFromFileCreatesYmeta)
 {
   const std::string yiniPath = "manager_test.yini";
@@ -24,7 +36,7 @@ TEST(YiniManagerTest, LoadFromFileCreatesYmeta)
   std::ofstream(yiniPath) << "[Test]\nvalue = \"Hello\"";
 
   // Clean up any previous ymeta file
-  std::remove(ymetaPath.c_str());
+  fs::remove(ymetaPath);
 
   YINI::YiniManager manager(yiniPath);
   const auto &doc = manager.getDocument();
@@ -39,6 +51,7 @@ TEST(YiniManagerTest, LoadFromFileCreatesYmeta)
   EXPECT_EQ(std::get<std::string>(it->value.data), "Hello");
 
   // Check that the .ymeta file was created
+  ASSERT_TRUE(fs::exists(ymetaPath));
   std::string ymetaContent = readFileContent(ymetaPath);
   ASSERT_FALSE(ymetaContent.empty());
 
@@ -49,8 +62,8 @@ TEST(YiniManagerTest, LoadFromFileCreatesYmeta)
   EXPECT_NE(ymetaContent.find("\"value\":\"Hello\""), std::string::npos);
 
   // Clean up the created files
-  std::remove(yiniPath.c_str());
-  std::remove(ymetaPath.c_str());
+  fs::remove(yiniPath);
+  fs::remove(ymetaPath);
 }
 
 TEST(YiniManagerTest, SetValueCreatesBackups)
@@ -62,10 +75,10 @@ TEST(YiniManagerTest, SetValueCreatesBackups)
   std::ofstream(yiniPath) << "[Data]\nvalue = 0";
 
   // Clean up any previous files
-  std::remove(ymetaPath.c_str());
+  fs::remove(ymetaPath);
   for (int i = 1; i <= 6; ++i)
   {
-    std::remove((ymetaPath + "." + std::to_string(i)).c_str());
+    fs::remove(ymetaPath + ".bak" + std::to_string(i));
   }
 
   YINI::YiniManager manager(yiniPath);
@@ -77,28 +90,23 @@ TEST(YiniManagerTest, SetValueCreatesBackups)
   }
 
   // After 6 saves, we expect the main .ymeta and 5 backup files
-  EXPECT_TRUE(readFileContent(ymetaPath).find("\"value\":6") !=
-              std::string::npos);
-  EXPECT_TRUE(readFileContent(ymetaPath + ".1").find("\"value\":5") !=
-              std::string::npos);
-  EXPECT_TRUE(readFileContent(ymetaPath + ".2").find("\"value\":4") !=
-              std::string::npos);
-  EXPECT_TRUE(readFileContent(ymetaPath + ".3").find("\"value\":3") !=
-              std::string::npos);
-  EXPECT_TRUE(readFileContent(ymetaPath + ".4").find("\"value\":2") !=
-              std::string::npos);
+  EXPECT_TRUE(readFileContent(ymetaPath).find("\"value\":6") != std::string::npos);
+  EXPECT_TRUE(readFileContent(ymetaPath + ".bak1").find("\"value\":5") != std::string::npos);
+  EXPECT_TRUE(readFileContent(ymetaPath + ".bak2").find("\"value\":4") != std::string::npos);
+  EXPECT_TRUE(readFileContent(ymetaPath + ".bak3").find("\"value\":3") != std::string::npos);
+  EXPECT_TRUE(readFileContent(ymetaPath + ".bak4").find("\"value\":2") != std::string::npos);
+  EXPECT_TRUE(readFileContent(ymetaPath + ".bak5").find("\"value\":1") != std::string::npos);
 
-  // The 5th backup file should now contain the value from the second save
-  // (value 1)
-  EXPECT_TRUE(readFileContent(ymetaPath + ".5").find("\"value\":1") !=
-              std::string::npos);
+  // The 6th backup should not exist
+  EXPECT_FALSE(fs::exists(ymetaPath + ".bak6"));
+
 
   // Clean up all created files
-  std::remove(yiniPath.c_str());
-  std::remove(ymetaPath.c_str());
+  fs::remove(yiniPath);
+  fs::remove(ymetaPath);
   for (int i = 1; i <= 5; ++i)
   {
-    std::remove((ymetaPath + "." + std::to_string(i)).c_str());
+    fs::remove(ymetaPath + ".bak" + std::to_string(i));
   }
 }
 
@@ -109,7 +117,7 @@ TEST(YiniManagerTest, SetValueSavesToYmeta)
 
   // Create a dummy file
   std::ofstream(yiniPath) << "[Settings]\nvolume = 100";
-  std::remove(ymetaPath.c_str()); // Ensure no old cache exists
+  fs::remove(ymetaPath); // Ensure no old cache exists
 
   // Load the file, which creates the initial .ymeta
   YINI::YiniManager manager(yiniPath);
@@ -123,8 +131,8 @@ TEST(YiniManagerTest, SetValueSavesToYmeta)
   EXPECT_NE(ymetaContent.find("\"volume\":75"), std::string::npos);
 
   // Clean up
-  std::remove(yiniPath.c_str());
-  std::remove(ymetaPath.c_str());
+  fs::remove(yiniPath);
+  fs::remove(ymetaPath);
 }
 
 TEST(YiniManagerTest, LoadFromFilePrioritizesYmetaCache)
@@ -132,29 +140,20 @@ TEST(YiniManagerTest, LoadFromFilePrioritizesYmetaCache)
   const std::string yiniPath = "cache_test.yini";
   const std::string ymetaPath = "cache_test.ymeta";
 
-  // Create dummy files for the test
-  std::ofstream(yiniPath)
-      << "[CachedSection]\nvalue = \"from_yini_file_should_be_ignored\"";
+  // Create a yini file
+  std::ofstream(yiniPath) << "[CachedSection]\nvalue = \"from_yini_file_should_be_ignored\"";
 
+  // Create a newer ymeta file
   const std::string new_cache_content = R"({
-        "defines": {},
-        "sections": {
-            "CachedSection": {
-                "inherits": [],
-                "pairs": {
-                    "value": "from_cache"
-                },
-                "register": []
-            }
-        }
+        "defines": {}, "sections": { "CachedSection": { "inherits": [], "pairs": { "value": "from_cache" }, "register": [] } }
     })";
   std::ofstream(ymetaPath) << new_cache_content;
+
+  fs::last_write_time(ymetaPath, fs::last_write_time(yiniPath) + std::chrono::seconds(1));
 
   YINI::YiniManager manager(yiniPath);
   const auto &doc = manager.getDocument();
 
-  // Check that the document was loaded from the .ymeta cache, not the .yini
-  // file.
   const auto *section = doc.findSection("CachedSection");
   ASSERT_NE(section, nullptr);
 
@@ -164,6 +163,36 @@ TEST(YiniManagerTest, LoadFromFilePrioritizesYmetaCache)
   EXPECT_EQ(std::get<std::string>(it->value.data), "from_cache");
 
   // Clean up the created files
-  std::remove(yiniPath.c_str());
-  std::remove(ymetaPath.c_str());
+  fs::remove(yiniPath);
+  fs::remove(ymetaPath);
+}
+
+TEST(YiniManagerTest, IgnoresStaleCache)
+{
+    const std::string yiniPath = "stale_cache_test.yini";
+    const std::string ymetaPath = "stale_cache_test.ymeta";
+
+    // 1. Create an initial .yini and a stale .ymeta
+    std::ofstream(ymetaPath) << "[Test]\nvalue = \"stale_cache\"";
+    std::ofstream(yiniPath) << "[Test]\nvalue = \"updated_yini\"";
+
+    // Ensure yini is newer than ymeta
+    fs::last_write_time(yiniPath, fs::last_write_time(ymetaPath) + std::chrono::seconds(1));
+
+    // 2. Create a manager instance to trigger the load logic
+    YINI::YiniManager manager(yiniPath);
+    ASSERT_TRUE(manager.isLoaded());
+    const auto& doc = manager.getDocument();
+
+    // 3. Verify that the loaded data is from the updated .yini, not the stale cache
+    const auto* section = doc.findSection("Test");
+    ASSERT_NE(section, nullptr);
+    auto it = std::find_if(section->pairs.begin(), section->pairs.end(),
+                           [](const auto& p) { return p.key == "value"; });
+    ASSERT_NE(it, section->pairs.end());
+    EXPECT_EQ(std::get<std::string>(it->value.data), "updated_yini");
+
+    // Clean up
+    fs::remove(yiniPath);
+    fs::remove(ymetaPath);
 }

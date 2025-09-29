@@ -5,9 +5,12 @@
 #include <cstdio> // For std::rename, std::remove
 #include <fstream>
 #include <string>
+#include <filesystem>
 
 namespace YINI
 {
+namespace fs = std::filesystem;
+
 static std::string read_file_content(const std::string &path)
 {
   std::ifstream t(path);
@@ -32,85 +35,109 @@ static std::string get_ymeta_path(const std::string &yiniFilePath)
   return ymetaPath;
 }
 
-YiniManager::YiniManager(const std::string &yiniFilePath)
-    : m_yiniFilePath(yiniFilePath),
-      m_ymetaFilePath(get_ymeta_path(yiniFilePath)), m_isLoaded(false)
+YiniManager::YiniManager(const std::string &path)
+    : yiniFilePath(path),
+      ymetaFilePath(get_ymeta_path(path)), is_loaded(false)
 {
-  m_isLoaded = load();
+  is_loaded = load();
 }
 
-const YiniDocument &YiniManager::getDocument() const { return m_doc; }
+const YiniDocument &YiniManager::getDocument() const { return document; }
 
-bool YiniManager::isLoaded() const { return m_isLoaded; }
+bool YiniManager::isLoaded() const { return is_loaded; }
 
 bool YiniManager::load()
 {
-  std::string ymetaContent = read_file_content(m_ymetaFilePath);
-  if (!ymetaContent.empty())
+  // Staleness Check: Only load from .ymeta if it exists and is newer than .yini
+  if (fs::exists(ymetaFilePath) && fs::exists(yiniFilePath))
   {
-    YiniDocument tempDoc;
-    if (JsonDeserializer::deserialize(ymetaContent, tempDoc))
+    auto ymeta_time = fs::last_write_time(ymetaFilePath);
+    auto yini_time = fs::last_write_time(yiniFilePath);
+
+    if (ymeta_time >= yini_time)
     {
-      m_doc = std::move(tempDoc);
-      return true;
+      std::string ymetaContent = read_file_content(ymetaFilePath);
+      if (!ymetaContent.empty())
+      {
+        YiniDocument tempDoc;
+        if (JsonDeserializer::deserialize(ymetaContent, tempDoc))
+        {
+          document = std::move(tempDoc);
+          return true;
+        }
+      }
     }
   }
 
-  std::string yiniContent = read_file_content(m_yiniFilePath);
+  // If ymeta is stale or doesn't exist, parse the .yini file
+  std::string yiniContent = read_file_content(yiniFilePath);
   if (yiniContent.empty())
   {
+    // As a last resort, if .yini is missing but .ymeta exists, load from cache
+    if (fs::exists(ymetaFilePath)) {
+        std::string ymetaContent = read_file_content(ymetaFilePath);
+        if (!ymetaContent.empty()) {
+            if (JsonDeserializer::deserialize(ymetaContent, document)) {
+                return true;
+            }
+        }
+    }
     return false;
   }
 
   try
   {
-    m_doc = {};
+    document = {};
     std::string basePath = ".";
-    size_t last_slash_idx = m_yiniFilePath.rfind('/');
+    size_t last_slash_idx = yiniFilePath.rfind('/');
     if (std::string::npos != last_slash_idx)
     {
-      basePath = m_yiniFilePath.substr(0, last_slash_idx);
+      basePath = yiniFilePath.substr(0, last_slash_idx);
     }
 
-    Parser parser(yiniContent, m_doc, basePath);
+    Parser parser(yiniContent, document, basePath);
     parser.parse();
-    m_doc.resolveInheritance();
+    document.resolveInheritance();
   }
   catch (...)
   {
     return false;
   }
 
-  return save();
+  return save(); // Create the .ymeta cache after a successful parse
 }
 
 bool YiniManager::save()
 {
   const int max_backups = 5;
-  std::string oldest_backup =
-      m_ymetaFilePath + "." + std::to_string(max_backups);
-  std::remove(oldest_backup.c_str());
-
-  for (int i = max_backups - 1; i > 0; --i)
+  std::string oldest_backup = ymetaFilePath + ".bak" + std::to_string(max_backups);
+  if (fs::exists(oldest_backup))
   {
-    std::string current_backup = m_ymetaFilePath + "." + std::to_string(i);
-    std::string next_backup = m_ymetaFilePath + "." + std::to_string(i + 1);
-    std::rename(current_backup.c_str(), next_backup.c_str());
+      fs::remove(oldest_backup);
   }
 
-  std::ifstream current_ymeta(m_ymetaFilePath.c_str());
-  if (current_ymeta.good())
+  for (int i = max_backups - 1; i >= 1; --i)
   {
-    std::string first_backup = m_ymetaFilePath + ".1";
-    std::rename(m_ymetaFilePath.c_str(), first_backup.c_str());
+    std::string current_backup = ymetaFilePath + ".bak" + std::to_string(i);
+    std::string next_backup = ymetaFilePath + ".bak" + std::to_string(i + 1);
+    if(fs::exists(current_backup))
+    {
+        fs::rename(current_backup, next_backup);
+    }
   }
 
-  std::ofstream outFile(m_ymetaFilePath);
+  if (fs::exists(ymetaFilePath))
+  {
+    std::string first_backup = ymetaFilePath + ".bak1";
+    fs::rename(ymetaFilePath, first_backup);
+  }
+
+  std::ofstream outFile(ymetaFilePath);
   if (!outFile.is_open())
   {
     return false;
   }
-  std::string jsonContent = JsonSerializer::serialize(m_doc);
+  std::string jsonContent = JsonSerializer::serialize(document);
   outFile << jsonContent;
   return true;
 }
@@ -140,7 +167,7 @@ void YiniManager::setStringValue(const std::string &section,
 {
   YiniValue val;
   val.data = value;
-  set_value_helper(m_doc, section, key, val);
+  set_value_helper(document, section, key, val);
   save();
 }
 
@@ -149,7 +176,7 @@ void YiniManager::setIntValue(const std::string &section,
 {
   YiniValue val;
   val.data = value;
-  set_value_helper(m_doc, section, key, val);
+  set_value_helper(document, section, key, val);
   save();
 }
 
@@ -158,7 +185,7 @@ void YiniManager::setDoubleValue(const std::string &section,
 {
   YiniValue val;
   val.data = value;
-  set_value_helper(m_doc, section, key, val);
+  set_value_helper(document, section, key, val);
   save();
 }
 
@@ -167,7 +194,7 @@ void YiniManager::setBoolValue(const std::string &section,
 {
   YiniValue val;
   val.data = value;
-  set_value_helper(m_doc, section, key, val);
+  set_value_helper(document, section, key, val);
   save();
 }
 } // namespace YINI

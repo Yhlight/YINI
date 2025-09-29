@@ -28,10 +28,10 @@ namespace YINI
         bool load();
         bool save(); // Saves the current document state to the .ymeta file
 
-        std::string m_yiniFilePath;
-        std::string m_ymetaFilePath;
-        YiniDocument m_doc;
-        bool m_isLoaded;
+        std::string yiniFilePath;
+        std::string ymetaFilePath;
+        YiniDocument document;
+        bool is_loaded;
     };
 }
 
