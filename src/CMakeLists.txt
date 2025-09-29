@@ -5,9 +5,12 @@ add_library(yini SHARED
     Yini.cpp
     JsonSerializer.cpp
     YiniManager.cpp
+    JsonDeserializer.cpp
 )
 
 target_include_directories(yini PUBLIC ../include)
 
 # Define YINI_EXPORTS when building the shared library
 target_compile_definitions(yini PRIVATE YINI_EXPORTS)
+
+target_link_libraries(yini PRIVATE nlohmann_json::nlohmann_json)
