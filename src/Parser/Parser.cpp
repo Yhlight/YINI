@@ -353,9 +353,19 @@ YiniValue Parser::parseValue()
       val.data = std::move(dyna_val);
       return val;
     }
+    if (id_val == "array")
+    {
+      val.data = parseArrayFromFunction();
+      return val;
+    }
     if (id_val == "coord")
     {
       val.data = parseCoord();
+      return val;
+    }
+    if (id_val == "list")
+    {
+      val.data = parseList();
       return val;
     }
     if (id_val == "color")
@@ -481,6 +491,66 @@ std::unique_ptr<YiniArray> Parser::parseArray()
                         m_currentToken.column);
   }
   nextToken();
+  return arr;
+}
+
+std::unique_ptr<YiniList> Parser::parseList()
+{
+  nextToken(); // consume 'List'
+  if (m_currentToken.type != TokenType::LeftParen)
+    throw YiniException("Expected '(' after List.", m_currentToken.line,
+                        m_currentToken.column);
+  nextToken(); // consume '('
+
+  auto list = std::make_unique<YiniList>();
+
+  while (m_currentToken.type != TokenType::RightParen &&
+         m_currentToken.type != TokenType::Eof)
+  {
+    list->elements.push_back(parseValue());
+
+    if (m_currentToken.type == TokenType::Comma)
+    {
+      nextToken();
+    }
+  }
+
+  if (m_currentToken.type != TokenType::RightParen)
+  {
+    throw YiniException("Expected ')' to close list.", m_currentToken.line,
+                        m_currentToken.column);
+  }
+  nextToken(); // consume ')'
+  return list;
+}
+
+std::unique_ptr<YiniArray> Parser::parseArrayFromFunction()
+{
+  nextToken(); // consume 'Array'
+  if (m_currentToken.type != TokenType::LeftParen)
+    throw YiniException("Expected '(' after Array.", m_currentToken.line,
+                        m_currentToken.column);
+  nextToken(); // consume '('
+
+  auto arr = std::make_unique<YiniArray>();
+
+  while (m_currentToken.type != TokenType::RightParen &&
+         m_currentToken.type != TokenType::Eof)
+  {
+    arr->elements.push_back(parseValue());
+
+    if (m_currentToken.type == TokenType::Comma)
+    {
+      nextToken();
+    }
+  }
+
+  if (m_currentToken.type != TokenType::RightParen)
+  {
+    throw YiniException("Expected ')' to close Array expression.", m_currentToken.line,
+                        m_currentToken.column);
+  }
+  nextToken(); // consume ')'
   return arr;
 }
 

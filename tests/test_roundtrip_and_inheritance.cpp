@@ -50,6 +50,7 @@ name = "YINI"
 version = @version
 enabled = true
 data = [1, 2, "simple_string_in_array"]
+my_list = List(10, "foo")
 color = #FF00FF
 
 += "registered_value"
@@ -89,6 +90,18 @@ color = #FF00FF
   ASSERT_NE(it_base, new_core->pairs.end());
   ASSERT_TRUE(std::holds_alternative<int>(it_base->value.data));
   EXPECT_EQ(std::get<int>(it_base->value.data), 100);
+
+  // Check list value
+  auto it_list =
+      std::find_if(new_core->pairs.begin(), new_core->pairs.end(),
+                   [](const auto &p) { return p.key == "my_list"; });
+  ASSERT_NE(it_list, new_core->pairs.end());
+  ASSERT_TRUE(std::holds_alternative<std::unique_ptr<YINI::YiniList>>(it_list->value.data));
+  const auto& list_ptr = std::get<std::unique_ptr<YINI::YiniList>>(it_list->value.data);
+  ASSERT_NE(list_ptr, nullptr);
+  ASSERT_EQ(list_ptr->elements.size(), 2);
+  EXPECT_EQ(std::get<int>(list_ptr->elements[0].data), 10);
+  EXPECT_EQ(std::get<std::string>(list_ptr->elements[1].data), "foo");
 
   // Check registration list
   ASSERT_EQ(new_core->registrationList.size(), 1);

@@ -12,6 +12,7 @@ namespace YINI
         Double,
         Bool,
         Array,
+        List,
         Map,
         Dyna,
         Coord,
@@ -43,7 +44,13 @@ namespace YINI
         private static extern int GetArraySizeInternal(IntPtr handle);
 
         [DllImport(LibName, EntryPoint = "yini_array_get_value_by_index")]
-        private static extern IntPtr GetValueByIndexInternal(IntPtr handle, int index);
+        private static extern IntPtr GetArrayValueByIndexInternal(IntPtr handle, int index);
+
+        [DllImport(LibName, EntryPoint = "yini_list_get_size")]
+        private static extern int GetListSizeInternal(IntPtr handle);
+
+        [DllImport(LibName, EntryPoint = "yini_list_get_value_by_index")]
+        private static extern IntPtr GetListValueByIndexInternal(IntPtr handle, int index);
 
         [DllImport(LibName, EntryPoint = "yini_value_get_coord")]
         private static extern void GetCoordInternal(IntPtr handle, out double x, out double y, out double z, out bool is_3d);
@@ -97,13 +104,29 @@ namespace YINI
             var array = new YiniValue[size];
             for (int i = 0; i < size; i++)
             {
-                IntPtr valueHandle = GetValueByIndexInternal(_handle, i);
+                IntPtr valueHandle = GetArrayValueByIndexInternal(_handle, i);
                 if (valueHandle != IntPtr.Zero)
                 {
                     array[i] = new YiniValue(valueHandle);
                 }
             }
             return array;
+        }
+
+        public YiniValue[] AsList()
+        {
+            if (Type != YiniType.List) throw new InvalidCastException($"Cannot get value as list, type is {Type}.");
+            int size = GetListSizeInternal(_handle);
+            var list = new YiniValue[size];
+            for (int i = 0; i < size; i++)
+            {
+                IntPtr valueHandle = GetListValueByIndexInternal(_handle, i);
+                if (valueHandle != IntPtr.Zero)
+                {
+                    list[i] = new YiniValue(valueHandle);
+                }
+            }
+            return list;
         }
 
         public YiniCoord AsCoord()

@@ -31,6 +31,60 @@ TEST(ParserTest, ParseSimpleSection)
   EXPECT_EQ(std::get<std::string>(pair.value.data), "value");
 }
 
+TEST(ParserTest, ParseListValue)
+{
+  const std::string input = R"([Data]
+my_list = List(1, "two", true)
+)";
+  YINI::YiniDocument doc;
+  YINI::Parser parser(input, doc);
+  parser.parse();
+
+  const auto *section = doc.findSection("Data");
+  ASSERT_NE(section, nullptr);
+  ASSERT_EQ(section->pairs.size(), 1);
+  const auto &pair = section->pairs[0];
+  EXPECT_EQ(pair.key, "my_list");
+
+  // Check that it's a list
+  auto &list_ptr = std::get<std::unique_ptr<YINI::YiniList>>(pair.value.data);
+  ASSERT_NE(list_ptr, nullptr);
+  auto &list_elements = list_ptr->elements;
+  ASSERT_EQ(list_elements.size(), 3);
+
+  // Check individual elements
+  EXPECT_EQ(std::get<int>(list_elements[0].data), 1);
+  EXPECT_EQ(std::get<std::string>(list_elements[1].data), "two");
+  EXPECT_EQ(std::get<bool>(list_elements[2].data), true);
+}
+
+TEST(ParserTest, ParseArrayFromFunctionValue)
+{
+  const std::string input = R"([Data]
+my_array = Array(1, "two", true)
+)";
+  YINI::YiniDocument doc;
+  YINI::Parser parser(input, doc);
+  parser.parse();
+
+  const auto *section = doc.findSection("Data");
+  ASSERT_NE(section, nullptr);
+  ASSERT_EQ(section->pairs.size(), 1);
+  const auto &pair = section->pairs[0];
+  EXPECT_EQ(pair.key, "my_array");
+
+  // Check that it's an array
+  auto &array_ptr = std::get<std::unique_ptr<YINI::YiniArray>>(pair.value.data);
+  ASSERT_NE(array_ptr, nullptr);
+  auto &array_elements = array_ptr->elements;
+  ASSERT_EQ(array_elements.size(), 3);
+
+  // Check individual elements
+  EXPECT_EQ(std::get<int>(array_elements[0].data), 1);
+  EXPECT_EQ(std::get<std::string>(array_elements[1].data), "two");
+  EXPECT_EQ(std::get<bool>(array_elements[2].data), true);
+}
+
 TEST(ParserTest, ParseMapValue)
 {
   const std::string input = R"([Data]

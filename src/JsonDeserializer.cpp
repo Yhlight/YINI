@@ -24,6 +24,22 @@ static bool parseJsonArray(const json &j_array, YiniValue &value)
   return true;
 }
 
+static bool parseJsonList(const json &j_list, YiniValue &value)
+{
+  auto yini_list = std::make_unique<YiniList>();
+  for (const auto &j_element : j_list)
+  {
+    YiniValue element_value;
+    if (!parseJsonValue(j_element, element_value))
+    {
+      return false; // Propagate failure
+    }
+    yini_list->elements.push_back(std::move(element_value));
+  }
+  value.data = std::move(yini_list);
+  return true;
+}
+
 static bool parseJsonMap(const json &j_map, YiniValue &value)
 {
   auto yini_map = std::make_unique<YiniMap>();
@@ -93,6 +109,8 @@ static bool parseJsonValue(const json &j, YiniValue &value)
     const std::string type = j.at("__type__").get<std::string>();
     const json &j_val = j.at("value");
 
+    if (type == "List")
+      return parseJsonList(j_val, value);
     if (type == "Map")
       return parseJsonMap(j_val, value);
     if (type == "Dyna")

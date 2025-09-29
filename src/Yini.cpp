@@ -154,6 +154,7 @@ YINI_API YiniType yini_value_get_type(const YiniValueHandle* value_handle)
     if (std::holds_alternative<double>(value->data)) return YINI_TYPE_DOUBLE;
     if (std::holds_alternative<bool>(value->data)) return YINI_TYPE_BOOL;
     if (std::holds_alternative<std::unique_ptr<YINI::YiniArray>>(value->data)) return YINI_TYPE_ARRAY;
+    if (std::holds_alternative<std::unique_ptr<YINI::YiniList>>(value->data)) return YINI_TYPE_LIST;
     if (std::holds_alternative<std::unique_ptr<YINI::YiniMap>>(value->data)) return YINI_TYPE_MAP;
     if (std::holds_alternative<std::unique_ptr<YINI::YiniDynaValue>>(value->data)) return YINI_TYPE_DYNA;
     if (std::holds_alternative<std::unique_ptr<YINI::YiniCoord>>(value->data)) return YINI_TYPE_COORD;
@@ -248,6 +249,31 @@ YINI_API const YiniValueHandle* yini_array_get_value_by_index(const YiniValueHan
     if (!arr_ptr || index < 0 || index >= arr_ptr->elements.size()) return nullptr;
 
     return reinterpret_cast<const YiniValueHandle*>(&arr_ptr->elements[index]);
+}
+
+// List API
+YINI_API int yini_list_get_size(const YiniValueHandle* value_handle)
+{
+    if (!value_handle) return 0;
+    auto* value = reinterpret_cast<const YINI::YiniValue*>(value_handle);
+    if (!std::holds_alternative<std::unique_ptr<YINI::YiniList>>(value->data)) return 0;
+
+    const auto& list_ptr = std::get<std::unique_ptr<YINI::YiniList>>(value->data);
+    if (!list_ptr) return 0;
+
+    return list_ptr->elements.size();
+}
+
+YINI_API const YiniValueHandle* yini_list_get_value_by_index(const YiniValueHandle* value_handle, int index)
+{
+    if (!value_handle) return nullptr;
+    auto* value = reinterpret_cast<const YINI::YiniValue*>(value_handle);
+    if (!std::holds_alternative<std::unique_ptr<YINI::YiniList>>(value->data)) return nullptr;
+
+    const auto& list_ptr = std::get<std::unique_ptr<YINI::YiniList>>(value->data);
+    if (!list_ptr || index < 0 || index >= list_ptr->elements.size()) return nullptr;
+
+    return reinterpret_cast<const YiniValueHandle*>(&list_ptr->elements[index]);
 }
 
 } // extern "C"

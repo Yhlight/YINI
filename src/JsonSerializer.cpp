@@ -70,6 +70,23 @@ void serializeValue(std::stringstream &ss, const YINI::YiniValue &value)
       ss << "null";
     }
   }
+  else if (std::holds_alternative<std::unique_ptr<YINI::YiniList>>(value.data))
+  {
+    const auto &list_ptr =
+        std::get<std::unique_ptr<YINI::YiniList>>(value.data);
+    ss << "{\"__type__\":\"List\",\"value\":";
+    if (list_ptr)
+    {
+      // Since YiniList and YiniArray have the same structure, we can reuse serializeArray
+      // by casting. This is a bit of a hack but avoids code duplication.
+      serializeArray(ss, *reinterpret_cast<const YINI::YiniArray *>(list_ptr.get()));
+    }
+    else
+    {
+      ss << "null";
+    }
+    ss << "}";
+  }
   else if (std::holds_alternative<std::unique_ptr<YINI::YiniMap>>(value.data))
   {
     const auto &map_ptr = std::get<std::unique_ptr<YINI::YiniMap>>(value.data);

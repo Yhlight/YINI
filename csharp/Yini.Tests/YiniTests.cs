@@ -20,6 +20,7 @@ data = [1, ""two"", true, 4.5]
 pos = Coord(10, 20)
 color = #00FF00
 asset = Path(items/sword.mesh)
+scores = List(100, 95, 80)
 
 [Values]
 rate = 12.5 * @factor
@@ -89,6 +90,22 @@ rate = 12.5 * @factor
                 Assert.That(array[1].AsString(), Is.EqualTo("two"));
                 Assert.That(array[2].AsBool(), Is.True);
                 Assert.That(array[3].AsDouble(), Is.EqualTo(4.5));
+            }
+        }
+
+        [Test]
+        public void GetValue_ShouldReturnCorrectList()
+        {
+            using(var doc = new YiniDocument(TestContent))
+            {
+                var dataValue = doc.GetValue("Core", "scores");
+                Assert.That(dataValue.Type, Is.EqualTo(YiniType.List));
+
+                var list = dataValue.AsList();
+                Assert.That(list.Length, Is.EqualTo(3));
+                Assert.That(list[0].AsInt(), Is.EqualTo(100));
+                Assert.That(list[1].AsInt(), Is.EqualTo(95));
+                Assert.That(list[2].AsInt(), Is.EqualTo(80));
             }
         }
 

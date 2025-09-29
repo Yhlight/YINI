@@ -30,6 +30,7 @@ typedef enum {
     YINI_TYPE_DOUBLE,
     YINI_TYPE_BOOL,
     YINI_TYPE_ARRAY,
+    YINI_TYPE_LIST,
     YINI_TYPE_MAP,
     YINI_TYPE_DYNA,
     YINI_TYPE_COORD,
@@ -65,6 +66,10 @@ YINI_API void yini_value_get_color(const YiniValueHandle* value_handle, unsigned
 YINI_API int yini_value_get_path(const YiniValueHandle* value_handle, char* buffer, int buffer_size);
 YINI_API int yini_array_get_size(const YiniValueHandle* value_handle);
 YINI_API const YiniValueHandle* yini_array_get_value_by_index(const YiniValueHandle* value_handle, int index);
+
+// List API
+YINI_API int yini_list_get_size(const YiniValueHandle* value_handle);
+YINI_API const YiniValueHandle* yini_list_get_value_by_index(const YiniValueHandle* value_handle, int index);
 
 #ifdef __cplusplus
 }
