@@ -6,75 +6,84 @@ namespace YINI
 {
     public class YiniDocument : IDisposable
     {
-        private const string LibName = "yini";
-        private IntPtr _handle;
-        private bool _disposed = false;
+        private YiniDocumentHandle _handle;
 
-        [DllImport(LibName, EntryPoint = "yini_parse")]
-        private static extern IntPtr Parse(string content, StringBuilder errorBuffer, int errorBufferSize);
-
-        [DllImport(LibName, EntryPoint = "yini_free_document")]
-        private static extern void FreeDocument(IntPtr handle);
-
-        [DllImport(LibName, EntryPoint = "yini_get_section_count")]
-        private static extern int GetSectionCountInternal(IntPtr handle);
-
-        [DllImport(LibName, EntryPoint = "yini_get_section_by_index")]
-        private static extern IntPtr GetSectionByIndexInternal(IntPtr handle, int index);
-
-        [DllImport(LibName, EntryPoint = "yini_get_section_by_name")]
-        private static extern IntPtr GetSectionByNameInternal(IntPtr handle, string name);
-
-        [DllImport(LibName, EntryPoint = "yini_set_string_value")]
-        private static extern void SetStringValueInternal(IntPtr handle, string section, string key, string value);
-
-        [DllImport(LibName, EntryPoint = "yini_set_int_value")]
-        private static extern void SetIntValueInternal(IntPtr handle, string section, string key, int value);
-
-        [DllImport(LibName, EntryPoint = "yini_set_double_value")]
-        private static extern void SetDoubleValueInternal(IntPtr handle, string section, string key, double value);
-
-        [DllImport(LibName, EntryPoint = "yini_set_bool_value")]
-        private static extern void SetBoolValueInternal(IntPtr handle, string section, string key, bool value);
-
-        public YiniDocument(string content)
+        private YiniDocument(YiniDocumentHandle handle)
         {
-            var errorBuffer = new StringBuilder(1024);
-            _handle = Parse(content, errorBuffer, errorBuffer.Capacity);
-            if (_handle == IntPtr.Zero)
+            _handle = handle;
+        }
+
+        public static YiniDocument Parse(string content)
+        {
+            var errorBuffer = Marshal.AllocHGlobal(256);
+            try
             {
-                throw new InvalidOperationException($"Failed to parse YINI content: {errorBuffer.ToString()}");
+                var handle = NativeMethods.yini_parse(content, errorBuffer, 256);
+                if (handle.IsInvalid)
+                {
+                    var errorMessage = Marshal.PtrToStringAnsi(errorBuffer);
+                    throw new InvalidOperationException($"Failed to parse YINI content: {errorMessage}");
+                }
+                return new YiniDocument(handle);
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(errorBuffer);
             }
         }
 
-        public int SectionCount => GetSectionCountInternal(_handle);
-
-        public YiniSection GetSection(int index)
+        public YiniValue GetValue(string section, string key)
         {
-            if (index < 0 || index >= SectionCount)
+            var sectionPtr = NativeMethods.yini_get_section_by_name(_handle, section);
+            if (sectionPtr == IntPtr.Zero)
+                throw new ArgumentException($"Section '{section}' not found.");
+
+            var valuePtr = NativeMethods.yini_section_get_value_by_key(sectionPtr, key);
+            if (valuePtr == IntPtr.Zero)
+                throw new ArgumentException($"Key '{key}' not found in section '{section}'.");
+
+            return new YiniValue(valuePtr);
+        }
+
+        public T GetValue<T>(string section, string key)
+        {
+            var value = GetValue(section, key);
+            object result;
+
+            switch (value.Type)
             {
-                throw new ArgumentOutOfRangeException(nameof(index));
+                case YiniType.String:
+                    result = value.AsString();
+                    break;
+                case YiniType.Int:
+                    result = value.AsInt();
+                    break;
+                case YiniType.Double:
+                    result = value.AsDouble();
+                    break;
+                case YiniType.Bool:
+                    result = value.AsBool();
+                    break;
+                default:
+                    throw new NotSupportedException($"YiniType '{value.Type}' is not supported for generic GetValue<T>.");
             }
-            IntPtr sectionHandle = GetSectionByIndexInternal(_handle, index);
-            return sectionHandle == IntPtr.Zero ? null : new YiniSection(sectionHandle);
+
+            return (T)Convert.ChangeType(result, typeof(T));
         }
 
-        public YiniSection GetSection(string name)
+        public void SetValue<T>(string section, string key, T value)
         {
-            IntPtr sectionHandle = GetSectionByNameInternal(_handle, name);
-            return sectionHandle == IntPtr.Zero ? null : new YiniSection(sectionHandle);
+            if (value is string s)
+                NativeMethods.yini_set_string_value(_handle, section, key, s);
+            else if (value is int i)
+                NativeMethods.yini_set_int_value(_handle, section, key, i);
+            else if (value is double d)
+                NativeMethods.yini_set_double_value(_handle, section, key, d);
+            else if (value is bool b)
+                NativeMethods.yini_set_bool_value(_handle, section, key, b);
+            else
+                throw new NotSupportedException($"Type '{typeof(T)}' is not supported for setting values.");
         }
-
-        public YiniValue GetValue(string sectionName, string key)
-        {
-            var section = GetSection(sectionName);
-            return section?.GetValue(key);
-        }
-
-        public void SetValue(string sectionName, string key, string value) => SetStringValueInternal(_handle, sectionName, key, value);
-        public void SetValue(string sectionName, string key, int value) => SetIntValueInternal(_handle, sectionName, key, value);
-        public void SetValue(string sectionName, string key, double value) => SetDoubleValueInternal(_handle, sectionName, key, value);
-        public void SetValue(string sectionName, string key, bool value) => SetBoolValueInternal(_handle, sectionName, key, value);
 
         public void Dispose()
         {
@@ -84,20 +93,10 @@ namespace YINI
 
         protected virtual void Dispose(bool disposing)
         {
-            if (!_disposed)
+            if (_handle != null && !_handle.IsInvalid)
             {
-                if (_handle != IntPtr.Zero)
-                {
-                    FreeDocument(_handle);
-                    _handle = IntPtr.Zero;
-                }
-                _disposed = true;
+                _handle.Dispose();
             }
-        }
-
-        ~YiniDocument()
-        {
-            Dispose(false);
         }
     }
 }

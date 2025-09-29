@@ -22,9 +22,18 @@
   </ItemGroup>
 
   <Target Name="CopyNativeLib" AfterTargets="Build">
-    <Message Text="Copying native library to output directory..." Importance="high" />
-    <Exec Command="cp ../../build/lib/libyini.so $(OutDir)" Condition="!$([MSBuild]::IsOSPlatform('Windows'))" />
-    <Exec Command="copy ..\..\build\lib\yini.dll $(OutDir)" Condition="$([MSBuild]::IsOSPlatform('Windows'))" />
+    <Copy
+        SourceFiles="../../build/lib/libyini.so"
+        DestinationFolder="$(OutDir)"
+        SkipUnchangedFiles="true"
+        Condition="$([MSBuild]::IsOSPlatform('Linux'))"
+    />
+    <Copy
+        SourceFiles="../../build/lib/yini.dll"
+        DestinationFolder="$(OutDir)"
+        SkipUnchangedFiles="true"
+        Condition="$([MSBuild]::IsOSPlatform('Windows'))"
+    />
   </Target>
 
 </Project>

@@ -37,6 +37,18 @@
                     "name": "keyword.control.directive.yini"
                 },
                 {
+                    "match": ":",
+                    "name": "keyword.operator.inheritance.yini"
+                },
+                {
+                    "match": ",",
+                    "name": "punctuation.separator.inheritance.yini"
+                },
+                {
+                    "match": "(?<=:|,|\\s)\\s*[a-zA-Z0-9_]+",
+                    "name": "entity.other.inherited-class.yini"
+                },
+                {
                     "match": "[a-zA-Z0-9_]+",
                     "name": "entity.name.section.yini"
                 }
@@ -67,6 +79,10 @@
             "patterns": [
                 { "include": "#comments" },
                 {
+                    "name": "variable.other.macro.yini",
+                    "match": "@[a-zA-Z0-9_]+"
+                },
+                {
                     "name": "string.quoted.double.yini",
                     "begin": "\"",
                     "end": "\"",
@@ -76,6 +92,14 @@
                             "match": "\\\\."
                         }
                     ]
+                },
+                {
+                    "name": "support.function.yini",
+                    "match": "\\b(Coord|Color|Path|Dyna|coord|color|path|dyna)(?=\\()"
+                },
+                {
+                    "name": "constant.other.color.hex.yini",
+                    "match": "#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})"
                 },
                 {
                     "name": "constant.numeric.yini",
