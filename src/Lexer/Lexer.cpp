@@ -17,10 +17,21 @@ namespace YINI
 
         char current_char = m_input[m_position];
 
-        if (current_char == '/' && m_position + 1 < m_input.length() && m_input[m_position + 1] == '/')
+        if (current_char == '/')
         {
-            skipComment();
-            return getNextToken(); // Get next token after comment
+            if (m_position + 1 < m_input.length())
+            {
+                if (m_input[m_position + 1] == '/')
+                {
+                    skipComment();
+                    return getNextToken();
+                }
+                else if (m_input[m_position + 1] == '*')
+                {
+                    skipBlockComment();
+                    return getNextToken();
+                }
+            }
         }
 
         if (current_char == '[')
@@ -151,6 +162,33 @@ namespace YINI
         {
             m_position++;
             m_column++;
+        }
+    }
+
+    void Lexer::skipBlockComment()
+    {
+        m_position += 2; // Skip "/*"
+        m_column += 2;
+
+        while (m_position + 1 < m_input.length())
+        {
+            if (m_input[m_position] == '*' && m_input[m_position + 1] == '/')
+            {
+                m_position += 2; // Skip "*/"
+                m_column += 2;
+                return;
+            }
+
+            if (m_input[m_position] == '\n')
+            {
+                m_line++;
+                m_column = 1;
+            }
+            else
+            {
+                m_column++;
+            }
+            m_position++;
         }
     }
 

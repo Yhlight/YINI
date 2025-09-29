@@ -55,6 +55,7 @@ namespace YINI
     private:
         void skipWhitespace();
         void skipComment();
+        void skipBlockComment();
         Token string();
         Token number();
         Token identifier();
