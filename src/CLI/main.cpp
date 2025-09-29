@@ -8,13 +8,16 @@
 #include "YINI/YiniException.hpp"
 #include "YINI/Parser.hpp"
 
+#include "YINI/YiniFormatter.hpp"
+
 void printHelp() {
     std::cout << "YINI CLI - Interactive Mode\n";
     std::cout << "Available commands:\n";
-    std::cout << "  check <filepath>   - Checks the syntax of a .yini file.\n";
-    std::cout << "  compile <filepath> - Compiles a .yini file to .ymeta.\n";
-    std::cout << "  help               - Shows this help message.\n";
-    std::cout << "  exit               - Exits the CLI.\n";
+    std::cout << "  check <filepath>     - Checks the syntax of a .yini file.\n";
+    std::cout << "  compile <filepath>   - Compiles a .yini file to .ymeta.\n";
+    std::cout << "  decompile <filepath> - Decompiles a .ymeta file to standard output.\n";
+    std::cout << "  help                 - Shows this help message.\n";
+    std::cout << "  exit                 - Exits the CLI.\n";
 }
 
 void handleCheck(const std::string& filePath) {
@@ -52,6 +55,17 @@ void handleCompile(const std::string& filePath) {
     }
 }
 
+void handleDecompile(const std::string& filePath) {
+    // YiniManager will load from .ymeta if it exists, which is what we want.
+    YINI::YiniManager manager(filePath);
+    if (manager.isLoaded()) {
+        std::string formatted_content = YINI::YiniFormatter::formatDocument(manager.getDocument());
+        std::cout << formatted_content;
+    } else {
+        std::cerr << "Error: Could not load " << filePath << ". File may not exist or is corrupted." << std::endl;
+    }
+}
+
 int main() {
     std::string line;
     printHelp();
@@ -83,6 +97,14 @@ int main() {
                 std::cerr << "Usage: compile <filepath>" << std::endl;
             } else {
                 handleCompile(filePath);
+            }
+        } else if (command == "decompile") {
+            std::string filePath;
+            ss >> filePath;
+            if (filePath.empty()) {
+                std::cerr << "Usage: decompile <filepath>" << std::endl;
+            } else {
+                handleDecompile(filePath);
             }
         } else if (!command.empty()) {
             std::cerr << "Unknown command: " << command << ". Type 'help' for a list of commands." << std::endl;

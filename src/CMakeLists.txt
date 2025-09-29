@@ -4,8 +4,9 @@ add_library(yini SHARED
     Parser/Parser.cpp
     Yini.cpp
     JsonSerializer.cpp
-    YiniManager.cpp
     JsonDeserializer.cpp
+    YiniFormatter.cpp
+    YiniManager.cpp
 )
 
 target_include_directories(yini PUBLIC ../include)

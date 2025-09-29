@@ -1,10 +1,12 @@
 #include "YINI/YiniManager.hpp"
 #include "YINI/JsonDeserializer.hpp"
 #include "YINI/JsonSerializer.hpp"
+#include "YINI/YiniFormatter.hpp"
 #include "YINI/Parser.hpp"
 #include <cstdio> // For std::rename, std::remove
 #include <fstream>
 #include <string>
+#include <sstream> // For std::stringstream
 
 namespace YINI
 {
@@ -166,5 +168,88 @@ void YiniManager::setBoolValue(const std::string &section,
   val.data = value;
   set_value_helper(doc, section, key, val);
   save();
+}
+
+bool YiniManager::writeBack()
+{
+    std::ifstream inFile(yiniFilePath);
+    if (!inFile.is_open())
+    {
+        return false;
+    }
+
+    std::stringstream new_content;
+    std::string line;
+    std::string current_section_name;
+
+    while (std::getline(inFile, line))
+    {
+        // Trim whitespace from the start of the line to check for section headers
+        std::string trimmed_line = line;
+        trimmed_line.erase(0, trimmed_line.find_first_not_of(" \t"));
+
+        if (trimmed_line.rfind('[') == 0 && trimmed_line.find(']') != std::string::npos)
+        {
+            size_t end_pos = trimmed_line.find(']');
+            current_section_name = trimmed_line.substr(1, end_pos - 1);
+            // Also trim any inheritance syntax
+            size_t colon_pos = current_section_name.find(':');
+            if (colon_pos != std::string::npos)
+            {
+                current_section_name = current_section_name.substr(0, colon_pos);
+                current_section_name.erase(current_section_name.find_last_not_of(" \t") + 1);
+            }
+            new_content << line << '\n';
+        }
+        else if (!current_section_name.empty())
+        {
+            size_t equals_pos = line.find('=');
+            if (equals_pos != std::string::npos)
+            {
+                std::string key = line.substr(0, equals_pos);
+                key.erase(key.find_last_not_of(" \t") + 1);
+
+                auto* section = doc.findSection(current_section_name);
+                if (section)
+                {
+                    auto it = std::find_if(section->pairs.begin(), section->pairs.end(),
+                                           [&](const auto& p){ return p.key == key && p.is_dynamic; });
+
+                    if (it != section->pairs.end())
+                    {
+                        // This is a dynamic key, so we replace its value.
+                        new_content << key << " = Dyna(" << YiniFormatter::format(it->value) << ")\n";
+                    }
+                    else
+                    {
+                        // Not a dynamic key, write the line as-is.
+                        new_content << line << '\n';
+                    }
+                }
+                else
+                {
+                    new_content << line << '\n';
+                }
+            }
+            else
+            {
+                new_content << line << '\n';
+            }
+        }
+        else
+        {
+            new_content << line << '\n';
+        }
+    }
+
+    inFile.close();
+
+    std::ofstream outFile(yiniFilePath);
+    if (!outFile.is_open())
+    {
+        return false;
+    }
+    outFile << new_content.str();
+    return true;
 }
 }

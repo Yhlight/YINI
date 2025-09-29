@@ -24,6 +24,9 @@ namespace YINI
         void setDoubleValue(const std::string& section, const std::string& key, double value);
         void setBoolValue(const std::string& section, const std::string& key, bool value);
 
+        // Writes the modified dynamic values from the .ymeta cache back to the original .yini file.
+        bool writeBack();
+
     private:
         bool load();
         bool save(); // Saves the current document state to the .ymeta file

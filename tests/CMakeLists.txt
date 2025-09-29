@@ -13,6 +13,7 @@ add_executable(yini_tests
     test_parser_errors.cpp
     test_manager.cpp
     test_roundtrip_and_inheritance.cpp
+    test_cli.cpp
 )
 
 # Pass the path to the test data directory to the tests as a C-string literal

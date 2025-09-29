@@ -53,6 +53,44 @@ TEST(YiniManagerTest, LoadFromFileCreatesYmeta)
   std::remove(ymetaPath.c_str());
 }
 
+TEST(YiniManagerTest, WriteBackUpdatesDynaValueInYiniFile)
+{
+    const std::string test_data_dir = YINI_TEST_DATA_DIR;
+    const std::string yini_source_path = test_data_dir + "/writeback_test.yini";
+
+    const std::string yini_test_path = "writeback_test.yini";
+    const std::string ymeta_test_path = "writeback_test.ymeta";
+
+    // Setup: clean up old files and copy the test file into the build dir
+    std::remove(yini_test_path.c_str());
+    std::remove(ymeta_test_path.c_str());
+    std::ofstream(yini_test_path) << readFileContent(yini_source_path);
+
+    // 1. Load the manager and modify a dynamic value
+    YINI::YiniManager manager(yini_test_path);
+    ASSERT_TRUE(manager.isLoaded());
+    manager.setIntValue("General", "dynamic_int", 999);
+
+    // 2. Call the writeBack method
+    bool success = manager.writeBack();
+    ASSERT_TRUE(success);
+
+    // 3. Read the on-disk .yini file and verify its contents
+    std::string final_content = readFileContent(yini_test_path);
+
+    // Check that the dynamic value was updated
+    EXPECT_NE(final_content.find("dynamic_int = Dyna(999)"), std::string::npos);
+
+    // Check that static values and comments were preserved
+    EXPECT_NE(final_content.find("// This is a test file for the writeBack feature."), std::string::npos);
+    EXPECT_NE(final_content.find("static_string = \"don't change me\""), std::string::npos);
+    EXPECT_NE(final_content.find("another_static = true"), std::string::npos);
+
+    // Cleanup
+    std::remove(yini_test_path.c_str());
+    std::remove(ymeta_test_path.c_str());
+}
+
 TEST(YiniManagerTest, HandlesDynaValuesCorrectly)
 {
     const std::string test_data_dir = YINI_TEST_DATA_DIR;

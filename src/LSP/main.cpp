@@ -1,15 +1,18 @@
 #include "YINI/Parser.hpp"
 #include "YINI/YiniException.hpp"
+#include "YINI/YiniFormatter.hpp"
 #include <iostream>
 #include <map>
 #include <nlohmann/json.hpp>
 #include <string>
 #include <vector>
+#include <memory>
 
 using json = nlohmann::json;
 
-// Global map to store document contents, mapping URI to content.
+// Global maps to store document state.
 std::map<std::string, std::string> documentContents;
+std::map<std::string, std::shared_ptr<YINI::YiniDocument>> documentAsts;
 
 void sendResponse(const json& response) {
     std::string responseStr = response.dump();
@@ -19,10 +22,13 @@ void sendResponse(const json& response) {
 
 void publishDiagnostics(const std::string& uri, const std::string& content) {
     json diagnostics = json::array();
+    auto doc = std::make_shared<YINI::YiniDocument>();
+    documentAsts[uri] = doc; // Store the (potentially empty) AST
+
     try {
-        YINI::YiniDocument doc;
-        YINI::Parser parser(content, doc);
+        YINI::Parser parser(content, *doc);
         parser.parse();
+        doc->resolveInheritance();
     } catch (const YINI::YiniException& e) {
         json diagnostic;
         diagnostic["range"] = {
@@ -120,6 +126,83 @@ int main() {
                     std::string content = receivedJson["params"]["contentChanges"][0]["text"];
                     documentContents[uri] = content;
                     publishDiagnostics(uri, content);
+                } else if (method == "textDocument/hover") {
+                    std::string uri = receivedJson["params"]["textDocument"]["uri"];
+                    int line_num = receivedJson["params"]["position"]["line"];
+                    int char_num = receivedJson["params"]["position"]["character"];
+
+                    std::string hover_content = "";
+                    if (documentContents.count(uri) && documentAsts.count(uri)) {
+                        std::string content = documentContents.at(uri);
+                        auto doc = documentAsts.at(uri);
+
+                        std::stringstream ss(content);
+                        std::string line;
+                        std::vector<std::string> lines;
+                        while(std::getline(ss, line, '\n')) {
+                            lines.push_back(line);
+                        }
+
+                        if (line_num < lines.size()) {
+                            std::string hover_line = lines[line_num];
+                            int start = char_num;
+                            while (start > 0 && (isalnum(hover_line[start-1]) || hover_line[start-1] == '_')) start--;
+                            int end = char_num;
+                            while (end < hover_line.length() && (isalnum(hover_line[end]) || hover_line[end] == '_')) end++;
+
+                            std::string word = hover_line.substr(start, end - start);
+
+                            if (!word.empty()) {
+                                if (start > 0 && hover_line[start-1] == '@') { // Macro
+                                    YINI::YiniValue val;
+                                    if(doc->getDefine(word, val)) {
+                                        hover_content = "(macro) " + word + " = " + YINI::YiniFormatter::format(val);
+                                    }
+                                } else { // Key
+                                    std::string section_name;
+                                    for(int i = line_num; i >= 0; --i) {
+                                        std::string l = lines[i];
+                                        l.erase(0, l.find_first_not_of(" \t"));
+                                        if (l.rfind('[') == 0 && l.find(']') != std::string::npos) {
+                                            section_name = l.substr(1, l.find(']') - 1);
+                                            size_t colon_pos = section_name.find(':');
+                                            if (colon_pos != std::string::npos) {
+                                                section_name = section_name.substr(0, colon_pos);
+                                                section_name.erase(section_name.find_last_not_of(" \t") + 1);
+                                            }
+                                            break;
+                                        }
+                                    }
+                                    if (!section_name.empty()) {
+                                        const auto* section = doc->findSection(section_name);
+                                        if (section) {
+                                            auto it = std::find_if(section->pairs.begin(), section->pairs.end(), [&](const auto& p){ return p.key == word; });
+                                            if (it != section->pairs.end()) {
+                                                hover_content = (it->is_dynamic ? "(dynamic) " : "") + it->key + " = " + YINI::YiniFormatter::format(it->value);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    json response;
+                    if (!hover_content.empty()) {
+                        response = {
+                            {"jsonrpc", "2.0"}, {"id", receivedJson["id"]},
+                            {"result", {
+                                {"contents", {
+                                    {"kind", "markdown"},
+                                    {"value", "```yini\n" + hover_content + "\n```"}
+                                }}
+                            }}
+                        };
+                    } else {
+                        response = { {"jsonrpc", "2.0"}, {"id", receivedJson["id"]}, {"result", nullptr} };
+                    }
+                    sendResponse(response);
+
                 } else if (method == "exit") {
                     break;
                 }

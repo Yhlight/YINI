@@ -1,0 +1,10 @@
+// This is a test file for the writeBack feature.
+// It contains comments and a mix of static and dynamic values.
+
+[General]
+static_string = "don't change me"
+dynamic_int = Dyna(123) // This value should be updated
+
+// Some other settings
+[More]
+another_static = true
