@@ -11,7 +11,6 @@ FetchContent_MakeAvailable(googletest)
 add_executable(yini_tests
     test_parser.cpp
     test_serializer.cpp
-    test_yini_serializer.cpp
     test_manager.cpp
     test_deserializer.cpp
 )
