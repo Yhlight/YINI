@@ -41,6 +41,7 @@ YINI_API YiniDocumentHandle* yini_parse(const char* content, char* error_buffer,
     try {
         YINI::Parser parser(content, handle->doc, ".");
         parser.parse();
+        handle->doc.resolveInheritance();
     } catch (const YINI::YiniException& e) {
         if (error_buffer && buffer_size > 0) {
             std::string error_msg = "Error at [" + std::to_string(e.getLine()) + ":" + std::to_string(e.getColumn()) + "]: " + e.what();

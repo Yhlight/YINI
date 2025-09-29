@@ -312,11 +312,11 @@ TEST(ParserTest, ParseArithmetic)
 
 TEST(ParserTest, ParseFileIncludes)
 {
-  const std::string input = read_file_content("tests/include_test.yini");
+  const std::string input = read_file_content("../tests/include_test.yini");
   ASSERT_FALSE(input.empty());
 
   YINI::YiniDocument doc;
-  YINI::Parser parser(input, doc, "tests");
+  YINI::Parser parser(input, doc, "../tests");
   parser.parse();
 
   ASSERT_EQ(doc.getSections().size(), 3); // Shared, BaseOnly, MainOnly
