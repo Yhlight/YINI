@@ -87,6 +87,21 @@ void serializeValue(std::stringstream &ss, const YINI::YiniValue &value)
     }
     ss << "}";
   }
+  else if (std::holds_alternative<std::unique_ptr<YINI::YiniSet>>(value.data))
+  {
+    const auto &set_ptr =
+        std::get<std::unique_ptr<YINI::YiniSet>>(value.data);
+    ss << "{\"__type__\":\"Set\",\"value\":";
+    if (set_ptr)
+    {
+      serializeArray(ss, *reinterpret_cast<const YINI::YiniArray *>(set_ptr.get()));
+    }
+    else
+    {
+      ss << "null";
+    }
+    ss << "}";
+  }
   else if (std::holds_alternative<std::unique_ptr<YINI::YiniMap>>(value.data))
   {
     const auto &map_ptr = std::get<std::unique_ptr<YINI::YiniMap>>(value.data);

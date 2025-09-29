@@ -33,6 +33,17 @@ YiniVariant deep_copy_variant(const YiniVariant &v)
             }
             return new_list;
         }
+        else if constexpr (std::is_same_v<T, std::unique_ptr<YiniSet>>)
+        {
+            if (!arg)
+                return std::unique_ptr<YiniSet>(nullptr);
+            auto new_set = std::make_unique<YiniSet>();
+            for (const auto& elem : arg->elements)
+            {
+                new_set->elements.push_back(elem);
+            }
+            return new_set;
+        }
         else if constexpr (std::is_same_v<T, std::unique_ptr<YiniMap>>)
         {
           if (!arg)

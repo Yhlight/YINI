@@ -23,6 +23,7 @@ private:
   std::unique_ptr<YiniArray> parseArray();
   std::unique_ptr<YiniArray> parseArrayFromFunction();
   std::unique_ptr<YiniList> parseList();
+  std::unique_ptr<YiniSet> parseSet();
   std::unique_ptr<YiniMap> parseMap();
   YiniValue parseExpression();
   YiniValue parseTerm();

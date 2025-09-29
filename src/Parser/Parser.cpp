@@ -368,6 +368,11 @@ YiniValue Parser::parseValue()
       val.data = parseList();
       return val;
     }
+    if (id_val == "set")
+    {
+      val.data = parseSet();
+      return val;
+    }
     if (id_val == "color")
     {
       val.data = parseColor();
@@ -552,6 +557,60 @@ std::unique_ptr<YiniArray> Parser::parseArrayFromFunction()
   }
   nextToken(); // consume ')'
   return arr;
+}
+
+std::unique_ptr<YiniSet> Parser::parseSet()
+{
+  nextToken(); // consume 'Set'
+  if (m_currentToken.type != TokenType::LeftParen)
+    throw YiniException("Expected '(' after Set.", m_currentToken.line,
+                        m_currentToken.column);
+  nextToken(); // consume '('
+
+  auto set = std::make_unique<YiniSet>();
+
+  // To enforce uniqueness for simple types without a full YiniValue comparison
+  std::set<int> seen_ints;
+  std::set<double> seen_doubles;
+  std::set<std::string> seen_strings;
+  std::set<bool> seen_bools;
+
+  while (m_currentToken.type != TokenType::RightParen && m_currentToken.type != TokenType::Eof)
+  {
+    YiniValue val = parseValue();
+    bool is_duplicate = false;
+
+    if (std::holds_alternative<int>(val.data)) {
+      if (seen_ints.count(std::get<int>(val.data))) is_duplicate = true;
+      else seen_ints.insert(std::get<int>(val.data));
+    } else if (std::holds_alternative<double>(val.data)) {
+      if (seen_doubles.count(std::get<double>(val.data))) is_duplicate = true;
+      else seen_doubles.insert(std::get<double>(val.data));
+    } else if (std::holds_alternative<std::string>(val.data)) {
+      if (seen_strings.count(std::get<std::string>(val.data))) is_duplicate = true;
+      else seen_strings.insert(std::get<std::string>(val.data));
+    } else if (std::holds_alternative<bool>(val.data)) {
+      if (seen_bools.count(std::get<bool>(val.data))) is_duplicate = true;
+      else seen_bools.insert(std::get<bool>(val.data));
+    }
+    // Note: Uniqueness for complex types (arrays, maps, etc.) is not enforced here.
+
+    if (!is_duplicate) {
+        set->elements.push_back(std::move(val));
+    }
+
+    if (m_currentToken.type == TokenType::Comma)
+    {
+      nextToken();
+    }
+  }
+
+  if (m_currentToken.type != TokenType::RightParen)
+  {
+    throw YiniException("Expected ')' to close Set expression.", m_currentToken.line, m_currentToken.column);
+  }
+  nextToken(); // consume ')'
+  return set;
 }
 
 std::unique_ptr<YiniMap> Parser::parseMap()

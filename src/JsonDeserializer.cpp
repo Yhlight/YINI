@@ -40,6 +40,22 @@ static bool parseJsonList(const json &j_list, YiniValue &value)
   return true;
 }
 
+static bool parseJsonSet(const json &j_set, YiniValue &value)
+{
+  auto yini_set = std::make_unique<YiniSet>();
+  for (const auto &j_element : j_set)
+  {
+    YiniValue element_value;
+    if (!parseJsonValue(j_element, element_value))
+    {
+      return false; // Propagate failure
+    }
+    yini_set->elements.push_back(std::move(element_value));
+  }
+  value.data = std::move(yini_set);
+  return true;
+}
+
 static bool parseJsonMap(const json &j_map, YiniValue &value)
 {
   auto yini_map = std::make_unique<YiniMap>();
@@ -111,6 +127,8 @@ static bool parseJsonValue(const json &j, YiniValue &value)
 
     if (type == "List")
       return parseJsonList(j_val, value);
+    if (type == "Set")
+      return parseJsonSet(j_val, value);
     if (type == "Map")
       return parseJsonMap(j_val, value);
     if (type == "Dyna")

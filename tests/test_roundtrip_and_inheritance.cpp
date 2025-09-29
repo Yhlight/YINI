@@ -51,6 +51,7 @@ version = @version
 enabled = true
 data = [1, 2, "simple_string_in_array"]
 my_list = List(10, "foo")
+my_set = Set(1, "bar", 1)
 color = #FF00FF
 
 += "registered_value"
@@ -102,6 +103,18 @@ color = #FF00FF
   ASSERT_EQ(list_ptr->elements.size(), 2);
   EXPECT_EQ(std::get<int>(list_ptr->elements[0].data), 10);
   EXPECT_EQ(std::get<std::string>(list_ptr->elements[1].data), "foo");
+
+  // Check set value
+  auto it_set =
+      std::find_if(new_core->pairs.begin(), new_core->pairs.end(),
+                   [](const auto &p) { return p.key == "my_set"; });
+  ASSERT_NE(it_set, new_core->pairs.end());
+  ASSERT_TRUE(std::holds_alternative<std::unique_ptr<YINI::YiniSet>>(it_set->value.data));
+  const auto& set_ptr = std::get<std::unique_ptr<YINI::YiniSet>>(it_set->value.data);
+  ASSERT_NE(set_ptr, nullptr);
+  ASSERT_EQ(set_ptr->elements.size(), 2); // Uniqueness enforced
+  EXPECT_EQ(std::get<int>(set_ptr->elements[0].data), 1);
+  EXPECT_EQ(std::get<std::string>(set_ptr->elements[1].data), "bar");
 
   // Check registration list
   ASSERT_EQ(new_core->registrationList.size(), 1);

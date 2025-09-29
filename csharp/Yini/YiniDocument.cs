@@ -49,7 +49,7 @@ namespace YINI
 
         public int SectionCount => GetSectionCountInternal(_handle);
 
-        public YiniSection GetSection(int index)
+        public YiniSection? GetSection(int index)
         {
             if (index < 0 || index >= SectionCount)
             {
@@ -59,13 +59,13 @@ namespace YINI
             return sectionHandle == IntPtr.Zero ? null : new YiniSection(sectionHandle);
         }
 
-        public YiniSection GetSection(string name)
+        public YiniSection? GetSection(string name)
         {
             IntPtr sectionHandle = GetSectionByNameInternal(_handle, name);
             return sectionHandle == IntPtr.Zero ? null : new YiniSection(sectionHandle);
         }
 
-        public YiniValue GetValue(string sectionName, string key)
+        public YiniValue? GetValue(string sectionName, string key)
         {
             var section = GetSection(sectionName);
             return section?.GetValue(key);

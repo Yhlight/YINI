@@ -10,7 +10,7 @@ namespace YINI
         private readonly IntPtr _handle;
 
         [DllImport(LibName, EntryPoint = "yini_section_get_name")]
-        private static extern int GetNameInternal(IntPtr handle, StringBuilder buffer, int bufferSize);
+        private static extern int GetNameInternal(IntPtr handle, StringBuilder? buffer, int bufferSize);
 
         [DllImport(LibName, EntryPoint = "yini_section_get_value_by_key")]
         private static extern IntPtr GetValueByKeyInternal(IntPtr handle, string key);
@@ -34,7 +34,7 @@ namespace YINI
             }
         }
 
-        public YiniValue GetValue(string key)
+        public YiniValue? GetValue(string key)
         {
             IntPtr valueHandle = GetValueByKeyInternal(_handle, key);
             if (valueHandle == IntPtr.Zero)

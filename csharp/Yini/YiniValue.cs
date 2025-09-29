@@ -13,6 +13,7 @@ namespace YINI
         Bool,
         Array,
         List,
+        Set,
         Map,
         Dyna,
         Coord,
@@ -29,7 +30,7 @@ namespace YINI
         private static extern YiniType GetTypeInternal(IntPtr handle);
 
         [DllImport(LibName, EntryPoint = "yini_value_get_string")]
-        private static extern int GetStringInternal(IntPtr handle, StringBuilder buffer, int bufferSize);
+        private static extern int GetStringInternal(IntPtr handle, StringBuilder? buffer, int bufferSize);
 
         [DllImport(LibName, EntryPoint = "yini_value_get_int")]
         private static extern int GetIntInternal(IntPtr handle);
@@ -52,6 +53,12 @@ namespace YINI
         [DllImport(LibName, EntryPoint = "yini_list_get_value_by_index")]
         private static extern IntPtr GetListValueByIndexInternal(IntPtr handle, int index);
 
+        [DllImport(LibName, EntryPoint = "yini_set_get_size")]
+        private static extern int GetSetSizeInternal(IntPtr handle);
+
+        [DllImport(LibName, EntryPoint = "yini_set_get_value_by_index")]
+        private static extern IntPtr GetSetValueByIndexInternal(IntPtr handle, int index);
+
         [DllImport(LibName, EntryPoint = "yini_value_get_coord")]
         private static extern void GetCoordInternal(IntPtr handle, out double x, out double y, out double z, out bool is_3d);
 
@@ -59,7 +66,7 @@ namespace YINI
         private static extern void GetColorInternal(IntPtr handle, out byte r, out byte g, out byte b);
 
         [DllImport(LibName, EntryPoint = "yini_value_get_path")]
-        private static extern int GetPathInternal(IntPtr handle, StringBuilder buffer, int bufferSize);
+        private static extern int GetPathInternal(IntPtr handle, StringBuilder? buffer, int bufferSize);
 
         internal YiniValue(IntPtr handle)
         {
@@ -127,6 +134,22 @@ namespace YINI
                 }
             }
             return list;
+        }
+
+        public YiniValue[] AsSet()
+        {
+            if (Type != YiniType.Set) throw new InvalidCastException($"Cannot get value as set, type is {Type}.");
+            int size = GetSetSizeInternal(_handle);
+            var set = new YiniValue[size];
+            for (int i = 0; i < size; i++)
+            {
+                IntPtr valueHandle = GetSetValueByIndexInternal(_handle, i);
+                if (valueHandle != IntPtr.Zero)
+                {
+                    set[i] = new YiniValue(valueHandle);
+                }
+            }
+            return set;
         }
 
         public YiniCoord AsCoord()

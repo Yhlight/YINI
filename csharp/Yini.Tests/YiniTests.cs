@@ -21,6 +21,7 @@ pos = Coord(10, 20)
 color = #00FF00
 asset = Path(items/sword.mesh)
 scores = List(100, 95, 80)
+tags = Set(""fast"", ""player"", ""fast"")
 
 [Values]
 rate = 12.5 * @factor
@@ -55,23 +56,28 @@ rate = 12.5 * @factor
             using(var doc = new YiniDocument(TestContent))
             {
                 var nameValue = doc.GetValue("Core", "name");
-                Assert.That(nameValue.Type, Is.EqualTo(YiniType.String));
+                Assert.That(nameValue, Is.Not.Null);
+                Assert.That(nameValue!.Type, Is.EqualTo(YiniType.String));
                 Assert.That(nameValue.AsString(), Is.EqualTo("YINI Engine"));
 
                 var enabledValue = doc.GetValue("Core", "enabled");
-                Assert.That(enabledValue.Type, Is.EqualTo(YiniType.Bool));
+                Assert.That(enabledValue, Is.Not.Null);
+                Assert.That(enabledValue!.Type, Is.EqualTo(YiniType.Bool));
                 Assert.That(enabledValue.AsBool(), Is.True);
 
                 var factorValue = doc.GetValue("Core", "factor");
-                Assert.That(factorValue.Type, Is.EqualTo(YiniType.Int));
+                Assert.That(factorValue, Is.Not.Null);
+                Assert.That(factorValue!.Type, Is.EqualTo(YiniType.Int));
                 Assert.That(factorValue.AsInt(), Is.EqualTo(2));
 
                 var versionValue = doc.GetValue("Core", "version");
-                Assert.That(versionValue.Type, Is.EqualTo(YiniType.Double));
+                Assert.That(versionValue, Is.Not.Null);
+                Assert.That(versionValue!.Type, Is.EqualTo(YiniType.Double));
                 Assert.That(versionValue.AsDouble(), Is.EqualTo(1.2));
 
                 var rateValue = doc.GetValue("Values", "rate");
-                Assert.That(rateValue.Type, Is.EqualTo(YiniType.Double));
+                Assert.That(rateValue, Is.Not.Null);
+                Assert.That(rateValue!.Type, Is.EqualTo(YiniType.Double));
                 Assert.That(rateValue.AsDouble(), Is.EqualTo(25.0));
             }
         }
@@ -82,7 +88,8 @@ rate = 12.5 * @factor
             using(var doc = new YiniDocument(TestContent))
             {
                 var dataValue = doc.GetValue("Core", "data");
-                Assert.That(dataValue.Type, Is.EqualTo(YiniType.Array));
+                Assert.That(dataValue, Is.Not.Null);
+                Assert.That(dataValue!.Type, Is.EqualTo(YiniType.Array));
 
                 var array = dataValue.AsArray();
                 Assert.That(array.Length, Is.EqualTo(4));
@@ -99,7 +106,8 @@ rate = 12.5 * @factor
             using(var doc = new YiniDocument(TestContent))
             {
                 var dataValue = doc.GetValue("Core", "scores");
-                Assert.That(dataValue.Type, Is.EqualTo(YiniType.List));
+                Assert.That(dataValue, Is.Not.Null);
+                Assert.That(dataValue!.Type, Is.EqualTo(YiniType.List));
 
                 var list = dataValue.AsList();
                 Assert.That(list.Length, Is.EqualTo(3));
@@ -110,26 +118,45 @@ rate = 12.5 * @factor
         }
 
         [Test]
+        public void GetValue_ShouldReturnCorrectSet()
+        {
+            using(var doc = new YiniDocument(TestContent))
+            {
+                var dataValue = doc.GetValue("Core", "tags");
+                Assert.That(dataValue, Is.Not.Null);
+                Assert.That(dataValue!.Type, Is.EqualTo(YiniType.Set));
+
+                var set = dataValue.AsSet();
+                Assert.That(set.Length, Is.EqualTo(2));
+                Assert.That(set[0].AsString(), Is.EqualTo("fast"));
+                Assert.That(set[1].AsString(), Is.EqualTo("player"));
+            }
+        }
+
+        [Test]
         public void GetValue_ShouldReturnCorrectCustomTypes()
         {
             using(var doc = new YiniDocument(TestContent))
             {
                 var posValue = doc.GetValue("Core", "pos");
-                Assert.That(posValue.Type, Is.EqualTo(YiniType.Coord));
+                Assert.That(posValue, Is.Not.Null);
+                Assert.That(posValue!.Type, Is.EqualTo(YiniType.Coord));
                 var coord = posValue.AsCoord();
                 Assert.That(coord.X, Is.EqualTo(10));
                 Assert.That(coord.Y, Is.EqualTo(20));
                 Assert.That(coord.Is3D, Is.False);
 
                 var colorValue = doc.GetValue("Core", "color");
-                Assert.That(colorValue.Type, Is.EqualTo(YiniType.Color));
+                Assert.That(colorValue, Is.Not.Null);
+                Assert.That(colorValue!.Type, Is.EqualTo(YiniType.Color));
                 var color = colorValue.AsColor();
                 Assert.That(color.R, Is.EqualTo(0));
                 Assert.That(color.G, Is.EqualTo(255));
                 Assert.That(color.B, Is.EqualTo(0));
 
                 var assetValue = doc.GetValue("Core", "asset");
-                Assert.That(assetValue.Type, Is.EqualTo(YiniType.Path));
+                Assert.That(assetValue, Is.Not.Null);
+                Assert.That(assetValue!.Type, Is.EqualTo(YiniType.Path));
                 Assert.That(assetValue.AsPath(), Is.EqualTo("items/sword.mesh"));
             }
         }
@@ -140,9 +167,10 @@ rate = 12.5 * @factor
             using(var doc = new YiniDocument(TestContent))
             {
                 var nameValue = doc.GetValue("Core", "name");
-                Assert.Throws<InvalidCastException>(() => nameValue.AsInt());
-                Assert.Throws<InvalidCastException>(() => nameValue.AsArray());
-                Assert.Throws<InvalidCastException>(() => nameValue.AsCoord());
+                Assert.That(nameValue, Is.Not.Null);
+                Assert.Throws<InvalidCastException>(() => nameValue!.AsInt());
+                Assert.Throws<InvalidCastException>(() => nameValue!.AsArray());
+                Assert.Throws<InvalidCastException>(() => nameValue!.AsCoord());
             }
         }
 

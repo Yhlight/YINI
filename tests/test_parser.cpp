@@ -85,6 +85,33 @@ my_array = Array(1, "two", true)
   EXPECT_EQ(std::get<bool>(array_elements[2].data), true);
 }
 
+TEST(ParserTest, ParseSetValue)
+{
+  const std::string input = R"([Data]
+my_set = Set(1, "two", 1, true, "two")
+)";
+  YINI::YiniDocument doc;
+  YINI::Parser parser(input, doc);
+  parser.parse();
+
+  const auto *section = doc.findSection("Data");
+  ASSERT_NE(section, nullptr);
+  ASSERT_EQ(section->pairs.size(), 1);
+  const auto &pair = section->pairs[0];
+  EXPECT_EQ(pair.key, "my_set");
+
+  // Check that it's a set and uniqueness is enforced for simple types
+  auto &set_ptr = std::get<std::unique_ptr<YINI::YiniSet>>(pair.value.data);
+  ASSERT_NE(set_ptr, nullptr);
+  auto &set_elements = set_ptr->elements;
+  ASSERT_EQ(set_elements.size(), 3);
+
+  // Check individual elements (order is preserved, but duplicates are removed)
+  EXPECT_EQ(std::get<int>(set_elements[0].data), 1);
+  EXPECT_EQ(std::get<std::string>(set_elements[1].data), "two");
+  EXPECT_EQ(std::get<bool>(set_elements[2].data), true);
+}
+
 TEST(ParserTest, ParseMapValue)
 {
   const std::string input = R"([Data]

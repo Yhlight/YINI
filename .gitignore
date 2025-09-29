@@ -1,26 +1,27 @@
+# Build artifacts
+[Bb]uild/
+[Bb]in/
+[Oo]bj/
+
+# Visual Studio and Rider
+.vs/
+*.suo
+*.user
+*.sln.docstates
+
 # CMake
 CMakeCache.txt
 CMakeFiles/
 cmake_install.cmake
-Makefile
-*.cmake
+install_manifest.txt
+compile_commands.json
 
-# Build artifacts
-build/
-bin/
-lib/
-*.a
-*.so
-*.dll
-*.exe
-
-# VSCode
-.vscode/
-
-# C#
-csharp/**/bin/
-csharp/**/obj/
-
-# YMETA files
+# Test artifacts
 *.ymeta
-*.YMETA
+*.ymeta.*
+
+# IDE specific
+.idea/
+
+# macOS
+.DS_Store
