@@ -113,8 +113,15 @@ color = #FF00FF
   const auto& set_ptr = std::get<std::unique_ptr<YINI::YiniSet>>(it_set->value.data);
   ASSERT_NE(set_ptr, nullptr);
   ASSERT_EQ(set_ptr->elements.size(), 2); // Uniqueness enforced
-  EXPECT_EQ(std::get<int>(set_ptr->elements[0].data), 1);
-  EXPECT_EQ(std::get<std::string>(set_ptr->elements[1].data), "bar");
+
+  // Verify elements with iterators since std::set does not have operator[]
+  // The order is determined by YiniValue::operator<, so string comes before int.
+  auto set_it = set_ptr->elements.begin();
+  EXPECT_TRUE(std::holds_alternative<std::string>(set_it->data));
+  EXPECT_EQ(std::get<std::string>(set_it->data), "bar");
+  ++set_it;
+  EXPECT_TRUE(std::holds_alternative<int>(set_it->data));
+  EXPECT_EQ(std::get<int>(set_it->data), 1);
 
   // Check registration list
   ASSERT_EQ(new_core->registrationList.size(), 1);

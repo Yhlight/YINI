@@ -32,10 +32,10 @@ private:
   std::unique_ptr<YiniColor> parseColor();
   std::unique_ptr<YiniPath> parsePath();
 
-  Lexer m_lexer;
-  Token m_currentToken;
-  YiniDocument &m_document;
-  std::string m_basePath;
+  Lexer lexer;
+  Token currentToken;
+  YiniDocument &document;
+  std::string basePath;
   void nextToken();
 };
 } // namespace YINI

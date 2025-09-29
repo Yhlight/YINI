@@ -50,7 +50,7 @@ static bool parseJsonSet(const json &j_set, YiniValue &value)
     {
       return false; // Propagate failure
     }
-    yini_set->elements.push_back(std::move(element_value));
+    yini_set->elements.insert(std::move(element_value));
   }
   value.data = std::move(yini_set);
   return true;

@@ -39,6 +39,22 @@ void serializeMap(std::stringstream &ss, const YINI::YiniMap &map)
   ss << "}";
 }
 
+void serializeSet(std::stringstream &ss, const YINI::YiniSet &set)
+{
+  ss << "[";
+  size_t count = 0;
+  for (const auto &elem : set.elements)
+  {
+    serializeValue(ss, elem);
+    if (count < set.elements.size() - 1)
+    {
+      ss << ",";
+    }
+    count++;
+  }
+  ss << "]";
+}
+
 void serializeValue(std::stringstream &ss, const YINI::YiniValue &value)
 {
   if (std::holds_alternative<std::string>(value.data))
@@ -94,7 +110,7 @@ void serializeValue(std::stringstream &ss, const YINI::YiniValue &value)
     ss << "{\"__type__\":\"Set\",\"value\":";
     if (set_ptr)
     {
-      serializeArray(ss, *reinterpret_cast<const YINI::YiniArray *>(set_ptr.get()));
+      serializeSet(ss, *set_ptr);
     }
     else
     {

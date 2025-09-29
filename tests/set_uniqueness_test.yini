@@ -1,0 +1,14 @@
+[Sets]
+// This set contains duplicate primitive and complex values.
+// The parser should discard the duplicates.
+complex_set = Set(
+    1,
+    "hello",
+    [1, 2],
+    {key: "value"},
+    1, // duplicate
+    "hello", // duplicate
+    [1, 2], // duplicate
+    {key: "value"}, // duplicate
+    [3, 4] // unique
+)

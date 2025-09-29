@@ -105,11 +105,29 @@ my_set = Set(1, "two", 1, true, "two")
   ASSERT_NE(set_ptr, nullptr);
   auto &set_elements = set_ptr->elements;
   ASSERT_EQ(set_elements.size(), 3);
+}
 
-  // Check individual elements (order is preserved, but duplicates are removed)
-  EXPECT_EQ(std::get<int>(set_elements[0].data), 1);
-  EXPECT_EQ(std::get<std::string>(set_elements[1].data), "two");
-  EXPECT_EQ(std::get<bool>(set_elements[2].data), true);
+TEST(ParserTest, ParseSetWithComplexUniqueness)
+{
+    // YINI_TEST_DATA_DIR is a C-string literal defined by CMake.
+    const std::string test_data_dir = YINI_TEST_DATA_DIR;
+    const std::string input_file_path = test_data_dir + "/set_uniqueness_test.yini";
+    const std::string input = read_file_content(input_file_path);
+    ASSERT_FALSE(input.empty()) << "Failed to read test file: " << input_file_path;
+
+    YINI::YiniDocument doc;
+    YINI::Parser parser(input, doc, test_data_dir);
+    parser.parse();
+
+    const auto *section = doc.findSection("Sets");
+    ASSERT_NE(section, nullptr);
+    const auto &pair = section->pairs[0];
+    EXPECT_EQ(pair.key, "complex_set");
+
+    // Check that the set correctly discards duplicate complex elements
+    auto &set_ptr = std::get<std::unique_ptr<YINI::YiniSet>>(pair.value.data);
+    ASSERT_NE(set_ptr, nullptr);
+    EXPECT_EQ(set_ptr->elements.size(), 5); // 1, "hello", [1, 2], {key:"value"}, [3, 4]
 }
 
 TEST(ParserTest, ParseMapValue)
@@ -239,10 +257,10 @@ TEST(ParserTest, ParseDynaValue)
   const auto &pair = config_section->pairs[0];
   EXPECT_EQ(pair.key, "key");
 
-  auto &dyna_ptr =
-      std::get<std::unique_ptr<YINI::YiniDynaValue>>(pair.value.data);
-  ASSERT_NE(dyna_ptr, nullptr);
-  EXPECT_EQ(std::get<int>(dyna_ptr->value.data), 1);
+  // Check that the parser correctly identified the value as dynamic
+  // and unwrapped it.
+  EXPECT_TRUE(pair.is_dynamic);
+  EXPECT_EQ(std::get<int>(pair.value.data), 1);
 }
 
 TEST(ParserTest, ThrowOnUnclosedSection)

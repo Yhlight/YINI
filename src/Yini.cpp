@@ -291,7 +291,9 @@ YINI_API const YiniValueHandle* yini_set_get_value_by_index(const YiniValueHandl
     if (!std::holds_alternative<std::unique_ptr<YINI::YiniSet>>(value->data)) return nullptr;
     const auto& set_ptr = std::get<std::unique_ptr<YINI::YiniSet>>(value->data);
     if (!set_ptr || index < 0 || index >= set_ptr->elements.size()) return nullptr;
-    return reinterpret_cast<const YiniValueHandle*>(&set_ptr->elements[index]);
+
+    auto it = std::next(set_ptr->elements.begin(), index);
+    return reinterpret_cast<const YiniValueHandle*>(&(*it));
 }
 
 } // extern "C"

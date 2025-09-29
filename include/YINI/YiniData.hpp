@@ -22,7 +22,10 @@ struct YiniCoord;
 struct YiniColor;
 struct YiniPath;
 
-// YiniVariant holds the possible types. Recursive types are held by unique_ptr.
+/**
+ * @brief A variant type that can hold any of the possible YINI data types.
+ * @note Recursive types are held by unique_ptr to break circular dependencies.
+ */
 using YiniVariant =
     std::variant<std::string, int, double, bool, std::unique_ptr<YiniArray>,
                  std::unique_ptr<YiniList>, std::unique_ptr<YiniSet>,
@@ -30,7 +33,13 @@ using YiniVariant =
                  std::unique_ptr<YiniCoord>, std::unique_ptr<YiniColor>,
                  std::unique_ptr<YiniPath>>;
 
-// YiniValue is a wrapper around the variant to enable recursion.
+/**
+ * @brief Represents a single value in a YINI document.
+ *
+ * This struct is a wrapper around the YiniVariant, which allows for recursive
+ * data structures like arrays of arrays. It also provides comparison operators
+ * to be used in containers like std::set.
+ */
 struct YiniValue
 {
   YiniVariant data;
@@ -46,60 +55,81 @@ struct YiniValue
 
   // Destructor
   ~YiniValue();
+
+  /**
+   * @brief Compares this YiniValue with another for ordering.
+   * @param other The YiniValue to compare against.
+   * @return true if this value is less than the other, false otherwise.
+   */
+  bool operator<(const YiniValue &other) const;
 };
 
-// YiniArray contains a vector of YiniValues.
+/** @brief Represents a YINI array `[...]` or `Array(...)`. */
 struct YiniArray
 {
   std::vector<YiniValue> elements;
+  bool operator<(const YiniArray &other) const;
 };
 
-// YiniList contains a vector of YiniValues.
+/** @brief Represents a YINI list `List(...)`. */
 struct YiniList
 {
   std::vector<YiniValue> elements;
+  bool operator<(const YiniList &other) const;
 };
 
-// YiniSet contains a vector of unique YiniValues. Uniqueness is enforced by the parser.
+/** @brief Represents a YINI set `Set(...)`, which enforces uniqueness. */
 struct YiniSet
 {
-  std::vector<YiniValue> elements;
+  std::set<YiniValue> elements;
+  bool operator<(const YiniSet &other) const;
 };
 
-// YiniMap contains a map of string to YiniValue.
+/** @brief Represents a YINI map `{...}`. */
 struct YiniMap
 {
   std::map<std::string, YiniValue> elements;
+  bool operator<(const YiniMap &other) const;
 };
 
-// YiniDynaValue wraps another YiniValue.
+/** @brief Internal wrapper for values marked with `Dyna()`. */
 struct YiniDynaValue
 {
   YiniValue value;
+  bool operator<(const YiniDynaValue &other) const;
 };
 
+/** @brief Represents a 2D or 3D coordinate `Coord(...)`. */
 struct YiniCoord
 {
   double x, y, z;
   bool is_3d;
+  bool operator<(const YiniCoord &other) const;
 };
 
+/** @brief Represents a color, parsed from `#RRGGBB` or `Color(...)`. */
 struct YiniColor
 {
   unsigned char r, g, b;
+  bool operator<(const YiniColor &other) const;
 };
 
+/** @brief Represents a file path `Path(...)`. */
 struct YiniPath
 {
   std::string path_value;
+  bool operator<(const YiniPath &other) const;
 };
 
+/** @brief A key-value pair within a YINI section. */
 struct YiniKeyValuePair
 {
   std::string key;
   YiniValue value;
+  bool is_dynamic = false; ///< True if the value was declared with `Dyna()`.
 };
 
+/** @brief Represents a single section `[...]` in a YINI document. */
 struct YiniSection
 {
   std::string name;
@@ -108,40 +138,56 @@ struct YiniSection
   std::vector<YiniValue> registrationList;
 };
 
+/**
+ * @brief Represents a full YINI document, containing all sections and macros.
+ *
+ * This class is the root of the parsed YINI data structure. It provides
+ * methods for accessing and manipulating the document's content.
+ */
 class YiniDocument
 {
 public:
+  /** @brief Adds a new section to the document. */
   void addSection(const YiniSection &section) { sections.push_back(section); }
 
+  /** @brief Adds a new section to the document. */
   void addSection(YiniSection &&section)
   {
     sections.push_back(std::move(section));
   }
 
+  /** @brief Gets a mutable reference to the vector of sections. */
   std::vector<YiniSection> &getSections() { return sections; }
 
+  /** @brief Gets a constant reference to the vector of sections. */
   const std::vector<YiniSection> &getSections() const { return sections; }
 
 public:
+  /**
+   * @brief Finds a section by its name.
+   * @param name The name of the section to find.
+   * @return A pointer to the section if found, otherwise nullptr.
+   */
   YiniSection *findSection(const std::string &name)
   {
     auto it =
         std::find_if(sections.begin(), sections.end(),
                      [&](const YiniSection &s) { return s.name == name; });
-
-    if (it != sections.end())
-    {
-      return &(*it);
-    }
-
-    return nullptr;
+    return (it != sections.end()) ? &(*it) : nullptr;
   }
 
+  /** @brief Adds a new macro definition to the document's global scope. */
   void addDefine(const std::string &key, const YiniValue &value)
   {
     defines[key] = value;
   }
 
+  /**
+   * @brief Retrieves a macro definition by its key.
+   * @param key The key of the macro.
+   * @param[out] value The YiniValue to populate with the macro's value.
+   * @return true if the macro was found, false otherwise.
+   */
   bool getDefine(const std::string &key, YiniValue &value) const
   {
     auto it = defines.find(key);
@@ -153,9 +199,11 @@ public:
     return false;
   }
 
+  /** @brief Gets a constant reference to the map of all defined macros. */
   const std::map<std::string, YiniValue> &getDefines() const { return defines; }
 
 public:
+  /** @brief Resolves all section inheritance for the document. */
   void resolveInheritance();
 
 private:
@@ -164,30 +212,30 @@ private:
                                  std::set<std::string> &resolved);
 
 public:
+  /**
+   * @brief Finds a section by its name (const version).
+   * @param name The name of the section to find.
+   * @return A pointer to the section if found, otherwise nullptr.
+   */
   const YiniSection *findSection(const std::string &name) const
   {
     auto it =
         std::find_if(sections.begin(), sections.end(),
                      [&](const YiniSection &s) { return s.name == name; });
-
-    if (it != sections.end())
-    {
-      return &(*it);
-    }
-
-    return nullptr;
+    return (it != sections.end()) ? &(*it) : nullptr;
   }
 
+  /**
+   * @brief Gets a section by name, creating it if it doesn't exist.
+   * @param name The name of the section.
+   * @return A pointer to the existing or newly created section.
+   */
   YiniSection *getOrCreateSection(const std::string &name)
   {
     auto it =
         std::find_if(sections.begin(), sections.end(),
                      [&](const YiniSection &s) { return s.name == name; });
-
-    if (it != sections.end())
-    {
-      return &(*it);
-    }
+    if (it != sections.end()) { return &(*it); }
     else
     {
       sections.push_back({name});
@@ -195,6 +243,7 @@ public:
     }
   }
 
+  /** @brief Merges another document's contents into this one. */
   void merge(const YiniDocument &other)
   {
     for (const auto &[key, value] : other.defines)
@@ -204,13 +253,9 @@ public:
 
     for (const auto &other_section : other.getSections())
     {
-      if (other_section.name == "#include")
-        continue;
-
+      if (other_section.name == "#include") continue;
       YiniSection *target_section = getOrCreateSection(other_section.name);
-
-      if (other_section.name == "#define")
-        continue;
+      if (other_section.name == "#define") continue;
 
       for (const auto &other_pair : other_section.pairs)
       {
@@ -218,14 +263,8 @@ public:
             target_section->pairs.begin(), target_section->pairs.end(),
             [&](const YiniKeyValuePair &p) { return p.key == other_pair.key; });
 
-        if (it != target_section->pairs.end())
-        {
-          it->value = other_pair.value;
-        }
-        else
-        {
-          target_section->pairs.push_back(other_pair);
-        }
+        if (it != target_section->pairs.end()) { it->value = other_pair.value; }
+        else { target_section->pairs.push_back(other_pair); }
       }
 
       target_section->registrationList.insert(
