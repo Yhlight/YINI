@@ -3,21 +3,32 @@
 
 #include <stdexcept>
 #include <string>
+#include <vector>
 
 namespace YINI
 {
-    class YiniException : public std::runtime_error
+    /**
+     * @brief Represents a single syntax error found by the parser.
+     */
+    struct YiniSyntaxError {
+        std::string message;
+        int line;
+        int column;
+    };
+
+    /**
+     * @brief An exception that aggregates all syntax errors found during a parse.
+     */
+    class YiniParsingException : public std::runtime_error
     {
     public:
-        YiniException(const std::string& message, int line, int column)
-            : std::runtime_error(message), m_line(line), m_column(column) {}
+        YiniParsingException(const std::vector<YiniSyntaxError>& errors)
+            : std::runtime_error("YINI parsing failed with one or more errors."), m_errors(errors) {}
 
-        int getLine() const { return m_line; }
-        int getColumn() const { return m_column; }
+        const std::vector<YiniSyntaxError>& getErrors() const { return m_errors; }
 
     private:
-        int m_line;
-        int m_column;
+        std::vector<YiniSyntaxError> m_errors;
     };
 }
 

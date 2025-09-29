@@ -39,8 +39,11 @@ void handleCheck(const std::string& filePath) {
         YINI::Parser parser(content, doc, basePath);
         parser.parse();
         std::cout << "Syntax OK: " << filePath << std::endl;
-    } catch (const YINI::YiniException& e) {
-        std::cerr << "Syntax Error in " << filePath << " [" << e.getLine() << ":" << e.getColumn() << "]: " << e.what() << std::endl;
+    } catch (const YINI::YiniParsingException& e) {
+        std::cerr << "Found " << e.getErrors().size() << " syntax errors in " << filePath << ":\n";
+        for (const auto& err : e.getErrors()) {
+            std::cerr << "  [" << err.line << ":" << err.column << "]: " << err.message << std::endl;
+        }
     } catch (const std::exception& e) {
         std::cerr << "An unexpected error occurred: " << e.what() << std::endl;
     }

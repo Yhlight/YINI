@@ -74,10 +74,10 @@ color = #FF00FF
 
   // 4. Compare the documents
   // Check defines
-  YINI::YiniValue original_version, new_version;
-  ASSERT_TRUE(original_doc.getDefine("version", original_version));
-  ASSERT_TRUE(new_doc.getDefine("version", new_version));
-  EXPECT_TRUE(areYiniValuesEqual(original_version, new_version));
+  YINI::YiniDefine original_define, new_define;
+  ASSERT_TRUE(original_doc.getDefine("version", original_define));
+  ASSERT_TRUE(new_doc.getDefine("version", new_define));
+  EXPECT_TRUE(areYiniValuesEqual(original_define.value, new_define.value));
 
   // Check sections
   auto *original_core = original_doc.findSection("Core");

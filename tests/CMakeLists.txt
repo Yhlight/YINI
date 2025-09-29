@@ -14,6 +14,7 @@ add_executable(yini_tests
     test_manager.cpp
     test_roundtrip_and_inheritance.cpp
     test_cli.cpp
+    test_c_api.cpp
 )
 
 # Pass the path to the test data directory to the tests as a C-string literal

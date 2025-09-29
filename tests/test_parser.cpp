@@ -312,17 +312,19 @@ TEST(ParserTest, ThrowOnUnclosedSection)
   try
   {
     parser.parse();
-    FAIL() << "Expected YINI::YiniException";
+    FAIL() << "Expected YINI::YiniParsingException";
   }
-  catch (const YINI::YiniException &e)
+  catch (const YINI::YiniParsingException &e)
   {
-    EXPECT_EQ(e.getLine(), 1);
-    EXPECT_EQ(e.getColumn(), 13);
-    EXPECT_STREQ("Expected ']' to close section header.", e.what());
+    ASSERT_EQ(e.getErrors().size(), 1);
+    const auto& err = e.getErrors()[0];
+    EXPECT_EQ(err.line, 1);
+    EXPECT_EQ(err.column, 13);
+    EXPECT_EQ(err.message, "Expected ']' to close section header.");
   }
   catch (...)
   {
-    FAIL() << "Expected YINI::YiniException";
+    FAIL() << "Expected YINI::YiniParsingException";
   }
 }
 
@@ -383,9 +385,9 @@ TEST(ParserTest, ParseFileIncludes)
 
   ASSERT_EQ(doc.getSections().size(), 3); // Shared, BaseOnly, MainOnly
 
-  YINI::YiniValue val;
-  ASSERT_TRUE(doc.getDefine("base_macro", val));
-  EXPECT_EQ(std::get<std::string>(val.data), "base");
+  YINI::YiniDefine define;
+  ASSERT_TRUE(doc.getDefine("base_macro", define));
+  EXPECT_EQ(std::get<std::string>(define.value.data), "base");
 
   const auto *shared_section = doc.findSection("Shared");
   ASSERT_NE(shared_section, nullptr);

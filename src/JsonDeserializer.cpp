@@ -213,10 +213,17 @@ bool JsonDeserializer::deserialize(const std::string &json_content,
     {
       for (auto it = j.at("defines").begin(); it != j.at("defines").end(); ++it)
       {
-        YiniValue val;
-        if (parseJsonValue(it.value(), val))
+        const json& define_json = it.value();
+        if (define_json.is_object() && define_json.contains("value") && define_json.contains("location"))
         {
-          doc.addDefine(it.key(), val);
+            YiniValue val;
+            if (parseJsonValue(define_json.at("value"), val))
+            {
+                const json& loc_json = define_json.at("location");
+                int line = loc_json.value("line", 0);
+                int column = loc_json.value("column", 0);
+                doc.addDefine(it.key(), val, line, column);
+            }
         }
       }
     }

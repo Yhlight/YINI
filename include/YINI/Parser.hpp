@@ -3,8 +3,10 @@
 
 #include "Lexer.hpp"
 #include "YiniData.hpp"
+#include "YiniException.hpp"
 #include <memory>
 #include <string>
+#include <vector>
 
 namespace YINI
 {
@@ -14,8 +16,12 @@ public:
   Parser(const std::string &content, YiniDocument &document,
          const std::string &basePath = ".");
   void parse();
+  bool hadError() const;
+  const std::vector<YiniSyntaxError>& getErrors() const;
 
 private:
+  void reportError(const std::string& message);
+  void synchronize();
   void parseSection();
   void parseKeyValuePair(YiniSection &section);
   void parseQuickRegistration(YiniSection &section);
@@ -36,6 +42,10 @@ private:
   Token currentToken;
   YiniDocument &document;
   std::string basePath;
+  std::vector<YiniSyntaxError> m_errors;
+
+  struct ParseError {};
+
   void nextToken();
 };
 } // namespace YINI

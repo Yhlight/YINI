@@ -31,3 +31,13 @@ add_executable(yini-lsp
     src/LSP/main.cpp
 )
 target_link_libraries(yini-lsp PRIVATE yini nlohmann_json::nlohmann_json)
+
+# Doxygen documentation generation
+find_package(Doxygen)
+if (DOXYGEN_FOUND)
+    add_custom_target(doxygen
+        COMMAND ${DOXYGEN_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/Doxyfile
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        COMMENT "Generating API documentation with Doxygen"
+        VERBATIM)
+endif()

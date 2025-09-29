@@ -224,10 +224,13 @@ std::string JsonSerializer::serialize(const YiniDocument &doc)
   ss << "\"defines\":{";
   size_t define_count = 0;
   const auto &defines = doc.getDefines();
-  for (const auto &[key, value] : defines)
+  for (const auto &[key, define] : defines)
   {
-    ss << "\"" << key << "\":";
-    serializeValue(ss, value);
+    ss << "\"" << key << "\":{";
+    ss << "\"value\":";
+    serializeValue(ss, define.value);
+    ss << ",\"location\":{\"line\":" << define.location.line << ",\"column\":" << define.location.column << "}";
+    ss << "}";
     if (define_count < defines.size() - 1)
     {
       ss << ",";

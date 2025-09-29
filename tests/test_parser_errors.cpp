@@ -19,12 +19,17 @@ TEST(ParserErrorTest, ThrowsOnInvalidSectionName)
   const std::string input = "[123_invalid]\nkey = value";
   YINI::YiniDocument doc;
   YINI::Parser parser(input, doc);
-  ASSERT_THROW(parser.parse(), YINI::YiniException);
+  try {
+      parser.parse();
+      FAIL() << "Expected YiniParsingException";
+  } catch (const YINI::YiniParsingException& e) {
+      ASSERT_EQ(e.getErrors().size(), 1);
+      EXPECT_EQ(e.getErrors()[0].message, "Invalid section name.");
+  }
 }
 
 TEST(ParserErrorTest, ThrowsOnMissingEqualsInKeyValuePair)
 {
-  // YINI_TEST_DATA_DIR is a C-string literal defined by CMake.
   const std::string test_data_dir = YINI_TEST_DATA_DIR;
   const std::string input_file_path = test_data_dir + "/invalid_key_value.yini";
   const std::string input = read_file_content(input_file_path);
@@ -33,20 +38,14 @@ TEST(ParserErrorTest, ThrowsOnMissingEqualsInKeyValuePair)
   YINI::YiniDocument doc;
   YINI::Parser parser(input, doc, test_data_dir);
 
-  EXPECT_THROW(
-      {
-        try
-        {
-          parser.parse();
-        }
-        catch (const YINI::YiniException &e)
-        {
-          EXPECT_STREQ("Expected '=' after key 'key_without_equals'.", e.what());
-          EXPECT_EQ(e.getLine(), 3); // The error is detected on the next line
-          throw;
-        }
-      },
-      YINI::YiniException);
+  try {
+      parser.parse();
+      FAIL() << "Expected YiniParsingException";
+  } catch (const YINI::YiniParsingException& e) {
+      ASSERT_EQ(e.getErrors().size(), 1);
+      const auto& err = e.getErrors()[0];
+      EXPECT_EQ(err.message, "Expected '=' after key 'key_without_equals'.");
+  }
 }
 
 TEST(ParserErrorTest, ThrowsOnUnclosedArray)
@@ -54,66 +53,49 @@ TEST(ParserErrorTest, ThrowsOnUnclosedArray)
   const std::string input = "[Data]\nmy_array = [1, 2, 3";
   YINI::YiniDocument doc;
   YINI::Parser parser(input, doc);
-  ASSERT_THROW(parser.parse(), YINI::YiniException);
+  try {
+      parser.parse();
+      FAIL() << "Expected YiniParsingException";
+  } catch (const YINI::YiniParsingException& e) {
+      ASSERT_EQ(e.getErrors().size(), 1);
+      EXPECT_EQ(e.getErrors()[0].message, "Expected ']' to close array.");
+  }
 }
 
 TEST(ParserErrorTest, ThrowsOnMalformedMap)
 {
-  // Test case 1: Missing colon
   const std::string input1 = "[Data]\nmy_map = { key \"value\" }";
   YINI::YiniDocument doc1;
   YINI::Parser parser1(input1, doc1);
-  EXPECT_THROW(
-      {
-        try
-        {
-          parser1.parse();
-        }
-        catch (const YINI::YiniException &e)
-        {
-          EXPECT_STREQ("Expected ':' after map key.", e.what());
-          throw;
-        }
-      },
-      YINI::YiniException);
+  try {
+      parser1.parse();
+      FAIL() << "Expected YiniParsingException";
+  } catch (const YINI::YiniParsingException& e) {
+      ASSERT_EQ(e.getErrors().size(), 1);
+      EXPECT_EQ(e.getErrors()[0].message, "Expected ':' after map key.");
+  }
 
-  // Test case 2: Missing comma
   const std::string input2 = "[Data]\nmy_map = { key1: 1 key2: 2 }";
   YINI::YiniDocument doc2;
   YINI::Parser parser2(input2, doc2);
-  EXPECT_THROW(
-      {
-        try
-        {
-          parser2.parse();
-        }
-        catch (const YINI::YiniException &e)
-        {
-          EXPECT_STREQ("Expected ',' or '}' in map.", e.what());
-          throw;
-        }
-      },
-      YINI::YiniException);
+  try {
+      parser2.parse();
+      FAIL() << "Expected YiniParsingException";
+  } catch (const YINI::YiniParsingException& e) {
+      ASSERT_EQ(e.getErrors().size(), 1);
+      EXPECT_EQ(e.getErrors()[0].message, "Expected ',' or '}' in map.");
+  }
 
-  // Test case 3: Unclosed map
   const std::string input3 = "[Data]\nmy_map = { key: 1,";
   YINI::YiniDocument doc3;
   YINI::Parser parser3(input3, doc3);
-  EXPECT_THROW(
-      {
-        try
-        {
-          parser3.parse();
-        }
-        catch (const YINI::YiniException &e)
-        {
-          // The loop terminates on EOF, and the final check catches the
-          // unclosed brace.
-          EXPECT_STREQ("Expected '}' to close map.", e.what());
-          throw;
-        }
-      },
-      YINI::YiniException);
+  try {
+      parser3.parse();
+      FAIL() << "Expected YiniParsingException";
+  } catch (const YINI::YiniParsingException& e) {
+      ASSERT_EQ(e.getErrors().size(), 1);
+      EXPECT_EQ(e.getErrors()[0].message, "Expected '}' to close map.");
+  }
 }
 
 TEST(ParserErrorTest, ThrowsOnUndefinedMacro)
@@ -121,7 +103,13 @@ TEST(ParserErrorTest, ThrowsOnUndefinedMacro)
   const std::string input = "[Data]\nvalue = @undefined_macro";
   YINI::YiniDocument doc;
   YINI::Parser parser(input, doc);
-  ASSERT_THROW(parser.parse(), YINI::YiniException);
+  try {
+      parser.parse();
+      FAIL() << "Expected YiniParsingException";
+  } catch (const YINI::YiniParsingException& e) {
+      ASSERT_EQ(e.getErrors().size(), 1);
+      EXPECT_EQ(e.getErrors()[0].message, "Undefined macro: undefined_macro");
+  }
 }
 
 TEST(ParserErrorTest, ThrowsOnInvalidCoordArgs)
@@ -129,5 +117,11 @@ TEST(ParserErrorTest, ThrowsOnInvalidCoordArgs)
   const std::string input = "[Data]\npos = Coord(1, \"two\")";
   YINI::YiniDocument doc;
   YINI::Parser parser(input, doc);
-  ASSERT_THROW(parser.parse(), YINI::YiniException);
+  try {
+      parser.parse();
+      FAIL() << "Expected YiniParsingException";
+  } catch (const YINI::YiniParsingException& e) {
+      ASSERT_EQ(e.getErrors().size(), 1);
+      EXPECT_EQ(e.getErrors()[0].message, "Coord parameters must be numeric.");
+  }
 }

@@ -141,9 +141,9 @@ namespace YINI
         if (!defines.empty())
         {
             ss << "[#define]\n";
-            for (const auto& [key, value] : defines)
+            for (const auto& [key, define] : defines)
             {
-                ss << key << " = " << format(value) << "\n";
+                ss << key << " = " << format(define.value) << "\n";
             }
             ss << "\n";
         }

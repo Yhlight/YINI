@@ -130,6 +130,18 @@ struct YiniPath
   bool operator<(const YiniPath &other) const;
 };
 
+/** @brief Represents a location in a source file. */
+struct Location {
+    int line = 0;
+    int column = 0;
+};
+
+/** @brief Represents a macro definition, including its value and location. */
+struct YiniDefine {
+    YiniValue value;
+    Location location;
+};
+
 /** @brief A key-value pair within a YINI section. */
 struct YiniKeyValuePair
 {
@@ -186,30 +198,30 @@ public:
   }
 
   /** @brief Adds a new macro definition to the document's global scope. */
-  void addDefine(const std::string &key, const YiniValue &value)
+  void addDefine(const std::string &key, const YiniValue &value, int line, int column)
   {
-    defines[key] = value;
+    defines[key] = {value, {line, column}};
   }
 
   /**
    * @brief Retrieves a macro definition by its key.
    * @param key The key of the macro.
-   * @param[out] value The YiniValue to populate with the macro's value.
+   * @param[out] define The YiniDefine struct to populate.
    * @return true if the macro was found, false otherwise.
    */
-  bool getDefine(const std::string &key, YiniValue &value) const
+  bool getDefine(const std::string &key, YiniDefine &define) const
   {
     auto it = defines.find(key);
     if (it != defines.end())
     {
-      value = it->second;
+      define = it->second;
       return true;
     }
     return false;
   }
 
   /** @brief Gets a constant reference to the map of all defined macros. */
-  const std::map<std::string, YiniValue> &getDefines() const { return defines; }
+  const std::map<std::string, YiniDefine> &getDefines() const { return defines; }
 
 public:
   /** @brief Resolves all section inheritance for the document. */
@@ -255,9 +267,9 @@ public:
   /** @brief Merges another document's contents into this one. */
   void merge(const YiniDocument &other)
   {
-    for (const auto &[key, value] : other.defines)
+    for (const auto &[key, define] : other.getDefines())
     {
-      this->addDefine(key, value);
+      this->addDefine(key, define.value, define.location.line, define.location.column);
     }
 
     for (const auto &other_section : other.getSections())
@@ -285,7 +297,7 @@ public:
 
 private:
   std::vector<YiniSection> sections;
-  std::map<std::string, YiniValue> defines;
+  std::map<std::string, YiniDefine> defines;
 };
 } // namespace YINI
 
