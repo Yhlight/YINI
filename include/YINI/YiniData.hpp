@@ -155,6 +155,11 @@ namespace YINI
             return false;
         }
 
+        const std::map<std::string, YiniValue>& getDefines() const
+        {
+            return defines;
+        }
+
     public:
         const YiniSection* findSection(const std::string& name) const
         {
