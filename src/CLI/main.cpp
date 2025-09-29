@@ -7,14 +7,17 @@
 #include "YINI/YiniManager.hpp"
 #include "YINI/YiniException.hpp"
 #include "YINI/Parser.hpp"
+#include "YINI/JsonDeserializer.hpp"
+#include "YINI/YiniSerializer.hpp"
 
 void printHelp() {
     std::cout << "YINI CLI - Interactive Mode\n";
     std::cout << "Available commands:\n";
-    std::cout << "  check <filepath>   - Checks the syntax of a .yini file.\n";
-    std::cout << "  compile <filepath> - Compiles a .yini file to .ymeta.\n";
-    std::cout << "  help               - Shows this help message.\n";
-    std::cout << "  exit               - Exits the CLI.\n";
+    std::cout << "  check <filepath>     - Checks the syntax of a .yini file.\n";
+    std::cout << "  compile <filepath>   - Compiles a .yini file to .ymeta.\n";
+    std::cout << "  decompile <filepath> - Decompiles a .ymeta file to .yini format.\n";
+    std::cout << "  help                 - Shows this help message.\n";
+    std::cout << "  exit                 - Exits the CLI.\n";
 }
 
 void handleCheck(const std::string& filePath) {
@@ -52,6 +55,22 @@ void handleCompile(const std::string& filePath) {
     }
 }
 
+void handleDecompile(const std::string& filePath) {
+    std::ifstream file(filePath);
+    if (!file.is_open()) {
+        std::cerr << "Error: Could not open file: " << filePath << std::endl;
+        return;
+    }
+    std::string content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+
+    YINI::YiniDocument doc;
+    if (YINI::JsonDeserializer::deserialize(content, doc)) {
+        std::cout << YINI::YiniSerializer::serialize(doc);
+    } else {
+        std::cerr << "Error: Failed to decompile " << filePath << ". File may be corrupt or not a valid .ymeta file." << std::endl;
+    }
+}
+
 int main() {
     std::string line;
     printHelp();
@@ -83,6 +102,14 @@ int main() {
                 std::cerr << "Usage: compile <filepath>" << std::endl;
             } else {
                 handleCompile(filePath);
+            }
+        } else if (command == "decompile") {
+            std::string filePath;
+            ss >> filePath;
+            if (filePath.empty()) {
+                std::cerr << "Usage: decompile <filepath>" << std::endl;
+            } else {
+                handleDecompile(filePath);
             }
         } else if (!command.empty()) {
             std::cerr << "Unknown command: " << command << ". Type 'help' for a list of commands." << std::endl;
