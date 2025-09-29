@@ -93,7 +93,8 @@ int main() {
                                 {"diagnosticProvider", {
                                     {"interFileDependencies", false},
                                     {"workspaceDiagnostics", false}
-                                }}
+                            }},
+                            {"hoverProvider", true}
                             }}
                         }}
                     };
