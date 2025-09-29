@@ -31,6 +31,47 @@ TEST(ParserTest, ParseSimpleSection)
   EXPECT_EQ(std::get<std::string>(pair.value.data), "value");
 }
 
+TEST(ParserTest, ParseMapValue)
+{
+  const std::string input = R"([Data]
+my_map = {
+    "key1": "value1",
+    key2: 123,
+    "key3": true,
+    key4: [1, "two"]
+}
+)";
+  YINI::YiniDocument doc;
+  YINI::Parser parser(input, doc);
+  parser.parse();
+
+  const auto *section = doc.findSection("Data");
+  ASSERT_NE(section, nullptr);
+  ASSERT_EQ(section->pairs.size(), 1);
+  const auto &pair = section->pairs[0];
+  EXPECT_EQ(pair.key, "my_map");
+
+  // Check that it's a map
+  auto &map_ptr = std::get<std::unique_ptr<YINI::YiniMap>>(pair.value.data);
+  ASSERT_NE(map_ptr, nullptr);
+  auto &map_elements = map_ptr->elements;
+  ASSERT_EQ(map_elements.size(), 4);
+
+  // Check individual elements
+  EXPECT_EQ(std::get<std::string>(map_elements["key1"].data), "value1");
+  EXPECT_EQ(std::get<int>(map_elements["key2"].data), 123);
+  EXPECT_EQ(std::get<bool>(map_elements["key3"].data), true);
+
+  // Check nested array
+  auto &nested_array_ptr =
+      std::get<std::unique_ptr<YINI::YiniArray>>(map_elements["key4"].data);
+  ASSERT_NE(nested_array_ptr, nullptr);
+  auto &nested_array = nested_array_ptr->elements;
+  ASSERT_EQ(nested_array.size(), 2);
+  EXPECT_EQ(std::get<int>(nested_array[0].data), 1);
+  EXPECT_EQ(std::get<std::string>(nested_array[1].data), "two");
+}
+
 TEST(ParserTest, ParseCustomValueTypes)
 {
   const std::string input = R"([CustomTypes]
