@@ -118,6 +118,23 @@ void serializeValue(std::stringstream &ss, const YINI::YiniValue &value)
     }
     ss << "}";
   }
+  else if (std::holds_alternative<std::unique_ptr<YINI::YiniTuple>>(value.data))
+  {
+    const auto &tuple_ptr =
+        std::get<std::unique_ptr<YINI::YiniTuple>>(value.data);
+    ss << "{\"__type__\":\"Tuple\",\"value\":";
+    if (tuple_ptr)
+    {
+      ss << "{\"" << tuple_ptr->key << "\":";
+      serializeValue(ss, tuple_ptr->value);
+      ss << "}";
+    }
+    else
+    {
+      ss << "null";
+    }
+    ss << "}";
+  }
   else if (std::holds_alternative<std::unique_ptr<YINI::YiniMap>>(value.data))
   {
     const auto &map_ptr = std::get<std::unique_ptr<YINI::YiniMap>>(value.data);

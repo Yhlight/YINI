@@ -56,6 +56,26 @@ static bool parseJsonSet(const json &j_set, YiniValue &value)
   return true;
 }
 
+static bool parseJsonTuple(const json &j_tuple, YiniValue &value)
+{
+  if (!j_tuple.is_object() || j_tuple.size() != 1)
+  {
+    return false; // A tuple must be a JSON object with exactly one key-value pair.
+  }
+
+  auto yini_tuple = std::make_unique<YiniTuple>();
+  auto it = j_tuple.begin();
+
+  yini_tuple->key = it.key();
+  if (!parseJsonValue(it.value(), yini_tuple->value))
+  {
+    return false;
+  }
+
+  value.data = std::move(yini_tuple);
+  return true;
+}
+
 static bool parseJsonMap(const json &j_map, YiniValue &value)
 {
   auto yini_map = std::make_unique<YiniMap>();
@@ -129,6 +149,8 @@ static bool parseJsonValue(const json &j, YiniValue &value)
       return parseJsonList(j_val, value);
     if (type == "Set")
       return parseJsonSet(j_val, value);
+    if (type == "Tuple")
+      return parseJsonTuple(j_val, value);
     if (type == "Map")
       return parseJsonMap(j_val, value);
     if (type == "Dyna")

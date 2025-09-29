@@ -44,6 +44,15 @@ YiniVariant deep_copy_variant(const YiniVariant &v)
             }
             return new_set;
         }
+        else if constexpr (std::is_same_v<T, std::unique_ptr<YiniTuple>>)
+        {
+            if (!arg)
+                return std::unique_ptr<YiniTuple>(nullptr);
+            auto new_tuple = std::make_unique<YiniTuple>();
+            new_tuple->key = arg->key;
+            new_tuple->value = arg->value;
+            return new_tuple;
+        }
         else if constexpr (std::is_same_v<T, std::unique_ptr<YiniMap>>)
         {
           if (!arg)
@@ -191,6 +200,7 @@ bool YiniValue::operator<(const YiniValue &other) const
         if constexpr (std::is_same_v<T, std::unique_ptr<YiniArray>> ||
                       std::is_same_v<T, std::unique_ptr<YiniList>> ||
                       std::is_same_v<T, std::unique_ptr<YiniSet>> ||
+                      std::is_same_v<T, std::unique_ptr<YiniTuple>> ||
                       std::is_same_v<T, std::unique_ptr<YiniMap>> ||
                       std::is_same_v<T, std::unique_ptr<YiniDynaValue>> ||
                       std::is_same_v<T, std::unique_ptr<YiniCoord>> ||
@@ -226,6 +236,15 @@ bool YiniList::operator<(const YiniList &other) const
 bool YiniSet::operator<(const YiniSet &other) const
 {
   return elements < other.elements;
+}
+
+bool YiniTuple::operator<(const YiniTuple &other) const
+{
+  if (key != other.key)
+  {
+    return key < other.key;
+  }
+  return value < other.value;
 }
 
 bool YiniMap::operator<(const YiniMap &other) const

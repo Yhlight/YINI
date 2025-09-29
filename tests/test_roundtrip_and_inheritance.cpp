@@ -52,6 +52,7 @@ enabled = true
 data = [1, 2, "simple_string_in_array"]
 my_list = List(10, "foo")
 my_set = Set(1, "bar", 1)
+my_tuple = {a: "b"}
 color = #FF00FF
 
 += "registered_value"
@@ -129,6 +130,17 @@ color = #FF00FF
       std::holds_alternative<std::string>(new_core->registrationList[0].data));
   EXPECT_EQ(std::get<std::string>(new_core->registrationList[0].data),
             "registered_value");
+
+  // Check tuple value
+  auto it_tuple =
+      std::find_if(new_core->pairs.begin(), new_core->pairs.end(),
+                   [](const auto &p) { return p.key == "my_tuple"; });
+  ASSERT_NE(it_tuple, new_core->pairs.end());
+  ASSERT_TRUE(std::holds_alternative<std::unique_ptr<YINI::YiniTuple>>(it_tuple->value.data));
+  const auto& tuple_ptr = std::get<std::unique_ptr<YINI::YiniTuple>>(it_tuple->value.data);
+  ASSERT_NE(tuple_ptr, nullptr);
+  EXPECT_EQ(tuple_ptr->key, "a");
+  EXPECT_EQ(std::get<std::string>(tuple_ptr->value.data), "b");
 }
 
 TEST(InheritanceTest, MergingAndOverriding)

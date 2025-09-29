@@ -345,7 +345,7 @@ YiniValue Parser::parseValue()
     val.data = parseArray();
     return val;
   case TokenType::LeftBrace:
-    val.data = parseMap();
+    val.data = parseMap(); // parseMap now returns a YiniVariant
     return val;
   case TokenType::HexColor:
     val.data = parseColor();
@@ -574,10 +574,11 @@ std::unique_ptr<YiniSet> Parser::parseSet()
   return set;
 }
 
-std::unique_ptr<YiniMap> Parser::parseMap()
+YiniVariant Parser::parseMap()
 {
-  auto map = std::make_unique<YiniMap>();
-  nextToken();
+  nextToken(); // consume '{'
+
+  std::map<std::string, YiniValue> temp_map;
 
   while (currentToken.type != TokenType::RightBrace &&
          currentToken.type != TokenType::Eof)
@@ -598,7 +599,7 @@ std::unique_ptr<YiniMap> Parser::parseMap()
     }
     nextToken();
 
-    map->elements[key] = parseValue();
+    temp_map[key] = parseValue();
 
     if (currentToken.type == TokenType::Comma) { nextToken(); }
     else if (currentToken.type != TokenType::RightBrace)
@@ -613,8 +614,21 @@ std::unique_ptr<YiniMap> Parser::parseMap()
     throw YiniException("Expected '}' to close map.", currentToken.line,
                         currentToken.column);
   }
-  nextToken();
-  return map;
+  nextToken(); // consume '}'
+
+  if (temp_map.size() == 1)
+  {
+      auto tuple = std::make_unique<YiniTuple>();
+      tuple->key = temp_map.begin()->first;
+      tuple->value = std::move(temp_map.begin()->second);
+      return tuple;
+  }
+  else
+  {
+      auto map = std::make_unique<YiniMap>();
+      map->elements = std::move(temp_map);
+      return map;
+  }
 }
 
 std::unique_ptr<YiniCoord> Parser::parseCoord()

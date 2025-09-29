@@ -16,6 +16,7 @@ struct YiniValue;
 struct YiniArray;
 struct YiniList;
 struct YiniSet;
+struct YiniTuple;
 struct YiniMap;
 struct YiniDynaValue;
 struct YiniCoord;
@@ -29,9 +30,9 @@ struct YiniPath;
 using YiniVariant =
     std::variant<std::string, int, double, bool, std::unique_ptr<YiniArray>,
                  std::unique_ptr<YiniList>, std::unique_ptr<YiniSet>,
-                 std::unique_ptr<YiniMap>, std::unique_ptr<YiniDynaValue>,
-                 std::unique_ptr<YiniCoord>, std::unique_ptr<YiniColor>,
-                 std::unique_ptr<YiniPath>>;
+                 std::unique_ptr<YiniTuple>, std::unique_ptr<YiniMap>,
+                 std::unique_ptr<YiniDynaValue>, std::unique_ptr<YiniCoord>,
+                 std::unique_ptr<YiniColor>, std::unique_ptr<YiniPath>>;
 
 /**
  * @brief Represents a single value in a YINI document.
@@ -83,6 +84,14 @@ struct YiniSet
 {
   std::set<YiniValue> elements;
   bool operator<(const YiniSet &other) const;
+};
+
+/** @brief Represents an optimized, single key-value pair `{key: value}`. */
+struct YiniTuple
+{
+  std::string key;
+  YiniValue value;
+  bool operator<(const YiniTuple &other) const;
 };
 
 /** @brief Represents a YINI map `{...}`. */

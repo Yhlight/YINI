@@ -68,6 +68,13 @@ namespace YINI
         ss << "}";
     }
 
+    static void formatTuple(std::stringstream& ss, const YiniTuple& tuple)
+    {
+        ss << "{" << tuple.key << ": ";
+        formatValue(ss, tuple.value);
+        ss << "}";
+    }
+
     static void formatCoord(std::stringstream& ss, const YiniCoord& coord)
     {
         ss << "Coord(" << coord.x << ", " << coord.y;
@@ -104,6 +111,8 @@ namespace YINI
                 if(arg) formatList(ss, *arg); else ss << "List()";
             else if constexpr (std::is_same_v<T, std::unique_ptr<YiniSet>>)
                 if(arg) formatSet(ss, *arg); else ss << "Set()";
+            else if constexpr (std::is_same_v<T, std::unique_ptr<YiniTuple>>)
+                if(arg) formatTuple(ss, *arg); else ss << "{}";
             else if constexpr (std::is_same_v<T, std::unique_ptr<YiniMap>>)
                 if(arg) formatMap(ss, *arg); else ss << "{}";
             else if constexpr (std::is_same_v<T, std::unique_ptr<YiniCoord>>)

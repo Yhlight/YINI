@@ -31,6 +31,46 @@ TEST(ParserTest, ParseSimpleSection)
   EXPECT_EQ(std::get<std::string>(pair.value.data), "value");
 }
 
+TEST(ParserTest, ParseTupleOptimization)
+{
+    const std::string test_data_dir = YINI_TEST_DATA_DIR;
+    const std::string input_file_path = test_data_dir + "/tuple_test.yini";
+    const std::string input = read_file_content(input_file_path);
+    ASSERT_FALSE(input.empty()) << "Failed to read test file: " << input_file_path;
+
+    YINI::YiniDocument doc;
+    YINI::Parser parser(input, doc, test_data_dir);
+    parser.parse();
+
+    const auto* section = doc.findSection("Data");
+    ASSERT_NE(section, nullptr);
+
+    // Test the single-pair map, which should be a YiniTuple
+    auto it_single = std::find_if(section->pairs.begin(), section->pairs.end(), [](const auto& p){ return p.key == "single_pair"; });
+    ASSERT_NE(it_single, section->pairs.end());
+    const auto& single_val = it_single->value;
+    ASSERT_TRUE(std::holds_alternative<std::unique_ptr<YINI::YiniTuple>>(single_val.data));
+    const auto& tuple_ptr = std::get<std::unique_ptr<YINI::YiniTuple>>(single_val.data);
+    EXPECT_EQ(tuple_ptr->key, "key");
+    EXPECT_EQ(std::get<std::string>(tuple_ptr->value.data), "value");
+
+    // Test the multi-pair map, which should be a YiniMap
+    auto it_multi = std::find_if(section->pairs.begin(), section->pairs.end(), [](const auto& p){ return p.key == "multi_pair"; });
+    ASSERT_NE(it_multi, section->pairs.end());
+    const auto& multi_val = it_multi->value;
+    ASSERT_TRUE(std::holds_alternative<std::unique_ptr<YINI::YiniMap>>(multi_val.data));
+    const auto& map_ptr = std::get<std::unique_ptr<YINI::YiniMap>>(multi_val.data);
+    EXPECT_EQ(map_ptr->elements.size(), 2);
+
+    // Test the empty map, which should also be a YiniMap
+    auto it_empty = std::find_if(section->pairs.begin(), section->pairs.end(), [](const auto& p){ return p.key == "empty_map"; });
+    ASSERT_NE(it_empty, section->pairs.end());
+    const auto& empty_val = it_empty->value;
+    ASSERT_TRUE(std::holds_alternative<std::unique_ptr<YINI::YiniMap>>(empty_val.data));
+    const auto& empty_map_ptr = std::get<std::unique_ptr<YINI::YiniMap>>(empty_val.data);
+    EXPECT_TRUE(empty_map_ptr->elements.empty());
+}
+
 TEST(ParserTest, ParseListValue)
 {
   const std::string input = R"([Data]
