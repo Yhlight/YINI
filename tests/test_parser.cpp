@@ -312,11 +312,15 @@ TEST(ParserTest, ParseArithmetic)
 
 TEST(ParserTest, ParseFileIncludes)
 {
-  const std::string input = read_file_content("tests/include_test.yini");
-  ASSERT_FALSE(input.empty());
+  // YINI_TEST_DATA_DIR is a C-string literal defined by CMake.
+  const std::string test_data_dir = YINI_TEST_DATA_DIR;
+
+  const std::string input_file_path = test_data_dir + "/include_test.yini";
+  const std::string input = read_file_content(input_file_path);
+  ASSERT_FALSE(input.empty()) << "Failed to read test file: " << input_file_path;
 
   YINI::YiniDocument doc;
-  YINI::Parser parser(input, doc, "tests");
+  YINI::Parser parser(input, doc, test_data_dir);
   parser.parse();
 
   ASSERT_EQ(doc.getSections().size(), 3); // Shared, BaseOnly, MainOnly

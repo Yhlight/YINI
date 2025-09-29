@@ -1,6 +1,18 @@
 #include "YINI/Parser.hpp"
 #include "YINI/YiniException.hpp"
 #include <gtest/gtest.h>
+#include <fstream>
+#include <streambuf>
+
+static std::string read_file_content(const std::string &path)
+{
+    std::ifstream t(path);
+    if (!t.is_open())
+        return "";
+    std::string str((std::istreambuf_iterator<char>(t)),
+                    std::istreambuf_iterator<char>());
+    return str;
+}
 
 TEST(ParserErrorTest, ThrowsOnInvalidSectionName)
 {
@@ -8,6 +20,33 @@ TEST(ParserErrorTest, ThrowsOnInvalidSectionName)
   YINI::YiniDocument doc;
   YINI::Parser parser(input, doc);
   ASSERT_THROW(parser.parse(), YINI::YiniException);
+}
+
+TEST(ParserErrorTest, ThrowsOnMissingEqualsInKeyValuePair)
+{
+  // YINI_TEST_DATA_DIR is a C-string literal defined by CMake.
+  const std::string test_data_dir = YINI_TEST_DATA_DIR;
+  const std::string input_file_path = test_data_dir + "/invalid_key_value.yini";
+  const std::string input = read_file_content(input_file_path);
+  ASSERT_FALSE(input.empty()) << "Failed to read test file: " << input_file_path;
+
+  YINI::YiniDocument doc;
+  YINI::Parser parser(input, doc, test_data_dir);
+
+  EXPECT_THROW(
+      {
+        try
+        {
+          parser.parse();
+        }
+        catch (const YINI::YiniException &e)
+        {
+          EXPECT_STREQ("Expected '=' after key 'key_without_equals'.", e.what());
+          EXPECT_EQ(e.getLine(), 3); // The error is detected on the next line
+          throw;
+        }
+      },
+      YINI::YiniException);
 }
 
 TEST(ParserErrorTest, ThrowsOnUnclosedArray)

@@ -194,9 +194,22 @@ void Parser::parseSection()
       if (m_currentToken.type == TokenType::PlusEquals)
       {
         nextToken();
-        if (m_currentToken.type == TokenType::Identifier)
+        std::string file_to_include;
+        while (m_currentToken.type != TokenType::LeftBracket &&
+               m_currentToken.type != TokenType::Eof &&
+               m_currentToken.type != TokenType::PlusEquals)
         {
-          std::string file_to_include = m_currentToken.value;
+          // Simply append the token's value. This handles paths like "dir/file.yini"
+          // because the lexer produces separate tokens for "dir", "/", and "file.yini".
+          file_to_include += m_currentToken.value;
+          nextToken();
+        }
+
+        if (!file_to_include.empty())
+        {
+          // Trim trailing whitespace that might have been picked up
+          file_to_include.erase(file_to_include.find_last_not_of(" \t\n\r") + 1);
+
           std::string full_path = m_basePath + "/" + file_to_include;
           std::string included_content = read_file_content_internal(full_path);
           if (!included_content.empty())
@@ -204,11 +217,10 @@ void Parser::parseSection()
             Parser sub_parser(included_content, m_document, m_basePath);
             sub_parser.parse();
           }
-          nextToken();
-        }
-        else
-        {
-          nextToken();
+          else
+          {
+            // For now, we silently ignore missing includes, but a warning or error might be better.
+          }
         }
       }
       else
@@ -283,23 +295,26 @@ void Parser::parseKeyValuePair(YiniSection &section)
   pair.key = m_currentToken.value;
   nextToken();
 
-  if (m_currentToken.type == TokenType::Equals)
+  if (m_currentToken.type != TokenType::Equals)
   {
-    nextToken();
-    pair.value = parseValue();
+    throw YiniException("Expected '=' after key '" + pair.key + "'.",
+                        m_currentToken.line, m_currentToken.column);
+  }
 
-    auto it = std::find_if(section.pairs.begin(), section.pairs.end(),
-                           [&](const YiniKeyValuePair &p)
-                           { return p.key == pair.key; });
+  nextToken(); // Consume '='
+  pair.value = parseValue();
 
-    if (it != section.pairs.end())
-    {
-      it->value = pair.value;
-    }
-    else
-    {
-      section.pairs.push_back(std::move(pair));
-    }
+  auto it = std::find_if(
+      section.pairs.begin(), section.pairs.end(),
+      [&](const YiniKeyValuePair &p) { return p.key == pair.key; });
+
+  if (it != section.pairs.end())
+  {
+    it->value = pair.value;
+  }
+  else
+  {
+    section.pairs.push_back(std::move(pair));
   }
 }
 
