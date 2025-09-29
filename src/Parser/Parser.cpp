@@ -314,7 +314,10 @@ namespace YINI
                 nextToken();
                 if (m_currentToken.type == TokenType::Identifier)
                 {
-                    m_document.getDefine(m_currentToken.value, result);
+                    if (!m_document.getDefine(m_currentToken.value, result))
+                    {
+                        throw YiniException("Undefined macro: " + m_currentToken.value, m_currentToken.line, m_currentToken.column);
+                    }
                     nextToken();
                 }
                 break;
