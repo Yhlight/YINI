@@ -6,6 +6,7 @@ add_library(yini SHARED
     JsonSerializer.cpp
     YiniManager.cpp
     JsonDeserializer.cpp
+    YiniValueToString.cpp
 )
 
 target_include_directories(yini PUBLIC ../include)

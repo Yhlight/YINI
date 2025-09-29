@@ -25,6 +25,7 @@ add_subdirectory(tests)
 add_executable(yini-cli
     src/CLI/main.cpp
 )
+target_include_directories(yini-cli PRIVATE src)
 target_link_libraries(yini-cli PRIVATE yini)
 
 add_executable(yini-lsp

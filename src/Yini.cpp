@@ -139,7 +139,6 @@ YINI_API const YiniValueHandle* yini_get_define_by_key(const YiniDocumentHandle*
     return nullptr;
 }
 
-
 // Section API
 YINI_API int yini_section_get_name(const YiniSectionHandle* section_handle, char* buffer, int buffer_size)
 {
@@ -190,7 +189,6 @@ YINI_API const YiniValueHandle* yini_section_get_registered_value_by_index(const
     return reinterpret_cast<const YiniValueHandle*>(&section->registrationList[index]);
 }
 
-
 // Value API
 YINI_API YiniType yini_value_get_type(const YiniValueHandle* value_handle)
 {
@@ -219,51 +217,58 @@ YINI_API int yini_value_get_string(const YiniValueHandle* value_handle, char* bu
     return safe_strncpy(buffer, std::get<std::string>(value->data), buffer_size);
 }
 
-YINI_API int yini_value_get_int(const YiniValueHandle* value_handle)
+YINI_API bool yini_value_get_int(const YiniValueHandle* value_handle, int* out_value)
 {
-    if (!value_handle) return 0;
+    if (!value_handle || !out_value) return false;
     auto* value = reinterpret_cast<const YINI::YiniValue*>(value_handle);
-    if (!std::holds_alternative<int>(value->data)) return 0;
-    return std::get<int>(value->data);
+    if (!std::holds_alternative<int>(value->data)) return false;
+    *out_value = std::get<int>(value->data);
+    return true;
 }
 
-YINI_API double yini_value_get_double(const YiniValueHandle* value_handle)
+YINI_API bool yini_value_get_double(const YiniValueHandle* value_handle, double* out_value)
 {
-    if (!value_handle) return 0.0;
+    if (!value_handle || !out_value) return false;
     auto* value = reinterpret_cast<const YINI::YiniValue*>(value_handle);
-    if (!std::holds_alternative<double>(value->data)) return 0.0;
-    return std::get<double>(value->data);
+    if (!std::holds_alternative<double>(value->data)) return false;
+    *out_value = std::get<double>(value->data);
+    return true;
 }
 
-YINI_API bool yini_value_get_bool(const YiniValueHandle* value_handle)
+YINI_API bool yini_value_get_bool(const YiniValueHandle* value_handle, bool* out_value)
 {
-    if (!value_handle) return false;
+    if (!value_handle || !out_value) return false;
     auto* value = reinterpret_cast<const YINI::YiniValue*>(value_handle);
     if (!std::holds_alternative<bool>(value->data)) return false;
-    return std::get<bool>(value->data);
+    *out_value = std::get<bool>(value->data);
+    return true;
 }
 
-YINI_API void yini_value_get_coord(const YiniValueHandle* value_handle, double* x, double* y, double* z, bool* is_3d)
+YINI_API bool yini_value_get_coord(const YiniValueHandle* value_handle, double* x, double* y, double* z, bool* is_3d)
 {
-    if (!value_handle || !x || !y || !z || !is_3d) return;
+    if (!value_handle || !x || !y || !z || !is_3d) return false;
     auto* value = reinterpret_cast<const YINI::YiniValue*>(value_handle);
-    if (!std::holds_alternative<std::unique_ptr<YINI::YiniCoord>>(value->data)) return;
+    if (!std::holds_alternative<std::unique_ptr<YINI::YiniCoord>>(value->data)) return false;
     const auto& coord = std::get<std::unique_ptr<YINI::YiniCoord>>(value->data);
+    if (!coord) return false;
     *x = coord->x;
     *y = coord->y;
     *z = coord->z;
     *is_3d = coord->is_3d;
+    return true;
 }
 
-YINI_API void yini_value_get_color(const YiniValueHandle* value_handle, unsigned char* r, unsigned char* g, unsigned char* b)
+YINI_API bool yini_value_get_color(const YiniValueHandle* value_handle, unsigned char* r, unsigned char* g, unsigned char* b)
 {
-    if (!value_handle || !r || !g || !b) return;
+    if (!value_handle || !r || !g || !b) return false;
     auto* value = reinterpret_cast<const YINI::YiniValue*>(value_handle);
-    if (!std::holds_alternative<std::unique_ptr<YINI::YiniColor>>(value->data)) return;
+    if (!std::holds_alternative<std::unique_ptr<YINI::YiniColor>>(value->data)) return false;
     const auto& color = std::get<std::unique_ptr<YINI::YiniColor>>(value->data);
+    if (!color) return false;
     *r = color->r;
     *g = color->g;
     *b = color->b;
+    return true;
 }
 
 YINI_API int yini_value_get_path(const YiniValueHandle* value_handle, char* buffer, int buffer_size)

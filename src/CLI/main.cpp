@@ -8,6 +8,7 @@
 #include "YINI/YiniException.hpp"
 #include "YINI/Parser.hpp"
 #include "YINI/JsonDeserializer.hpp"
+#include "YiniValueToString.hpp"
 
 void printHelp() {
     std::cout << "YINI CLI - Interactive Mode\n";
@@ -70,8 +71,7 @@ void handleDecompile(const std::string& filePath) {
         if (!defines.empty()) {
             std::cout << "[#define]\n";
             for (const auto& define_pair : defines) {
-                // For simplicity, we don't display the full value structure here.
-                std::cout << "  " << define_pair.first << " = ...\n";
+                std::cout << "  " << define_pair.first << " = " << YINI::valueToString(define_pair.second) << "\n";
             }
             std::cout << "\n";
         }
@@ -87,10 +87,10 @@ void handleDecompile(const std::string& filePath) {
             std::cout << "\n";
 
             for (const auto& pair : section.pairs) {
-                std::cout << "  " << pair.key << " = ...\n";
+                std::cout << "  " << pair.key << " = " << YINI::valueToString(pair.value) << "\n";
             }
             for (const auto& val : section.registrationList) {
-                std::cout << "  += ...\n";
+                std::cout << "  += " << YINI::valueToString(val) << "\n";
             }
             std::cout << "\n";
         }

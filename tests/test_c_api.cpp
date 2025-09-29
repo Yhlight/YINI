@@ -1,7 +1,7 @@
 #include "YINI/Yini.h"
 #include <gtest/gtest.h>
 
-TEST(CApiTest, ExposeMapsAndMacros) {
+TEST(CApiTest, ExposeMapsMacrosAndHandleErrors) {
     const char* yini_content = R"yini(
 [#define]
 my_macro = "hello world"
@@ -23,11 +23,11 @@ my_map = {
     // Test Macro API
     EXPECT_EQ(yini_get_define_count(doc), 2);
 
-    char key_buffer[64];
-    const YiniValueHandle* macro_val;
-
     // Test macros by key for robustness
+    const YiniValueHandle* macro_val;
     char value_buffer[64];
+    int int_val;
+    bool bool_val;
 
     macro_val = yini_get_define_by_key(doc, "my_macro");
     ASSERT_NE(macro_val, nullptr);
@@ -38,7 +38,10 @@ my_map = {
     macro_val = yini_get_define_by_key(doc, "another_macro");
     ASSERT_NE(macro_val, nullptr);
     EXPECT_EQ(yini_value_get_type(macro_val), YINI_TYPE_INT);
-    EXPECT_EQ(yini_value_get_int(macro_val), 123);
+    ASSERT_TRUE(yini_value_get_int(macro_val, &int_val));
+    EXPECT_EQ(int_val, 123);
+    // Test for type mismatch error handling
+    ASSERT_FALSE(yini_value_get_bool(macro_val, &bool_val));
 
 
     // Test Section and Map API
@@ -52,12 +55,20 @@ my_map = {
     EXPECT_EQ(yini_map_get_size(map_value), 3);
 
     // Test map value access by key
-    const YiniValueHandle* map_item = yini_map_get_value_by_key(map_value, "key2");
-    ASSERT_NE(map_item, nullptr);
-    EXPECT_EQ(yini_value_get_type(map_item), YINI_TYPE_INT);
-    EXPECT_EQ(yini_value_get_int(map_item), 42);
+    const YiniValueHandle* map_item_int = yini_map_get_value_by_key(map_value, "key2");
+    ASSERT_NE(map_item_int, nullptr);
+    EXPECT_EQ(yini_value_get_type(map_item_int), YINI_TYPE_INT);
+    ASSERT_TRUE(yini_value_get_int(map_item_int, &int_val));
+    EXPECT_EQ(int_val, 42);
+
+    const YiniValueHandle* map_item_bool = yini_map_get_value_by_key(map_value, "key3");
+    ASSERT_NE(map_item_bool, nullptr);
+    EXPECT_EQ(yini_value_get_type(map_item_bool), YINI_TYPE_BOOL);
+    ASSERT_TRUE(yini_value_get_bool(map_item_bool, &bool_val));
+    EXPECT_TRUE(bool_val);
 
     // Test map key access by index
+    char key_buffer[64];
     yini_map_get_key_by_index(map_value, 1, key_buffer, sizeof(key_buffer));
     EXPECT_STREQ(key_buffer, "key2");
 
@@ -73,7 +84,8 @@ my_map = {
     reg_val = yini_section_get_registered_value_by_index(section, 1);
     ASSERT_NE(reg_val, nullptr);
     EXPECT_EQ(yini_value_get_type(reg_val), YINI_TYPE_INT);
-    EXPECT_EQ(yini_value_get_int(reg_val), 100);
+    ASSERT_TRUE(yini_value_get_int(reg_val, &int_val));
+    EXPECT_EQ(int_val, 100);
 
 
     yini_free_document(doc);

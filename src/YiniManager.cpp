@@ -2,6 +2,7 @@
 #include "YINI/JsonDeserializer.hpp"
 #include "YINI/JsonSerializer.hpp"
 #include "YINI/Parser.hpp"
+#include "YiniValueToString.hpp"
 #include <cstdio>
 #include <fstream>
 #include <string>
@@ -22,44 +23,6 @@ static std::string read_file_content(const std::string &path)
   return std::string((std::istreambuf_iterator<char>(t)),
                      std::istreambuf_iterator<char>());
 }
-
-// Helper to convert a YiniValue to its string representation
-static std::string valueToString(const YiniValue& value);
-
-static std::string arrayToString(const std::vector<YiniValue>& elements) {
-    std::stringstream ss;
-    ss << "[";
-    for (size_t i = 0; i < elements.size(); ++i) {
-        ss << valueToString(elements[i]);
-        if (i < elements.size() - 1) {
-            ss << ", ";
-        }
-    }
-    ss << "]";
-    return ss.str();
-}
-
-static std::string valueToString(const YiniValue& value) {
-    std::stringstream ss;
-    if (std::holds_alternative<std::string>(value.data)) {
-        ss << std::quoted(std::get<std::string>(value.data));
-    } else if (std::holds_alternative<int>(value.data)) {
-        ss << std::get<int>(value.data);
-    } else if (std::holds_alternative<double>(value.data)) {
-        ss << std::get<double>(value.data);
-    } else if (std::holds_alternative<bool>(value.data)) {
-        ss << (std::get<bool>(value.data) ? "true" : "false");
-    } else if (std::holds_alternative<std::unique_ptr<YiniArray>>(value.data)) {
-        const auto& ptr = std::get<std::unique_ptr<YiniArray>>(value.data);
-        if (ptr) ss << arrayToString(ptr->elements);
-    } else if (std::holds_alternative<std::unique_ptr<YiniDynaValue>>(value.data)) {
-        const auto& ptr = std::get<std::unique_ptr<YiniDynaValue>>(value.data);
-        if (ptr) ss << "Dyna(" << valueToString(ptr->value) << ")";
-    }
-    // Other complex types are omitted for simplicity in this implementation.
-    return ss.str();
-}
-
 
 static std::string get_ymeta_path(const std::string &yiniFilePath)
 {
