@@ -46,8 +46,8 @@ YINI支持多种值类型
 - 数组  ->  [1, 2, 3]  
     - 二维数组使用  ->  [[1, 2], [3, 4]]  
 - 坐标  ->  Coord(x, y) / Coord(x, y, z) / coord(x, y) / coord(x, y, z)  
-- 键值对  ->  {key: value}
-- Map  ->  {{key1: value1}, {key2: value2}}
+- 对组  ->  {key: value}
+- Map(对组的集合)  ->  {key1: value1, key2: value2}
 - 颜色  ->  #RRGGBB / color(255, 192, 203) / Color(255, 192, 203)
 - 路径  ->  path() / Path()  
 (更多类型正在添加中)  
@@ -102,6 +102,22 @@ UIName = @name
 ```
 
 按照顺序，合并同名的配置块(不存在的添加，存在的覆写)，[#define]块也遵守这样的行为  
+
+### 配置组
+很多时候，配置块不存在父子关系，这使得配置管理变得复杂  
+YINI支持配置组，你可以将相关的配置块放在一起  
+配置组可以嵌套，但不能循环嵌套  
+
+在YINI之中，并不使用{}或任意表示范围的符号划分配置组的范围，而是通过缩进  
+
+```YINI
+[Config]
+    [Config1]
+        [Config11]
+        [Config12]
+
+    [Config2]
+```
 
 ### YMETA
 在程序加载YINI文件之后，会为每一个YINI文件生成一个YMETA文件  
