@@ -26,3 +26,8 @@ add_executable(yini-cli
     src/CLI/main.cpp
 )
 target_link_libraries(yini-cli PRIVATE yini)
+
+add_executable(yini-lsp
+    src/LSP/main.cpp
+)
+target_link_libraries(yini-lsp PRIVATE yini nlohmann_json::nlohmann_json)
