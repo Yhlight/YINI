@@ -1,0 +1,32 @@
+name: Create Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*' # Trigger on tags like v1.0.0
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Configure CMake
+      run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+
+    - name: Build project
+      run: cmake --build build
+
+    - name: Create Package
+      run: |
+        cd build
+        cpack -C Release
+
+    - name: Create Release and Upload Asset
+      uses: softprops/action-gh-release@v1
+      with:
+        files: build/*.tar.gz
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

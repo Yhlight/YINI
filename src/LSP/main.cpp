@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 #include <algorithm>
+#include <sstream>
 
 using json = nlohmann::json;
 
@@ -61,7 +62,6 @@ std::string getWordAtPosition(const std::string& content, int line, int characte
     size_t start = 0;
     size_t end = 0;
 
-    // Find the start of the word
     for (int i = character; i >= 0; --i) {
         if (!isalnum(lineContent[i]) && lineContent[i] != '_') {
             start = i + 1;
@@ -70,7 +70,6 @@ std::string getWordAtPosition(const std::string& content, int line, int characte
         start = i;
     }
 
-    // Find the end of the word
     for (size_t i = character; i < lineContent.length(); ++i) {
         if (!isalnum(lineContent[i]) && lineContent[i] != '_') {
             end = i;
@@ -83,6 +82,16 @@ std::string getWordAtPosition(const std::string& content, int line, int characte
         return lineContent.substr(start, end - start);
     }
     return "";
+}
+
+// A helper function to get the line at a specific position
+std::string getLineAtPosition(const std::string& content, int line) {
+    std::stringstream ss(content);
+    std::string lineContent;
+    for (int i = 0; i <= line; ++i) {
+        if (!std::getline(ss, lineContent)) return "";
+    }
+    return lineContent;
 }
 
 
@@ -122,7 +131,7 @@ int main() {
                                 {"hoverProvider", true},
                                 {"completionProvider", {
                                     {"resolveProvider", false},
-                                    {"triggerCharacters", {"@", "["}}
+                                    {"triggerCharacters", {"@", ":", " "}}
                                 }}
                             }}
                         }}
@@ -168,25 +177,47 @@ int main() {
                     }
                 } else if (method == "textDocument/completion") {
                     std::string uri = receivedJson["params"]["textDocument"]["uri"];
+                    int line_num = receivedJson["params"]["position"]["line"];
+                    int character = receivedJson["params"]["position"]["character"];
 
                     YINI::YiniDocument doc;
                     YINI::Parser parser(documentContents[uri], doc);
                     parser.parse();
+                    doc.resolveInheritance();
 
                     json completionItems = json::array();
-                    for (const auto& def : doc.getDefines()) {
-                        completionItems.push_back({
-                            {"label", def.first},
-                            {"kind", 13}, // Variable
-                            {"detail", "YINI Macro"}
-                        });
+                    std::string lineContent = getLineAtPosition(documentContents[uri], line_num);
+
+                    char triggerChar = 0;
+                    if (character > 0) {
+                        triggerChar = lineContent[character - 1];
                     }
-                     for (const auto& sec : doc.getSections()) {
-                        completionItems.push_back({
-                            {"label", sec.name},
-                            {"kind", 19}, // Class
-                            {"detail", "YINI Section"}
-                        });
+
+                    if (triggerChar == '@') {
+                        // Suggest macros
+                        for (const auto& def : doc.getDefines()) {
+                            completionItems.push_back({
+                                {"label", def.first},
+                                {"kind", 13}, // Variable
+                                {"detail", "YINI Macro"}
+                            });
+                        }
+                    } else if (triggerChar == ':') {
+                        // Suggest sections for inheritance
+                        for (const auto& sec : doc.getSections()) {
+                            completionItems.push_back({
+                                {"label", sec.name},
+                                {"kind", 19}, // Class
+                                {"detail", "YINI Section"}
+                            });
+                        }
+                    } else {
+                        // Default: suggest boolean values if after an equals sign
+                        size_t equalsPos = lineContent.find('=');
+                        if (equalsPos != std::string::npos && equalsPos < (size_t)character) {
+                            completionItems.push_back({{"label", "true"}, {"kind", 21}});
+                            completionItems.push_back({{"label", "false"}, {"kind", 21}});
+                        }
                     }
 
                     json response = {
