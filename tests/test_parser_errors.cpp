@@ -50,7 +50,7 @@ TEST(ParserErrorTest, ThrowsOnMalformedMap)
         }
         catch (const YINI::YiniException &e)
         {
-          EXPECT_STREQ("Expected ',' or '}' in map.", e.what());
+          EXPECT_STREQ("Expected ',' or '}' in object.", e.what());
           throw;
         }
       },
@@ -70,7 +70,7 @@ TEST(ParserErrorTest, ThrowsOnMalformedMap)
         {
           // The loop terminates on EOF, and the final check catches the
           // unclosed brace.
-          EXPECT_STREQ("Expected '}' to close map.", e.what());
+          EXPECT_STREQ("Expected '}' to close object.", e.what());
           throw;
         }
       },

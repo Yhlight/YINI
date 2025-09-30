@@ -363,6 +363,30 @@ TEST(ParserTest, ParseFileIncludes)
   EXPECT_EQ(std::get<std::string>(ref_it->value.data), "base");
 }
 
+TEST(ParserTest, ParsePairValue)
+{
+  const std::string input = R"([Data]
+my_pair = {"key": 123}
+)";
+  YINI::YiniDocument doc;
+  YINI::Parser parser(input, doc);
+  parser.parse();
+
+  const auto *section = doc.findSection("Data");
+  ASSERT_NE(section, nullptr);
+  ASSERT_EQ(section->pairs.size(), 1);
+  const auto &pair = section->pairs[0];
+  EXPECT_EQ(pair.key, "my_pair");
+
+  // Check that it's a YiniPair
+  auto &pair_ptr = std::get<std::unique_ptr<YINI::YiniPair>>(pair.value.data);
+  ASSERT_NE(pair_ptr, nullptr);
+
+  // Check the key and value of the YiniPair
+  EXPECT_EQ(pair_ptr->key, "key");
+  EXPECT_EQ(std::get<int>(pair_ptr->value.data), 123);
+}
+
 TEST(ParserTest, ParseValueTypes)
 {
   const std::string input = "[DataTypes]\n"

@@ -56,6 +56,15 @@ YiniVariant deep_copy_variant(const YiniVariant &v)
           }
           return new_map;
         }
+        else if constexpr (std::is_same_v<T, std::unique_ptr<YiniPair>>)
+        {
+          if (!arg)
+            return std::unique_ptr<YiniPair>(nullptr);
+          auto new_pair = std::make_unique<YiniPair>();
+          new_pair->key = arg->key;
+          new_pair->value = arg->value; // relies on YiniValue's copy constructor
+          return new_pair;
+        }
         else if constexpr (std::is_same_v<T, std::unique_ptr<YiniDynaValue>>)
         {
           if (!arg)
@@ -135,6 +144,7 @@ bool operator==(const YiniValue &lhs, const YiniValue &rhs)
                         std::is_same_v<T, std::unique_ptr<YiniList>> ||
                         std::is_same_v<T, std::unique_ptr<YiniSet>> ||
                         std::is_same_v<T, std::unique_ptr<YiniMap>> ||
+                        std::is_same_v<T, std::unique_ptr<YiniPair>> ||
                         std::is_same_v<T, std::unique_ptr<YiniDynaValue>> ||
                         std::is_same_v<T, std::unique_ptr<YiniCoord>> ||
                         std::is_same_v<T, std::unique_ptr<YiniColor>> ||

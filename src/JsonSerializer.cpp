@@ -87,6 +87,22 @@ void serializeValue(std::stringstream &ss, const YINI::YiniValue &value)
     }
     ss << "}";
   }
+  else if (std::holds_alternative<std::unique_ptr<YINI::YiniPair>>(value.data))
+  {
+    const auto &ptr = std::get<std::unique_ptr<YINI::YiniPair>>(value.data);
+    ss << "{\"__type__\":\"Pair\",\"value\":";
+    if (ptr)
+    {
+      ss << "{\"" << ptr->key << "\":";
+      serializeValue(ss, ptr->value);
+      ss << "}";
+    }
+    else
+    {
+      ss << "null";
+    }
+    ss << "}";
+  }
   else if (std::holds_alternative<std::unique_ptr<YINI::YiniSet>>(value.data))
   {
     const auto &set_ptr =

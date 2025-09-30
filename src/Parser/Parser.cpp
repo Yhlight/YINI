@@ -333,8 +333,7 @@ YiniValue Parser::parseValue()
     val.data = parseArray();
     return val;
   case TokenType::LeftBrace:
-    val.data = parseMap();
-    return val;
+    return parseObject();
   case TokenType::HexColor:
     val.data = parseColor();
     return val;
@@ -605,15 +604,15 @@ std::unique_ptr<YiniSet> Parser::parseSet()
   return set;
 }
 
-std::unique_ptr<YiniMap> Parser::parseMap()
+YiniValue Parser::parseObject()
 {
-  auto map = std::make_unique<YiniMap>();
+  YiniValue result;
+  std::map<std::string, YiniValue> elements;
   nextToken(); // consume '{'
 
   while (currentToken.type != TokenType::RightBrace &&
          currentToken.type != TokenType::Eof)
   {
-    // Key (must be a string or identifier)
     if (currentToken.type != TokenType::String &&
         currentToken.type != TokenType::Identifier)
     {
@@ -623,7 +622,6 @@ std::unique_ptr<YiniMap> Parser::parseMap()
     std::string key = currentToken.value;
     nextToken();
 
-    // Colon
     if (currentToken.type != TokenType::Colon)
     {
       throw YiniException("Expected ':' after map key.", currentToken.line,
@@ -631,28 +629,42 @@ std::unique_ptr<YiniMap> Parser::parseMap()
     }
     nextToken();
 
-    // Value
-    map->elements[key] = parseValue();
+    elements[key] = parseValue();
 
-    // Comma or closing brace
     if (currentToken.type == TokenType::Comma)
     {
       nextToken();
     }
     else if (currentToken.type != TokenType::RightBrace)
     {
-      throw YiniException("Expected ',' or '}' in map.", currentToken.line,
+      throw YiniException("Expected ',' or '}' in object.", currentToken.line,
                           currentToken.column);
     }
   }
 
   if (currentToken.type != TokenType::RightBrace)
   {
-    throw YiniException("Expected '}' to close map.", currentToken.line,
+    throw YiniException("Expected '}' to close object.", currentToken.line,
                         currentToken.column);
   }
   nextToken(); // consume '}'
-  return map;
+
+  // Decide whether to create a Pair or a Map
+  if (elements.size() == 1)
+  {
+    auto pair = std::make_unique<YiniPair>();
+    pair->key = elements.begin()->first;
+    pair->value = std::move(elements.begin()->second);
+    result.data = std::move(pair);
+  }
+  else
+  {
+    auto map = std::make_unique<YiniMap>();
+    map->elements = std::move(elements);
+    result.data = std::move(map);
+  }
+
+  return result;
 }
 
 std::unique_ptr<YiniCoord> Parser::parseCoord()

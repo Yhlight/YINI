@@ -75,6 +75,26 @@ static bool parseJsonMap(const json &j_map, YiniValue &value)
   return true;
 }
 
+static bool parseJsonPair(const json &j_pair, YiniValue &value)
+{
+  if (!j_pair.is_object() || j_pair.size() != 1)
+  {
+    return false;
+  }
+
+  auto yini_pair = std::make_unique<YiniPair>();
+  auto it = j_pair.begin();
+  yini_pair->key = it.key();
+
+  if (!parseJsonValue(it.value(), yini_pair->value))
+  {
+    return false;
+  }
+
+  value.data = std::move(yini_pair);
+  return true;
+}
+
 static bool parseJsonDyna(const json &j_dyna, YiniValue &value)
 {
   auto dyna_val = std::make_unique<YiniDynaValue>();
@@ -131,6 +151,8 @@ static bool parseJsonValue(const json &j, YiniValue &value)
       return parseJsonSet(j_val, value);
     if (type == "Map")
       return parseJsonMap(j_val, value);
+    if (type == "Pair")
+      return parseJsonPair(j_val, value);
     if (type == "Dyna")
       return parseJsonDyna(j_val, value);
     if (type == "Coord")

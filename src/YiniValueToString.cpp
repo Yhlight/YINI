@@ -32,6 +32,11 @@ std::string valueToString(const YiniValue& value) {
     } else if (std::holds_alternative<std::unique_ptr<YiniMap>>(value.data)) {
         const auto& ptr = std::get<std::unique_ptr<YiniMap>>(value.data);
         if (ptr) ss << mapToString(ptr->elements);
+    } else if (std::holds_alternative<std::unique_ptr<YiniPair>>(value.data)) {
+        const auto& ptr = std::get<std::unique_ptr<YiniPair>>(value.data);
+        if (ptr) {
+            ss << "{" << std::quoted(ptr->key) << ": " << valueToString(ptr->value) << "}";
+        }
     } else if (std::holds_alternative<std::unique_ptr<YiniDynaValue>>(value.data)) {
         const auto& ptr = std::get<std::unique_ptr<YiniDynaValue>>(value.data);
         if (ptr) ss << "Dyna(" << valueToString(ptr->value) << ")";

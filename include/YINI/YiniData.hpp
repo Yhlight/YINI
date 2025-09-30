@@ -25,6 +25,7 @@ struct YiniArray;
 struct YiniList;
 struct YiniSet;
 struct YiniMap;
+struct YiniPair;
 struct YiniDynaValue;
 struct YiniCoord;
 struct YiniColor;
@@ -38,9 +39,9 @@ struct YiniPath;
 using YiniVariant =
     std::variant<std::string, int, double, bool, std::unique_ptr<YiniArray>,
                  std::unique_ptr<YiniList>, std::unique_ptr<YiniSet>,
-                 std::unique_ptr<YiniMap>, std::unique_ptr<YiniDynaValue>,
-                 std::unique_ptr<YiniCoord>, std::unique_ptr<YiniColor>,
-                 std::unique_ptr<YiniPath>>;
+                 std::unique_ptr<YiniMap>, std::unique_ptr<YiniPair>,
+                 std::unique_ptr<YiniDynaValue>, std::unique_ptr<YiniCoord>,
+                 std::unique_ptr<YiniColor>, std::unique_ptr<YiniPath>>;
 
 /**
  * @brief The primary discriminated union for all values in the YINI model.
@@ -108,6 +109,20 @@ struct YiniMap
 {
   std::map<std::string, YiniValue> elements;
   bool operator==(const YiniMap& other) const { return elements == other.elements; }
+};
+
+/**
+ * @brief Represents a single key-value pair, created with `{key: value}`.
+ * @note This is a memory-efficient alternative to YiniMap for single pairs.
+ */
+struct YiniPair
+{
+  std::string key;
+  YiniValue value;
+  bool operator==(const YiniPair &other) const
+  {
+    return key == other.key && value == other.value;
+  }
 };
 
 /**

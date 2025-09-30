@@ -52,6 +52,7 @@ enabled = true
 data = [1, 2, "simple_string_in_array"]
 my_list = List(10, "foo")
 my_set = Set(1, "bar", 1)
+my_pair = {"the_key": "the_value"}
 color = #FF00FF
 
 += "registered_value"
@@ -115,6 +116,20 @@ color = #FF00FF
   ASSERT_EQ(set_ptr->elements.size(), 2); // Uniqueness enforced
   EXPECT_EQ(std::get<int>(set_ptr->elements[0].data), 1);
   EXPECT_EQ(std::get<std::string>(set_ptr->elements[1].data), "bar");
+
+  // Check pair value
+  auto it_pair =
+      std::find_if(new_core->pairs.begin(), new_core->pairs.end(),
+                   [](const auto &p) { return p.key == "my_pair"; });
+  ASSERT_NE(it_pair, new_core->pairs.end());
+  ASSERT_TRUE(std::holds_alternative<std::unique_ptr<YINI::YiniPair>>(
+      it_pair->value.data));
+  const auto &pair_ptr =
+      std::get<std::unique_ptr<YINI::YiniPair>>(it_pair->value.data);
+  ASSERT_NE(pair_ptr, nullptr);
+  EXPECT_EQ(pair_ptr->key, "the_key");
+  ASSERT_TRUE(std::holds_alternative<std::string>(pair_ptr->value.data));
+  EXPECT_EQ(std::get<std::string>(pair_ptr->value.data), "the_value");
 
   // Check registration list
   ASSERT_EQ(new_core->registrationList.size(), 1);
