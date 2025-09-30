@@ -236,17 +236,18 @@ void Lexer::skipBlockComment()
 
 Token Lexer::parseString()
 {
-  std::string value;
   int start_col = column_num;
   position++; // Skip opening quote
   column_num++;
+  size_t start_pos = position;
 
   while (position < inputStr.length() && inputStr[position] != '"')
   {
-    value += inputStr[position];
     position++;
     column_num++;
   }
+
+  std::string value = inputStr.substr(start_pos, position - start_pos);
 
   if (position < inputStr.length())
   {
@@ -259,12 +260,11 @@ Token Lexer::parseString()
 
 Token Lexer::parseNumber()
 {
-  std::string value;
   int start_col = column_num;
+  size_t start_pos = position;
 
   if (inputStr[position] == '-')
   {
-    value += inputStr[position];
     position++;
     column_num++;
   }
@@ -272,25 +272,25 @@ Token Lexer::parseNumber()
   while (position < inputStr.length() &&
          (isdigit(inputStr[position]) || inputStr[position] == '.'))
   {
-    value += inputStr[position];
     position++;
     column_num++;
   }
+  std::string value = inputStr.substr(start_pos, position - start_pos);
   return {TokenType::Number, value, line_num, start_col};
 }
 
 Token Lexer::parseIdentifier()
 {
-  std::string value;
   int start_col = column_num;
+  size_t start_pos = position;
   while (position < inputStr.length() &&
          (isalnum(inputStr[position]) || inputStr[position] == '_' ||
           inputStr[position] == '.'))
   {
-    value += inputStr[position];
     position++;
     column_num++;
   }
+  std::string value = inputStr.substr(start_pos, position - start_pos);
 
   if (value == "true" || value == "false")
   {

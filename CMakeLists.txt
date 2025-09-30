@@ -48,6 +48,7 @@ install(TARGETS yini-cli DESTINATION bin)
 add_executable(yini-lsp
     src/LSP/main.cpp
 )
+target_include_directories(yini-lsp PRIVATE src)
 target_link_libraries(yini-lsp PRIVATE yini nlohmann_json::nlohmann_json)
 install(TARGETS yini-lsp DESTINATION bin)
 

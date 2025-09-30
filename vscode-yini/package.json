@@ -28,6 +28,13 @@
         ],
         "configuration": "./language-configuration.json"
       }
+    ],
+    "grammars": [
+      {
+        "language": "yini",
+        "scopeName": "source.yini",
+        "path": "./syntaxes/yini.tmLanguage.json"
+      }
     ]
   },
   "scripts": {

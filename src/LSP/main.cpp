@@ -1,10 +1,12 @@
 #include "YINI/Parser.hpp"
 #include "YINI/YiniException.hpp"
+#include "YiniValueToString.hpp"
 #include <iostream>
 #include <map>
 #include <nlohmann/json.hpp>
 #include <string>
 #include <vector>
+#include <algorithm>
 
 using json = nlohmann::json;
 
@@ -48,12 +50,46 @@ void publishDiagnostics(const std::string& uri, const std::string& content) {
     sendResponse(notification);
 }
 
+// A helper function to get the word/token at a specific position
+std::string getWordAtPosition(const std::string& content, int line, int character) {
+    std::stringstream ss(content);
+    std::string lineContent;
+    for (int i = 0; i <= line; ++i) {
+        if (!std::getline(ss, lineContent)) return "";
+    }
+
+    size_t start = 0;
+    size_t end = 0;
+
+    // Find the start of the word
+    for (int i = character; i >= 0; --i) {
+        if (!isalnum(lineContent[i]) && lineContent[i] != '_') {
+            start = i + 1;
+            break;
+        }
+        start = i;
+    }
+
+    // Find the end of the word
+    for (size_t i = character; i < lineContent.length(); ++i) {
+        if (!isalnum(lineContent[i]) && lineContent[i] != '_') {
+            end = i;
+            break;
+        }
+        end = i + 1;
+    }
+
+    if (start < end) {
+        return lineContent.substr(start, end - start);
+    }
+    return "";
+}
+
 
 int main() {
     std::cerr << "YINI Language Server starting..." << std::endl;
 
     while (true) {
-        // Read headers
         long long contentLength = -1;
         std::string line;
         while (std::getline(std::cin, line) && !line.empty() && line != "\r") {
@@ -62,11 +98,8 @@ int main() {
             }
         }
 
-        if (contentLength == -1) {
-            continue;
-        }
+        if (contentLength == -1) continue;
 
-        // Read content
         std::vector<char> content(contentLength);
         std::cin.read(content.data(), contentLength);
         std::string contentStr(content.begin(), content.end());
@@ -76,8 +109,7 @@ int main() {
         try {
             json receivedJson = json::parse(contentStr);
 
-            if (receivedJson.contains("method"))
-            {
+            if (receivedJson.contains("method")) {
                 std::string method = receivedJson["method"];
 
                 if (method == "initialize") {
@@ -86,45 +118,88 @@ int main() {
                         {"id", receivedJson["id"]},
                         {"result", {
                             {"capabilities", {
-                                {"textDocumentSync", {
-                                    {"openClose", true},
-                                    {"change", 1} // 1 = Full sync
-                                }},
-                                {"diagnosticProvider", {
-                                    {"interFileDependencies", false},
-                                    {"workspaceDiagnostics", false}
-                            }},
-                            {"hoverProvider", true}
+                                {"textDocumentSync", 1}, // Full sync
+                                {"hoverProvider", true},
+                                {"completionProvider", {
+                                    {"resolveProvider", false},
+                                    {"triggerCharacters", {"@", "["}}
+                                }}
                             }}
                         }}
                     };
                     sendResponse(response);
-                    std::cerr << "Sent initialize response." << std::endl;
                 } else if (method == "initialized") {
-                    json message = {
+                    // Client is ready
+                } else if (method == "textDocument/didOpen" || method == "textDocument/didChange") {
+                    std::string uri = receivedJson["params"]["textDocument"]["uri"];
+                    std::string docContent = (method == "textDocument/didOpen") ? receivedJson["params"]["textDocument"]["text"] : receivedJson["params"]["contentChanges"][0]["text"];
+                    documentContents[uri] = docContent;
+                    publishDiagnostics(uri, docContent);
+                } else if (method == "textDocument/hover") {
+                    std::string uri = receivedJson["params"]["textDocument"]["uri"];
+                    int line = receivedJson["params"]["position"]["line"];
+                    int character = receivedJson["params"]["position"]["character"];
+
+                    YINI::YiniDocument doc;
+                    YINI::Parser parser(documentContents[uri], doc);
+                    parser.parse();
+                    doc.resolveInheritance();
+
+                    std::string word = getWordAtPosition(documentContents[uri], line, character);
+                    json hoverContents = {{"language", "yini"}, {"value", ""}};
+
+                    for (const auto& section : doc.getSections()) {
+                        auto it = std::find_if(section.pairs.begin(), section.pairs.end(), [&](const auto& p) { return p.key == word; });
+                        if (it != section.pairs.end()) {
+                            hoverContents["value"] = YINI::valueToString(it->value);
+                            break;
+                        }
+                    }
+
+                    if (!hoverContents["value"].empty()) {
+                        json response = {
+                            {"jsonrpc", "2.0"},
+                            {"id", receivedJson["id"]},
+                            {"result", {
+                                {"contents", hoverContents}
+                            }}
+                        };
+                        sendResponse(response);
+                    }
+                } else if (method == "textDocument/completion") {
+                    std::string uri = receivedJson["params"]["textDocument"]["uri"];
+
+                    YINI::YiniDocument doc;
+                    YINI::Parser parser(documentContents[uri], doc);
+                    parser.parse();
+
+                    json completionItems = json::array();
+                    for (const auto& def : doc.getDefines()) {
+                        completionItems.push_back({
+                            {"label", def.first},
+                            {"kind", 13}, // Variable
+                            {"detail", "YINI Macro"}
+                        });
+                    }
+                     for (const auto& sec : doc.getSections()) {
+                        completionItems.push_back({
+                            {"label", sec.name},
+                            {"kind", 19}, // Class
+                            {"detail", "YINI Section"}
+                        });
+                    }
+
+                    json response = {
                         {"jsonrpc", "2.0"},
-                        {"method", "window/showMessage"},
-                        {"params", {
-                            {"type", 3}, // Info
-                            {"message", "YINI Language Server connected!"}
-                        }}
+                        {"id", receivedJson["id"]},
+                        {"result", completionItems}
                     };
-                    sendResponse(message);
-                } else if (method == "textDocument/didOpen") {
-                    std::string uri = receivedJson["params"]["textDocument"]["uri"];
-                    std::string content = receivedJson["params"]["textDocument"]["text"];
-                    documentContents[uri] = content;
-                    publishDiagnostics(uri, content);
-                } else if (method == "textDocument/didChange") {
-                    std::string uri = receivedJson["params"]["textDocument"]["uri"];
-                    std::string content = receivedJson["params"]["contentChanges"][0]["text"];
-                    documentContents[uri] = content;
-                    publishDiagnostics(uri, content);
-                } else if (method == "exit") {
+                    sendResponse(response);
+                }
+                else if (method == "exit") {
                     break;
                 }
             }
-
         } catch (const json::parse_error& e) {
             std::cerr << "JSON Parse Error: " << e.what() << std::endl;
         }
