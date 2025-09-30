@@ -4,6 +4,7 @@
   "description": "Language support for the YINI configuration file format.",
   "version": "0.0.1",
   "publisher": "yini-project",
+  "icon": "images/icon.png",
   "engines": {
     "vscode": "^1.75.0"
   },
