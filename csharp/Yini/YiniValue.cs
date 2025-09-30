@@ -33,13 +33,16 @@ namespace YINI
         private static extern int GetStringInternal(IntPtr handle, StringBuilder? buffer, int bufferSize);
 
         [DllImport(LibName, EntryPoint = "yini_value_get_int")]
-        private static extern int GetIntInternal(IntPtr handle);
+        [return: MarshalAs(UnmanagedType.I1)]
+        private static extern bool GetIntInternal(IntPtr handle, out int outValue);
 
         [DllImport(LibName, EntryPoint = "yini_value_get_double")]
-        private static extern double GetDoubleInternal(IntPtr handle);
+        [return: MarshalAs(UnmanagedType.I1)]
+        private static extern bool GetDoubleInternal(IntPtr handle, out double outValue);
 
         [DllImport(LibName, EntryPoint = "yini_value_get_bool")]
-        private static extern bool GetBoolInternal(IntPtr handle);
+        [return: MarshalAs(UnmanagedType.I1)]
+        private static extern bool GetBoolInternal(IntPtr handle, [MarshalAs(UnmanagedType.I1)] out bool outValue);
 
         [DllImport(LibName, EntryPoint = "yini_array_get_size")]
         private static extern int GetArraySizeInternal(IntPtr handle);
@@ -60,10 +63,12 @@ namespace YINI
         private static extern IntPtr GetSetValueByIndexInternal(IntPtr handle, int index);
 
         [DllImport(LibName, EntryPoint = "yini_value_get_coord")]
-        private static extern void GetCoordInternal(IntPtr handle, out double x, out double y, out double z, out bool is_3d);
+        [return: MarshalAs(UnmanagedType.I1)]
+        private static extern bool GetCoordInternal(IntPtr handle, out double x, out double y, out double z, [MarshalAs(UnmanagedType.I1)] out bool is_3d);
 
         [DllImport(LibName, EntryPoint = "yini_value_get_color")]
-        private static extern void GetColorInternal(IntPtr handle, out byte r, out byte g, out byte b);
+        [return: MarshalAs(UnmanagedType.I1)]
+        private static extern bool GetColorInternal(IntPtr handle, out byte r, out byte g, out byte b);
 
         [DllImport(LibName, EntryPoint = "yini_value_get_path")]
         private static extern int GetPathInternal(IntPtr handle, StringBuilder? buffer, int bufferSize);
@@ -89,19 +94,31 @@ namespace YINI
         public int AsInt()
         {
             if (Type != YiniType.Int) throw new InvalidCastException($"Cannot get value as int, type is {Type}.");
-            return GetIntInternal(_handle);
+            if (!GetIntInternal(_handle, out int value))
+            {
+                throw new InvalidOperationException("Failed to retrieve integer value from native library.");
+            }
+            return value;
         }
 
         public double AsDouble()
         {
             if (Type != YiniType.Double) throw new InvalidCastException($"Cannot get value as double, type is {Type}.");
-            return GetDoubleInternal(_handle);
+            if (!GetDoubleInternal(_handle, out double value))
+            {
+                throw new InvalidOperationException("Failed to retrieve double value from native library.");
+            }
+            return value;
         }
 
         public bool AsBool()
         {
             if (Type != YiniType.Bool) throw new InvalidCastException($"Cannot get value as bool, type is {Type}.");
-            return GetBoolInternal(_handle);
+            if (!GetBoolInternal(_handle, out bool value))
+            {
+                throw new InvalidOperationException("Failed to retrieve boolean value from native library.");
+            }
+            return value;
         }
 
         public YiniValue[] AsArray()
@@ -155,14 +172,20 @@ namespace YINI
         public YiniCoord AsCoord()
         {
             if (Type != YiniType.Coord) throw new InvalidCastException($"Cannot get value as Coord, type is {Type}.");
-            GetCoordInternal(_handle, out double x, out double y, out double z, out bool is_3d);
+            if (!GetCoordInternal(_handle, out double x, out double y, out double z, out bool is_3d))
+            {
+                throw new InvalidOperationException("Failed to retrieve Coord value from native library.");
+            }
             return new YiniCoord { X = x, Y = y, Z = z, Is3D = is_3d };
         }
 
         public YiniColor AsColor()
         {
             if (Type != YiniType.Color) throw new InvalidCastException($"Cannot get value as Color, type is {Type}.");
-            GetColorInternal(_handle, out byte r, out byte g, out byte b);
+            if (!GetColorInternal(_handle, out byte r, out byte g, out byte b))
+            {
+                throw new InvalidOperationException("Failed to retrieve Color value from native library.");
+            }
             return new YiniColor { R = r, G = g, B = b };
         }
 
