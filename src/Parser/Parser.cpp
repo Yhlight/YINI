@@ -393,6 +393,11 @@ YiniValue Parser::parseValue()
       val.data = parsePath();
       return val;
     }
+
+    // If it's not a keyword, treat it as a plain string value.
+    val.data = currentToken.value;
+    nextToken();
+    return val;
   }
   case TokenType::Number:
   case TokenType::At:

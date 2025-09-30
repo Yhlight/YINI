@@ -15,6 +15,7 @@ add_executable(yini_tests
     test_roundtrip_and_inheritance.cpp
     test_c_api.cpp
     test_concurrency.cpp
+    test_cli.cpp
 )
 
 target_link_libraries(yini_tests yini gtest_main)
