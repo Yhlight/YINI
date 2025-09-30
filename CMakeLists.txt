@@ -17,6 +17,14 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(nlohmann_json)
 
+FetchContent_Declare(
+    benchmark
+    GIT_REPOSITORY https://github.com/google/benchmark.git
+    GIT_TAG v1.8.0
+)
+set(BENCHMARK_ENABLE_TESTING OFF) # Disable building of benchmark's own tests
+FetchContent_MakeAvailable(benchmark)
+
 add_subdirectory(src)
 
 enable_testing()
@@ -24,6 +32,10 @@ add_subdirectory(tests)
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     add_subdirectory(fuzz)
+endif()
+
+if(CMAKE_BUILD_TYPE STREQUAL "Release")
+    add_subdirectory(benchmarks)
 endif()
 
 add_executable(yini-cli
@@ -38,6 +50,15 @@ add_executable(yini-lsp
 )
 target_link_libraries(yini-lsp PRIVATE yini nlohmann_json::nlohmann_json)
 install(TARGETS yini-lsp DESTINATION bin)
+
+# Add a post-build command to copy the LSP server to the VS Code extension directory
+add_custom_command(
+    TARGET yini-lsp POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy
+            $<TARGET_FILE:yini-lsp>
+            ${CMAKE_SOURCE_DIR}/vscode-yini/server/yini-lsp
+    COMMENT "Copying yini-lsp to VS Code extension directory"
+)
 
 # --- CPack Configuration ---
 include(CPack)

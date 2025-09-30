@@ -16,6 +16,14 @@ target_compile_definitions(yini PRIVATE YINI_EXPORTS)
 
 target_link_libraries(yini PRIVATE nlohmann_json::nlohmann_json)
 
+# Add coverage flags for Debug builds on GCC/Clang
+if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+        target_compile_options(yini PRIVATE --coverage)
+        target_link_libraries(yini PRIVATE --coverage)
+    endif()
+endif()
+
 # Install the library and its public headers
 install(TARGETS yini DESTINATION lib)
 install(DIRECTORY ../include/YINI DESTINATION include)
