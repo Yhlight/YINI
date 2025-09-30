@@ -22,8 +22,9 @@ TEST(ParserTest, ParseSimpleSection)
   YINI::Parser parser(input, doc);
   parser.parse();
 
-  ASSERT_EQ(doc.getSections().size(), 1);
-  const auto &section = doc.getSections()[0];
+  auto sections = doc.getSections();
+  ASSERT_EQ(sections.size(), 1);
+  const auto section = sections[0];
   EXPECT_EQ(section.name, "TestSection");
   ASSERT_EQ(section.pairs.size(), 1);
   const auto &pair = section.pairs[0];
@@ -254,9 +255,9 @@ TEST(ParserTest, ThrowOnUnclosedSection)
   try
   {
     parser.parse();
-    FAIL() << "Expected YINI::YiniException";
+    FAIL() << "Expected YINI::ParsingException";
   }
-  catch (const YINI::YiniException &e)
+  catch (const YINI::ParsingException &e)
   {
     EXPECT_EQ(e.getLine(), 1);
     EXPECT_EQ(e.getColumn(), 13);
@@ -264,7 +265,7 @@ TEST(ParserTest, ThrowOnUnclosedSection)
   }
   catch (...)
   {
-    FAIL() << "Expected YINI::YiniException";
+    FAIL() << "Expected YINI::ParsingException";
   }
 }
 
@@ -398,8 +399,9 @@ TEST(ParserTest, ParseValueTypes)
   YINI::Parser parser(input, doc);
   parser.parse();
 
-  ASSERT_EQ(doc.getSections().size(), 1);
-  const auto &section = doc.getSections()[0];
+  auto sections = doc.getSections();
+  ASSERT_EQ(sections.size(), 1);
+  const auto &section = sections[0];
   EXPECT_EQ(section.name, "DataTypes");
   ASSERT_EQ(section.pairs.size(), 4);
 
@@ -428,8 +430,9 @@ TEST(ParserTest, ParseArrayValue)
   YINI::Parser parser(input, doc);
   parser.parse();
 
-  ASSERT_EQ(doc.getSections().size(), 1);
-  const auto &section = doc.getSections()[0];
+  auto sections = doc.getSections();
+  ASSERT_EQ(sections.size(), 1);
+  const auto &section = sections[0];
   ASSERT_EQ(section.pairs.size(), 1);
   const auto &pair = section.pairs[0];
   EXPECT_EQ(pair.key, "int_array");
@@ -450,8 +453,9 @@ TEST(ParserTest, ParseSectionInheritance)
   YINI::Parser parser(input, doc);
   parser.parse();
 
-  ASSERT_EQ(doc.getSections().size(), 1);
-  const auto &section = doc.getSections()[0];
+  auto sections = doc.getSections();
+  ASSERT_EQ(sections.size(), 1);
+  const auto &section = sections[0];
   EXPECT_EQ(section.name, "Derived");
   ASSERT_EQ(section.inheritedSections.size(), 2);
   EXPECT_EQ(section.inheritedSections[0], "Base1");
@@ -468,8 +472,9 @@ TEST(ParserTest, ParseQuickRegistration)
   YINI::Parser parser(input, doc);
   parser.parse();
 
-  ASSERT_EQ(doc.getSections().size(), 1);
-  const auto &section = doc.getSections()[0];
+  auto sections = doc.getSections();
+  ASSERT_EQ(sections.size(), 1);
+  const auto &section = sections[0];
   EXPECT_EQ(section.name, "Registry");
   ASSERT_EQ(section.registrationList.size(), 3);
   EXPECT_EQ(std::get<int>(section.registrationList[0].data), 1);
@@ -487,7 +492,8 @@ TEST(ParserTest, ParseMacros)
   YINI::Parser parser(input, doc);
   parser.parse();
 
-  ASSERT_EQ(doc.getSections().size(), 1);
+  auto sections = doc.getSections();
+  ASSERT_EQ(sections.size(), 1);
 
   const auto *ui_section = doc.findSection("UI");
   ASSERT_NE(ui_section, nullptr);
@@ -506,8 +512,9 @@ TEST(ParserTest, ParseSectionWithComments)
   YINI::Parser parser(input, doc);
   parser.parse();
 
-  ASSERT_EQ(doc.getSections().size(), 1);
-  const auto &section = doc.getSections()[0];
+  auto sections = doc.getSections();
+  ASSERT_EQ(sections.size(), 1);
+  const auto &section = sections[0];
   EXPECT_EQ(section.name, "TestSection");
   ASSERT_EQ(section.pairs.size(), 1);
   const auto &pair = section.pairs[0];

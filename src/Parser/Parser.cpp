@@ -13,7 +13,7 @@ static std::string read_file_content_internal(const std::string &path)
   std::ifstream t(path);
   if (!t.is_open())
   {
-    return "";
+    throw std::runtime_error("Could not open file: " + path);
   }
   return std::string((std::istreambuf_iterator<char>(t)),
                      std::istreambuf_iterator<char>());
@@ -118,8 +118,8 @@ void Parser::parse()
     {
       if (currentToken.type != TokenType::Eof)
       {
-        throw YiniException("Unexpected token at root level.",
-                            currentToken.line, currentToken.column);
+        throw ParsingException("Unexpected token at root level.",
+                               currentToken.line, currentToken.column);
       }
       nextToken();
     }
@@ -154,8 +154,8 @@ void Parser::parseSection()
   {
     if (currentToken.type != TokenType::RightBracket)
     {
-      throw YiniException("Expected ']' to close #define directive.",
-                          currentToken.line, currentToken.column);
+      throw ParsingException("Expected ']' to close #define directive.",
+                             currentToken.line, currentToken.column);
     }
     nextToken();
     while (currentToken.type != TokenType::LeftBracket &&
@@ -185,8 +185,8 @@ void Parser::parseSection()
   {
     if (currentToken.type != TokenType::RightBracket)
     {
-      throw YiniException("Expected ']' to close #include directive.",
-                          currentToken.line, currentToken.column);
+      throw ParsingException("Expected ']' to close #include directive.",
+                             currentToken.line, currentToken.column);
     }
     nextToken();
     while (currentToken.type != TokenType::LeftBracket &&
@@ -203,13 +203,17 @@ void Parser::parseSection()
           fs::path combined_path = path_base / file_to_include;
           fs::path path_full = combined_path.lexically_normal();
 
-          std::string included_content =
-              read_file_content_internal(path_full.string());
-          if (!included_content.empty())
+          try
           {
+            std::string included_content =
+                read_file_content_internal(path_full.string());
             fs::path new_base = path_full.parent_path();
             Parser sub_parser(included_content, document, new_base.string());
             sub_parser.parse();
+          }
+          catch (const std::runtime_error &e)
+          {
+            throw IOException(e.what(), currentToken.line, currentToken.column);
           }
           nextToken();
         }
@@ -234,8 +238,8 @@ void Parser::parseSection()
     }
     else
     {
-      throw YiniException("Invalid section name.", currentToken.line,
-                          currentToken.column);
+      throw ParsingException("Invalid section name.", currentToken.line,
+                             currentToken.column);
     }
 
     YiniSection *section = document.getOrCreateSection(section_name_val);
@@ -260,8 +264,8 @@ void Parser::parseSection()
 
     if (currentToken.type != TokenType::RightBracket)
     {
-      throw YiniException("Expected ']' to close section header.",
-                          currentToken.line, currentToken.column);
+      throw ParsingException("Expected ']' to close section header.",
+                             currentToken.line, currentToken.column);
     }
     nextToken();
 
@@ -347,14 +351,14 @@ YiniValue Parser::parseValue()
     {
       nextToken();
       if (currentToken.type != TokenType::LeftParen)
-        throw YiniException("Expected '(' after Dyna.", currentToken.line,
-                            currentToken.column);
+        throw ParsingException("Expected '(' after Dyna.", currentToken.line,
+                               currentToken.column);
       nextToken();
       auto dyna_val = std::make_unique<YiniDynaValue>();
       dyna_val->value = parseValue();
       if (currentToken.type != TokenType::RightParen)
-        throw YiniException("Expected ')' to close Dyna expression.",
-                            currentToken.line, currentToken.column);
+        throw ParsingException("Expected ')' to close Dyna expression.",
+                               currentToken.line, currentToken.column);
       nextToken();
       val.data = std::move(dyna_val);
       return val;
@@ -396,8 +400,8 @@ YiniValue Parser::parseValue()
   case TokenType::Minus:
     return parseExpression();
   default:
-    throw YiniException("Unexpected token when parsing value.",
-                        currentToken.line, currentToken.column);
+    throw ParsingException("Unexpected token when parsing value.",
+                           currentToken.line, currentToken.column);
   }
 }
 
@@ -417,8 +421,8 @@ YiniValue Parser::parseFactor()
     nextToken();
     result = parseExpression();
     if (currentToken.type != TokenType::RightParen)
-      throw YiniException("Expected ')' to close expression.",
-                          currentToken.line, currentToken.column);
+      throw ParsingException("Expected ')' to close expression.",
+                             currentToken.line, currentToken.column);
     nextToken();
     break;
   case TokenType::At:
@@ -427,8 +431,8 @@ YiniValue Parser::parseFactor()
     {
       if (!document.getDefine(currentToken.value, result))
       {
-        throw YiniException("Undefined macro: " + currentToken.value,
-                            currentToken.line, currentToken.column);
+        throw ParsingException("Undefined macro: " + currentToken.value,
+                               currentToken.line, currentToken.column);
       }
       nextToken();
     }
@@ -498,8 +502,8 @@ std::unique_ptr<YiniArray> Parser::parseArray()
 
   if (currentToken.type != TokenType::RightBracket)
   {
-    throw YiniException("Expected ']' to close array.", currentToken.line,
-                        currentToken.column);
+    throw ParsingException("Expected ']' to close array.", currentToken.line,
+                           currentToken.column);
   }
   nextToken();
   return arr;
@@ -509,8 +513,8 @@ std::unique_ptr<YiniList> Parser::parseList()
 {
   nextToken(); // consume 'List'
   if (currentToken.type != TokenType::LeftParen)
-    throw YiniException("Expected '(' after List.", currentToken.line,
-                        currentToken.column);
+    throw ParsingException("Expected '(' after List.", currentToken.line,
+                           currentToken.column);
   nextToken(); // consume '('
 
   auto list = std::make_unique<YiniList>();
@@ -528,8 +532,8 @@ std::unique_ptr<YiniList> Parser::parseList()
 
   if (currentToken.type != TokenType::RightParen)
   {
-    throw YiniException("Expected ')' to close list.", currentToken.line,
-                        currentToken.column);
+    throw ParsingException("Expected ')' to close list.", currentToken.line,
+                           currentToken.column);
   }
   nextToken(); // consume ')'
   return list;
@@ -539,8 +543,8 @@ std::unique_ptr<YiniArray> Parser::parseArrayFromFunction()
 {
   nextToken(); // consume 'Array'
   if (currentToken.type != TokenType::LeftParen)
-    throw YiniException("Expected '(' after Array.", currentToken.line,
-                        currentToken.column);
+    throw ParsingException("Expected '(' after Array.", currentToken.line,
+                           currentToken.column);
   nextToken(); // consume '('
 
   auto arr = std::make_unique<YiniArray>();
@@ -558,8 +562,8 @@ std::unique_ptr<YiniArray> Parser::parseArrayFromFunction()
 
   if (currentToken.type != TokenType::RightParen)
   {
-    throw YiniException("Expected ')' to close Array expression.", currentToken.line,
-                        currentToken.column);
+    throw ParsingException("Expected ')' to close Array expression.", currentToken.line,
+                           currentToken.column);
   }
   nextToken(); // consume ')'
   return arr;
@@ -569,8 +573,8 @@ std::unique_ptr<YiniSet> Parser::parseSet()
 {
   nextToken(); // consume 'Set'
   if (currentToken.type != TokenType::LeftParen)
-    throw YiniException("Expected '(' after Set.", currentToken.line,
-                        currentToken.column);
+    throw ParsingException("Expected '(' after Set.", currentToken.line,
+                           currentToken.column);
   nextToken(); // consume '('
 
   auto set = std::make_unique<YiniSet>();
@@ -597,8 +601,8 @@ std::unique_ptr<YiniSet> Parser::parseSet()
 
   if (currentToken.type != TokenType::RightParen)
   {
-    throw YiniException("Expected ')' to close Set expression.",
-                        currentToken.line, currentToken.column);
+    throw ParsingException("Expected ')' to close Set expression.",
+                           currentToken.line, currentToken.column);
   }
   nextToken(); // consume ')'
   return set;
@@ -616,16 +620,16 @@ YiniValue Parser::parseObject()
     if (currentToken.type != TokenType::String &&
         currentToken.type != TokenType::Identifier)
     {
-      throw YiniException("Expected a string or identifier as a map key.",
-                          currentToken.line, currentToken.column);
+      throw ParsingException("Expected a string or identifier as a map key.",
+                             currentToken.line, currentToken.column);
     }
     std::string key = currentToken.value;
     nextToken();
 
     if (currentToken.type != TokenType::Colon)
     {
-      throw YiniException("Expected ':' after map key.", currentToken.line,
-                          currentToken.column);
+      throw ParsingException("Expected ':' after map key.", currentToken.line,
+                             currentToken.column);
     }
     nextToken();
 
@@ -637,15 +641,15 @@ YiniValue Parser::parseObject()
     }
     else if (currentToken.type != TokenType::RightBrace)
     {
-      throw YiniException("Expected ',' or '}' in object.", currentToken.line,
-                          currentToken.column);
+      throw ParsingException("Expected ',' or '}' in object.", currentToken.line,
+                             currentToken.column);
     }
   }
 
   if (currentToken.type != TokenType::RightBrace)
   {
-    throw YiniException("Expected '}' to close object.", currentToken.line,
-                        currentToken.column);
+    throw ParsingException("Expected '}' to close object.", currentToken.line,
+                           currentToken.column);
   }
   nextToken(); // consume '}'
 
@@ -671,8 +675,8 @@ std::unique_ptr<YiniCoord> Parser::parseCoord()
 {
   nextToken(); // consume 'Coord'
   if (currentToken.type != TokenType::LeftParen)
-    throw YiniException("Expected '(' after Coord.", currentToken.line,
-                        currentToken.column);
+    throw ParsingException("Expected '(' after Coord.", currentToken.line,
+                           currentToken.column);
   nextToken(); // consume '('
 
   auto coord = std::make_unique<YiniCoord>();
@@ -683,12 +687,12 @@ std::unique_ptr<YiniCoord> Parser::parseCoord()
   else if (std::holds_alternative<double>(x_val.data))
     coord->x = std::get<double>(x_val.data);
   else
-    throw YiniException("Coord parameters must be numeric.",
-                        currentToken.line, currentToken.column);
+    throw ParsingException("Coord parameters must be numeric.",
+                           currentToken.line, currentToken.column);
 
   if (currentToken.type != TokenType::Comma)
-    throw YiniException("Expected ',' in Coord.", currentToken.line,
-                        currentToken.column);
+    throw ParsingException("Expected ',' in Coord.", currentToken.line,
+                           currentToken.column);
   nextToken();
   YiniValue y_val = parseExpression();
   if (std::holds_alternative<int>(y_val.data))
@@ -696,8 +700,8 @@ std::unique_ptr<YiniCoord> Parser::parseCoord()
   else if (std::holds_alternative<double>(y_val.data))
     coord->y = std::get<double>(y_val.data);
   else
-    throw YiniException("Coord parameters must be numeric.",
-                        currentToken.line, currentToken.column);
+    throw ParsingException("Coord parameters must be numeric.",
+                           currentToken.line, currentToken.column);
 
   if (currentToken.type == TokenType::Comma)
   {
@@ -708,8 +712,8 @@ std::unique_ptr<YiniCoord> Parser::parseCoord()
     else if (std::holds_alternative<double>(z_val.data))
       coord->z = std::get<double>(z_val.data);
     else
-      throw YiniException("Coord parameters must be numeric.",
-                          currentToken.line, currentToken.column);
+      throw ParsingException("Coord parameters must be numeric.",
+                             currentToken.line, currentToken.column);
     coord->is_3d = true;
   }
   else
@@ -719,8 +723,8 @@ std::unique_ptr<YiniCoord> Parser::parseCoord()
   }
 
   if (currentToken.type != TokenType::RightParen)
-    throw YiniException("Expected ')' to close Coord expression.",
-                        currentToken.line, currentToken.column);
+    throw ParsingException("Expected ')' to close Coord expression.",
+                           currentToken.line, currentToken.column);
   nextToken();
   return coord;
 }
@@ -741,41 +745,41 @@ std::unique_ptr<YiniColor> Parser::parseColor()
 
   nextToken(); // consume 'Color'
   if (currentToken.type != TokenType::LeftParen)
-    throw YiniException("Expected '(' after Color.", currentToken.line,
-                        currentToken.column);
+    throw ParsingException("Expected '(' after Color.", currentToken.line,
+                           currentToken.column);
   nextToken(); // consume '('
 
   auto color = std::make_unique<YiniColor>();
 
   YiniValue r_val = parseExpression();
   if (!std::holds_alternative<int>(r_val.data))
-    throw YiniException("Color parameters must be integers.",
-                        currentToken.line, currentToken.column);
+    throw ParsingException("Color parameters must be integers.",
+                           currentToken.line, currentToken.column);
   color->r = std::get<int>(r_val.data);
 
   if (currentToken.type != TokenType::Comma)
-    throw YiniException("Expected ',' in Color.", currentToken.line,
-                        currentToken.column);
+    throw ParsingException("Expected ',' in Color.", currentToken.line,
+                           currentToken.column);
   nextToken();
   YiniValue g_val = parseExpression();
   if (!std::holds_alternative<int>(g_val.data))
-    throw YiniException("Color parameters must be integers.",
-                        currentToken.line, currentToken.column);
+    throw ParsingException("Color parameters must be integers.",
+                           currentToken.line, currentToken.column);
   color->g = std::get<int>(g_val.data);
 
   if (currentToken.type != TokenType::Comma)
-    throw YiniException("Expected ',' in Color.", currentToken.line,
-                        currentToken.column);
+    throw ParsingException("Expected ',' in Color.", currentToken.line,
+                           currentToken.column);
   nextToken();
   YiniValue b_val = parseExpression();
   if (!std::holds_alternative<int>(b_val.data))
-    throw YiniException("Color parameters must be integers.",
-                        currentToken.line, currentToken.column);
+    throw ParsingException("Color parameters must be integers.",
+                           currentToken.line, currentToken.column);
   color->b = std::get<int>(b_val.data);
 
   if (currentToken.type != TokenType::RightParen)
-    throw YiniException("Expected ')' to close Color expression.",
-                        currentToken.line, currentToken.column);
+    throw ParsingException("Expected ')' to close Color expression.",
+                           currentToken.line, currentToken.column);
   nextToken();
   return color;
 }
@@ -784,8 +788,8 @@ std::unique_ptr<YiniPath> Parser::parsePath()
 {
   nextToken(); // consume 'Path'
   if (currentToken.type != TokenType::LeftParen)
-    throw YiniException("Expected '(' after Path.", currentToken.line,
-                        currentToken.column);
+    throw ParsingException("Expected '(' after Path.", currentToken.line,
+                           currentToken.column);
   nextToken(); // consume '('
 
   auto path = std::make_unique<YiniPath>();
@@ -800,8 +804,8 @@ std::unique_ptr<YiniPath> Parser::parsePath()
   path->pathValue = path_str;
 
   if (currentToken.type != TokenType::RightParen)
-    throw YiniException("Expected ')' to close Path expression.",
-                        currentToken.line, currentToken.column);
+    throw ParsingException("Expected ')' to close Path expression.",
+                           currentToken.line, currentToken.column);
   nextToken();
   return path;
 }

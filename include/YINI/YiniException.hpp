@@ -48,6 +48,37 @@ private:
   int line;   ///< The line number where the error occurred.
   int column; ///< The column number where the error occurred.
 };
+
+/**
+ * @class ParsingException
+ * @brief An exception for syntax errors during parsing.
+ */
+class ParsingException : public YiniException
+{
+public:
+  using YiniException::YiniException; // Inherit constructor
+};
+
+/**
+ * @class IOException
+ * @brief An exception for file-related errors (e.g., file not found).
+ */
+class IOException : public YiniException
+{
+public:
+  using YiniException::YiniException; // Inherit constructor
+};
+
+/**
+ * @class LogicException
+ * @brief An exception for logical errors (e.g., circular inheritance).
+ */
+class LogicException : public YiniException
+{
+public:
+  using YiniException::YiniException; // Inherit constructor
+};
+
 } // namespace YINI
 
 #endif // YINI_EXCEPTION_HPP

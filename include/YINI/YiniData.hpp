@@ -16,6 +16,7 @@
 #include <string>
 #include <variant>
 #include <vector>
+#include <mutex>
 
 namespace YINI
 {
@@ -196,11 +197,22 @@ struct YiniSection
 class YiniDocument
 {
 public:
+  // Rule of Five for thread-safe copying and moving
+  YiniDocument() = default;
+  YiniDocument(const YiniDocument &other);
+  YiniDocument &operator=(const YiniDocument &other);
+  YiniDocument(YiniDocument &&other) noexcept;
+  YiniDocument &operator=(YiniDocument &&other) noexcept;
+
   /**
    * @brief Adds a section to the document.
    * @param section The section to add.
    */
-  void addSection(const YiniSection &section) { sectionList.push_back(section); }
+  void addSection(const YiniSection &section)
+  {
+    std::lock_guard<std::mutex> lock(docMutex);
+    sectionList.push_back(section);
+  }
 
   /**
    * @brief Adds a section to the document by moving it.
@@ -208,41 +220,21 @@ public:
    */
   void addSection(YiniSection &&section)
   {
+    std::lock_guard<std::mutex> lock(docMutex);
     sectionList.push_back(std::move(section));
   }
 
   /**
-   * @brief Gets a mutable reference to the list of sections.
+   * @brief Gets a copy of the list of sections in a thread-safe manner.
    * @return A vector of YiniSection.
    */
-  std::vector<YiniSection> &getSections() { return sectionList; }
-
-  /**
-   * @brief Gets a constant reference to the list of sections.
-   * @return A constant vector of YiniSection.
-   */
-  const std::vector<YiniSection> &getSections() const { return sectionList; }
-
-public:
-  /**
-   * @brief Finds a section by its name.
-   * @param name The name of the section to find.
-   * @return A pointer to the section if found, otherwise nullptr.
-   */
-  YiniSection *findSection(const std::string &name)
+  std::vector<YiniSection> getSections() const
   {
-    auto it =
-        std::find_if(sectionList.begin(), sectionList.end(),
-                     [&](const YiniSection &s) { return s.name == name; });
-
-    if (it != sectionList.end())
-    {
-      return &(*it);
-    }
-
-    return nullptr;
+    std::lock_guard<std::mutex> lock(docMutex);
+    return sectionList;
   }
 
+public:
   /**
    * @brief Adds a macro definition to the document's define map.
    * @param key The macro's key.
@@ -250,6 +242,7 @@ public:
    */
   void addDefine(const std::string &key, const YiniValue &value)
   {
+    std::lock_guard<std::mutex> lock(docMutex);
     defineMap[key] = value;
   }
 
@@ -261,6 +254,7 @@ public:
    */
   bool getDefine(const std::string &key, YiniValue &value) const
   {
+    std::lock_guard<std::mutex> lock(docMutex);
     auto it = defineMap.find(key);
     if (it != defineMap.end())
     {
@@ -271,10 +265,14 @@ public:
   }
 
   /**
-   * @brief Gets a constant reference to the map of all defined macros.
-   * @return A constant map of string to YiniValue.
+   * @brief Gets a copy of the map of all defined macros.
+   * @return A map of string to YiniValue.
    */
-  const std::map<std::string, YiniValue> &getDefines() const { return defineMap; }
+  std::map<std::string, YiniValue> getDefines() const
+  {
+    std::lock_guard<std::mutex> lock(docMutex);
+    return defineMap;
+  }
 
 public:
   /**
@@ -286,6 +284,18 @@ public:
   void resolveInheritance();
 
 private:
+  /**
+   * @brief (Private) Finds a section without locking the mutex.
+   * @note For internal use by methods that already hold the lock.
+   */
+  YiniSection *findSectionInternal(const std::string &name)
+  {
+    auto it =
+        std::find_if(sectionList.begin(), sectionList.end(),
+                     [&](const YiniSection &s) { return s.name == name; });
+    return it != sectionList.end() ? &(*it) : nullptr;
+  }
+
   /**
    * @brief Recursively resolves inheritance for a single section.
    * @param section The section to resolve.
@@ -305,6 +315,7 @@ public:
    */
   const YiniSection *findSection(const std::string &name) const
   {
+    std::lock_guard<std::mutex> lock(docMutex);
     auto it =
         std::find_if(sectionList.begin(), sectionList.end(),
                      [&](const YiniSection &s) { return s.name == name; });
@@ -324,6 +335,7 @@ public:
    */
   YiniSection *getOrCreateSection(const std::string &name)
   {
+    std::lock_guard<std::mutex> lock(docMutex);
     auto it =
         std::find_if(sectionList.begin(), sectionList.end(),
                      [&](const YiniSection &s) { return s.name == name; });
@@ -347,30 +359,43 @@ public:
    */
   void merge(const YiniDocument &other)
   {
-    for (const auto &[key, value] : other.defineMap)
+    std::lock_guard<std::mutex> lock(docMutex);
+    // Note: 'other' document should be locked if accessed concurrently,
+    // but this method only locks 'this'. Caller must ensure safety of 'other'.
+    for (const auto &[key, value] : other.getDefines())
     {
-      this->addDefine(key, value);
+      this->defineMap[key] = value;
     }
 
     for (const auto &other_section : other.getSections())
     {
-      if (other_section.name == "#include")
+      if (other_section.name == "#include" || other_section.name == "#define")
         continue;
 
-      YiniSection *target_section = getOrCreateSection(other_section.name);
+      YiniSection *target_section = nullptr;
+      auto it = std::find_if(this->sectionList.begin(), this->sectionList.end(),
+                             [&](const YiniSection &s) { return s.name == other_section.name; });
 
-      if (other_section.name == "#define")
-        continue;
+      if (it != this->sectionList.end())
+      {
+        target_section = &(*it);
+      }
+      else
+      {
+        this->sectionList.push_back({other_section.name});
+        target_section = &this->sectionList.back();
+      }
+
 
       for (const auto &other_pair : other_section.pairs)
       {
-        auto it = std::find_if(
+        auto it_pair = std::find_if(
             target_section->pairs.begin(), target_section->pairs.end(),
             [&](const YiniKeyValuePair &p) { return p.key == other_pair.key; });
 
-        if (it != target_section->pairs.end())
+        if (it_pair != target_section->pairs.end())
         {
-          it->value = other_pair.value;
+          it_pair->value = other_pair.value;
         }
         else
         {
@@ -388,6 +413,7 @@ public:
 private:
   std::vector<YiniSection> sectionList;
   std::map<std::string, YiniValue> defineMap;
+  mutable std::mutex docMutex;
 };
 } // namespace YINI
 

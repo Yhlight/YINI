@@ -6,7 +6,21 @@
 #include <cstring> // For strncpy
 
 // Opaque struct for the document handle
-struct YiniDocumentHandle { YINI::YiniDocument doc; };
+struct YiniDocumentHandle {
+    YINI::YiniDocument doc;
+
+    // Caches to hold copies of data, ensuring stable pointers for the C API
+    mutable std::vector<YINI::YiniSection> section_cache;
+    mutable std::map<std::string, YINI::YiniValue> define_cache;
+    mutable bool section_cache_valid = false;
+    mutable bool define_cache_valid = false;
+
+    // Helper to invalidate caches upon modification
+    void invalidateCaches() {
+        section_cache_valid = false;
+        define_cache_valid = false;
+    }
+};
 
 // Helper to safely copy strings to a buffer
 static int safe_strncpy(char* dest, const std::string& src, int buffer_size) {
@@ -62,19 +76,38 @@ YINI_API void yini_free_document(YiniDocumentHandle* handle)
 YINI_API int yini_get_section_count(const YiniDocumentHandle* handle)
 {
     if (!handle) return 0;
-    return handle->doc.getSections().size();
+    if (!handle->section_cache_valid) {
+        handle->section_cache = handle->doc.getSections();
+        handle->section_cache_valid = true;
+    }
+    return handle->section_cache.size();
 }
 
 YINI_API const YiniSectionHandle* yini_get_section_by_index(const YiniDocumentHandle* handle, int index)
 {
-    if (!handle || index < 0 || index >= handle->doc.getSections().size()) return nullptr;
-    return reinterpret_cast<const YiniSectionHandle*>(&handle->doc.getSections()[index]);
+    if (!handle) return nullptr;
+    if (!handle->section_cache_valid) {
+        handle->section_cache = handle->doc.getSections();
+        handle->section_cache_valid = true;
+    }
+    if (index < 0 || index >= handle->section_cache.size()) return nullptr;
+    return reinterpret_cast<const YiniSectionHandle*>(&handle->section_cache[index]);
 }
 
 YINI_API const YiniSectionHandle* yini_get_section_by_name(const YiniDocumentHandle* handle, const char* name)
 {
     if (!handle || !name) return nullptr;
-    return reinterpret_cast<const YiniSectionHandle*>(handle->doc.findSection(name));
+    if (!handle->section_cache_valid) {
+        handle->section_cache = handle->doc.getSections();
+        handle->section_cache_valid = true;
+    }
+    auto it = std::find_if(handle->section_cache.begin(), handle->section_cache.end(),
+        [&](const YINI::YiniSection& s) { return s.name == name; });
+
+    if (it != handle->section_cache.end()) {
+        return reinterpret_cast<const YiniSectionHandle*>(&(*it));
+    }
+    return nullptr;
 }
 
 YINI_API void yini_set_string_value(YiniDocumentHandle* handle, const char* section_name, const char* key, const char* value)
@@ -83,6 +116,7 @@ YINI_API void yini_set_string_value(YiniDocumentHandle* handle, const char* sect
     YINI::YiniSection* section = handle->doc.getOrCreateSection(section_name);
     auto* pair = find_or_create_pair(section, key);
     if(pair) pair->value.data = std::string(value);
+    handle->invalidateCaches();
 }
 
 YINI_API void yini_set_int_value(YiniDocumentHandle* handle, const char* section_name, const char* key, int value)
@@ -91,6 +125,7 @@ YINI_API void yini_set_int_value(YiniDocumentHandle* handle, const char* section
     YINI::YiniSection* section = handle->doc.getOrCreateSection(section_name);
     auto* pair = find_or_create_pair(section, key);
     if(pair) pair->value.data = value;
+    handle->invalidateCaches();
 }
 
 YINI_API void yini_set_double_value(YiniDocumentHandle* handle, const char* section_name, const char* key, double value)
@@ -99,6 +134,7 @@ YINI_API void yini_set_double_value(YiniDocumentHandle* handle, const char* sect
     YINI::YiniSection* section = handle->doc.getOrCreateSection(section_name);
     auto* pair = find_or_create_pair(section, key);
     if(pair) pair->value.data = value;
+    handle->invalidateCaches();
 }
 
 YINI_API void yini_set_bool_value(YiniDocumentHandle* handle, const char* section_name, const char* key, bool value)
@@ -107,21 +143,30 @@ YINI_API void yini_set_bool_value(YiniDocumentHandle* handle, const char* sectio
     YINI::YiniSection* section = handle->doc.getOrCreateSection(section_name);
     auto* pair = find_or_create_pair(section, key);
     if(pair) pair->value.data = value;
+    handle->invalidateCaches();
 }
 
 YINI_API int yini_get_define_count(const YiniDocumentHandle* handle)
 {
     if (!handle) return 0;
-    return handle->doc.getDefines().size();
+    if (!handle->define_cache_valid) {
+        handle->define_cache = handle->doc.getDefines();
+        handle->define_cache_valid = true;
+    }
+    return handle->define_cache.size();
 }
 
 YINI_API const YiniValueHandle* yini_get_define_by_index(const YiniDocumentHandle* handle, int index, char* key_buffer, int key_buffer_size)
 {
-    if (!handle || index < 0 || index >= handle->doc.getDefines().size()) {
+    if (!handle) return nullptr;
+    if (!handle->define_cache_valid) {
+        handle->define_cache = handle->doc.getDefines();
+        handle->define_cache_valid = true;
+    }
+    if (index < 0 || index >= handle->define_cache.size()) {
         return nullptr;
     }
-    const auto& defines = handle->doc.getDefines();
-    auto it = defines.begin();
+    auto it = handle->define_cache.begin();
     std::advance(it, index);
     safe_strncpy(key_buffer, it->first, key_buffer_size);
     return reinterpret_cast<const YiniValueHandle*>(&it->second);
@@ -129,12 +174,13 @@ YINI_API const YiniValueHandle* yini_get_define_by_index(const YiniDocumentHandl
 
 YINI_API const YiniValueHandle* yini_get_define_by_key(const YiniDocumentHandle* handle, const char* key)
 {
-    if (!handle || !key) {
-        return nullptr;
+    if (!handle || !key) return nullptr;
+    if (!handle->define_cache_valid) {
+        handle->define_cache = handle->doc.getDefines();
+        handle->define_cache_valid = true;
     }
-    const auto& defines = handle->doc.getDefines();
-    auto it = defines.find(key);
-    if (it != defines.end()) {
+    auto it = handle->define_cache.find(key);
+    if (it != handle->define_cache.end()) {
         return reinterpret_cast<const YiniValueHandle*>(&it->second);
     }
     return nullptr;

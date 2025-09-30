@@ -39,7 +39,7 @@ TEST(YiniManagerTest, LoadFromFileCreatesYmeta)
   fs::remove(ymetaPath);
 
   YINI::YiniManager manager(yiniPath);
-  const auto &doc = manager.getDocument();
+  YINI::YiniDocument doc = manager.getDocument();
 
   // Check that the document was loaded correctly
   const auto *section = doc.findSection("Test");
@@ -152,7 +152,7 @@ TEST(YiniManagerTest, LoadFromFilePrioritizesYmetaCache)
   fs::last_write_time(ymetaPath, fs::last_write_time(yiniPath) + std::chrono::seconds(1));
 
   YINI::YiniManager manager(yiniPath);
-  const auto &doc = manager.getDocument();
+  YINI::YiniDocument doc = manager.getDocument();
 
   const auto *section = doc.findSection("CachedSection");
   ASSERT_NE(section, nullptr);
@@ -182,7 +182,7 @@ TEST(YiniManagerTest, IgnoresStaleCache)
     // 2. Create a manager instance to trigger the load logic
     YINI::YiniManager manager(yiniPath);
     ASSERT_TRUE(manager.isLoaded());
-    const auto& doc = manager.getDocument();
+    YINI::YiniDocument doc = manager.getDocument();
 
     // 3. Verify that the loaded data is from the updated .yini, not the stale cache
     const auto* section = doc.findSection("Test");

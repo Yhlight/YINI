@@ -12,6 +12,7 @@
 #include "YiniData.hpp"
 #include <memory>
 #include <string>
+#include <mutex>
 
 namespace YINI
 {
@@ -46,10 +47,10 @@ public:
   ~YiniManager();
 
   /**
-   * @brief Gets read-only access to the underlying YiniDocument.
-   * @return A constant reference to the YiniDocument.
+   * @brief Gets a thread-safe copy of the underlying YiniDocument.
+   * @return A copy of the YiniDocument.
    */
-  const YiniDocument &getDocument() const;
+  YiniDocument getDocument() const;
 
   /**
    * @brief Checks if the document was successfully loaded.
@@ -120,6 +121,7 @@ private:
   std::string ymetaFilePath; ///< Path to the cached `.ymeta` file.
   YiniDocument document;     ///< The in-memory representation of the document.
   bool is_loaded;            ///< Flag indicating if the document was loaded successfully.
+  mutable std::mutex managerMutex; ///< Mutex to protect manager operations.
 };
 } // namespace YINI
 

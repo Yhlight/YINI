@@ -43,20 +43,30 @@ YiniManager::YiniManager(const std::string &path)
     : yiniFilePath(path),
       ymetaFilePath(get_ymeta_path(path)), is_loaded(false)
 {
+  std::lock_guard<std::mutex> lock(managerMutex);
   is_loaded = load();
 }
 
 YiniManager::~YiniManager()
 {
-    if (is_loaded)
-    {
-        writeBackDynaValues();
-    }
+  std::lock_guard<std::mutex> lock(managerMutex);
+  if (is_loaded)
+  {
+    writeBackDynaValues();
+  }
 }
 
-const YiniDocument &YiniManager::getDocument() const { return document; }
+YiniDocument YiniManager::getDocument() const
+{
+  std::lock_guard<std::mutex> lock(managerMutex);
+  return document;
+}
 
-bool YiniManager::isLoaded() const { return is_loaded; }
+bool YiniManager::isLoaded() const
+{
+  std::lock_guard<std::mutex> lock(managerMutex);
+  return is_loaded;
+}
 
 bool YiniManager::load()
 {
@@ -92,7 +102,7 @@ bool YiniManager::load()
 
   try
   {
-    document = {};
+    document = YiniDocument{};
     std::string basePath = ".";
     size_t last_slash_idx = yiniFilePath.rfind('/');
     if (std::string::npos != last_slash_idx)
@@ -174,7 +184,7 @@ void YiniManager::writeBackDynaValues()
                 sectionName = sectionName.substr(0, colon_pos);
                 sectionName.erase(sectionName.find_last_not_of(" \t") + 1);
             }
-            currentSection = document.findSection(sectionName);
+            currentSection = document.getOrCreateSection(sectionName);
             new_content_ss << line << '\n';
             continue;
         }
@@ -244,6 +254,7 @@ void YiniManager::setStringValue(const std::string &section,
                                  const std::string &key,
                                  const std::string &value)
 {
+  std::lock_guard<std::mutex> lock(managerMutex);
   YiniValue val;
   val.data = value;
   set_value_helper(document, section, key, val);
@@ -253,6 +264,7 @@ void YiniManager::setStringValue(const std::string &section,
 void YiniManager::setIntValue(const std::string &section,
                               const std::string &key, int value)
 {
+  std::lock_guard<std::mutex> lock(managerMutex);
   YiniValue val;
   val.data = value;
   set_value_helper(document, section, key, val);
@@ -262,6 +274,7 @@ void YiniManager::setIntValue(const std::string &section,
 void YiniManager::setDoubleValue(const std::string &section,
                                  const std::string &key, double value)
 {
+  std::lock_guard<std::mutex> lock(managerMutex);
   YiniValue val;
   val.data = value;
   set_value_helper(document, section, key, val);
@@ -271,6 +284,7 @@ void YiniManager::setDoubleValue(const std::string &section,
 void YiniManager::setBoolValue(const std::string &section,
                                const std::string &key, bool value)
 {
+  std::lock_guard<std::mutex> lock(managerMutex);
   YiniValue val;
   val.data = value;
   set_value_helper(document, section, key, val);

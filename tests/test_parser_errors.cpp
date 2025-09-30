@@ -7,7 +7,24 @@ TEST(ParserErrorTest, ThrowsOnInvalidSectionName)
   const std::string input = "[123_invalid]\nkey = value";
   YINI::YiniDocument doc;
   YINI::Parser parser(input, doc);
-  ASSERT_THROW(parser.parse(), YINI::YiniException);
+  ASSERT_THROW(parser.parse(), YINI::ParsingException);
+}
+
+TEST(ParserErrorTest, ThrowsOnMissingIncludeFile)
+{
+  const std::string input = "[#include]\n+= non_existent_file.yini";
+  YINI::YiniDocument doc;
+  YINI::Parser parser(input, doc);
+  ASSERT_THROW(parser.parse(), YINI::IOException);
+}
+
+TEST(LogicErrorTest, ThrowsOnCircularInheritance)
+{
+  const std::string input = "[A:B]\n[B:C]\n[C:A]";
+  YINI::YiniDocument doc;
+  YINI::Parser parser(input, doc);
+  parser.parse();
+  ASSERT_THROW(doc.resolveInheritance(), YINI::LogicException);
 }
 
 TEST(ParserErrorTest, ThrowsOnUnclosedArray)
@@ -15,7 +32,7 @@ TEST(ParserErrorTest, ThrowsOnUnclosedArray)
   const std::string input = "[Data]\nmy_array = [1, 2, 3";
   YINI::YiniDocument doc;
   YINI::Parser parser(input, doc);
-  ASSERT_THROW(parser.parse(), YINI::YiniException);
+  ASSERT_THROW(parser.parse(), YINI::ParsingException);
 }
 
 TEST(ParserErrorTest, ThrowsOnMalformedMap)
@@ -30,13 +47,13 @@ TEST(ParserErrorTest, ThrowsOnMalformedMap)
         {
           parser1.parse();
         }
-        catch (const YINI::YiniException &e)
+        catch (const YINI::ParsingException &e)
         {
           EXPECT_STREQ("Expected ':' after map key.", e.what());
           throw;
         }
       },
-      YINI::YiniException);
+      YINI::ParsingException);
 
   // Test case 2: Missing comma
   const std::string input2 = "[Data]\nmy_map = { key1: 1 key2: 2 }";
@@ -48,13 +65,13 @@ TEST(ParserErrorTest, ThrowsOnMalformedMap)
         {
           parser2.parse();
         }
-        catch (const YINI::YiniException &e)
+        catch (const YINI::ParsingException &e)
         {
           EXPECT_STREQ("Expected ',' or '}' in object.", e.what());
           throw;
         }
       },
-      YINI::YiniException);
+      YINI::ParsingException);
 
   // Test case 3: Unclosed map
   const std::string input3 = "[Data]\nmy_map = { key: 1,";
@@ -66,7 +83,7 @@ TEST(ParserErrorTest, ThrowsOnMalformedMap)
         {
           parser3.parse();
         }
-        catch (const YINI::YiniException &e)
+        catch (const YINI::ParsingException &e)
         {
           // The loop terminates on EOF, and the final check catches the
           // unclosed brace.
@@ -74,7 +91,7 @@ TEST(ParserErrorTest, ThrowsOnMalformedMap)
           throw;
         }
       },
-      YINI::YiniException);
+      YINI::ParsingException);
 }
 
 TEST(ParserErrorTest, ThrowsOnUndefinedMacro)
@@ -82,7 +99,7 @@ TEST(ParserErrorTest, ThrowsOnUndefinedMacro)
   const std::string input = "[Data]\nvalue = @undefined_macro";
   YINI::YiniDocument doc;
   YINI::Parser parser(input, doc);
-  ASSERT_THROW(parser.parse(), YINI::YiniException);
+  ASSERT_THROW(parser.parse(), YINI::ParsingException);
 }
 
 TEST(ParserErrorTest, ThrowsOnInvalidCoordArgs)
@@ -90,5 +107,5 @@ TEST(ParserErrorTest, ThrowsOnInvalidCoordArgs)
   const std::string input = "[Data]\npos = Coord(1, \"two\")";
   YINI::YiniDocument doc;
   YINI::Parser parser(input, doc);
-  ASSERT_THROW(parser.parse(), YINI::YiniException);
+  ASSERT_THROW(parser.parse(), YINI::ParsingException);
 }

@@ -1,4 +1,5 @@
 #include "YINI/YiniData.hpp"
+#include "YINI/YiniException.hpp"
 #include <stdexcept>
 
 namespace YINI
@@ -175,6 +176,7 @@ bool operator==(const YiniValue &lhs, const YiniValue &rhs)
 
 void YiniDocument::resolveInheritance()
 {
+  std::lock_guard<std::mutex> lock(docMutex);
   std::set<std::string> resolved;
   for (auto &section : sectionList)
   {
@@ -200,11 +202,11 @@ void YiniDocument::resolveSectionInheritance(YiniSection *section,
     // Check for circular dependency
     if (std::find(path.begin(), path.end(), parent_name) != path.end())
     {
-      // In a real application, throw a more specific exception
-      throw std::runtime_error("Circular inheritance detected: " + parent_name);
+      throw LogicException("Circular inheritance detected: " + parent_name, 0,
+                           0);
     }
 
-    YiniSection *parent_section = findSection(parent_name);
+    YiniSection *parent_section = findSectionInternal(parent_name);
     if (parent_section)
     {
       // Ensure parent is resolved first
@@ -238,4 +240,50 @@ void YiniDocument::resolveSectionInheritance(YiniSection *section,
   resolved.insert(section->name);
   path.pop_back();
 }
+
+// --- Rule of Five Implementation for YiniDocument ---
+
+YiniDocument::YiniDocument(const YiniDocument &other)
+{
+  std::lock_guard<std::mutex> lock(other.docMutex);
+  sectionList = other.sectionList;
+  defineMap = other.defineMap;
+}
+
+YiniDocument &YiniDocument::operator=(const YiniDocument &other)
+{
+  if (this != &other)
+  {
+    // Lock both mutexes without deadlock
+    std::lock(docMutex, other.docMutex);
+    std::lock_guard<std::mutex> this_lock(docMutex, std::adopt_lock);
+    std::lock_guard<std::mutex> other_lock(other.docMutex, std::adopt_lock);
+
+    sectionList = other.sectionList;
+    defineMap = other.defineMap;
+  }
+  return *this;
+}
+
+YiniDocument::YiniDocument(YiniDocument &&other) noexcept
+{
+  std::lock_guard<std::mutex> lock(other.docMutex);
+  sectionList = std::move(other.sectionList);
+  defineMap = std::move(other.defineMap);
+}
+
+YiniDocument &YiniDocument::operator=(YiniDocument &&other) noexcept
+{
+  if (this != &other)
+  {
+    std::lock(docMutex, other.docMutex);
+    std::lock_guard<std::mutex> this_lock(docMutex, std::adopt_lock);
+    std::lock_guard<std::mutex> other_lock(other.docMutex, std::adopt_lock);
+
+    sectionList = std::move(other.sectionList);
+    defineMap = std::move(other.defineMap);
+  }
+  return *this;
+}
+
 } // namespace YINI
