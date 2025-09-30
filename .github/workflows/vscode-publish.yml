@@ -26,14 +26,14 @@ jobs:
     - name: Install vsce
       run: npm install -g @vscode/vsce
 
-    - name: Publish to VS Code Marketplace
-      working-directory: ./vscode-yini
-      run: vsce publish -p $VSCE_PAT
-      env:
-        VSCE_PAT: ${{ secrets.VSCE_PAT }}
+    # - name: Publish to VS Code Marketplace
+    #   working-directory: ./vscode-yini
+    #   run: vsce publish -p $VSCE_PAT
+    #   env:
+    #     VSCE_PAT: ${{ secrets.VSCE_PAT }}
 
-    - name: Publish to Open VSX Registry
-      working-directory: ./vscode-yini
-      run: vsce publish --target open-vsx -p $OVSX_PAT
-      env:
-        OVSX_PAT: ${{ secrets.OVSX_PAT }}
+    # - name: Publish to Open VSX Registry
+    #   working-directory: ./vscode-yini
+    #   run: vsce publish --target open-vsx -p $OVSX_PAT
+    #   env:
+    #     OVSX_PAT: ${{ secrets.OVSX_PAT }}

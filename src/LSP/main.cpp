@@ -51,7 +51,6 @@ void publishDiagnostics(const std::string& uri, const std::string& content) {
     sendResponse(notification);
 }
 
-// A helper function to get the word/token at a specific position
 std::string getWordAtPosition(const std::string& content, int line, int character) {
     std::stringstream ss(content);
     std::string lineContent;
@@ -84,7 +83,6 @@ std::string getWordAtPosition(const std::string& content, int line, int characte
     return "";
 }
 
-// A helper function to get the line at a specific position
 std::string getLineAtPosition(const std::string& content, int line) {
     std::stringstream ss(content);
     std::string lineContent;
@@ -92,6 +90,37 @@ std::string getLineAtPosition(const std::string& content, int line) {
         if (!std::getline(ss, lineContent)) return "";
     }
     return lineContent;
+}
+
+// Helper to find the definition location of a symbol (section or macro)
+json findDefinitionLocation(const std::string& content, const std::string& symbol) {
+    std::stringstream ss(content);
+    std::string line;
+    int line_num = 0;
+
+    std::string section_pattern = "[" + symbol + "]";
+    std::string macro_pattern = symbol + " =";
+
+    while (std::getline(ss, line)) {
+        size_t section_pos = line.find(section_pattern);
+        if (section_pos != std::string::npos) {
+            return {
+                {"line", line_num},
+                {"character", section_pos + 1}
+            };
+        }
+
+        size_t macro_pos = line.find(macro_pattern);
+        if (macro_pos != std::string::npos && line.substr(0, macro_pos).find_first_not_of(" \t") == std::string::npos) {
+             return {
+                {"line", line_num},
+                {"character", macro_pos}
+            };
+        }
+        line_num++;
+    }
+
+    return nullptr;
 }
 
 
@@ -127,8 +156,9 @@ int main() {
                         {"id", receivedJson["id"]},
                         {"result", {
                             {"capabilities", {
-                                {"textDocumentSync", 1}, // Full sync
+                                {"textDocumentSync", 1},
                                 {"hoverProvider", true},
+                                {"definitionProvider", true},
                                 {"completionProvider", {
                                     {"resolveProvider", false},
                                     {"triggerCharacters", {"@", ":", " "}}
@@ -175,7 +205,31 @@ int main() {
                         };
                         sendResponse(response);
                     }
-                } else if (method == "textDocument/completion") {
+                } else if (method == "textDocument/definition") {
+                    std::string uri = receivedJson["params"]["textDocument"]["uri"];
+                    int line = receivedJson["params"]["position"]["line"];
+                    int character = receivedJson["params"]["position"]["character"];
+                    std::string word = getWordAtPosition(documentContents[uri], line, character);
+
+                    if (!word.empty()) {
+                        json location = findDefinitionLocation(documentContents[uri], word);
+                        if (!location.is_null()) {
+                            json response = {
+                                {"jsonrpc", "2.0"},
+                                {"id", receivedJson["id"]},
+                                {"result", {
+                                    {"uri", uri},
+                                    {"range", {
+                                        {"start", location},
+                                        {"end", location}
+                                    }}
+                                }}
+                            };
+                            sendResponse(response);
+                        }
+                    }
+                }
+                else if (method == "textDocument/completion") {
                     std::string uri = receivedJson["params"]["textDocument"]["uri"];
                     int line_num = receivedJson["params"]["position"]["line"];
                     int character = receivedJson["params"]["position"]["character"];
@@ -194,25 +248,22 @@ int main() {
                     }
 
                     if (triggerChar == '@') {
-                        // Suggest macros
                         for (const auto& def : doc.getDefines()) {
                             completionItems.push_back({
                                 {"label", def.first},
-                                {"kind", 13}, // Variable
+                                {"kind", 13},
                                 {"detail", "YINI Macro"}
                             });
                         }
                     } else if (triggerChar == ':') {
-                        // Suggest sections for inheritance
                         for (const auto& sec : doc.getSections()) {
                             completionItems.push_back({
                                 {"label", sec.name},
-                                {"kind", 19}, // Class
+                                {"kind", 19},
                                 {"detail", "YINI Section"}
                             });
                         }
                     } else {
-                        // Default: suggest boolean values if after an equals sign
                         size_t equalsPos = lineContent.find('=');
                         if (equalsPos != std::string::npos && equalsPos < (size_t)character) {
                             completionItems.push_back({{"label", "true"}, {"kind", 21}});
