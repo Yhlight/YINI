@@ -110,6 +110,59 @@ YiniValue &YiniValue::operator=(const YiniValue &other)
   return *this;
 }
 
+bool operator==(const YiniValue &lhs, const YiniValue &rhs)
+{
+  // If the types are different, they are not equal.
+  if (lhs.data.index() != rhs.data.index())
+  {
+    return false;
+  }
+
+  // Visit both variants to compare their contents.
+  return std::visit(
+      [](const auto &lhs_val, const auto &rhs_val) -> bool
+      {
+        // This generic lambda is instantiated for all pairs of types.
+        // We only want to compare if the types are identical.
+        if constexpr (std::is_same_v<std::decay_t<decltype(lhs_val)>,
+                                     std::decay_t<decltype(rhs_val)>>)
+        {
+          using T = std::decay_t<decltype(lhs_val)>;
+
+          // For unique_ptr types, we need to handle null pointers and
+          // dereference.
+          if constexpr (std::is_same_v<T, std::unique_ptr<YiniArray>> ||
+                        std::is_same_v<T, std::unique_ptr<YiniList>> ||
+                        std::is_same_v<T, std::unique_ptr<YiniSet>> ||
+                        std::is_same_v<T, std::unique_ptr<YiniMap>> ||
+                        std::is_same_v<T, std::unique_ptr<YiniDynaValue>> ||
+                        std::is_same_v<T, std::unique_ptr<YiniCoord>> ||
+                        std::is_same_v<T, std::unique_ptr<YiniColor>> ||
+                        std::is_same_v<T, std::unique_ptr<YiniPath>>)
+          {
+            if (lhs_val && rhs_val)
+            {
+              return *lhs_val == *rhs_val; // Use the struct's operator==
+            }
+            return !lhs_val && !rhs_val; // Both are null is considered equal.
+          }
+          else
+          {
+            // For primitive types, direct comparison is fine.
+            return lhs_val == rhs_val;
+          }
+        }
+        else
+        {
+          // This branch will be taken for non-matching types.
+          // The index check above ensures this is dead code at runtime,
+          // but it's needed for compilation.
+          return false;
+        }
+      },
+      lhs.data, rhs.data);
+}
+
 void YiniDocument::resolveInheritance()
 {
   std::set<std::string> resolved;

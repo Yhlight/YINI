@@ -14,7 +14,7 @@ target_include_directories(yini PUBLIC ../include)
 # Define YINI_EXPORTS when building the shared library
 target_compile_definitions(yini PRIVATE YINI_EXPORTS)
 
-target_link_libraries(yini PRIVATE nlohmann_json::nlohmann_json)
+target_link_libraries(yini PRIVATE nlohmann_json::nlohmann_json stdc++fs)
 
 # Add coverage flags for Debug builds on GCC/Clang
 if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")

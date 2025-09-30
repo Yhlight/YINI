@@ -1,5 +1,6 @@
 #include "YINI/Parser.hpp"
 #include "YINI/YiniException.hpp"
+#include "YINI/fs_compat.hpp"
 #include <algorithm>
 #include <cctype>
 #include <fstream>
@@ -197,11 +198,17 @@ void Parser::parseSection()
         if (currentToken.type == TokenType::Identifier)
         {
           std::string file_to_include = currentToken.value;
-          std::string full_path = basePath + "/" + file_to_include;
-          std::string included_content = read_file_content_internal(full_path);
+
+          fs::path path_base(basePath);
+          fs::path combined_path = path_base / file_to_include;
+          fs::path path_full = combined_path.lexically_normal();
+
+          std::string included_content =
+              read_file_content_internal(path_full.string());
           if (!included_content.empty())
           {
-            Parser sub_parser(included_content, document, basePath);
+            fs::path new_base = path_full.parent_path();
+            Parser sub_parser(included_content, document, new_base.string());
             sub_parser.parse();
           }
           nextToken();
@@ -569,34 +576,18 @@ std::unique_ptr<YiniSet> Parser::parseSet()
 
   auto set = std::make_unique<YiniSet>();
 
-  // To enforce uniqueness for simple types without a full YiniValue comparison
-  std::set<int> seen_ints;
-  std::set<double> seen_doubles;
-  std::set<std::string> seen_strings;
-  std::set<bool> seen_bools;
-
-  while (currentToken.type != TokenType::RightParen && currentToken.type != TokenType::Eof)
+  while (currentToken.type != TokenType::RightParen &&
+         currentToken.type != TokenType::Eof)
   {
     YiniValue val = parseValue();
-    bool is_duplicate = false;
 
-    if (std::holds_alternative<int>(val.data)) {
-      if (seen_ints.count(std::get<int>(val.data))) is_duplicate = true;
-      else seen_ints.insert(std::get<int>(val.data));
-    } else if (std::holds_alternative<double>(val.data)) {
-      if (seen_doubles.count(std::get<double>(val.data))) is_duplicate = true;
-      else seen_doubles.insert(std::get<double>(val.data));
-    } else if (std::holds_alternative<std::string>(val.data)) {
-      if (seen_strings.count(std::get<std::string>(val.data))) is_duplicate = true;
-      else seen_strings.insert(std::get<std::string>(val.data));
-    } else if (std::holds_alternative<bool>(val.data)) {
-      if (seen_bools.count(std::get<bool>(val.data))) is_duplicate = true;
-      else seen_bools.insert(std::get<bool>(val.data));
-    }
-    // Note: Uniqueness for complex types (arrays, maps, etc.) is not enforced here.
+    // Check for duplicates using the comprehensive operator==
+    auto it = std::find_if(set->elements.begin(), set->elements.end(),
+                           [&](const YiniValue &elem) { return elem == val; });
 
-    if (!is_duplicate) {
-        set->elements.push_back(std::move(val));
+    if (it == set->elements.end())
+    {
+      set->elements.push_back(std::move(val));
     }
 
     if (currentToken.type == TokenType::Comma)
@@ -607,7 +598,8 @@ std::unique_ptr<YiniSet> Parser::parseSet()
 
   if (currentToken.type != TokenType::RightParen)
   {
-    throw YiniException("Expected ')' to close Set expression.", currentToken.line, currentToken.column);
+    throw YiniException("Expected ')' to close Set expression.",
+                        currentToken.line, currentToken.column);
   }
   nextToken(); // consume ')'
   return set;
