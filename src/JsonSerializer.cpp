@@ -39,22 +39,6 @@ void serializeMap(std::stringstream &ss, const YINI::YiniMap &map)
   ss << "}";
 }
 
-void serializeSet(std::stringstream &ss, const YINI::YiniSet &set)
-{
-  ss << "[";
-  size_t count = 0;
-  for (const auto &elem : set.elements)
-  {
-    serializeValue(ss, elem);
-    if (count < set.elements.size() - 1)
-    {
-      ss << ",";
-    }
-    count++;
-  }
-  ss << "]";
-}
-
 void serializeValue(std::stringstream &ss, const YINI::YiniValue &value)
 {
   if (std::holds_alternative<std::string>(value.data))
@@ -110,24 +94,7 @@ void serializeValue(std::stringstream &ss, const YINI::YiniValue &value)
     ss << "{\"__type__\":\"Set\",\"value\":";
     if (set_ptr)
     {
-      serializeSet(ss, *set_ptr);
-    }
-    else
-    {
-      ss << "null";
-    }
-    ss << "}";
-  }
-  else if (std::holds_alternative<std::unique_ptr<YINI::YiniTuple>>(value.data))
-  {
-    const auto &tuple_ptr =
-        std::get<std::unique_ptr<YINI::YiniTuple>>(value.data);
-    ss << "{\"__type__\":\"Tuple\",\"value\":";
-    if (tuple_ptr)
-    {
-      ss << "{\"" << tuple_ptr->key << "\":";
-      serializeValue(ss, tuple_ptr->value);
-      ss << "}";
+      serializeArray(ss, *reinterpret_cast<const YINI::YiniArray *>(set_ptr.get()));
     }
     else
     {
@@ -224,13 +191,10 @@ std::string JsonSerializer::serialize(const YiniDocument &doc)
   ss << "\"defines\":{";
   size_t define_count = 0;
   const auto &defines = doc.getDefines();
-  for (const auto &[key, define] : defines)
+  for (const auto &[key, value] : defines)
   {
-    ss << "\"" << key << "\":{";
-    ss << "\"value\":";
-    serializeValue(ss, define.value);
-    ss << ",\"location\":{\"line\":" << define.location.line << ",\"column\":" << define.location.column << "}";
-    ss << "}";
+    ss << "\"" << key << "\":";
+    serializeValue(ss, value);
     if (define_count < defines.size() - 1)
     {
       ss << ",";

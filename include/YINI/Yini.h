@@ -32,7 +32,6 @@ typedef enum {
     YINI_TYPE_ARRAY,
     YINI_TYPE_LIST,
     YINI_TYPE_SET,
-    YINI_TYPE_TUPLE,
     YINI_TYPE_MAP,
     YINI_TYPE_DYNA,
     YINI_TYPE_COORD,
@@ -50,12 +49,6 @@ YINI_API void yini_set_string_value(YiniDocumentHandle* handle, const char* sect
 YINI_API void yini_set_int_value(YiniDocumentHandle* handle, const char* section, const char* key, int value);
 YINI_API void yini_set_double_value(YiniDocumentHandle* handle, const char* section, const char* key, double value);
 YINI_API void yini_set_bool_value(YiniDocumentHandle* handle, const char* section, const char* key, bool value);
-
-// Creation API for complex types
-YINI_API YiniValueHandle* yini_create_array_value(YiniDocumentHandle* handle, const char* section, const char* key);
-YINI_API YiniValueHandle* yini_create_list_value(YiniDocumentHandle* handle, const char* section, const char* key);
-YINI_API YiniValueHandle* yini_create_set_value(YiniDocumentHandle* handle, const char* section, const char* key);
-YINI_API YiniValueHandle* yini_create_map_value(YiniDocumentHandle* handle, const char* section, const char* key);
 
 // Section API
 YINI_API int yini_section_get_name(const YiniSectionHandle* section_handle, char* buffer, int buffer_size);
@@ -82,30 +75,6 @@ YINI_API const YiniValueHandle* yini_list_get_value_by_index(const YiniValueHand
 // Set API
 YINI_API int yini_set_get_size(const YiniValueHandle* value_handle);
 YINI_API const YiniValueHandle* yini_set_get_value_by_index(const YiniValueHandle* value_handle, int index);
-
-// Modification APIs for complex types
-YINI_API void yini_array_add_string(YiniValueHandle* value_handle, const char* value);
-YINI_API void yini_array_add_int(YiniValueHandle* value_handle, int value);
-YINI_API void yini_array_add_double(YiniValueHandle* value_handle, double value);
-YINI_API void yini_array_add_bool(YiniValueHandle* value_handle, bool value);
-
-YINI_API void yini_list_add_string(YiniValueHandle* value_handle, const char* value);
-YINI_API void yini_list_add_int(YiniValueHandle* value_handle, int value);
-YINI_API void yini_list_add_double(YiniValueHandle* value_handle, double value);
-YINI_API void yini_list_add_bool(YiniValueHandle* value_handle, bool value);
-
-YINI_API void yini_set_add_string(YiniValueHandle* value_handle, const char* value);
-YINI_API void yini_set_add_int(YiniValueHandle* value_handle, int value);
-YINI_API void yini_set_add_double(YiniValueHandle* value_handle, double value);
-YINI_API void yini_set_add_bool(YiniValueHandle* value_handle, bool value);
-
-YINI_API int yini_map_get_size(const YiniValueHandle* value_handle);
-YINI_API const YiniValueHandle* yini_map_get_value_by_key(const YiniValueHandle* value_handle, const char* key);
-YINI_API void yini_map_set_string(YiniValueHandle* value_handle, const char* key, const char* value);
-YINI_API void yini_map_set_int(YiniValueHandle* value_handle, const char* key, int value);
-YINI_API void yini_map_set_double(YiniValueHandle* value_handle, const char* key, double value);
-YINI_API void yini_map_set_bool(YiniValueHandle* value_handle, const char* key, bool value);
-
 
 #ifdef __cplusplus
 }

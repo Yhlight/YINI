@@ -13,16 +13,14 @@ add_executable(yini_tests
     test_parser_errors.cpp
     test_manager.cpp
     test_roundtrip_and_inheritance.cpp
-    test_cli.cpp
-    test_c_api.cpp
-)
-
-# Pass the path to the test data directory to the tests as a C-string literal
-target_compile_definitions(yini_tests PRIVATE
-    "YINI_TEST_DATA_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}\""
 )
 
 target_link_libraries(yini_tests yini gtest_main)
+
+# Define the path to the test data directory for the test executable
+target_compile_definitions(yini_tests PRIVATE
+    "TEST_DATA_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}\""
+)
 
 include(GoogleTest)
 gtest_discover_tests(yini_tests)

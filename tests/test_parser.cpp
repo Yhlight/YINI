@@ -31,46 +31,6 @@ TEST(ParserTest, ParseSimpleSection)
   EXPECT_EQ(std::get<std::string>(pair.value.data), "value");
 }
 
-TEST(ParserTest, ParseTupleOptimization)
-{
-    const std::string test_data_dir = YINI_TEST_DATA_DIR;
-    const std::string input_file_path = test_data_dir + "/tuple_test.yini";
-    const std::string input = read_file_content(input_file_path);
-    ASSERT_FALSE(input.empty()) << "Failed to read test file: " << input_file_path;
-
-    YINI::YiniDocument doc;
-    YINI::Parser parser(input, doc, test_data_dir);
-    parser.parse();
-
-    const auto* section = doc.findSection("Data");
-    ASSERT_NE(section, nullptr);
-
-    // Test the single-pair map, which should be a YiniTuple
-    auto it_single = std::find_if(section->pairs.begin(), section->pairs.end(), [](const auto& p){ return p.key == "single_pair"; });
-    ASSERT_NE(it_single, section->pairs.end());
-    const auto& single_val = it_single->value;
-    ASSERT_TRUE(std::holds_alternative<std::unique_ptr<YINI::YiniTuple>>(single_val.data));
-    const auto& tuple_ptr = std::get<std::unique_ptr<YINI::YiniTuple>>(single_val.data);
-    EXPECT_EQ(tuple_ptr->key, "key");
-    EXPECT_EQ(std::get<std::string>(tuple_ptr->value.data), "value");
-
-    // Test the multi-pair map, which should be a YiniMap
-    auto it_multi = std::find_if(section->pairs.begin(), section->pairs.end(), [](const auto& p){ return p.key == "multi_pair"; });
-    ASSERT_NE(it_multi, section->pairs.end());
-    const auto& multi_val = it_multi->value;
-    ASSERT_TRUE(std::holds_alternative<std::unique_ptr<YINI::YiniMap>>(multi_val.data));
-    const auto& map_ptr = std::get<std::unique_ptr<YINI::YiniMap>>(multi_val.data);
-    EXPECT_EQ(map_ptr->elements.size(), 2);
-
-    // Test the empty map, which should also be a YiniMap
-    auto it_empty = std::find_if(section->pairs.begin(), section->pairs.end(), [](const auto& p){ return p.key == "empty_map"; });
-    ASSERT_NE(it_empty, section->pairs.end());
-    const auto& empty_val = it_empty->value;
-    ASSERT_TRUE(std::holds_alternative<std::unique_ptr<YINI::YiniMap>>(empty_val.data));
-    const auto& empty_map_ptr = std::get<std::unique_ptr<YINI::YiniMap>>(empty_val.data);
-    EXPECT_TRUE(empty_map_ptr->elements.empty());
-}
-
 TEST(ParserTest, ParseListValue)
 {
   const std::string input = R"([Data]
@@ -145,29 +105,11 @@ my_set = Set(1, "two", 1, true, "two")
   ASSERT_NE(set_ptr, nullptr);
   auto &set_elements = set_ptr->elements;
   ASSERT_EQ(set_elements.size(), 3);
-}
 
-TEST(ParserTest, ParseSetWithComplexUniqueness)
-{
-    // YINI_TEST_DATA_DIR is a C-string literal defined by CMake.
-    const std::string test_data_dir = YINI_TEST_DATA_DIR;
-    const std::string input_file_path = test_data_dir + "/set_uniqueness_test.yini";
-    const std::string input = read_file_content(input_file_path);
-    ASSERT_FALSE(input.empty()) << "Failed to read test file: " << input_file_path;
-
-    YINI::YiniDocument doc;
-    YINI::Parser parser(input, doc, test_data_dir);
-    parser.parse();
-
-    const auto *section = doc.findSection("Sets");
-    ASSERT_NE(section, nullptr);
-    const auto &pair = section->pairs[0];
-    EXPECT_EQ(pair.key, "complex_set");
-
-    // Check that the set correctly discards duplicate complex elements
-    auto &set_ptr = std::get<std::unique_ptr<YINI::YiniSet>>(pair.value.data);
-    ASSERT_NE(set_ptr, nullptr);
-    EXPECT_EQ(set_ptr->elements.size(), 5); // 1, "hello", [1, 2], {key:"value"}, [3, 4]
+  // Check individual elements (order is preserved, but duplicates are removed)
+  EXPECT_EQ(std::get<int>(set_elements[0].data), 1);
+  EXPECT_EQ(std::get<std::string>(set_elements[1].data), "two");
+  EXPECT_EQ(std::get<bool>(set_elements[2].data), true);
 }
 
 TEST(ParserTest, ParseMapValue)
@@ -297,10 +239,10 @@ TEST(ParserTest, ParseDynaValue)
   const auto &pair = config_section->pairs[0];
   EXPECT_EQ(pair.key, "key");
 
-  // Check that the parser correctly identified the value as dynamic
-  // and unwrapped it.
-  EXPECT_TRUE(pair.is_dynamic);
-  EXPECT_EQ(std::get<int>(pair.value.data), 1);
+  auto &dyna_ptr =
+      std::get<std::unique_ptr<YINI::YiniDynaValue>>(pair.value.data);
+  ASSERT_NE(dyna_ptr, nullptr);
+  EXPECT_EQ(std::get<int>(dyna_ptr->value.data), 1);
 }
 
 TEST(ParserTest, ThrowOnUnclosedSection)
@@ -312,19 +254,17 @@ TEST(ParserTest, ThrowOnUnclosedSection)
   try
   {
     parser.parse();
-    FAIL() << "Expected YINI::YiniParsingException";
+    FAIL() << "Expected YINI::YiniException";
   }
-  catch (const YINI::YiniParsingException &e)
+  catch (const YINI::YiniException &e)
   {
-    ASSERT_EQ(e.getErrors().size(), 1);
-    const auto& err = e.getErrors()[0];
-    EXPECT_EQ(err.line, 1);
-    EXPECT_EQ(err.column, 13);
-    EXPECT_EQ(err.message, "Expected ']' to close section header.");
+    EXPECT_EQ(e.getLine(), 1);
+    EXPECT_EQ(e.getColumn(), 13);
+    EXPECT_STREQ("Expected ']' to close section header.", e.what());
   }
   catch (...)
   {
-    FAIL() << "Expected YINI::YiniParsingException";
+    FAIL() << "Expected YINI::YiniException";
   }
 }
 
@@ -372,22 +312,19 @@ TEST(ParserTest, ParseArithmetic)
 
 TEST(ParserTest, ParseFileIncludes)
 {
-  // YINI_TEST_DATA_DIR is a C-string literal defined by CMake.
-  const std::string test_data_dir = YINI_TEST_DATA_DIR;
-
-  const std::string input_file_path = test_data_dir + "/include_test.yini";
-  const std::string input = read_file_content(input_file_path);
-  ASSERT_FALSE(input.empty()) << "Failed to read test file: " << input_file_path;
+  const std::string file_path = std::string(TEST_DATA_DIR) + "/include_test.yini";
+  const std::string input = read_file_content(file_path);
+  ASSERT_FALSE(input.empty());
 
   YINI::YiniDocument doc;
-  YINI::Parser parser(input, doc, test_data_dir);
+  YINI::Parser parser(input, doc, TEST_DATA_DIR);
   parser.parse();
 
   ASSERT_EQ(doc.getSections().size(), 3); // Shared, BaseOnly, MainOnly
 
-  YINI::YiniDefine define;
-  ASSERT_TRUE(doc.getDefine("base_macro", define));
-  EXPECT_EQ(std::get<std::string>(define.value.data), "base");
+  YINI::YiniValue val;
+  ASSERT_TRUE(doc.getDefine("base_macro", val));
+  EXPECT_EQ(std::get<std::string>(val.data), "base");
 
   const auto *shared_section = doc.findSection("Shared");
   ASSERT_NE(shared_section, nullptr);

@@ -7,97 +7,122 @@
 #include <streambuf>
 #include <variant>
 
-namespace YINI
-{
-
 static std::string read_file_content_internal(const std::string &path)
 {
   std::ifstream t(path);
-  if (!t.is_open()) return "";
-  return std::string((std::istreambuf_iterator<char>(t)), std::istreambuf_iterator<char>());
+  if (!t.is_open())
+  {
+    return "";
+  }
+  return std::string((std::istreambuf_iterator<char>(t)),
+                     std::istreambuf_iterator<char>());
 }
 
-namespace {
-bool is_numeric(const YiniValue &val) {
-  return std::holds_alternative<int>(val.data) || std::holds_alternative<double>(val.data);
-}
+namespace
+{ // Anonymous namespace for helpers
 
-YiniValue apply_op(const YiniValue &left, const YiniValue &right, TokenType op)
+bool is_numeric(const YINI::YiniValue &val)
 {
-  if (!is_numeric(left) || !is_numeric(right)) return {};
-  YiniValue result;
-  bool use_double = std::holds_alternative<double>(left.data) || std::holds_alternative<double>(right.data);
-  double left_d = std::holds_alternative<int>(left.data) ? static_cast<double>(std::get<int>(left.data)) : std::get<double>(left.data);
-  double right_d = std::holds_alternative<int>(right.data) ? static_cast<double>(std::get<int>(right.data)) : std::get<double>(right.data);
+  return std::holds_alternative<int>(val.data) ||
+         std::holds_alternative<double>(val.data);
+}
 
-  if (use_double) {
-      switch (op) {
-          case TokenType::Plus: result.data = left_d + right_d; break;
-          case TokenType::Minus: result.data = left_d - right_d; break;
-          case TokenType::Star: result.data = left_d * right_d; break;
-          case TokenType::Slash: result.data = right_d != 0 ? left_d / right_d : 0.0; break;
-          default: break;
-      }
-  } else {
-      int left_i = std::get<int>(left.data);
-      int right_i = std::get<int>(right.data);
-      switch (op) {
-          case TokenType::Plus: result.data = left_i + right_i; break;
-          case TokenType::Minus: result.data = left_i - right_i; break;
-          case TokenType::Star: result.data = left_i * right_i; break;
-          case TokenType::Slash: result.data = right_i != 0 ? left_i / right_i : 0; break;
-          case TokenType::Percent: result.data = right_i != 0 ? left_i % right_i : 0; break;
-          default: break;
-      }
+YINI::YiniValue apply_op(const YINI::YiniValue &left,
+                         const YINI::YiniValue &right, YINI::TokenType op)
+{
+  if (!is_numeric(left) || !is_numeric(right))
+    return {};
+
+  YINI::YiniValue result;
+  bool use_double = std::holds_alternative<double>(left.data) ||
+                    std::holds_alternative<double>(right.data);
+
+  double left_d = std::holds_alternative<int>(left.data)
+                      ? static_cast<double>(std::get<int>(left.data))
+                      : std::get<double>(left.data);
+  double right_d = std::holds_alternative<int>(right.data)
+                       ? static_cast<double>(std::get<int>(right.data))
+                       : std::get<double>(right.data);
+
+  if (use_double)
+  {
+    switch (op)
+    {
+    case YINI::TokenType::Plus:
+      result.data = left_d + right_d;
+      break;
+    case YINI::TokenType::Minus:
+      result.data = left_d - right_d;
+      break;
+    case YINI::TokenType::Star:
+      result.data = left_d * right_d;
+      break;
+    case YINI::TokenType::Slash:
+      result.data = right_d != 0 ? left_d / right_d : 0.0;
+      break;
+    default:
+      break;
+    }
+  }
+  else
+  {
+    int left_i = std::get<int>(left.data);
+    int right_i = std::get<int>(right.data);
+    switch (op)
+    {
+    case YINI::TokenType::Plus:
+      result.data = left_i + right_i;
+      break;
+    case YINI::TokenType::Minus:
+      result.data = left_i - right_i;
+      break;
+    case YINI::TokenType::Star:
+      result.data = left_i * right_i;
+      break;
+    case YINI::TokenType::Slash:
+      result.data = right_i != 0 ? left_i / right_i : 0;
+      break;
+    case YINI::TokenType::Percent:
+      result.data = right_i != 0 ? left_i % right_i : 0;
+      break;
+    default:
+      break;
+    }
   }
   return result;
 }
-}
 
-Parser::Parser(const std::string &content, YiniDocument &doc, const std::string &base_path)
-    : lexer(content), document(doc), basePath(base_path)
+} // end anonymous namespace
+
+namespace YINI
 {
-    nextToken();
+Parser::Parser(const std::string &content, YiniDocument &document,
+               const std::string &basePath)
+    : m_lexer(content), m_document(document), m_basePath(basePath)
+{
+  nextToken();
 }
 
-void Parser::nextToken() { currentToken = lexer.getNextToken(); }
-
-bool Parser::hadError() const { return !m_errors.empty(); }
-
-const std::vector<YiniSyntaxError>& Parser::getErrors() const { return m_errors; }
-
-void Parser::reportError(const std::string& message) {
-    if (m_errors.empty() || m_errors.back().line != currentToken.line) {
-        m_errors.push_back({message, currentToken.line, currentToken.column});
-    }
-}
-
-void Parser::synchronize() {
-    nextToken();
-    while (currentToken.type != TokenType::Eof) {
-        if (currentToken.type == TokenType::LeftBracket) return;
-        nextToken();
-    }
-}
+void Parser::nextToken() { m_currentToken = m_lexer.getNextToken(); }
 
 void Parser::parse()
 {
-    while (currentToken.type != TokenType::Eof) {
-        try {
-            if (currentToken.type == TokenType::LeftBracket) {
-                parseSection();
-            } else {
-                reportError("Unexpected token at root level.");
-                synchronize();
-            }
-        } catch (const ParseError&) {
-            synchronize();
-        }
+  while (m_currentToken.type != TokenType::Eof)
+  {
+    if (m_currentToken.type == TokenType::LeftBracket)
+    {
+      parseSection();
     }
-
-    if (hadError()) {
-        throw YiniParsingException(m_errors);
+    else
+    {
+      if (m_currentToken.type != TokenType::Eof)
+      {
+        throw YiniException("Unexpected token at root level.",
+                            m_currentToken.line, m_currentToken.column);
+      }
+      nextToken();
     }
+  }
 }
 
 void Parser::parseSection()
@@ -107,15 +132,17 @@ void Parser::parseSection()
   bool is_define_section = false;
   bool is_include_section = false;
 
-  if (currentToken.type == TokenType::Hash)
+  if (m_currentToken.type == TokenType::Hash)
   {
     nextToken();
-    if (currentToken.type == TokenType::Identifier && currentToken.value == "define")
+    if (m_currentToken.type == TokenType::Identifier &&
+        m_currentToken.value == "define")
     {
       is_define_section = true;
       nextToken();
     }
-    else if (currentToken.type == TokenType::Identifier && currentToken.value == "include")
+    else if (m_currentToken.type == TokenType::Identifier &&
+             m_currentToken.value == "include")
     {
       is_include_section = true;
       nextToken();
@@ -124,24 +151,23 @@ void Parser::parseSection()
 
   if (is_define_section)
   {
-    if (currentToken.type != TokenType::RightBracket)
+    if (m_currentToken.type != TokenType::RightBracket)
     {
-      reportError("Expected ']' to close #define directive.");
-      throw ParseError();
+      throw YiniException("Expected ']' to close #define directive.",
+                          m_currentToken.line, m_currentToken.column);
     }
     nextToken();
-    while (currentToken.type != TokenType::LeftBracket && currentToken.type != TokenType::Eof)
+    while (m_currentToken.type != TokenType::LeftBracket &&
+           m_currentToken.type != TokenType::Eof)
     {
-      if (currentToken.type == TokenType::Identifier)
+      if (m_currentToken.type == TokenType::Identifier)
       {
-        std::string key = currentToken.value;
-        int line = currentToken.line;
-        int column = currentToken.column;
+        std::string key = m_currentToken.value;
         nextToken();
-        if (currentToken.type == TokenType::Equals)
+        if (m_currentToken.type == TokenType::Equals)
         {
           nextToken();
-          document.addDefine(key, parseValue(), line, column);
+          m_document.addDefine(key, parseValue());
         }
         else
         {
@@ -156,39 +182,33 @@ void Parser::parseSection()
   }
   else if (is_include_section)
   {
-    if (currentToken.type != TokenType::RightBracket)
+    if (m_currentToken.type != TokenType::RightBracket)
     {
-        reportError("Expected ']' to close #include directive.");
-        throw ParseError();
+      throw YiniException("Expected ']' to close #include directive.",
+                          m_currentToken.line, m_currentToken.column);
     }
     nextToken();
-    while (currentToken.type != TokenType::LeftBracket && currentToken.type != TokenType::Eof)
+    while (m_currentToken.type != TokenType::LeftBracket &&
+           m_currentToken.type != TokenType::Eof)
     {
-      if (currentToken.type == TokenType::PlusEquals)
+      if (m_currentToken.type == TokenType::PlusEquals)
       {
         nextToken();
-        std::string file_to_include;
-        while (currentToken.type != TokenType::LeftBracket && currentToken.type != TokenType::Eof && currentToken.type != TokenType::PlusEquals)
+        if (m_currentToken.type == TokenType::Identifier)
         {
-          file_to_include += currentToken.value;
-          nextToken();
-        }
-
-        if (!file_to_include.empty())
-        {
-          file_to_include.erase(file_to_include.find_last_not_of(" \t\n\r") + 1);
-          std::string full_path = basePath + "/" + file_to_include;
+          std::string file_to_include = m_currentToken.value;
+          std::string full_path = m_basePath + "/" + file_to_include;
           std::string included_content = read_file_content_internal(full_path);
           if (!included_content.empty())
           {
-            Parser sub_parser(included_content, document, basePath);
+            Parser sub_parser(included_content, m_document, m_basePath);
             sub_parser.parse();
-             if (sub_parser.hadError()) {
-                for (const auto& err : sub_parser.getErrors()) {
-                    m_errors.push_back(err);
-                }
-            }
           }
+          nextToken();
+        }
+        else
+        {
+          nextToken();
         }
       }
       else
@@ -200,60 +220,59 @@ void Parser::parseSection()
   else
   {
     std::string section_name_val;
-    if (currentToken.type == TokenType::Identifier)
+    if (m_currentToken.type == TokenType::Identifier)
     {
-      section_name_val = currentToken.value;
+      section_name_val = m_currentToken.value;
       nextToken();
     }
     else
     {
-      reportError("Invalid section name.");
-      throw ParseError();
+      throw YiniException("Invalid section name.", m_currentToken.line,
+                          m_currentToken.column);
     }
 
-    YiniSection *section = document.getOrCreateSection(section_name_val);
+    YiniSection *section = m_document.getOrCreateSection(section_name_val);
 
-    if (currentToken.type == TokenType::Colon)
+    if (m_currentToken.type == TokenType::Colon)
     {
       nextToken();
-      while (currentToken.type == TokenType::Identifier)
+      while (m_currentToken.type == TokenType::Identifier)
       {
-        section->inheritedSections.push_back(currentToken.value);
+        section->inheritedSections.push_back(m_currentToken.value);
         nextToken();
-        if (currentToken.type == TokenType::Comma) { nextToken(); }
-        else { break; }
+        if (m_currentToken.type == TokenType::Comma)
+        {
+          nextToken();
+        }
+        else
+        {
+          break;
+        }
       }
     }
 
-    if (currentToken.type != TokenType::RightBracket)
+    if (m_currentToken.type != TokenType::RightBracket)
     {
-        reportError("Expected ']' to close section header.");
-        throw ParseError();
+      throw YiniException("Expected ']' to close section header.",
+                          m_currentToken.line, m_currentToken.column);
     }
     nextToken();
 
-    while (currentToken.type != TokenType::LeftBracket && currentToken.type != TokenType::Eof)
+    while (m_currentToken.type != TokenType::LeftBracket &&
+           m_currentToken.type != TokenType::Eof)
     {
-        try {
-            if (currentToken.type == TokenType::Identifier)
-            {
-                parseKeyValuePair(*section);
-            }
-            else if (currentToken.type == TokenType::PlusEquals)
-            {
-                parseQuickRegistration(*section);
-            }
-            else
-            {
-                reportError("Expected a key-value pair or quick registration.");
-                throw ParseError();
-            }
-        } catch(const ParseError&) {
-            synchronize();
-            if (currentToken.type == TokenType::LeftBracket || currentToken.type == TokenType::Eof) {
-                break;
-            }
-        }
+      if (m_currentToken.type == TokenType::Identifier)
+      {
+        parseKeyValuePair(*section);
+      }
+      else if (m_currentToken.type == TokenType::PlusEquals)
+      {
+        parseQuickRegistration(*section);
+      }
+      else
+      {
+        nextToken();
+      }
     }
   }
 }
@@ -261,39 +280,26 @@ void Parser::parseSection()
 void Parser::parseKeyValuePair(YiniSection &section)
 {
   YiniKeyValuePair pair;
-  pair.key = currentToken.value;
+  pair.key = m_currentToken.value;
   nextToken();
 
-  if (currentToken.type != TokenType::Equals)
+  if (m_currentToken.type == TokenType::Equals)
   {
-    reportError("Expected '=' after key '" + pair.key + "'.");
-    throw ParseError();
-  }
+    nextToken();
+    pair.value = parseValue();
 
-  nextToken();
-  YiniValue parsed_value = parseValue();
+    auto it = std::find_if(section.pairs.begin(), section.pairs.end(),
+                           [&](const YiniKeyValuePair &p)
+                           { return p.key == pair.key; });
 
-  if (std::holds_alternative<std::unique_ptr<YiniDynaValue>>(parsed_value.data))
-  {
-    pair.is_dynamic = true;
-    auto& dyna_ptr = std::get<std::unique_ptr<YiniDynaValue>>(parsed_value.data);
-    pair.value = std::move(dyna_ptr->value);
-  }
-  else
-  {
-    pair.value = std::move(parsed_value);
-  }
-
-  auto it = std::find_if(section.pairs.begin(), section.pairs.end(),
-      [&](const YiniKeyValuePair &p) { return p.key == pair.key; });
-
-  if (it != section.pairs.end())
-  {
-    *it = std::move(pair);
-  }
-  else
-  {
-    section.pairs.push_back(std::move(pair));
+    if (it != section.pairs.end())
+    {
+      it->value = pair.value;
+    }
+    else
+    {
+      section.pairs.push_back(std::move(pair));
+    }
   }
 }
 
@@ -306,14 +312,14 @@ void Parser::parseQuickRegistration(YiniSection &section)
 YiniValue Parser::parseValue()
 {
   YiniValue val;
-  switch (currentToken.type)
+  switch (m_currentToken.type)
   {
   case TokenType::String:
-    val.data = currentToken.value;
+    val.data = m_currentToken.value;
     nextToken();
     return val;
   case TokenType::Boolean:
-    val.data = (currentToken.value == "true");
+    val.data = (m_currentToken.value == "true");
     nextToken();
     return val;
   case TokenType::LeftBracket:
@@ -327,34 +333,56 @@ YiniValue Parser::parseValue()
     return val;
   case TokenType::Identifier:
   {
-    std::string id_val = currentToken.value;
+    std::string id_val = m_currentToken.value;
     std::transform(id_val.begin(), id_val.end(), id_val.begin(),
                    [](unsigned char c) { return std::tolower(c); });
 
     if (id_val == "dyna")
     {
       nextToken();
-      if (currentToken.type != TokenType::LeftParen) {
-        reportError("Expected '(' after Dyna.");
-        throw ParseError();
-      }
+      if (m_currentToken.type != TokenType::LeftParen)
+        throw YiniException("Expected '(' after Dyna.", m_currentToken.line,
+                            m_currentToken.column);
       nextToken();
       auto dyna_val = std::make_unique<YiniDynaValue>();
       dyna_val->value = parseValue();
-      if (currentToken.type != TokenType::RightParen) {
-        reportError("Expected ')' to close Dyna expression.");
-        throw ParseError();
-      }
+      if (m_currentToken.type != TokenType::RightParen)
+        throw YiniException("Expected ')' to close Dyna expression.",
+                            m_currentToken.line, m_currentToken.column);
       nextToken();
       val.data = std::move(dyna_val);
       return val;
     }
-    if (id_val == "array") { val.data = parseArrayFromFunction(); return val; }
-    if (id_val == "coord") { val.data = parseCoord(); return val; }
-    if (id_val == "list") { val.data = parseList(); return val; }
-    if (id_val == "set") { val.data = parseSet(); return val; }
-    if (id_val == "color") { val.data = parseColor(); return val; }
-    if (id_val == "path") { val.data = parsePath(); return val; }
+    if (id_val == "array")
+    {
+      val.data = parseArrayFromFunction();
+      return val;
+    }
+    if (id_val == "coord")
+    {
+      val.data = parseCoord();
+      return val;
+    }
+    if (id_val == "list")
+    {
+      val.data = parseList();
+      return val;
+    }
+    if (id_val == "set")
+    {
+      val.data = parseSet();
+      return val;
+    }
+    if (id_val == "color")
+    {
+      val.data = parseColor();
+      return val;
+    }
+    if (id_val == "path")
+    {
+      val.data = parsePath();
+      return val;
+    }
   }
   case TokenType::Number:
   case TokenType::At:
@@ -362,43 +390,40 @@ YiniValue Parser::parseValue()
   case TokenType::Minus:
     return parseExpression();
   default:
-    reportError("Unexpected token when parsing value.");
-    throw ParseError();
+    throw YiniException("Unexpected token when parsing value.",
+                        m_currentToken.line, m_currentToken.column);
   }
 }
 
 YiniValue Parser::parseFactor()
 {
   YiniValue result;
-  switch (currentToken.type)
+  switch (m_currentToken.type)
   {
   case TokenType::Number:
-    if (currentToken.value.find('.') != std::string::npos)
-      result.data = std::stod(currentToken.value);
+    if (m_currentToken.value.find('.') != std::string::npos)
+      result.data = std::stod(m_currentToken.value);
     else
-      result.data = std::stoi(currentToken.value);
+      result.data = std::stoi(m_currentToken.value);
     nextToken();
     break;
   case TokenType::LeftParen:
     nextToken();
     result = parseExpression();
-    if (currentToken.type != TokenType::RightParen) {
-        reportError("Expected ')' to close expression.");
-        throw ParseError();
-    }
+    if (m_currentToken.type != TokenType::RightParen)
+      throw YiniException("Expected ')' to close expression.",
+                          m_currentToken.line, m_currentToken.column);
     nextToken();
     break;
   case TokenType::At:
     nextToken();
-    if (currentToken.type == TokenType::Identifier)
+    if (m_currentToken.type == TokenType::Identifier)
     {
-      YiniDefine define;
-      if (!document.getDefine(currentToken.value, define))
+      if (!m_document.getDefine(m_currentToken.value, result))
       {
-        reportError("Undefined macro: " + currentToken.value);
-        throw ParseError();
+        throw YiniException("Undefined macro: " + m_currentToken.value,
+                            m_currentToken.line, m_currentToken.column);
       }
-      result = define.value;
       nextToken();
     }
     break;
@@ -423,11 +448,11 @@ YiniValue Parser::parseFactor()
 YiniValue Parser::parseTerm()
 {
   YiniValue result = parseFactor();
-  while (currentToken.type == TokenType::Star ||
-         currentToken.type == TokenType::Slash ||
-         currentToken.type == TokenType::Percent)
+  while (m_currentToken.type == TokenType::Star ||
+         m_currentToken.type == TokenType::Slash ||
+         m_currentToken.type == TokenType::Percent)
   {
-    Token op = currentToken;
+    Token op = m_currentToken;
     nextToken();
     YiniValue right = parseFactor();
     result = apply_op(result, right, op.type);
@@ -438,10 +463,10 @@ YiniValue Parser::parseTerm()
 YiniValue Parser::parseExpression()
 {
   YiniValue result = parseTerm();
-  while (currentToken.type == TokenType::Plus ||
-         currentToken.type == TokenType::Minus)
+  while (m_currentToken.type == TokenType::Plus ||
+         m_currentToken.type == TokenType::Minus)
   {
-    Token op = currentToken;
+    Token op = m_currentToken;
     nextToken();
     YiniValue right = parseTerm();
     result = apply_op(result, right, op.type);
@@ -454,17 +479,21 @@ std::unique_ptr<YiniArray> Parser::parseArray()
   auto arr = std::make_unique<YiniArray>();
   nextToken();
 
-  while (currentToken.type != TokenType::RightBracket &&
-         currentToken.type != TokenType::Eof)
+  while (m_currentToken.type != TokenType::RightBracket &&
+         m_currentToken.type != TokenType::Eof)
   {
     arr->elements.push_back(parseValue());
-    if (currentToken.type == TokenType::Comma) { nextToken(); }
+
+    if (m_currentToken.type == TokenType::Comma)
+    {
+      nextToken();
+    }
   }
 
-  if (currentToken.type != TokenType::RightBracket)
+  if (m_currentToken.type != TokenType::RightBracket)
   {
-    reportError("Expected ']' to close array.");
-    throw ParseError();
+    throw YiniException("Expected ']' to close array.", m_currentToken.line,
+                        m_currentToken.column);
   }
   nextToken();
   return arr;
@@ -472,156 +501,175 @@ std::unique_ptr<YiniArray> Parser::parseArray()
 
 std::unique_ptr<YiniList> Parser::parseList()
 {
-  nextToken();
-  if (currentToken.type != TokenType::LeftParen){
-    reportError("Expected '(' after List.");
-    throw ParseError();
-  }
-  nextToken();
+  nextToken(); // consume 'List'
+  if (m_currentToken.type != TokenType::LeftParen)
+    throw YiniException("Expected '(' after List.", m_currentToken.line,
+                        m_currentToken.column);
+  nextToken(); // consume '('
 
   auto list = std::make_unique<YiniList>();
 
-  while (currentToken.type != TokenType::RightParen &&
-         currentToken.type != TokenType::Eof)
+  while (m_currentToken.type != TokenType::RightParen &&
+         m_currentToken.type != TokenType::Eof)
   {
     list->elements.push_back(parseValue());
-    if (currentToken.type == TokenType::Comma) { nextToken(); }
+
+    if (m_currentToken.type == TokenType::Comma)
+    {
+      nextToken();
+    }
   }
 
-  if (currentToken.type != TokenType::RightParen)
+  if (m_currentToken.type != TokenType::RightParen)
   {
-    reportError("Expected ')' to close list.");
-    throw ParseError();
+    throw YiniException("Expected ')' to close list.", m_currentToken.line,
+                        m_currentToken.column);
   }
-  nextToken();
+  nextToken(); // consume ')'
   return list;
 }
 
 std::unique_ptr<YiniArray> Parser::parseArrayFromFunction()
 {
-  nextToken();
-  if (currentToken.type != TokenType::LeftParen){
-    reportError("Expected '(' after Array.");
-    throw ParseError();
-  }
-  nextToken();
+  nextToken(); // consume 'Array'
+  if (m_currentToken.type != TokenType::LeftParen)
+    throw YiniException("Expected '(' after Array.", m_currentToken.line,
+                        m_currentToken.column);
+  nextToken(); // consume '('
 
   auto arr = std::make_unique<YiniArray>();
 
-  while (currentToken.type != TokenType::RightParen &&
-         currentToken.type != TokenType::Eof)
+  while (m_currentToken.type != TokenType::RightParen &&
+         m_currentToken.type != TokenType::Eof)
   {
     arr->elements.push_back(parseValue());
-    if (currentToken.type == TokenType::Comma) { nextToken(); }
+
+    if (m_currentToken.type == TokenType::Comma)
+    {
+      nextToken();
+    }
   }
 
-  if (currentToken.type != TokenType::RightParen)
+  if (m_currentToken.type != TokenType::RightParen)
   {
-    reportError("Expected ')' to close Array expression.");
-    throw ParseError();
+    throw YiniException("Expected ')' to close Array expression.", m_currentToken.line,
+                        m_currentToken.column);
   }
-  nextToken();
+  nextToken(); // consume ')'
   return arr;
 }
 
 std::unique_ptr<YiniSet> Parser::parseSet()
 {
-  nextToken();
-  if (currentToken.type != TokenType::LeftParen){
-    reportError("Expected '(' after Set.");
-    throw ParseError();
-  }
-  nextToken();
+  nextToken(); // consume 'Set'
+  if (m_currentToken.type != TokenType::LeftParen)
+    throw YiniException("Expected '(' after Set.", m_currentToken.line,
+                        m_currentToken.column);
+  nextToken(); // consume '('
 
   auto set = std::make_unique<YiniSet>();
 
-  while (currentToken.type != TokenType::RightParen &&
-         currentToken.type != TokenType::Eof)
-  {
-    set->elements.insert(parseValue());
+  // To enforce uniqueness for simple types without a full YiniValue comparison
+  std::set<int> seen_ints;
+  std::set<double> seen_doubles;
+  std::set<std::string> seen_strings;
+  std::set<bool> seen_bools;
 
-    if (currentToken.type == TokenType::Comma) { nextToken(); }
-    else if (currentToken.type != TokenType::RightParen)
+  while (m_currentToken.type != TokenType::RightParen && m_currentToken.type != TokenType::Eof)
+  {
+    YiniValue val = parseValue();
+    bool is_duplicate = false;
+
+    if (std::holds_alternative<int>(val.data)) {
+      if (seen_ints.count(std::get<int>(val.data))) is_duplicate = true;
+      else seen_ints.insert(std::get<int>(val.data));
+    } else if (std::holds_alternative<double>(val.data)) {
+      if (seen_doubles.count(std::get<double>(val.data))) is_duplicate = true;
+      else seen_doubles.insert(std::get<double>(val.data));
+    } else if (std::holds_alternative<std::string>(val.data)) {
+      if (seen_strings.count(std::get<std::string>(val.data))) is_duplicate = true;
+      else seen_strings.insert(std::get<std::string>(val.data));
+    } else if (std::holds_alternative<bool>(val.data)) {
+      if (seen_bools.count(std::get<bool>(val.data))) is_duplicate = true;
+      else seen_bools.insert(std::get<bool>(val.data));
+    }
+    // Note: Uniqueness for complex types (arrays, maps, etc.) is not enforced here.
+
+    if (!is_duplicate) {
+        set->elements.push_back(std::move(val));
+    }
+
+    if (m_currentToken.type == TokenType::Comma)
     {
-      reportError("Expected ',' or ')' in Set expression.");
-      throw ParseError();
+      nextToken();
     }
   }
 
-  if (currentToken.type != TokenType::RightParen)
+  if (m_currentToken.type != TokenType::RightParen)
   {
-    reportError("Expected ')' to close Set expression.");
-    throw ParseError();
+    throw YiniException("Expected ')' to close Set expression.", m_currentToken.line, m_currentToken.column);
   }
-  nextToken();
+  nextToken(); // consume ')'
   return set;
 }
 
-YiniVariant Parser::parseMap()
+std::unique_ptr<YiniMap> Parser::parseMap()
 {
+  auto map = std::make_unique<YiniMap>();
   nextToken(); // consume '{'
 
-  std::map<std::string, YiniValue> temp_map;
-
-  while (currentToken.type != TokenType::RightBrace &&
-         currentToken.type != TokenType::Eof)
+  while (m_currentToken.type != TokenType::RightBrace &&
+         m_currentToken.type != TokenType::Eof)
   {
-    if (currentToken.type != TokenType::String &&
-        currentToken.type != TokenType::Identifier)
+    // Key (must be a string or identifier)
+    if (m_currentToken.type != TokenType::String &&
+        m_currentToken.type != TokenType::Identifier)
     {
-      reportError("Expected a string or identifier as a map key.");
-      throw ParseError();
+      throw YiniException("Expected a string or identifier as a map key.",
+                          m_currentToken.line, m_currentToken.column);
     }
-    std::string key = currentToken.value;
+    std::string key = m_currentToken.value;
     nextToken();
 
-    if (currentToken.type != TokenType::Colon)
+    // Colon
+    if (m_currentToken.type != TokenType::Colon)
     {
-      reportError("Expected ':' after map key.");
-      throw ParseError();
+      throw YiniException("Expected ':' after map key.", m_currentToken.line,
+                          m_currentToken.column);
     }
     nextToken();
 
-    temp_map[key] = parseValue();
+    // Value
+    map->elements[key] = parseValue();
 
-    if (currentToken.type == TokenType::Comma) { nextToken(); }
-    else if (currentToken.type != TokenType::RightBrace)
+    // Comma or closing brace
+    if (m_currentToken.type == TokenType::Comma)
     {
-      reportError("Expected ',' or '}' in map.");
-      throw ParseError();
+      nextToken();
+    }
+    else if (m_currentToken.type != TokenType::RightBrace)
+    {
+      throw YiniException("Expected ',' or '}' in map.", m_currentToken.line,
+                          m_currentToken.column);
     }
   }
 
-  if (currentToken.type != TokenType::RightBrace)
+  if (m_currentToken.type != TokenType::RightBrace)
   {
-    reportError("Expected '}' to close map.");
-    throw ParseError();
+    throw YiniException("Expected '}' to close map.", m_currentToken.line,
+                        m_currentToken.column);
   }
   nextToken(); // consume '}'
-
-  if (temp_map.size() == 1)
-  {
-      auto tuple = std::make_unique<YiniTuple>();
-      tuple->key = temp_map.begin()->first;
-      tuple->value = std::move(temp_map.begin()->second);
-      return tuple;
-  }
-  else
-  {
-      auto map = std::make_unique<YiniMap>();
-      map->elements = std::move(temp_map);
-      return map;
-  }
+  return map;
 }
 
 std::unique_ptr<YiniCoord> Parser::parseCoord()
 {
-  nextToken();
-  if (currentToken.type != TokenType::LeftParen){
-    reportError("Expected '(' after Coord.");
-    throw ParseError();
-  }
-  nextToken();
+  nextToken(); // consume 'Coord'
+  if (m_currentToken.type != TokenType::LeftParen)
+    throw YiniException("Expected '(' after Coord.", m_currentToken.line,
+                        m_currentToken.column);
+  nextToken(); // consume '('
 
   auto coord = std::make_unique<YiniCoord>();
 
@@ -630,27 +678,24 @@ std::unique_ptr<YiniCoord> Parser::parseCoord()
     coord->x = std::get<int>(x_val.data);
   else if (std::holds_alternative<double>(x_val.data))
     coord->x = std::get<double>(x_val.data);
-  else {
-    reportError("Coord parameters must be numeric.");
-    throw ParseError();
-  }
+  else
+    throw YiniException("Coord parameters must be numeric.",
+                        m_currentToken.line, m_currentToken.column);
 
-  if (currentToken.type != TokenType::Comma){
-    reportError("Expected ',' in Coord.");
-    throw ParseError();
-  }
+  if (m_currentToken.type != TokenType::Comma)
+    throw YiniException("Expected ',' in Coord.", m_currentToken.line,
+                        m_currentToken.column);
   nextToken();
   YiniValue y_val = parseExpression();
   if (std::holds_alternative<int>(y_val.data))
     coord->y = std::get<int>(y_val.data);
   else if (std::holds_alternative<double>(y_val.data))
     coord->y = std::get<double>(y_val.data);
-  else {
-    reportError("Coord parameters must be numeric.");
-    throw ParseError();
-  }
+  else
+    throw YiniException("Coord parameters must be numeric.",
+                        m_currentToken.line, m_currentToken.column);
 
-  if (currentToken.type == TokenType::Comma)
+  if (m_currentToken.type == TokenType::Comma)
   {
     nextToken();
     YiniValue z_val = parseExpression();
@@ -658,10 +703,9 @@ std::unique_ptr<YiniCoord> Parser::parseCoord()
       coord->z = std::get<int>(z_val.data);
     else if (std::holds_alternative<double>(z_val.data))
       coord->z = std::get<double>(z_val.data);
-    else {
-      reportError("Coord parameters must be numeric.");
-      throw ParseError();
-    }
+    else
+      throw YiniException("Coord parameters must be numeric.",
+                          m_currentToken.line, m_currentToken.column);
     coord->is_3d = true;
   }
   else
@@ -670,21 +714,20 @@ std::unique_ptr<YiniCoord> Parser::parseCoord()
     coord->is_3d = false;
   }
 
-  if (currentToken.type != TokenType::RightParen) {
-    reportError("Expected ')' to close Coord expression.");
-    throw ParseError();
-  }
+  if (m_currentToken.type != TokenType::RightParen)
+    throw YiniException("Expected ')' to close Coord expression.",
+                        m_currentToken.line, m_currentToken.column);
   nextToken();
   return coord;
 }
 
 std::unique_ptr<YiniColor> Parser::parseColor()
 {
-  if (currentToken.type == TokenType::HexColor)
+  if (m_currentToken.type == TokenType::HexColor)
   {
     auto color = std::make_unique<YiniColor>();
     unsigned int r, g, b;
-    sscanf(currentToken.value.c_str(), "%2x%2x%2x", &r, &g, &b);
+    sscanf(m_currentToken.value.c_str(), "%2x%2x%2x", &r, &g, &b);
     color->r = r;
     color->g = g;
     color->b = b;
@@ -692,80 +735,70 @@ std::unique_ptr<YiniColor> Parser::parseColor()
     return color;
   }
 
-  nextToken();
-  if (currentToken.type != TokenType::LeftParen){
-    reportError("Expected '(' after Color.");
-    throw ParseError();
-  }
-  nextToken();
+  nextToken(); // consume 'Color'
+  if (m_currentToken.type != TokenType::LeftParen)
+    throw YiniException("Expected '(' after Color.", m_currentToken.line,
+                        m_currentToken.column);
+  nextToken(); // consume '('
 
   auto color = std::make_unique<YiniColor>();
 
   YiniValue r_val = parseExpression();
-  if (!std::holds_alternative<int>(r_val.data)) {
-    reportError("Color parameters must be integers.");
-    throw ParseError();
-  }
+  if (!std::holds_alternative<int>(r_val.data))
+    throw YiniException("Color parameters must be integers.",
+                        m_currentToken.line, m_currentToken.column);
   color->r = std::get<int>(r_val.data);
 
-  if (currentToken.type != TokenType::Comma) {
-    reportError("Expected ',' in Color.");
-    throw ParseError();
-  }
+  if (m_currentToken.type != TokenType::Comma)
+    throw YiniException("Expected ',' in Color.", m_currentToken.line,
+                        m_currentToken.column);
   nextToken();
   YiniValue g_val = parseExpression();
-  if (!std::holds_alternative<int>(g_val.data)) {
-    reportError("Color parameters must be integers.");
-    throw ParseError();
-  }
+  if (!std::holds_alternative<int>(g_val.data))
+    throw YiniException("Color parameters must be integers.",
+                        m_currentToken.line, m_currentToken.column);
   color->g = std::get<int>(g_val.data);
 
-  if (currentToken.type != TokenType::Comma) {
-    reportError("Expected ',' in Color.");
-    throw ParseError();
-  }
+  if (m_currentToken.type != TokenType::Comma)
+    throw YiniException("Expected ',' in Color.", m_currentToken.line,
+                        m_currentToken.column);
   nextToken();
   YiniValue b_val = parseExpression();
-  if (!std::holds_alternative<int>(b_val.data)) {
-    reportError("Color parameters must be integers.");
-    throw ParseError();
-  }
+  if (!std::holds_alternative<int>(b_val.data))
+    throw YiniException("Color parameters must be integers.",
+                        m_currentToken.line, m_currentToken.column);
   color->b = std::get<int>(b_val.data);
 
-  if (currentToken.type != TokenType::RightParen) {
-    reportError("Expected ')' to close Color expression.");
-    throw ParseError();
-  }
+  if (m_currentToken.type != TokenType::RightParen)
+    throw YiniException("Expected ')' to close Color expression.",
+                        m_currentToken.line, m_currentToken.column);
   nextToken();
   return color;
 }
 
 std::unique_ptr<YiniPath> Parser::parsePath()
 {
-  nextToken();
-  if (currentToken.type != TokenType::LeftParen) {
-    reportError("Expected '(' after Path.");
-    throw ParseError();
-  }
-  nextToken();
+  nextToken(); // consume 'Path'
+  if (m_currentToken.type != TokenType::LeftParen)
+    throw YiniException("Expected '(' after Path.", m_currentToken.line,
+                        m_currentToken.column);
+  nextToken(); // consume '('
 
   auto path = std::make_unique<YiniPath>();
 
   std::string path_str;
-  while (currentToken.type != TokenType::RightParen &&
-         currentToken.type != TokenType::Eof)
+  while (m_currentToken.type != TokenType::RightParen &&
+         m_currentToken.type != TokenType::Eof)
   {
-    path_str += currentToken.value;
+    path_str += m_currentToken.value;
     nextToken();
   }
   path->path_value = path_str;
 
-  if (currentToken.type != TokenType::RightParen) {
-    reportError("Expected ')' to close Path expression.");
-    throw ParseError();
-  }
+  if (m_currentToken.type != TokenType::RightParen)
+    throw YiniException("Expected ')' to close Path expression.",
+                        m_currentToken.line, m_currentToken.column);
   nextToken();
   return path;
 }
-
-}
+} // namespace YINI

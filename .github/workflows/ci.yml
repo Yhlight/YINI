@@ -1,0 +1,25 @@
+name: C++ CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Configure CMake
+      run: cmake -B build -S . -DCMAKE_BUILD_TYPE=Release -DYINI_BUILD_TESTS=ON
+
+    - name: Build project and tests
+      run: cmake --build build --config Release
+
+    - name: Run tests
+      working-directory: ./build
+      run: ctest -C Release --output-on-failure

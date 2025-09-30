@@ -50,29 +50,9 @@ static bool parseJsonSet(const json &j_set, YiniValue &value)
     {
       return false; // Propagate failure
     }
-    yini_set->elements.insert(std::move(element_value));
+    yini_set->elements.push_back(std::move(element_value));
   }
   value.data = std::move(yini_set);
-  return true;
-}
-
-static bool parseJsonTuple(const json &j_tuple, YiniValue &value)
-{
-  if (!j_tuple.is_object() || j_tuple.size() != 1)
-  {
-    return false; // A tuple must be a JSON object with exactly one key-value pair.
-  }
-
-  auto yini_tuple = std::make_unique<YiniTuple>();
-  auto it = j_tuple.begin();
-
-  yini_tuple->key = it.key();
-  if (!parseJsonValue(it.value(), yini_tuple->value))
-  {
-    return false;
-  }
-
-  value.data = std::move(yini_tuple);
   return true;
 }
 
@@ -149,8 +129,6 @@ static bool parseJsonValue(const json &j, YiniValue &value)
       return parseJsonList(j_val, value);
     if (type == "Set")
       return parseJsonSet(j_val, value);
-    if (type == "Tuple")
-      return parseJsonTuple(j_val, value);
     if (type == "Map")
       return parseJsonMap(j_val, value);
     if (type == "Dyna")
@@ -213,17 +191,10 @@ bool JsonDeserializer::deserialize(const std::string &json_content,
     {
       for (auto it = j.at("defines").begin(); it != j.at("defines").end(); ++it)
       {
-        const json& define_json = it.value();
-        if (define_json.is_object() && define_json.contains("value") && define_json.contains("location"))
+        YiniValue val;
+        if (parseJsonValue(it.value(), val))
         {
-            YiniValue val;
-            if (parseJsonValue(define_json.at("value"), val))
-            {
-                const json& loc_json = define_json.at("location");
-                int line = loc_json.value("line", 0);
-                int column = loc_json.value("column", 0);
-                doc.addDefine(it.key(), val, line, column);
-            }
+          doc.addDefine(it.key(), val);
         }
       }
     }

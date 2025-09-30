@@ -52,7 +52,6 @@ enabled = true
 data = [1, 2, "simple_string_in_array"]
 my_list = List(10, "foo")
 my_set = Set(1, "bar", 1)
-my_tuple = {a: "b"}
 color = #FF00FF
 
 += "registered_value"
@@ -74,10 +73,10 @@ color = #FF00FF
 
   // 4. Compare the documents
   // Check defines
-  YINI::YiniDefine original_define, new_define;
-  ASSERT_TRUE(original_doc.getDefine("version", original_define));
-  ASSERT_TRUE(new_doc.getDefine("version", new_define));
-  EXPECT_TRUE(areYiniValuesEqual(original_define.value, new_define.value));
+  YINI::YiniValue original_version, new_version;
+  ASSERT_TRUE(original_doc.getDefine("version", original_version));
+  ASSERT_TRUE(new_doc.getDefine("version", new_version));
+  EXPECT_TRUE(areYiniValuesEqual(original_version, new_version));
 
   // Check sections
   auto *original_core = original_doc.findSection("Core");
@@ -114,15 +113,8 @@ color = #FF00FF
   const auto& set_ptr = std::get<std::unique_ptr<YINI::YiniSet>>(it_set->value.data);
   ASSERT_NE(set_ptr, nullptr);
   ASSERT_EQ(set_ptr->elements.size(), 2); // Uniqueness enforced
-
-  // Verify elements with iterators since std::set does not have operator[]
-  // The order is determined by YiniValue::operator<, so string comes before int.
-  auto set_it = set_ptr->elements.begin();
-  EXPECT_TRUE(std::holds_alternative<std::string>(set_it->data));
-  EXPECT_EQ(std::get<std::string>(set_it->data), "bar");
-  ++set_it;
-  EXPECT_TRUE(std::holds_alternative<int>(set_it->data));
-  EXPECT_EQ(std::get<int>(set_it->data), 1);
+  EXPECT_EQ(std::get<int>(set_ptr->elements[0].data), 1);
+  EXPECT_EQ(std::get<std::string>(set_ptr->elements[1].data), "bar");
 
   // Check registration list
   ASSERT_EQ(new_core->registrationList.size(), 1);
@@ -130,17 +122,6 @@ color = #FF00FF
       std::holds_alternative<std::string>(new_core->registrationList[0].data));
   EXPECT_EQ(std::get<std::string>(new_core->registrationList[0].data),
             "registered_value");
-
-  // Check tuple value
-  auto it_tuple =
-      std::find_if(new_core->pairs.begin(), new_core->pairs.end(),
-                   [](const auto &p) { return p.key == "my_tuple"; });
-  ASSERT_NE(it_tuple, new_core->pairs.end());
-  ASSERT_TRUE(std::holds_alternative<std::unique_ptr<YINI::YiniTuple>>(it_tuple->value.data));
-  const auto& tuple_ptr = std::get<std::unique_ptr<YINI::YiniTuple>>(it_tuple->value.data);
-  ASSERT_NE(tuple_ptr, nullptr);
-  EXPECT_EQ(tuple_ptr->key, "a");
-  EXPECT_EQ(std::get<std::string>(tuple_ptr->value.data), "b");
 }
 
 TEST(InheritanceTest, MergingAndOverriding)

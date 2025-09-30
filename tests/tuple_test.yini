@@ -1,9 +1,0 @@
-[Data]
-// This should be parsed as an optimized YiniTuple
-single_pair = { key: "value" }
-
-// This should be parsed as a regular YiniMap
-multi_pair = { key1: 1, key2: 2 }
-
-// An empty map
-empty_map = {}

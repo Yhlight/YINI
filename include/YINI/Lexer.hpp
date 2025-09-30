@@ -60,10 +60,10 @@ namespace YINI
         Token number();
         Token identifier();
 
-        std::string inputText;
-        size_t current_position;
-        int current_line;
-        int current_column;
+        std::string m_input;
+        size_t m_position;
+        int m_line;
+        int m_column;
     };
 }
 

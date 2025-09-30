@@ -53,116 +53,13 @@ TEST(YiniManagerTest, LoadFromFileCreatesYmeta)
   std::remove(ymetaPath.c_str());
 }
 
-TEST(YiniManagerTest, WriteBackUpdatesDynaValueInYiniFile)
-{
-    const std::string test_data_dir = YINI_TEST_DATA_DIR;
-    const std::string yini_source_path = test_data_dir + "/writeback_test.yini";
-
-    const std::string yini_test_path = "writeback_test.yini";
-    const std::string ymeta_test_path = "writeback_test.ymeta";
-
-    // Setup: clean up old files and copy the test file into the build dir
-    std::remove(yini_test_path.c_str());
-    std::remove(ymeta_test_path.c_str());
-    std::ofstream(yini_test_path) << readFileContent(yini_source_path);
-
-    // 1. Load the manager and modify a dynamic value
-    YINI::YiniManager manager(yini_test_path);
-    ASSERT_TRUE(manager.isLoaded());
-    manager.setIntValue("General", "dynamic_int", 999);
-
-    // 2. Call the writeBack method
-    bool success = manager.writeBack();
-    ASSERT_TRUE(success);
-
-    // 3. Read the on-disk .yini file and verify its contents
-    std::string final_content = readFileContent(yini_test_path);
-
-    // Check that the dynamic value was updated
-    EXPECT_NE(final_content.find("dynamic_int = Dyna(999)"), std::string::npos);
-
-    // Check that static values and comments were preserved
-    EXPECT_NE(final_content.find("// This is a test file for the writeBack feature."), std::string::npos);
-    EXPECT_NE(final_content.find("static_string = \"don't change me\""), std::string::npos);
-    EXPECT_NE(final_content.find("another_static = true"), std::string::npos);
-
-    // Cleanup
-    std::remove(yini_test_path.c_str());
-    std::remove(ymeta_test_path.c_str());
-}
-
-TEST(YiniManagerTest, HandlesDynaValuesCorrectly)
-{
-    const std::string test_data_dir = YINI_TEST_DATA_DIR;
-    const std::string yini_source_path = test_data_dir + "/dyna_test.yini";
-
-    // The manager will create the .ymeta file in the CWD, so we need to copy the source .yini file there.
-    const std::string yini_test_path = "dyna_test.yini";
-    const std::string ymeta_test_path = "dyna_test.ymeta";
-
-    // Setup: clean up old files and copy the test file into the build dir
-    std::remove(yini_test_path.c_str());
-    std::remove(ymeta_test_path.c_str());
-    std::ofstream(yini_test_path) << readFileContent(yini_source_path);
-
-    // 1. Initial load and check
-    YINI::YiniManager manager(yini_test_path);
-    ASSERT_TRUE(manager.isLoaded());
-    const auto& doc = manager.getDocument();
-
-    const auto* section = doc.findSection("Settings");
-    ASSERT_NE(section, nullptr);
-
-    // Check static value
-    auto it_static = std::find_if(section->pairs.begin(), section->pairs.end(), [](const auto& p){ return p.key == "static_value"; });
-    ASSERT_NE(it_static, section->pairs.end());
-    EXPECT_EQ(std::get<int>(it_static->value.data), 100);
-    EXPECT_FALSE(it_static->is_dynamic);
-
-    // Check dynamic value
-    auto it_dynamic = std::find_if(section->pairs.begin(), section->pairs.end(), [](const auto& p){ return p.key == "dynamic_value"; });
-    ASSERT_NE(it_dynamic, section->pairs.end());
-    EXPECT_EQ(std::get<int>(it_dynamic->value.data), 200);
-    EXPECT_TRUE(it_dynamic->is_dynamic);
-
-    // 2. Attempt to modify both values
-    manager.setIntValue("Settings", "static_value", 999); // Should be ignored
-    manager.setIntValue("Settings", "dynamic_value", 999); // Should succeed
-
-    // 3. Verify in-memory state
-    const auto* updated_section = manager.getDocument().findSection("Settings");
-    ASSERT_NE(updated_section, nullptr);
-
-    auto it_static_after = std::find_if(updated_section->pairs.begin(), updated_section->pairs.end(), [](const auto& p){ return p.key == "static_value"; });
-    ASSERT_NE(it_static_after, updated_section->pairs.end());
-    EXPECT_EQ(std::get<int>(it_static_after->value.data), 100); // Unchanged
-
-    auto it_dynamic_after = std::find_if(updated_section->pairs.begin(), updated_section->pairs.end(), [](const auto& p){ return p.key == "dynamic_value"; });
-    ASSERT_NE(it_dynamic_after, updated_section->pairs.end());
-    EXPECT_EQ(std::get<int>(it_dynamic_after->value.data), 999); // Changed
-
-    // 4. Verify persistence by reloading
-    YINI::YiniManager reloaded_manager(yini_test_path);
-    ASSERT_TRUE(reloaded_manager.isLoaded());
-    const auto* reloaded_section = reloaded_manager.getDocument().findSection("Settings");
-    ASSERT_NE(reloaded_section, nullptr);
-
-    auto it_dynamic_reloaded = std::find_if(reloaded_section->pairs.begin(), reloaded_section->pairs.end(), [](const auto& p){ return p.key == "dynamic_value"; });
-    ASSERT_NE(it_dynamic_reloaded, reloaded_section->pairs.end());
-    EXPECT_EQ(std::get<int>(it_dynamic_reloaded->value.data), 999); // Persisted change
-
-    // Cleanup
-    std::remove(yini_test_path.c_str());
-    std::remove(ymeta_test_path.c_str());
-}
-
 TEST(YiniManagerTest, SetValueCreatesBackups)
 {
   const std::string yiniPath = "backup_test.yini";
   const std::string ymetaPath = "backup_test.ymeta";
 
-  // Create a dummy file with a dynamic value
-  std::ofstream(yiniPath) << "[Data]\nvalue = Dyna(0)";
+  // Create a dummy file
+  std::ofstream(yiniPath) << "[Data]\nvalue = 0";
 
   // Clean up any previous files
   std::remove(ymetaPath.c_str());
@@ -210,8 +107,8 @@ TEST(YiniManagerTest, SetValueSavesToYmeta)
   const std::string yiniPath = "autosave_test.yini";
   const std::string ymetaPath = "autosave_test.ymeta";
 
-  // Create a dummy file with a dynamic value
-  std::ofstream(yiniPath) << "[Settings]\nvolume = Dyna(100)";
+  // Create a dummy file
+  std::ofstream(yiniPath) << "[Settings]\nvolume = 100";
   std::remove(ymetaPath.c_str()); // Ensure no old cache exists
 
   // Load the file, which creates the initial .ymeta

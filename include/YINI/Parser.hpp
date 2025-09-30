@@ -3,10 +3,8 @@
 
 #include "Lexer.hpp"
 #include "YiniData.hpp"
-#include "YiniException.hpp"
 #include <memory>
 #include <string>
-#include <vector>
 
 namespace YINI
 {
@@ -16,12 +14,8 @@ public:
   Parser(const std::string &content, YiniDocument &document,
          const std::string &basePath = ".");
   void parse();
-  bool hadError() const;
-  const std::vector<YiniSyntaxError>& getErrors() const;
 
 private:
-  void reportError(const std::string& message);
-  void synchronize();
   void parseSection();
   void parseKeyValuePair(YiniSection &section);
   void parseQuickRegistration(YiniSection &section);
@@ -30,7 +24,7 @@ private:
   std::unique_ptr<YiniArray> parseArrayFromFunction();
   std::unique_ptr<YiniList> parseList();
   std::unique_ptr<YiniSet> parseSet();
-  YiniVariant parseMap();
+  std::unique_ptr<YiniMap> parseMap();
   YiniValue parseExpression();
   YiniValue parseTerm();
   YiniValue parseFactor();
@@ -38,14 +32,10 @@ private:
   std::unique_ptr<YiniColor> parseColor();
   std::unique_ptr<YiniPath> parsePath();
 
-  Lexer lexer;
-  Token currentToken;
-  YiniDocument &document;
-  std::string basePath;
-  std::vector<YiniSyntaxError> m_errors;
-
-  struct ParseError {};
-
+  Lexer m_lexer;
+  Token m_currentToken;
+  YiniDocument &m_document;
+  std::string m_basePath;
   void nextToken();
 };
 } // namespace YINI

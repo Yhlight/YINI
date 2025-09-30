@@ -1,7 +1,0 @@
-[Settings]
-static_value = 100
-dynamic_value = Dyna(200)
-
-[Other]
-another_static = "hello"
-another_dynamic = Dyna("world")

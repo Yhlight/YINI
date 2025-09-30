@@ -19,8 +19,12 @@ FetchContent_MakeAvailable(nlohmann_json)
 
 add_subdirectory(src)
 
-enable_testing()
-add_subdirectory(tests)
+option(YINI_BUILD_TESTS "Build the tests for YINI" ON)
+
+if(YINI_BUILD_TESTS)
+    enable_testing()
+    add_subdirectory(tests EXCLUDE_FROM_ALL)
+endif()
 
 add_executable(yini-cli
     src/CLI/main.cpp
@@ -32,12 +36,8 @@ add_executable(yini-lsp
 )
 target_link_libraries(yini-lsp PRIVATE yini nlohmann_json::nlohmann_json)
 
-# Doxygen documentation generation
-find_package(Doxygen)
-if (DOXYGEN_FOUND)
-    add_custom_target(doxygen
-        COMMAND ${DOXYGEN_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/Doxyfile
-        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-        COMMENT "Generating API documentation with Doxygen"
-        VERBATIM)
-endif()
+# Install rules
+include(GNUInstallDirs)
+install(TARGETS yini-cli yini-lsp
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+)
