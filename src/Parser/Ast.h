@@ -16,6 +16,7 @@ namespace YINI
     struct Array;
     struct Set;
     struct Map;
+    struct Call;
 
     // Visitor for expressions
     class ExprVisitor
@@ -28,6 +29,7 @@ namespace YINI
         virtual std::any visit(const Array& expr) = 0;
         virtual std::any visit(const Set& expr) = 0;
         virtual std::any visit(const Map& expr) = 0;
+        virtual std::any visit(const Call& expr) = 0;
         virtual ~ExprVisitor() = default;
     };
 
@@ -100,6 +102,17 @@ namespace YINI
             : pairs(std::move(pairs)) {}
         std::any accept(ExprVisitor& visitor) const override { return visitor.visit(*this); }
         std::vector<std::pair<std::unique_ptr<Expr>, std::unique_ptr<Expr>>> pairs;
+    };
+
+    // Call expression node
+    struct Call : public Expr
+    {
+        Call(std::unique_ptr<Expr> callee, Token paren, std::vector<std::unique_ptr<Expr>> arguments)
+            : callee(std::move(callee)), paren(std::move(paren)), arguments(std::move(arguments)) {}
+        std::any accept(ExprVisitor& visitor) const override { return visitor.visit(*this); }
+        std::unique_ptr<Expr> callee;
+        Token paren; // The closing ')'
+        std::vector<std::unique_ptr<Expr>> arguments;
     };
 
     // Forward declarations for statement visitors

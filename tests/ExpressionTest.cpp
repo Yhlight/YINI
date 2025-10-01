@@ -80,3 +80,20 @@ TEST(ExpressionTest, ParsesMapAndSetLiterals)
     auto expr6 = parseExpression("{\"key1\": 1, \"key2\": [1, 2]}");
     EXPECT_EQ(printer.print(*expr6), "(map (key1 1) (key2 (array 1 2)))");
 }
+
+TEST(ExpressionTest, ParsesCallExpressions)
+{
+    YINI::AstPrinter printer;
+
+    // No arguments
+    auto expr1 = parseExpression("Dyna()");
+    EXPECT_EQ(printer.print(*expr1), "(call Dyna)");
+
+    // Single argument
+    auto expr2 = parseExpression("Path(\"a/b\")");
+    EXPECT_EQ(printer.print(*expr2), "(call Path a/b)");
+
+    // Multiple arguments
+    auto expr3 = parseExpression("Color(255, 192, 203)");
+    EXPECT_EQ(printer.print(*expr3), "(call Color 255 192 203)");
+}

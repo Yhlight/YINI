@@ -80,12 +80,33 @@ namespace YINI
             std::unique_ptr<Expr> right = unary();
             return std::make_unique<Unary>(op, std::move(right));
         }
-        return primary();
+        return call();
+    }
+
+    std::unique_ptr<Expr> Parser::call()
+    {
+        std::unique_ptr<Expr> expr = primary();
+
+        while (match({TokenType::LEFT_PAREN}))
+        {
+            std::vector<std::unique_ptr<Expr>> arguments;
+            if (!check(TokenType::RIGHT_PAREN))
+            {
+                do
+                {
+                    arguments.push_back(expression());
+                } while (match({TokenType::COMMA}));
+            }
+            Token paren = consume(TokenType::RIGHT_PAREN, "Expect ')' after arguments.");
+            expr = std::make_unique<Call>(std::move(expr), paren, std::move(arguments));
+        }
+
+        return expr;
     }
 
     std::unique_ptr<Expr> Parser::primary()
     {
-        if (match({TokenType::TRUE, TokenType::FALSE, TokenType::NUMBER, TokenType::STRING}))
+        if (match({TokenType::TRUE, TokenType::FALSE, TokenType::NUMBER, TokenType::STRING, TokenType::IDENTIFIER}))
         {
             return std::make_unique<Literal>(previous().literal);
         }

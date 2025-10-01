@@ -80,6 +80,17 @@ namespace YINI
         return builder.str();
     }
 
+    std::any AstPrinter::visit(const Call& expr)
+    {
+        std::vector<std::reference_wrapper<const Expr>> exprs;
+        exprs.push_back(std::cref(*expr.callee));
+        for (const auto& argument : expr.arguments)
+        {
+            exprs.push_back(std::cref(*argument));
+        }
+        return parenthesize("call", exprs);
+    }
+
     std::string AstPrinter::parenthesize(const std::string& name, const std::vector<std::reference_wrapper<const Expr>>& exprs)
     {
         std::stringstream builder;
