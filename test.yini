@@ -1,0 +1,13 @@
+[#define]
+version = "1.0"
+
+[Settings]
+fullscreen = true
+width = 1920
+height = 1080
+
+[Player] : Settings
+name = "Jules"
+score = 0
+inventory += "sword"
+inventory += "shield"

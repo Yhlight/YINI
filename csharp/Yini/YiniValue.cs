@@ -62,6 +62,15 @@ namespace YINI
         [DllImport(LibName, EntryPoint = "yini_set_get_value_by_index")]
         private static extern IntPtr GetSetValueByIndexInternal(IntPtr handle, int index);
 
+        [DllImport(LibName, EntryPoint = "yini_map_get_size")]
+        private static extern int GetMapSizeInternal(IntPtr handle);
+
+        [DllImport(LibName, EntryPoint = "yini_map_get_key_by_index")]
+        private static extern int GetMapKeyByIndexInternal(IntPtr handle, int index, StringBuilder? buffer, int bufferSize);
+
+        [DllImport(LibName, EntryPoint = "yini_map_get_value_by_key")]
+        private static extern IntPtr GetMapValueByKeyInternal(IntPtr handle, [MarshalAs(UnmanagedType.LPStr)] string key);
+
         [DllImport(LibName, EntryPoint = "yini_value_get_coord")]
         [return: MarshalAs(UnmanagedType.I1)]
         private static extern bool GetCoordInternal(IntPtr handle, out double x, out double y, out double z, [MarshalAs(UnmanagedType.I1)] out bool is_3d);
@@ -167,6 +176,28 @@ namespace YINI
                 }
             }
             return set;
+        }
+
+        public Dictionary<string, YiniValue> AsMap()
+        {
+            if (Type != YiniType.Map) throw new InvalidCastException($"Cannot get value as map, type is {Type}.");
+            int size = GetMapSizeInternal(_handle);
+            var map = new Dictionary<string, YiniValue>(size);
+            for (int i = 0; i < size; i++)
+            {
+                int keySize = GetMapKeyByIndexInternal(_handle, i, null, 0);
+                if (keySize <= 0) continue;
+                var keySb = new StringBuilder(keySize);
+                GetMapKeyByIndexInternal(_handle, i, keySb, keySb.Capacity);
+                string key = keySb.ToString();
+
+                IntPtr valueHandle = GetMapValueByKeyInternal(_handle, key);
+                if (valueHandle != IntPtr.Zero)
+                {
+                    map[key] = new YiniValue(valueHandle);
+                }
+            }
+            return map;
         }
 
         public YiniCoord AsCoord()

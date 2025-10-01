@@ -134,6 +134,30 @@ rate = 12.5 * @factor
         }
 
         [Test]
+        public void GetValue_ShouldReturnCorrectMap()
+        {
+            const string mapContent = @"
+[Data]
+my_map = { key1: ""value1"", key2: 123, key3: true }
+";
+            using(var doc = new YiniDocument(mapContent))
+            {
+                var dataValue = doc.GetValue("Data", "my_map");
+                Assert.That(dataValue, Is.Not.Null);
+                Assert.That(dataValue!.Type, Is.EqualTo(YiniType.Map));
+
+                var map = dataValue.AsMap();
+                Assert.That(map.Count, Is.EqualTo(3));
+                Assert.That(map.ContainsKey("key1"), Is.True);
+                Assert.That(map["key1"].AsString(), Is.EqualTo("value1"));
+                Assert.That(map.ContainsKey("key2"), Is.True);
+                Assert.That(map["key2"].AsInt(), Is.EqualTo(123));
+                Assert.That(map.ContainsKey("key3"), Is.True);
+                Assert.That(map["key3"].AsBool(), Is.True);
+            }
+        }
+
+        [Test]
         public void GetValue_ShouldReturnCorrectCustomTypes()
         {
             using(var doc = new YiniDocument(TestContent))
