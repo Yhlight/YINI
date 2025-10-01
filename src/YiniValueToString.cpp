@@ -28,7 +28,14 @@ std::string valueToString(const YiniValue& value) {
         if (ptr) ss << collectionToString(ptr->elements, "List(", ")");
     } else if (std::holds_alternative<std::unique_ptr<YiniSet>>(value.data)) {
         const auto& ptr = std::get<std::unique_ptr<YiniSet>>(value.data);
-        if (ptr) ss << collectionToString(ptr->elements, "Set(", ")");
+        if (ptr) {
+            if (ptr->elements.empty()) {
+                ss << "()";
+            } else {
+                ss << collectionToString(ptr->elements, "(",
+                                         ptr->elements.size() == 1 ? ",)" : ")");
+            }
+        }
     } else if (std::holds_alternative<std::unique_ptr<YiniMap>>(value.data)) {
         const auto& ptr = std::get<std::unique_ptr<YiniMap>>(value.data);
         if (ptr) ss << mapToString(ptr->elements);

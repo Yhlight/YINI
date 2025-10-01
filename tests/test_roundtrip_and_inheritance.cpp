@@ -51,7 +51,7 @@ version = @version
 enabled = true
 data = [1, 2, "simple_string_in_array"]
 my_list = List(10, "foo")
-my_set = Set(1, "bar", 1)
+my_set = (1, "bar", 1)
 color = #FF00FF
 
 += "registered_value"

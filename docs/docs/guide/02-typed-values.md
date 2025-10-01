@@ -63,11 +63,19 @@ player_scores = List(100, 95, 80)
 
 ### Sets
 
-Sets are unordered collections of unique values, created with the `Set()` syntax. Duplicate values are automatically removed.
+Sets are unordered collections of unique values, enclosed in parentheses `()`. Duplicate values are automatically removed.
+
+To distinguish a single-element set from a grouped arithmetic expression, a trailing comma is required.
 
 ```yini
 # The value "fast" will only be included once.
-player_tags = Set("fast", "player", "fast")
+player_tags = ("fast", "player", "fast")
+
+# A single-element set requires a trailing comma.
+single_item_set = ("lonely",)
+
+# An empty set is also valid.
+empty_set = ()
 ```
 
 ### Maps

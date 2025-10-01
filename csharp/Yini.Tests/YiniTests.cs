@@ -21,9 +21,9 @@ factor = @factor
 data = [1, ""two"", true, 4.5]
 pos = Coord(10, 20)
 color = #00FF00
-asset = Path(items/sword.mesh)
+asset = Path(""items/sword.mesh"")
 scores = List(100, 95, 80)
-tags = Set(""fast"", ""player"", ""fast"")
+tags = (""fast"", ""player"", ""fast"")
 metadata = { author: ""Jules"", year: 2024 }
 
 [Values]

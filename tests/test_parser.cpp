@@ -88,7 +88,7 @@ my_array = Array(1, "two", true)
 TEST(ParserTest, ParseSetValue)
 {
   const std::string input = R"([Data]
-my_set = Set(1, "two", 1, true, "two")
+my_set = (1, "two", 1, true, "two", )
 )";
   YINI::YiniDocument doc;
   YINI::Parser parser(input, doc);
@@ -110,6 +110,43 @@ my_set = Set(1, "two", 1, true, "two")
   EXPECT_EQ(std::get<int>(set_elements[0].data), 1);
   EXPECT_EQ(std::get<std::string>(set_elements[1].data), "two");
   EXPECT_EQ(std::get<bool>(set_elements[2].data), true);
+}
+
+TEST(ParserTest, ParseSetEdgeCases)
+{
+    // Test empty set
+    const std::string input_empty = "[Data]\nmy_set = ()";
+    YINI::YiniDocument doc_empty;
+    YINI::Parser parser_empty(input_empty, doc_empty);
+    parser_empty.parse();
+    const auto* section_empty = doc_empty.findSection("Data");
+    ASSERT_NE(section_empty, nullptr);
+    auto& set_ptr_empty = std::get<std::unique_ptr<YINI::YiniSet>>(section_empty->pairs[0].value.data);
+    ASSERT_NE(set_ptr_empty, nullptr);
+    EXPECT_EQ(set_ptr_empty->elements.size(), 0);
+
+    // Test single element set (should be parsed as a set, not just the value)
+    const std::string input_single = "[Data]\nmy_set = (1,)";
+    YINI::YiniDocument doc_single;
+    YINI::Parser parser_single(input_single, doc_single);
+    parser_single.parse();
+    const auto* section_single = doc_single.findSection("Data");
+    ASSERT_NE(section_single, nullptr);
+    auto& set_ptr_single = std::get<std::unique_ptr<YINI::YiniSet>>(section_single->pairs[0].value.data);
+    ASSERT_NE(set_ptr_single, nullptr);
+    ASSERT_EQ(set_ptr_single->elements.size(), 1);
+    EXPECT_EQ(std::get<int>(set_ptr_single->elements[0].data), 1);
+
+    // Test that a single value in parentheses is NOT a set
+    const std::string input_expr = "[Data]\nmy_val = (1)";
+    YINI::YiniDocument doc_expr;
+    YINI::Parser parser_expr(input_expr, doc_expr);
+    parser_expr.parse();
+    const auto* section_expr = doc_expr.findSection("Data");
+    ASSERT_NE(section_expr, nullptr);
+    const auto& val = section_expr->pairs[0].value;
+    ASSERT_TRUE(std::holds_alternative<int>(val.data));
+    EXPECT_EQ(std::get<int>(val.data), 1);
 }
 
 TEST(ParserTest, ParseMapValue)

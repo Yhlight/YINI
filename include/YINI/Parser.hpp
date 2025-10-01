@@ -47,7 +47,6 @@ private:
   std::unique_ptr<YiniArray> parseArray();
   std::unique_ptr<YiniArray> parseArrayFromFunction();
   std::unique_ptr<YiniList> parseList();
-  std::unique_ptr<YiniSet> parseSet();
   std::unique_ptr<YiniMap> parseMap();
   YiniValue parseExpression();
   YiniValue parseTerm();
@@ -57,11 +56,18 @@ private:
   std::unique_ptr<YiniPath> parsePath();
 
   void nextToken();
+  Token peekToken();
+  bool isSet();
+
+  std::unique_ptr<YiniDynaValue> parseDyna();
+  YiniValue parseParenthesized();
 
   Lexer m_lexer;            ///< The lexical analyzer providing the token stream.
-  Token m_current_token;     ///< The current token being processed.
+  Token m_current_token;    ///< The current token being processed.
+  Token m_lookahead_token;  ///< A buffered token for lookahead.
+  bool m_has_lookahead;     ///< Flag indicating if a lookahead token is buffered.
   YiniDocument &m_document; ///< The document object model to build.
-  std::string m_base_path;   ///< The base path for resolving includes.
+  std::string m_base_path;  ///< The base path for resolving includes.
 };
 } // namespace YINI
 
