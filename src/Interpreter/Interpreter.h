@@ -4,6 +4,8 @@
 #include "Environment.h"
 #include <vector>
 #include <any>
+#include <map>
+#include <string>
 
 namespace YINI
 {
@@ -11,6 +13,8 @@ namespace YINI
     {
     public:
         void interpret(const std::vector<std::unique_ptr<Stmt>>& statements);
+
+        std::map<std::string, std::any> results;
 
         // Statement visitor methods
         void visit(const KeyValue& stmt) override;
