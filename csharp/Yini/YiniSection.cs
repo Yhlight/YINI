@@ -41,7 +41,8 @@ namespace YINI
             {
                 return null;
             }
-            return new YiniValue(valueHandle);
+            // The returned YiniValue handle is not owned by this C# wrapper
+            return new YiniValue(valueHandle, isManaged: false);
         }
     }
 }

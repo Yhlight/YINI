@@ -1,6 +1,8 @@
 using NUnit.Framework;
 using YINI;
 using System;
+using System.IO;
+using System.Collections.Generic;
 
 namespace Yini.Tests
 {
@@ -22,6 +24,7 @@ color = #00FF00
 asset = Path(items/sword.mesh)
 scores = List(100, 95, 80)
 tags = Set(""fast"", ""player"", ""fast"")
+metadata = { author: ""Jules"", year: 2024 }
 
 [Values]
 rate = 12.5 * @factor
@@ -33,6 +36,20 @@ rate = 12.5 * @factor
             using (var doc = new YiniDocument(TestContent))
             {
                 Assert.That(doc.SectionCount, Is.EqualTo(2));
+            }
+        }
+
+        [Test]
+        public void GetDefines_ShouldReturnCorrectMacros()
+        {
+            using (var doc = new YiniDocument(TestContent))
+            {
+                var defines = doc.GetDefines();
+                Assert.That(defines.Count, Is.EqualTo(2));
+                Assert.That(defines.ContainsKey("version"), Is.True);
+                Assert.That(defines["version"].AsDouble(), Is.EqualTo(1.2));
+                Assert.That(defines.ContainsKey("factor"), Is.True);
+                Assert.That(defines["factor"].AsInt(), Is.EqualTo(2));
             }
         }
 
@@ -134,6 +151,24 @@ rate = 12.5 * @factor
         }
 
         [Test]
+        public void GetValue_ShouldReturnCorrectMap()
+        {
+            using(var doc = new YiniDocument(TestContent))
+            {
+                var dataValue = doc.GetValue("Core", "metadata");
+                Assert.That(dataValue, Is.Not.Null);
+                Assert.That(dataValue!.Type, Is.EqualTo(YiniType.Map));
+
+                var map = dataValue.AsMap();
+                Assert.That(map.Count, Is.EqualTo(2));
+                Assert.That(map.ContainsKey("author"), Is.True);
+                Assert.That(map["author"].AsString(), Is.EqualTo("Jules"));
+                Assert.That(map.ContainsKey("year"), Is.True);
+                Assert.That(map["year"].AsInt(), Is.EqualTo(2024));
+            }
+        }
+
+        [Test]
         public void GetValue_ShouldReturnCorrectCustomTypes()
         {
             using(var doc = new YiniDocument(TestContent))
@@ -200,6 +235,45 @@ rate = 12.5 * @factor
                 Assert.That(newSectionValue.Type, Is.EqualTo(YiniType.Bool));
                 Assert.That(newSectionValue.AsBool(), Is.True);
                 Assert.That(doc.SectionCount, Is.EqualTo(3));
+            }
+        }
+
+        [Test]
+        public void YiniManager_LoadsAndModifiesDynaValue_PreservesFormatting()
+        {
+            const string yiniPath = "manager_csharp_test.yini";
+            const string initialContent = "[Settings]\n# Test comment\n  volume = Dyna(100)\n";
+            const string expectedContent = "[Settings]\n# Test comment\n  volume = Dyna(75)";
+
+            try
+            {
+                File.WriteAllText(yiniPath, initialContent);
+
+                // Scope the manager so its destructor is called
+                using (var manager = new YiniManager(yiniPath))
+                {
+                    Assert.That(manager.IsLoaded, Is.True);
+                    manager.SetValue("Settings", "volume", 75);
+                }
+
+                string finalContent = File.ReadAllText(yiniPath);
+                Assert.That(finalContent, Is.EqualTo(expectedContent));
+            }
+            finally
+            {
+                if (File.Exists(yiniPath))
+                {
+                    File.Delete(yiniPath);
+                }
+                // Clean up ymeta file as well
+                if (File.Exists("manager_csharp_test.ymeta"))
+                {
+                    File.Delete("manager_csharp_test.ymeta");
+                }
+                 if (File.Exists("manager_csharp_test.ymeta.bak1"))
+                {
+                    File.Delete("manager_csharp_test.ymeta.bak1");
+                }
             }
         }
     }

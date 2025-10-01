@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Text;
 
@@ -9,6 +10,7 @@ namespace YINI
         private const string LibName = "yini";
         private IntPtr _handle;
         private bool _disposed = false;
+        private readonly bool _isManaged;
 
         [DllImport(LibName, EntryPoint = "yini_parse")]
         private static extern IntPtr Parse(string content, StringBuilder errorBuffer, int errorBufferSize);
@@ -24,6 +26,12 @@ namespace YINI
 
         [DllImport(LibName, EntryPoint = "yini_get_section_by_name")]
         private static extern IntPtr GetSectionByNameInternal(IntPtr handle, string name);
+
+        [DllImport(LibName, EntryPoint = "yini_get_define_count")]
+        private static extern int GetDefineCountInternal(IntPtr handle);
+
+        [DllImport(LibName, EntryPoint = "yini_get_define_by_index")]
+        private static extern IntPtr GetDefineByIndexInternal(IntPtr handle, int index, StringBuilder keyBuffer, int keyBufferSize);
 
         [DllImport(LibName, EntryPoint = "yini_set_string_value")]
         private static extern void SetStringValueInternal(IntPtr handle, string section, string key, string value);
@@ -45,6 +53,13 @@ namespace YINI
             {
                 throw new InvalidOperationException($"Failed to parse YINI content: {errorBuffer.ToString()}");
             }
+            _isManaged = true; // This instance owns the handle
+        }
+
+        internal YiniDocument(IntPtr handle, bool isManaged)
+        {
+            _handle = handle;
+            _isManaged = isManaged;
         }
 
         public int SectionCount => GetSectionCountInternal(_handle);
@@ -71,6 +86,29 @@ namespace YINI
             return section?.GetValue(key);
         }
 
+        public IReadOnlyDictionary<string, YiniValue> GetDefines()
+        {
+            var defines = new Dictionary<string, YiniValue>();
+            int count = GetDefineCountInternal(_handle);
+            if (count == 0)
+            {
+                return defines;
+            }
+
+            var keyBuffer = new StringBuilder(256);
+            for (int i = 0; i < count; i++)
+            {
+                keyBuffer.Clear();
+                IntPtr valueHandle = GetDefineByIndexInternal(_handle, i, keyBuffer, keyBuffer.Capacity);
+                if (valueHandle != IntPtr.Zero)
+                {
+                    // The returned YiniValue handle is not owned by this C# wrapper
+                    defines[keyBuffer.ToString()] = new YiniValue(valueHandle, isManaged: false);
+                }
+            }
+            return defines;
+        }
+
         public void SetValue(string sectionName, string key, string value) => SetStringValueInternal(_handle, sectionName, key, value);
         public void SetValue(string sectionName, string key, int value) => SetIntValueInternal(_handle, sectionName, key, value);
         public void SetValue(string sectionName, string key, double value) => SetDoubleValueInternal(_handle, sectionName, key, value);
@@ -86,7 +124,7 @@ namespace YINI
         {
             if (!_disposed)
             {
-                if (_handle != IntPtr.Zero)
+                if (_isManaged && _handle != IntPtr.Zero)
                 {
                     FreeDocument(_handle);
                     _handle = IntPtr.Zero;

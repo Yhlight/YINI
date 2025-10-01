@@ -27,6 +27,11 @@ extern "C" {
 #endif
 
 /**
+ * @brief An opaque handle representing a YiniManager instance.
+ */
+typedef struct YiniManagerHandle YiniManagerHandle;
+
+/**
  * @brief An opaque handle representing a loaded YINI document.
  */
 typedef struct YiniDocumentHandle YiniDocumentHandle;
@@ -59,6 +64,74 @@ typedef enum {
     YINI_TYPE_COLOR,     /**< A color value. */
     YINI_TYPE_PATH       /**< A file path value. */
 } YiniType;
+
+//==============================================================================
+// Manager API
+//==============================================================================
+
+/**
+ * @brief Creates a YiniManager instance for a given .yini file.
+ * @param yini_file_path The path to the .yini file.
+ * @return A handle to the YiniManager, or NULL if loading fails. The caller is responsible for freeing this handle with yini_manager_free().
+ */
+YINI_API YiniManagerHandle* yini_manager_create(const char* yini_file_path);
+
+/**
+ * @brief Frees all memory associated with a YiniManager handle.
+ * @details This will also trigger the write-back of any changed Dyna() values.
+ * @param handle The manager handle to free.
+ */
+YINI_API void yini_manager_free(YiniManagerHandle* handle);
+
+/**
+ * @brief Checks if the document within the manager was successfully loaded.
+ * @param handle The manager handle.
+ * @return True if a document is loaded, false otherwise.
+ */
+YINI_API bool yini_manager_is_loaded(const YiniManagerHandle* handle);
+
+/**
+ * @brief Gets the underlying document from the manager.
+ * @param handle The manager handle.
+ * @return A handle to the document. The document's lifetime is managed by the manager.
+ */
+YINI_API const YiniDocumentHandle* yini_manager_get_document(YiniManagerHandle* handle);
+
+/**
+ * @brief Sets a string value using the manager, which handles Dyna() updates and caching.
+ * @param handle The manager handle.
+ * @param section The name of the section.
+ * @param key The name of the key.
+ * @param value The string value to set.
+ */
+YINI_API void yini_manager_set_string_value(YiniManagerHandle* handle, const char* section, const char* key, const char* value);
+
+/**
+ * @brief Sets an integer value using the manager.
+ * @param handle The manager handle.
+ * @param section The name of the section.
+ * @param key The name of the key.
+ * @param value The integer value to set.
+ */
+YINI_API void yini_manager_set_int_value(YiniManagerHandle* handle, const char* section, const char* key, int value);
+
+/**
+ * @brief Sets a double value using the manager.
+ * @param handle The manager handle.
+ * @param section The name of the section.
+ * @param key The name of the key.
+ * @param value The double value to set.
+ */
+YINI_API void yini_manager_set_double_value(YiniManagerHandle* handle, const char* section, const char* key, double value);
+
+/**
+ * @brief Sets a boolean value using the manager.
+ * @param handle The manager handle.
+ * @param section The name of the section.
+ * @param key The name of the key.
+ * @param value The boolean value to set.
+ */
+YINI_API void yini_manager_set_bool_value(YiniManagerHandle* handle, const char* section, const char* key, bool value);
 
 //==============================================================================
 // Document API

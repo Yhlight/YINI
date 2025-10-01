@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Text;
 
@@ -25,6 +26,7 @@ namespace YINI
     {
         private const string LibName = "yini";
         private readonly IntPtr _handle;
+        private readonly bool _isManaged;
 
         [DllImport(LibName, EntryPoint = "yini_value_get_type")]
         private static extern YiniType GetTypeInternal(IntPtr handle);
@@ -62,6 +64,15 @@ namespace YINI
         [DllImport(LibName, EntryPoint = "yini_set_get_value_by_index")]
         private static extern IntPtr GetSetValueByIndexInternal(IntPtr handle, int index);
 
+        [DllImport(LibName, EntryPoint = "yini_map_get_size")]
+        private static extern int GetMapSizeInternal(IntPtr handle);
+
+        [DllImport(LibName, EntryPoint = "yini_map_get_key_by_index")]
+        private static extern int GetMapKeyByIndexInternal(IntPtr handle, int index, StringBuilder? buffer, int bufferSize);
+
+        [DllImport(LibName, EntryPoint = "yini_map_get_value_by_key")]
+        private static extern IntPtr GetMapValueByKeyInternal(IntPtr handle, string key);
+
         [DllImport(LibName, EntryPoint = "yini_value_get_coord")]
         [return: MarshalAs(UnmanagedType.I1)]
         private static extern bool GetCoordInternal(IntPtr handle, out double x, out double y, out double z, [MarshalAs(UnmanagedType.I1)] out bool is_3d);
@@ -73,10 +84,11 @@ namespace YINI
         [DllImport(LibName, EntryPoint = "yini_value_get_path")]
         private static extern int GetPathInternal(IntPtr handle, StringBuilder? buffer, int bufferSize);
 
-        internal YiniValue(IntPtr handle)
+        internal YiniValue(IntPtr handle, bool isManaged = false)
         {
             if (handle == IntPtr.Zero) throw new ArgumentNullException(nameof(handle));
             _handle = handle;
+            _isManaged = isManaged;
         }
 
         public YiniType Type => GetTypeInternal(_handle);
@@ -131,7 +143,7 @@ namespace YINI
                 IntPtr valueHandle = GetArrayValueByIndexInternal(_handle, i);
                 if (valueHandle != IntPtr.Zero)
                 {
-                    array[i] = new YiniValue(valueHandle);
+                    array[i] = new YiniValue(valueHandle, isManaged: false);
                 }
             }
             return array;
@@ -147,7 +159,7 @@ namespace YINI
                 IntPtr valueHandle = GetListValueByIndexInternal(_handle, i);
                 if (valueHandle != IntPtr.Zero)
                 {
-                    list[i] = new YiniValue(valueHandle);
+                    list[i] = new YiniValue(valueHandle, isManaged: false);
                 }
             }
             return list;
@@ -163,10 +175,39 @@ namespace YINI
                 IntPtr valueHandle = GetSetValueByIndexInternal(_handle, i);
                 if (valueHandle != IntPtr.Zero)
                 {
-                    set[i] = new YiniValue(valueHandle);
+                    set[i] = new YiniValue(valueHandle, isManaged: false);
                 }
             }
             return set;
+        }
+
+        public IReadOnlyDictionary<string, YiniValue> AsMap()
+        {
+            if (Type != YiniType.Map) throw new InvalidCastException($"Cannot get value as map, type is {Type}.");
+
+            var map = new Dictionary<string, YiniValue>();
+            int size = GetMapSizeInternal(_handle);
+            if (size == 0) return map;
+
+            var keyBuffer = new StringBuilder(256);
+            for (int i = 0; i < size; i++)
+            {
+                keyBuffer.Clear();
+                int keySize = GetMapKeyByIndexInternal(_handle, i, keyBuffer, keyBuffer.Capacity);
+                if(keySize > keyBuffer.Capacity)
+                {
+                    keyBuffer.Capacity = keySize;
+                    GetMapKeyByIndexInternal(_handle, i, keyBuffer, keyBuffer.Capacity);
+                }
+
+                string key = keyBuffer.ToString();
+                IntPtr valueHandle = GetMapValueByKeyInternal(_handle, key);
+                if (valueHandle != IntPtr.Zero)
+                {
+                    map[key] = new YiniValue(valueHandle, isManaged: false);
+                }
+            }
+            return map;
         }
 
         public YiniCoord AsCoord()
