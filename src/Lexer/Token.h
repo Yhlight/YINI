@@ -1,52 +1,29 @@
 #pragma once
 
 #include <string>
-#include <variant>
+#include <vector>
+#include <any>
 
 namespace YINI
 {
     enum class TokenType
     {
-        // Special Tokens
-        EndOfFile,
-        Illegal,
+        // Single-character tokens.
+        LEFT_BRACKET, RIGHT_BRACKET,
+        EQUAL,
 
-        // Literals
-        Identifier,
-        Integer,
-        Float,
-        String,
+        // Literals.
+        IDENTIFIER, STRING,
 
-        // Punctuation & Operators
-        Assign,         // =
-        PlusAssign,     // +=
-        Plus,           // +
-        Minus,          // -
-        Asterisk,       // *
-        Slash,          // /
-        Percent,        // %
-        LParen,         // (
-        RParen,         // )
-        LBracket,       // [
-        RBracket,       // ]
-        LBrace,         // {
-        RBrace,         // }
-        Comma,          // ,
-        Colon,          // :
-        At,             // @
-        Hash,           // #
-
-        // Keywords & Values
-        True,
-        False,
+        // End of file.
+        END_OF_FILE
     };
 
     struct Token
     {
         TokenType type;
-        std::string literal; // The raw text of the token
-        // std::variant<int, double, std::string, bool> value; // The actual value, will be used later
+        std::string lexeme;
+        std::any literal;
         int line;
-        int column;
     };
 }

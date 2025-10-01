@@ -39,17 +39,21 @@ YINI并不将所有的配置值作为字符串
 而是根据游戏所需要的值类型，直接将其转换为对应的值类型  
 YINI支持多种值类型  
 分别为  
-- 字符串  ->  "value"
 - 整数  ->  123
 - 浮点数  ->  3.14  
 - 布尔值  ->  true/false  
+- 字符串  ->  "value"
 - 数组  ->  [1, 2, 3]  
     - 二维数组使用  ->  [[1, 2], [3, 4]]  
-- 坐标  ->  Coord(x, y) / Coord(x, y, z) / coord(x, y) / coord(x, y, z)  
-- 键值对  ->  {key: value}
-- Map  ->  {{key1: value1}, {key2: value2}}
+- 集合 -> (value, value, value3)
+            - (value, ) 只有一个元素集合需要需要添加逗号
+- 对组  ->  {key: value}  // 我不觉得使用一个Map来存储一个对组是一件好事，数量太少了，浪费性能
+- Map(对组的集合)  ->  {key1: value1, key2: value2}
 - 颜色  ->  #RRGGBB / color(255, 192, 203) / Color(255, 192, 203)
+- 坐标  ->  Coord(x, y) / Coord(x, y, z) / coord(x, y) / coord(x, y, z)  
 - 路径  ->  path() / Path()  
+- 链表  ->  List(1, 2, 3) / list(1, 2, 3)  // 默认情况下，[] 表示数组，为了解决不能使用链表的问题，这里引入了显性的表示
+- 数组  ->  Array(1, 2, 3) / array(1, 2, 3)
 (更多类型正在添加中)  
 
 #### 动态

@@ -3,31 +3,24 @@ build/
 CMakeCache.txt
 CMakeFiles/
 cmake_install.cmake
-Makefile
+compile_commands.json
 
-# Visual Studio
-*.sln
-*.vcxproj
-*.vcxproj.filters
+# Visual Studio Code
+.vscode/
 
 # Binaries
 *.exe
+*.out
 *.dll
 *.so
+*.dylib
+
+# Libraries
 *.a
 *.lib
-*.out
 
-# YINI specific
-*.ymeta
+# Other
 *.YMETA
-
-# C# / .NET
-[Bb]in/
-[Oo]bj/
-
-# VSCode Extension
-node_modules/
-out/
-.vscode-test/
-*.vsix
+*.ymeta
+xcuserdata/
+*.DS_Store

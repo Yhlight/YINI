@@ -1,31 +1,31 @@
 #pragma once
 
+#include "Token.h"
 #include <string>
-#include "Lexer/Token.h"
+#include <vector>
 
 namespace YINI
 {
     class Lexer
     {
     public:
-        Lexer(const std::string& input);
-        Token nextToken();
+        Lexer(const std::string& source);
+        std::vector<Token> scanTokens();
 
     private:
-        void readChar();
-        char peekChar();
-        void skip_whitespace();
-        void skip_single_line_comment();
-        void skip_multi_line_comment();
-        std::string read_identifier();
-        std::string read_string();
-        Token read_number();
+        void scanToken();
+        char advance();
+        void addToken(TokenType type);
+        void addToken(TokenType type, const std::any& literal);
+        bool isAtEnd();
+        char peek();
+        void string();
+        void identifier();
 
-        std::string m_input;
-        size_t m_position;      // current position in input (points to current char)
-        size_t m_readPosition;  // current reading position in input (after current char)
-        char m_char;            // current char under examination
-        int m_line;
-        int m_column;
+        std::string m_source;
+        std::vector<Token> m_tokens;
+        int m_start = 0;
+        int m_current = 0;
+        int m_line = 1;
     };
 }

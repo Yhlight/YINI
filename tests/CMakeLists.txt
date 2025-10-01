@@ -1,13 +1,17 @@
-# Define the test executable
-add_executable(yini_tests main.cpp LexerTests.cpp ParserTests.cpp)
-
-# Link against GTest and our core library
-target_link_libraries(yini_tests
-    PRIVATE
-        gtest_main
-        yini_core
+# Fetch GoogleTest
+include(FetchContent)
+FetchContent_Declare(
+  googletest
+  URL https://github.com/google/googletest/archive/refs/tags/v1.14.0.zip
 )
+FetchContent_MakeAvailable(googletest)
 
-# Include the test in CTest
-include(GoogleTest)
-gtest_discover_tests(yini_tests)
+# Lexer test
+add_executable(lexer_test LexerTest.cpp)
+target_link_libraries(lexer_test Yini GTest::gtest_main)
+add_test(NAME lexer_test COMMAND lexer_test)
+
+# Parser test
+add_executable(parser_test ParserTest.cpp)
+target_link_libraries(parser_test Yini GTest::gtest_main)
+add_test(NAME parser_test COMMAND parser_test)
