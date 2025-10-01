@@ -4,6 +4,7 @@ add_library(Yini
     Parser/AstPrinter.cpp
     Interpreter/Environment.cpp
     Interpreter/Interpreter.cpp
+    Core/YiniManager.cpp
 )
 
 target_include_directories(Yini PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

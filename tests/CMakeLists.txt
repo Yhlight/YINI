@@ -25,3 +25,8 @@ add_test(NAME expression_test COMMAND expression_test)
 add_executable(interpreter_test InterpreterTest.cpp)
 target_link_libraries(interpreter_test Yini GTest::gtest_main)
 add_test(NAME interpreter_test COMMAND interpreter_test)
+
+# Include test
+add_executable(include_test IncludeTest.cpp)
+target_link_libraries(include_test Yini GTest::gtest_main)
+add_test(NAME include_test COMMAND include_test)

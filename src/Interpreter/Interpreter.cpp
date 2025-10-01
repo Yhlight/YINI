@@ -119,6 +119,11 @@ namespace YINI
         }
     }
 
+    void Interpreter::visit(const Include& stmt)
+    {
+        // This is handled by the file loader, so the interpreter can ignore it.
+    }
+
     // Expression visitor methods
     std::any Interpreter::visit(const Literal& expr)
     {

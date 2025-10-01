@@ -1,19 +1,18 @@
 #include <gtest/gtest.h>
-#include "Lexer/Lexer.h"
-#include "Parser/Parser.h"
-#include "Interpreter/Interpreter.h"
+#include "Core/YiniManager.h"
+#include <fstream>
 #include <vector>
 #include <any>
 
-// A helper function to run the interpreter on a given source string and return the interpreter.
-YINI::Interpreter interpretSource(const std::string& source) {
-    YINI::Lexer lexer(source);
-    std::vector<YINI::Token> tokens = lexer.scanTokens();
-    YINI::Parser parser(tokens);
-    auto ast = parser.parse();
-    YINI::Interpreter interpreter;
-    interpreter.interpret(ast);
-    return interpreter;
+// A helper function to create a temporary file, load it with the manager, and return the interpreter.
+YINI::Interpreter create_and_load_manager(const std::string& filename, const std::string& source) {
+    std::ofstream outfile(filename);
+    outfile << source;
+    outfile.close();
+
+    YINI::YiniManager manager;
+    manager.load(filename);
+    return manager.interpreter;
 }
 
 TEST(InterpreterTest, HandlesMacroDefinitionAndResolution)
@@ -26,7 +25,7 @@ TEST(InterpreterTest, HandlesMacroDefinitionAndResolution)
         key = @my_macro
     )";
 
-    auto interpreter = interpretSource(source);
+    auto interpreter = create_and_load_manager("test_macro.yini", source);
     ASSERT_EQ(interpreter.resolved_sections["MySection"].count("key"), 1);
     EXPECT_EQ(std::any_cast<double>(interpreter.resolved_sections["MySection"]["key"]), 123);
 }
@@ -38,7 +37,7 @@ TEST(InterpreterTest, ThrowsOnUndefinedVariable)
         key = @undefined_macro
     )";
 
-    EXPECT_THROW(interpretSource(source), std::runtime_error);
+    EXPECT_THROW(create_and_load_manager("test_undef.yini", source), std::runtime_error);
 }
 
 TEST(InterpreterTest, EvaluatesArithmeticExpressions)
@@ -53,7 +52,7 @@ TEST(InterpreterTest, EvaluatesArithmeticExpressions)
         val4 = 10 % 3
     )";
 
-    auto interpreter = interpretSource(source);
+    auto interpreter = create_and_load_manager("test_arithmetic.yini", source);
     EXPECT_EQ(std::any_cast<double>(interpreter.resolved_sections["MySection"]["val1"]), 16);
     EXPECT_EQ(std::any_cast<double>(interpreter.resolved_sections["MySection"]["val2"]), 36);
     EXPECT_EQ(std::any_cast<double>(interpreter.resolved_sections["MySection"]["val3"]), -11);
@@ -66,7 +65,7 @@ TEST(InterpreterTest, ThrowsOnTypeMismatch)
         [MySection]
         val = 10 + "hello"
     )";
-    EXPECT_THROW(interpretSource(source), std::runtime_error);
+    EXPECT_THROW(create_and_load_manager("test_typemismatch.yini", source), std::runtime_error);
 }
 
 TEST(InterpreterTest, ThrowsOnDivisionByZero)
@@ -75,7 +74,7 @@ TEST(InterpreterTest, ThrowsOnDivisionByZero)
         [MySection]
         val = 10 / 0
     )";
-    EXPECT_THROW(interpretSource(source), std::runtime_error);
+    EXPECT_THROW(create_and_load_manager("test_divzero.yini", source), std::runtime_error);
 }
 
 TEST(InterpreterTest, EvaluatesDataStructures)
@@ -87,7 +86,7 @@ TEST(InterpreterTest, EvaluatesDataStructures)
         my_map = {"a": 1, "b": "two"}
     )";
 
-    auto interpreter = interpretSource(source);
+    auto interpreter = create_and_load_manager("test_datastructures.yini", source);
 
     // Test Array
     ASSERT_EQ(interpreter.resolved_sections["MySection"].count("my_array"), 1);
@@ -129,7 +128,7 @@ TEST(InterpreterTest, HandlesSectionInheritance)
         val4 = 4
     )";
 
-    auto interpreter = interpretSource(source);
+    auto interpreter = create_and_load_manager("test_inheritance.yini", source);
 
     ASSERT_EQ(interpreter.resolved_sections.count("Child"), 1);
     const auto& child_section = interpreter.resolved_sections["Child"];
@@ -146,7 +145,7 @@ TEST(InterpreterTest, ThrowsOnCircularInheritance)
         [A] : B
         [B] : A
     )";
-    EXPECT_THROW(interpretSource(source), std::runtime_error);
+    EXPECT_THROW(create_and_load_manager("test_circular.yini", source), std::runtime_error);
 }
 
 TEST(InterpreterTest, ThrowsOnUndefinedParent)
@@ -154,5 +153,5 @@ TEST(InterpreterTest, ThrowsOnUndefinedParent)
     std::string source = R"(
         [A] : NonExistent
     )";
-    EXPECT_THROW(interpretSource(source), std::runtime_error);
+    EXPECT_THROW(create_and_load_manager("test_undefparent.yini", source), std::runtime_error);
 }

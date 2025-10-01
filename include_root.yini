@@ -1,0 +1,10 @@
+[#include]
++= "include_one.yini"
++= "include_two.yini"
+
+[#define]
+var1 = "from root" // Override var1 from include_one
+
+[Shared]
+key3 = "root" // Override key3 from include_two
+key4 = "root"

@@ -130,6 +130,7 @@ namespace YINI
     struct Section;
     struct Register;
     struct Define;
+    struct Include;
 
     // Visitor for statements
     class StmtVisitor
@@ -139,6 +140,7 @@ namespace YINI
         virtual void visit(const Section& stmt) = 0;
         virtual void visit(const Register& stmt) = 0;
         virtual void visit(const Define& stmt) = 0;
+        virtual void visit(const Include& stmt) = 0;
         virtual ~StmtVisitor() = default;
     };
 
@@ -180,5 +182,12 @@ namespace YINI
         Define(std::vector<std::unique_ptr<KeyValue>> values) : values(std::move(values)) {}
         void accept(StmtVisitor& visitor) const override { visitor.visit(*this); }
         std::vector<std::unique_ptr<KeyValue>> values;
+    };
+
+    struct Include : public Stmt
+    {
+        Include(std::vector<std::unique_ptr<Expr>> files) : files(std::move(files)) {}
+        void accept(StmtVisitor& visitor) const override { visitor.visit(*this); }
+        std::vector<std::unique_ptr<Expr>> files;
     };
 }

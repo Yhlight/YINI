@@ -22,6 +22,7 @@ namespace YINI
         void visit(const Section& stmt) override;
         void visit(const Register& stmt) override;
         void visit(const Define& stmt) override;
+        void visit(const Include& stmt) override;
 
         // Expression visitor methods
         std::any visit(const Literal& expr) override;
@@ -37,7 +38,6 @@ namespace YINI
     private:
         std::any evaluate(const Expr& expr);
         void execute(const Stmt& stmt);
-        void execute(const Stmt& stmt, Environment& environment);
         void resolve_section(const Section* section);
 
         Environment m_globals;

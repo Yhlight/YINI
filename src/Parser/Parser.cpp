@@ -17,10 +17,36 @@ namespace YINI
 
     std::unique_ptr<Stmt> Parser::declaration()
     {
-        if (check(TokenType::LEFT_BRACKET) && m_tokens[m_current + 1].lexeme == "#define") {
-            return defineSection();
+        if (check(TokenType::LEFT_BRACKET) && m_tokens[m_current + 1].type == TokenType::IDENTIFIER) {
+            if (m_tokens[m_current + 1].lexeme == "#define") {
+                return defineSection();
+            }
+            if (m_tokens[m_current + 1].lexeme == "#include") {
+                return includeSection();
+            }
         }
         return section();
+    }
+
+    std::unique_ptr<Stmt> Parser::includeSection()
+    {
+        consume(TokenType::LEFT_BRACKET, "Expect '[' before #include.");
+        consume(TokenType::IDENTIFIER, "Expect #include keyword.");
+        consume(TokenType::RIGHT_BRACKET, "Expect ']' after #include.");
+
+        std::vector<std::unique_ptr<Expr>> files;
+        while (!check(TokenType::LEFT_BRACKET) && !isAtEnd())
+        {
+            auto reg_stmt = registration();
+            auto* reg = dynamic_cast<Register*>(reg_stmt.get());
+            if (reg) {
+                 files.push_back(std::move(reg->value));
+            } else {
+                throw std::runtime_error("Expected '+=' statement inside [#include] block.");
+            }
+        }
+
+        return std::make_unique<Include>(std::move(files));
     }
 
     std::unique_ptr<Stmt> Parser::defineSection()

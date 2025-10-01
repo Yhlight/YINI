@@ -26,6 +26,7 @@ namespace YINI
         std::unique_ptr<Stmt> statement();
         std::unique_ptr<Stmt> registration();
         std::unique_ptr<Stmt> defineSection();
+        std::unique_ptr<Stmt> includeSection();
         std::unique_ptr<Section> section();
         std::unique_ptr<KeyValue> keyValue();
 
