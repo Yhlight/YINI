@@ -19,8 +19,8 @@ TEST(ParserTest, ParsesSimpleStringValue)
 
     EXPECT_EQ(std::any_cast<std::string>(sectionNode->name.literal), "Section");
 
-    ASSERT_EQ(sectionNode->values.size(), 1);
-    auto* keyValueNode = sectionNode->values[0].get();
+    ASSERT_EQ(sectionNode->statements.size(), 1);
+    auto* keyValueNode = dynamic_cast<YINI::KeyValue*>(sectionNode->statements[0].get());
     ASSERT_NE(keyValueNode, nullptr);
 
     EXPECT_EQ(std::any_cast<std::string>(keyValueNode->key.literal), "key");
@@ -50,28 +50,28 @@ TEST(ParserTest, ParsesVariousDataTypes)
     ASSERT_NE(sectionNode, nullptr);
     EXPECT_EQ(std::any_cast<std::string>(sectionNode->name.literal), "Data");
 
-    ASSERT_EQ(sectionNode->values.size(), 4);
+    ASSERT_EQ(sectionNode->statements.size(), 4);
 
     // Integer
-    auto* kv_int = sectionNode->values[0].get();
+    auto* kv_int = dynamic_cast<YINI::KeyValue*>(sectionNode->statements[0].get());
     EXPECT_EQ(std::any_cast<std::string>(kv_int->key.literal), "key_int");
     auto* literal_int = dynamic_cast<YINI::Literal*>(kv_int->value.get());
     EXPECT_EQ(std::any_cast<double>(literal_int->value), 123);
 
     // Float
-    auto* kv_float = sectionNode->values[1].get();
+    auto* kv_float = dynamic_cast<YINI::KeyValue*>(sectionNode->statements[1].get());
     EXPECT_EQ(std::any_cast<std::string>(kv_float->key.literal), "key_float");
     auto* literal_float = dynamic_cast<YINI::Literal*>(kv_float->value.get());
     EXPECT_EQ(std::any_cast<double>(literal_float->value), 3.14);
 
     // Boolean True
-    auto* kv_true = sectionNode->values[2].get();
+    auto* kv_true = dynamic_cast<YINI::KeyValue*>(sectionNode->statements[2].get());
     EXPECT_EQ(std::any_cast<std::string>(kv_true->key.literal), "key_true");
     auto* literal_true = dynamic_cast<YINI::Literal*>(kv_true->value.get());
     EXPECT_EQ(std::any_cast<bool>(literal_true->value), true);
 
     // Boolean False
-    auto* kv_false = sectionNode->values[3].get();
+    auto* kv_false = dynamic_cast<YINI::KeyValue*>(sectionNode->statements[3].get());
     EXPECT_EQ(std::any_cast<std::string>(kv_false->key.literal), "key_false");
     auto* literal_false = dynamic_cast<YINI::Literal*>(kv_false->value.get());
     EXPECT_EQ(std::any_cast<bool>(literal_false->value), false);
@@ -117,4 +117,43 @@ TEST(ParserTest, ParsesSectionInheritance)
     ASSERT_EQ(sectionNode3->parents.size(), 2);
     EXPECT_EQ(std::any_cast<std::string>(sectionNode3->parents[0].literal), "ParentA");
     EXPECT_EQ(std::any_cast<std::string>(sectionNode3->parents[1].literal), "ParentB");
+}
+
+TEST(ParserTest, ParsesRegistrationStatement)
+{
+    std::string source = R"(
+        [MySection]
+        += 123
+        key = "value"
+        += "another"
+    )";
+    YINI::Lexer lexer(source);
+    std::vector<YINI::Token> tokens = lexer.scanTokens();
+    YINI::Parser parser(tokens);
+    std::vector<std::unique_ptr<YINI::Stmt>> ast = parser.parse();
+
+    ASSERT_EQ(ast.size(), 1);
+
+    auto* sectionNode = dynamic_cast<YINI::Section*>(ast[0].get());
+    ASSERT_NE(sectionNode, nullptr);
+    ASSERT_EQ(sectionNode->statements.size(), 3);
+
+    // First statement: += 123
+    auto* regNode1 = dynamic_cast<YINI::Register*>(sectionNode->statements[0].get());
+    ASSERT_NE(regNode1, nullptr);
+    auto* literal1 = dynamic_cast<YINI::Literal*>(regNode1->value.get());
+    ASSERT_NE(literal1, nullptr);
+    EXPECT_EQ(std::any_cast<double>(literal1->value), 123);
+
+    // Second statement: key = "value"
+    auto* kvNode = dynamic_cast<YINI::KeyValue*>(sectionNode->statements[1].get());
+    ASSERT_NE(kvNode, nullptr);
+    EXPECT_EQ(std::any_cast<std::string>(kvNode->key.literal), "key");
+
+    // Third statement: += "another"
+    auto* regNode2 = dynamic_cast<YINI::Register*>(sectionNode->statements[2].get());
+    ASSERT_NE(regNode2, nullptr);
+    auto* literal2 = dynamic_cast<YINI::Literal*>(regNode2->value.get());
+    ASSERT_NE(literal2, nullptr);
+    EXPECT_EQ(std::any_cast<std::string>(literal2->value), "another");
 }

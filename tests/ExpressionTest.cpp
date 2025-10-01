@@ -21,7 +21,8 @@ std::unique_ptr<YINI::Expr> parseExpression(const std::string& source) {
     YINI::Parser parser(testTokens);
     auto ast = parser.parse();
     auto* sectionNode = dynamic_cast<YINI::Section*>(ast[0].get());
-    return std::move(sectionNode->values[0]->value);
+    auto* keyValueNode = dynamic_cast<YINI::KeyValue*>(sectionNode->statements[0].get());
+    return std::move(keyValueNode->value);
 }
 
 

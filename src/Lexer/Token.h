@@ -14,6 +14,9 @@ namespace YINI
         LEFT_BRACE, RIGHT_BRACE,
         EQUAL, SLASH, STAR, PLUS, MINUS, PERCENT, COMMA, COLON,
 
+        // Two-character tokens.
+        PLUS_EQUAL,
+
         // Literals.
         IDENTIFIER, STRING, NUMBER,
 

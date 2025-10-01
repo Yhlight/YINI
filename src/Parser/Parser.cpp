@@ -35,13 +35,29 @@ namespace YINI
             } while (match({TokenType::COMMA}));
         }
 
-        std::vector<std::unique_ptr<KeyValue>> values;
+        std::vector<std::unique_ptr<Stmt>> statements;
         while (!check(TokenType::LEFT_BRACKET) && !isAtEnd())
         {
-            values.push_back(keyValue());
+            statements.push_back(statement());
         }
 
-        return std::make_unique<Section>(name, std::move(parents), std::move(values));
+        return std::make_unique<Section>(name, std::move(parents), std::move(statements));
+    }
+
+    std::unique_ptr<Stmt> Parser::statement()
+    {
+        if (peek().type == TokenType::PLUS_EQUAL)
+        {
+            return registration();
+        }
+        return keyValue();
+    }
+
+    std::unique_ptr<Stmt> Parser::registration()
+    {
+        consume(TokenType::PLUS_EQUAL, "Expect '+=' for registration.");
+        std::unique_ptr<Expr> value = expression();
+        return std::make_unique<Register>(std::move(value));
     }
 
     std::unique_ptr<KeyValue> Parser::keyValue()

@@ -34,7 +34,9 @@ namespace YINI
             case '[': addToken(TokenType::LEFT_BRACKET); break;
             case ']': addToken(TokenType::RIGHT_BRACKET); break;
             case '=': addToken(TokenType::EQUAL); break;
-            case '+': addToken(TokenType::PLUS); break;
+            case '+':
+                addToken(match('=') ? TokenType::PLUS_EQUAL : TokenType::PLUS);
+                break;
             case '-': addToken(TokenType::MINUS); break;
             case '*': addToken(TokenType::STAR); break;
             case '%': addToken(TokenType::PERCENT); break;

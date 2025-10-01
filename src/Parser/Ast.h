@@ -118,6 +118,7 @@ namespace YINI
     // Forward declarations for statement visitors
     struct KeyValue;
     struct Section;
+    struct Register;
 
     // Visitor for statements
     class StmtVisitor
@@ -125,6 +126,7 @@ namespace YINI
     public:
         virtual void visit(const KeyValue& stmt) = 0;
         virtual void visit(const Section& stmt) = 0;
+        virtual void visit(const Register& stmt) = 0;
         virtual ~StmtVisitor() = default;
     };
 
@@ -146,11 +148,18 @@ namespace YINI
 
     struct Section : public Stmt
     {
-        Section(Token name, std::vector<Token> parents, std::vector<std::unique_ptr<KeyValue>> values)
-            : name(std::move(name)), parents(std::move(parents)), values(std::move(values)) {}
+        Section(Token name, std::vector<Token> parents, std::vector<std::unique_ptr<Stmt>> statements)
+            : name(std::move(name)), parents(std::move(parents)), statements(std::move(statements)) {}
         void accept(StmtVisitor& visitor) const override { visitor.visit(*this); }
         Token name;
         std::vector<Token> parents;
-        std::vector<std::unique_ptr<KeyValue>> values;
+        std::vector<std::unique_ptr<Stmt>> statements;
+    };
+
+    struct Register : public Stmt
+    {
+        Register(std::unique_ptr<Expr> value) : value(std::move(value)) {}
+        void accept(StmtVisitor& visitor) const override { visitor.visit(*this); }
+        std::unique_ptr<Expr> value;
     };
 }
