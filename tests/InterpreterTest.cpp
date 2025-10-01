@@ -27,8 +27,8 @@ TEST(InterpreterTest, HandlesMacroDefinitionAndResolution)
     )";
 
     auto interpreter = interpretSource(source);
-    ASSERT_EQ(interpreter.results.count("key"), 1);
-    EXPECT_EQ(std::any_cast<double>(interpreter.results["key"]), 123);
+    ASSERT_EQ(interpreter.resolved_sections["MySection"].count("key"), 1);
+    EXPECT_EQ(std::any_cast<double>(interpreter.resolved_sections["MySection"]["key"]), 123);
 }
 
 TEST(InterpreterTest, ThrowsOnUndefinedVariable)
@@ -54,10 +54,10 @@ TEST(InterpreterTest, EvaluatesArithmeticExpressions)
     )";
 
     auto interpreter = interpretSource(source);
-    EXPECT_EQ(std::any_cast<double>(interpreter.results["val1"]), 16);
-    EXPECT_EQ(std::any_cast<double>(interpreter.results["val2"]), 36);
-    EXPECT_EQ(std::any_cast<double>(interpreter.results["val3"]), -11);
-    EXPECT_EQ(std::any_cast<double>(interpreter.results["val4"]), 1);
+    EXPECT_EQ(std::any_cast<double>(interpreter.resolved_sections["MySection"]["val1"]), 16);
+    EXPECT_EQ(std::any_cast<double>(interpreter.resolved_sections["MySection"]["val2"]), 36);
+    EXPECT_EQ(std::any_cast<double>(interpreter.resolved_sections["MySection"]["val3"]), -11);
+    EXPECT_EQ(std::any_cast<double>(interpreter.resolved_sections["MySection"]["val4"]), 1);
 }
 
 TEST(InterpreterTest, ThrowsOnTypeMismatch)
@@ -65,6 +65,15 @@ TEST(InterpreterTest, ThrowsOnTypeMismatch)
     std::string source = R"(
         [MySection]
         val = 10 + "hello"
+    )";
+    EXPECT_THROW(interpretSource(source), std::runtime_error);
+}
+
+TEST(InterpreterTest, ThrowsOnDivisionByZero)
+{
+    std::string source = R"(
+        [MySection]
+        val = 10 / 0
     )";
     EXPECT_THROW(interpretSource(source), std::runtime_error);
 }
@@ -81,34 +90,69 @@ TEST(InterpreterTest, EvaluatesDataStructures)
     auto interpreter = interpretSource(source);
 
     // Test Array
-    ASSERT_EQ(interpreter.results.count("my_array"), 1);
-    auto arr = std::any_cast<std::vector<std::any>>(interpreter.results["my_array"]);
+    ASSERT_EQ(interpreter.resolved_sections["MySection"].count("my_array"), 1);
+    auto arr = std::any_cast<std::vector<std::any>>(interpreter.resolved_sections["MySection"]["my_array"]);
     ASSERT_EQ(arr.size(), 3);
     EXPECT_EQ(std::any_cast<double>(arr[0]), 1);
     EXPECT_EQ(std::any_cast<std::string>(arr[1]), "two");
     EXPECT_EQ(std::any_cast<double>(arr[2]), 3.0);
 
     // Test Set (currently represented as a vector)
-    ASSERT_EQ(interpreter.results.count("my_set"), 1);
-    auto set = std::any_cast<std::vector<std::any>>(interpreter.results["my_set"]);
+    ASSERT_EQ(interpreter.resolved_sections["MySection"].count("my_set"), 1);
+    auto set = std::any_cast<std::vector<std::any>>(interpreter.resolved_sections["MySection"]["my_set"]);
     ASSERT_EQ(set.size(), 3);
     EXPECT_EQ(std::any_cast<double>(set[0]), 1);
     EXPECT_EQ(std::any_cast<std::string>(set[1]), "two");
     EXPECT_EQ(std::any_cast<double>(set[2]), 3.0);
 
     // Test Map
-    ASSERT_EQ(interpreter.results.count("my_map"), 1);
-    auto map = std::any_cast<std::map<std::string, std::any>>(interpreter.results["my_map"]);
+    ASSERT_EQ(interpreter.resolved_sections["MySection"].count("my_map"), 1);
+    auto map = std::any_cast<std::map<std::string, std::any>>(interpreter.resolved_sections["MySection"]["my_map"]);
     ASSERT_EQ(map.size(), 2);
     EXPECT_EQ(std::any_cast<double>(map["a"]), 1);
     EXPECT_EQ(std::any_cast<std::string>(map["b"]), "two");
 }
 
-TEST(InterpreterTest, ThrowsOnDivisionByZero)
+TEST(InterpreterTest, HandlesSectionInheritance)
 {
     std::string source = R"(
-        [MySection]
-        val = 10 / 0
+        [ParentA]
+        val1 = 1
+        val2 = "original"
+
+        [ParentB]
+        val2 = "overridden"
+        val3 = 3
+
+        [Child] : ParentA, ParentB
+        val1 = 100
+        val4 = 4
+    )";
+
+    auto interpreter = interpretSource(source);
+
+    ASSERT_EQ(interpreter.resolved_sections.count("Child"), 1);
+    const auto& child_section = interpreter.resolved_sections["Child"];
+
+    EXPECT_EQ(std::any_cast<double>(child_section.at("val1")), 100);       // Child overrides ParentA
+    EXPECT_EQ(std::any_cast<std::string>(child_section.at("val2")), "overridden"); // ParentB overrides ParentA
+    EXPECT_EQ(std::any_cast<double>(child_section.at("val3")), 3);          // Inherited from ParentB
+    EXPECT_EQ(std::any_cast<double>(child_section.at("val4")), 4);          // Defined in Child
+}
+
+TEST(InterpreterTest, ThrowsOnCircularInheritance)
+{
+    std::string source = R"(
+        [A] : B
+        [B] : A
+    )";
+    EXPECT_THROW(interpretSource(source), std::runtime_error);
+}
+
+TEST(InterpreterTest, ThrowsOnUndefinedParent)
+{
+    std::string source = R"(
+        [A] : NonExistent
     )";
     EXPECT_THROW(interpretSource(source), std::runtime_error);
 }

@@ -6,6 +6,7 @@
 #include <any>
 #include <map>
 #include <string>
+#include <set>
 
 namespace YINI
 {
@@ -14,7 +15,7 @@ namespace YINI
     public:
         void interpret(const std::vector<std::unique_ptr<Stmt>>& statements);
 
-        std::map<std::string, std::any> results;
+        std::map<std::string, std::map<std::string, std::any>> resolved_sections;
 
         // Statement visitor methods
         void visit(const KeyValue& stmt) override;
@@ -36,7 +37,13 @@ namespace YINI
     private:
         std::any evaluate(const Expr& expr);
         void execute(const Stmt& stmt);
+        void execute(const Stmt& stmt, Environment& environment);
+        void resolve_section(const Section* section);
 
-        Environment m_environment;
+        Environment m_globals;
+        std::map<std::string, const Section*> m_sections;
+        std::set<std::string> m_resolved;
+        std::set<std::string> m_resolving; // For cycle detection
+        std::string m_current_section_name;
     };
 }
