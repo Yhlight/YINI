@@ -7,14 +7,22 @@
 
 namespace YINI
 {
-    // Forward declarations for the visitor pattern
+    // Forward declarations for expressions
     struct Literal;
+    struct Unary;
+    struct Binary;
+    struct Grouping;
+    struct Array;
 
     // Visitor for expressions
     class ExprVisitor
     {
     public:
         virtual std::any visit(const Literal& expr) = 0;
+        virtual std::any visit(const Unary& expr) = 0;
+        virtual std::any visit(const Binary& expr) = 0;
+        virtual std::any visit(const Grouping& expr) = 0;
+        virtual std::any visit(const Array& expr) = 0;
         virtual ~ExprVisitor() = default;
     };
 
@@ -30,13 +38,45 @@ namespace YINI
     struct Literal : public Expr
     {
         Literal(std::any value) : value(std::move(value)) {}
-
-        std::any accept(ExprVisitor& visitor) const override
-        {
-            return visitor.visit(*this);
-        }
-
+        std::any accept(ExprVisitor& visitor) const override { return visitor.visit(*this); }
         std::any value;
+    };
+
+    // Unary expression node
+    struct Unary : public Expr
+    {
+        Unary(Token op, std::unique_ptr<Expr> right) : op(std::move(op)), right(std::move(right)) {}
+        std::any accept(ExprVisitor& visitor) const override { return visitor.visit(*this); }
+        Token op;
+        std::unique_ptr<Expr> right;
+    };
+
+    // Binary expression node
+    struct Binary : public Expr
+    {
+        Binary(std::unique_ptr<Expr> left, Token op, std::unique_ptr<Expr> right)
+            : left(std::move(left)), op(std::move(op)), right(std::move(right)) {}
+        std::any accept(ExprVisitor& visitor) const override { return visitor.visit(*this); }
+        std::unique_ptr<Expr> left;
+        Token op;
+        std::unique_ptr<Expr> right;
+    };
+
+    // Grouping expression node
+    struct Grouping : public Expr
+    {
+        Grouping(std::unique_ptr<Expr> expression) : expression(std::move(expression)) {}
+        std::any accept(ExprVisitor& visitor) const override { return visitor.visit(*this); }
+        std::unique_ptr<Expr> expression;
+    };
+
+    // Array expression node
+    struct Array : public Expr
+    {
+        Array(std::vector<std::unique_ptr<Expr>> elements)
+            : elements(std::move(elements)) {}
+        std::any accept(ExprVisitor& visitor) const override { return visitor.visit(*this); }
+        std::vector<std::unique_ptr<Expr>> elements;
     };
 
     // Forward declarations for statement visitors
@@ -63,12 +103,7 @@ namespace YINI
     struct KeyValue : public Stmt
     {
         KeyValue(Token key, std::unique_ptr<Expr> value) : key(std::move(key)), value(std::move(value)) {}
-
-        void accept(StmtVisitor& visitor) const override
-        {
-            visitor.visit(*this);
-        }
-
+        void accept(StmtVisitor& visitor) const override { visitor.visit(*this); }
         Token key;
         std::unique_ptr<Expr> value;
     };
@@ -77,12 +112,7 @@ namespace YINI
     {
         Section(Token name, std::vector<std::unique_ptr<KeyValue>> values)
             : name(std::move(name)), values(std::move(values)) {}
-
-        void accept(StmtVisitor& visitor) const override
-        {
-            visitor.visit(*this);
-        }
-
+        void accept(StmtVisitor& visitor) const override { visitor.visit(*this); }
         Token name;
         std::vector<std::unique_ptr<KeyValue>> values;
     };

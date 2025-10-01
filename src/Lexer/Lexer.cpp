@@ -27,9 +27,16 @@ namespace YINI
         char c = advance();
         switch (c)
         {
+            case '(': addToken(TokenType::LEFT_PAREN); break;
+            case ')': addToken(TokenType::RIGHT_PAREN); break;
             case '[': addToken(TokenType::LEFT_BRACKET); break;
             case ']': addToken(TokenType::RIGHT_BRACKET); break;
             case '=': addToken(TokenType::EQUAL); break;
+            case '+': addToken(TokenType::PLUS); break;
+            case '-': addToken(TokenType::MINUS); break;
+            case '*': addToken(TokenType::STAR); break;
+            case '%': addToken(TokenType::PERCENT); break;
+            case ',': addToken(TokenType::COMMA); break;
             case '/':
                 if (match('/'))
                 {

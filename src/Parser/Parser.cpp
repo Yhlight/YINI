@@ -45,9 +45,70 @@ namespace YINI
 
     std::unique_ptr<Expr> Parser::expression()
     {
-        if (match({TokenType::STRING, TokenType::NUMBER, TokenType::TRUE, TokenType::FALSE}))
+        return term();
+    }
+
+    std::unique_ptr<Expr> Parser::term()
+    {
+        std::unique_ptr<Expr> expr = factor();
+        while (match({TokenType::MINUS, TokenType::PLUS}))
+        {
+            Token op = previous();
+            std::unique_ptr<Expr> right = factor();
+            expr = std::make_unique<Binary>(std::move(expr), op, std::move(right));
+        }
+        return expr;
+    }
+
+    std::unique_ptr<Expr> Parser::factor()
+    {
+        std::unique_ptr<Expr> expr = unary();
+        while (match({TokenType::SLASH, TokenType::STAR, TokenType::PERCENT}))
+        {
+            Token op = previous();
+            std::unique_ptr<Expr> right = unary();
+            expr = std::make_unique<Binary>(std::move(expr), op, std::move(right));
+        }
+        return expr;
+    }
+
+    std::unique_ptr<Expr> Parser::unary()
+    {
+        if (match({TokenType::MINUS}))
+        {
+            Token op = previous();
+            std::unique_ptr<Expr> right = unary();
+            return std::make_unique<Unary>(op, std::move(right));
+        }
+        return primary();
+    }
+
+    std::unique_ptr<Expr> Parser::primary()
+    {
+        if (match({TokenType::TRUE, TokenType::FALSE, TokenType::NUMBER, TokenType::STRING}))
         {
             return std::make_unique<Literal>(previous().literal);
+        }
+
+        if (match({TokenType::LEFT_PAREN}))
+        {
+            std::unique_ptr<Expr> expr = expression();
+            consume(TokenType::RIGHT_PAREN, "Expect ')' after expression.");
+            return std::make_unique<Grouping>(std::move(expr));
+        }
+
+        if (match({TokenType::LEFT_BRACKET}))
+        {
+            std::vector<std::unique_ptr<Expr>> elements;
+            if (!check(TokenType::RIGHT_BRACKET))
+            {
+                do
+                {
+                    elements.push_back(expression());
+                } while (match({TokenType::COMMA}));
+            }
+            consume(TokenType::RIGHT_BRACKET, "Expect ']' after array elements.");
+            return std::make_unique<Array>(std::move(elements));
         }
 
         throw std::runtime_error("Expect expression.");

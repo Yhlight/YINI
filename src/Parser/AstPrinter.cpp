@@ -1,0 +1,70 @@
+#include "AstPrinter.h"
+#include <sstream>
+#include <vector>
+#include <functional>
+
+namespace YINI
+{
+    std::string AstPrinter::print(const Expr& expr)
+    {
+        return std::any_cast<std::string>(expr.accept(*this));
+    }
+
+    std::any AstPrinter::visit(const Literal& expr)
+    {
+        if (expr.value.type() == typeid(std::string))
+        {
+            return std::any_cast<std::string>(expr.value);
+        }
+        if (expr.value.type() == typeid(double))
+        {
+            std::stringstream ss;
+            ss << std::any_cast<double>(expr.value);
+            return ss.str();
+        }
+        if (expr.value.type() == typeid(bool))
+        {
+            return std::string(std::any_cast<bool>(expr.value) ? "true" : "false");
+        }
+        return std::string("nil");
+    }
+
+    std::any AstPrinter::visit(const Unary& expr)
+    {
+        return parenthesize(expr.op.lexeme, {std::cref(*expr.right)});
+    }
+
+    std::any AstPrinter::visit(const Binary& expr)
+    {
+        return parenthesize(expr.op.lexeme, {std::cref(*expr.left), std::cref(*expr.right)});
+    }
+
+    std::any AstPrinter::visit(const Grouping& expr)
+    {
+        return parenthesize("group", {std::cref(*expr.expression)});
+    }
+
+    std::any AstPrinter::visit(const Array& expr)
+    {
+        std::vector<std::reference_wrapper<const Expr>> exprs;
+        for (const auto& element : expr.elements)
+        {
+            exprs.push_back(std::cref(*element));
+        }
+        return parenthesize("array", exprs);
+    }
+
+    std::string AstPrinter::parenthesize(const std::string& name, const std::vector<std::reference_wrapper<const Expr>>& exprs)
+    {
+        std::stringstream builder;
+        builder << "(" << name;
+        for (const auto& expr_ref : exprs)
+        {
+            const Expr& expr = expr_ref.get();
+            builder << " ";
+            builder << std::any_cast<std::string>(expr.accept(*this));
+        }
+        builder << ")";
+        return builder.str();
+    }
+}

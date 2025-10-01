@@ -15,3 +15,8 @@ add_test(NAME lexer_test COMMAND lexer_test)
 add_executable(parser_test ParserTest.cpp)
 target_link_libraries(parser_test Yini GTest::gtest_main)
 add_test(NAME parser_test COMMAND parser_test)
+
+# Expression test
+add_executable(expression_test ExpressionTest.cpp)
+target_link_libraries(expression_test Yini GTest::gtest_main)
+add_test(NAME expression_test COMMAND expression_test)

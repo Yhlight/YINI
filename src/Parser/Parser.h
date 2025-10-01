@@ -14,7 +14,13 @@ namespace YINI
         std::vector<std::unique_ptr<Stmt>> parse();
 
     private:
+        // Expression parsing methods based on precedence
         std::unique_ptr<Expr> expression();
+        std::unique_ptr<Expr> term();
+        std::unique_ptr<Expr> factor();
+        std::unique_ptr<Expr> unary();
+        std::unique_ptr<Expr> primary();
+
         std::unique_ptr<Stmt> declaration();
         std::unique_ptr<Section> section();
         std::unique_ptr<KeyValue> keyValue();
