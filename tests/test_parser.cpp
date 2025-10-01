@@ -160,7 +160,7 @@ pos2d = Coord(1.5, 2.5)
 pos3d = Coord(1, 2, 3)
 color_hex = #FF00FF
 color_func = Color(255, 128, 0)
-asset_path = Path(characters/player.fbx)
+asset_path = Path("characters/player.fbx")
 )";
   YINI::YiniDocument doc;
   YINI::Parser parser(input, doc);
@@ -487,4 +487,25 @@ TEST(ParserTest, ParseSectionWithComments)
   const auto &pair = section.pairs[0];
   EXPECT_EQ(pair.key, "key");
   EXPECT_EQ(std::get<std::string>(pair.value.data), "value");
+}
+
+TEST(ParserTest, ParsePathValue)
+{
+  const std::string input = R"([Resources]
+texture = Path("textures/player.png")
+)";
+  YINI::YiniDocument doc;
+  YINI::Parser parser(input, doc);
+  parser.parse();
+
+  const auto *section = doc.findSection("Resources");
+  ASSERT_NE(section, nullptr);
+  ASSERT_EQ(section->pairs.size(), 1);
+  const auto &pair = section->pairs[0];
+  EXPECT_EQ(pair.key, "texture");
+
+  // Check that it's a Path
+  auto &path_ptr = std::get<std::unique_ptr<YINI::YiniPath>>(pair.value.data);
+  ASSERT_NE(path_ptr, nullptr);
+  EXPECT_EQ(path_ptr->pathValue, "textures/player.png");
 }

@@ -58,10 +58,10 @@ private:
 
   void nextToken();
 
-  Lexer lexer;            ///< The lexical analyzer providing the token stream.
-  Token currentToken;     ///< The current token being processed.
-  YiniDocument &document; ///< The document object model to build.
-  std::string basePath;   ///< The base path for resolving includes.
+  Lexer m_lexer;            ///< The lexical analyzer providing the token stream.
+  Token m_current_token;     ///< The current token being processed.
+  YiniDocument &m_document; ///< The document object model to build.
+  std::string m_base_path;   ///< The base path for resolving includes.
 };
 } // namespace YINI
 

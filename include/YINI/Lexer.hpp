@@ -86,10 +86,10 @@ private:
   Token parseNumber();
   Token parseIdentifier();
 
-  std::string inputStr; ///< The input string being tokenized.
-  size_t position;      ///< The current character position in the input string.
-  int line_num;         ///< The current line number.
-  int column_num;       ///< The current column number.
+  std::string m_input_str; ///< The input string being tokenized.
+  size_t m_position;      ///< The current character position in the input string.
+  int m_line_num;         ///< The current line number.
+  int m_column_num;       ///< The current column number.
 };
 } // namespace YINI
 
