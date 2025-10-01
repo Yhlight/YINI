@@ -67,7 +67,7 @@ bool handleCheck(const std::string &filePath)
 bool handleCompile(const std::string &filePath)
 {
   YINI::YiniManager manager(filePath);
-  if (manager.isLoaded())
+  if (manager.is_loaded())
   {
     std::cout << "Successfully compiled " << filePath << " to .ymeta"
               << std::endl;

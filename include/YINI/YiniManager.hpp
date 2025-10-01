@@ -34,13 +34,13 @@ public:
    * @details Upon construction, the manager attempts to load the specified
    * `.yini` file. It will prioritize loading from a `.ymeta` cache file if it
    * exists and is up-to-date.
-   * @param yiniFilePath The path to the `.yini` file to manage.
+   * @param yini_file_path The path to the `.yini` file to manage.
    */
-  explicit YiniManager(const std::string &yiniFilePath);
+  explicit YiniManager(const std::string &yini_file_path);
 
   /**
    * @brief Destructor for the YiniManager.
-   * @details Automatically calls `writeBackDynaValues()` to persist any
+   * @details Automatically calls `write_back_dyna_values()` to persist any
    * changes to dynamic values before the object is destroyed.
    */
   ~YiniManager();
@@ -49,13 +49,13 @@ public:
    * @brief Gets read-only access to the underlying YiniDocument.
    * @return A constant reference to the YiniDocument.
    */
-  const YiniDocument &getDocument() const;
+  const YiniDocument &get_document() const;
 
   /**
    * @brief Checks if the document was successfully loaded.
    * @return True if a document is loaded, false otherwise.
    */
-  bool isLoaded() const;
+  bool is_loaded() const;
 
   /**
    * @brief Sets a string value for a key in a given section.
@@ -65,37 +65,37 @@ public:
    * @param key The key of the value to set.
    * @param value The string value to set.
    */
-  void setStringValue(const std::string &section, const std::string &key,
+  void set_string_value(const std::string &section, const std::string &key,
                       const std::string &value);
 
   /**
    * @brief Sets an integer value for a key in a given section.
-   * @see setStringValue for more details on behavior.
+   * @see set_string_value for more details on behavior.
    * @param section The name of the section.
    * @param key The key of the value to set.
    * @param value The integer value to set.
    */
-  void setIntValue(const std::string &section, const std::string &key,
+  void set_int_value(const std::string &section, const std::string &key,
                    int value);
 
   /**
    * @brief Sets a double value for a key in a given section.
-   * @see setStringValue for more details on behavior.
+   * @see set_string_value for more details on behavior.
    * @param section The name of the section.
    * @param key The key of the value to set.
    * @param value The double value to set.
    */
-  void setDoubleValue(const std::string &section, const std::string &key,
+  void set_double_value(const std::string &section, const std::string &key,
                       double value);
 
   /**
    * @brief Sets a boolean value for a key in a given section.
-   * @see setStringValue for more details on behavior.
+   * @see set_string_value for more details on behavior.
    * @param section The name of the section.
    * @param key The key of the value to set.
    * @param value The boolean value to set.
    */
-  void setBoolValue(const std::string &section, const std::string &key,
+  void set_bool_value(const std::string &section, const std::string &key,
                     bool value);
 
 private:
@@ -103,23 +103,23 @@ private:
    * @brief Loads the document from cache or source file.
    * @return True on success, false on failure.
    */
-  bool load();
+  bool load_document();
 
   /**
    * @brief Saves the current document state to the `.ymeta` file.
    * @return True on success, false on failure.
    */
-  bool save();
+  bool save_document();
 
   /**
    * @brief Rewrites the source `.yini` file to update dynamic values.
    */
-  void writeBackDynaValues();
+  void write_back_dyna_values();
 
-  std::string yiniFilePath;  ///< Path to the source `.yini` file.
-  std::string ymetaFilePath; ///< Path to the cached `.ymeta` file.
+  std::string yini_file_path;  ///< Path to the source `.yini` file.
+  std::string ymeta_file_path; ///< Path to the cached `.ymeta` file.
   YiniDocument document;     ///< The in-memory representation of the document.
-  bool is_loaded;            ///< Flag indicating if the document was loaded successfully.
+  bool m_is_loaded;            ///< Flag indicating if the document was loaded successfully.
 };
 } // namespace YINI
 
