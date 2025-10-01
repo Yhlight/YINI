@@ -201,7 +201,8 @@ TEST(YiniManagerTest, DynaValueIsWrittenBack)
 {
     const std::string yiniPath = "dyna_writeback_test.yini";
     const std::string ymetaPath = "dyna_writeback_test.ymeta";
-    const std::string initialContent = "[Settings]\n; Volume setting\nvolume = Dyna(100)\nmusic = 50\n";
+    const std::string initialContent = "[Settings]\n; Volume setting\n  volume = Dyna(100)\nmusic = 50";
+    const std::string expectedFinalContent = "[Settings]\n; Volume setting\n  volume = Dyna(75)\nmusic = 50";
 
     // 1. Setup: Create the initial .yini file and clean up old files
     {
@@ -223,11 +224,9 @@ TEST(YiniManagerTest, DynaValueIsWrittenBack)
     // 3. Verification: Read the file back and check its content
     std::string finalContent = readFileContent(yiniPath);
 
-    // The expected content should have the updated Dyna value.
-    // The new serializer does not preserve comments, so we no longer check for them.
-    std::string expected_line = "volume = Dyna(75)";
-    EXPECT_NE(finalContent.find(expected_line), std::string::npos);
-    EXPECT_NE(finalContent.find("music = 50"), std::string::npos);
+    // The new implementation should preserve comments and formatting.
+    // Let's compare the entire file content.
+    EXPECT_EQ(finalContent, expectedFinalContent);
 
     // Cleanup
     fs::remove(yiniPath);

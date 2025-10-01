@@ -116,9 +116,10 @@ private:
    */
   void write_back_dyna_values();
 
-  std::string yini_file_path;  ///< Path to the source `.yini` file.
-  std::string ymeta_file_path; ///< Path to the cached `.ymeta` file.
+  std::string m_yini_file_path;  ///< Path to the source `.yini` file.
+  std::string m_ymeta_file_path; ///< Path to the cached `.ymeta` file.
   YiniDocument document;     ///< The in-memory representation of the document.
+  YiniDocument m_original_document; ///< A copy of the document at load time.
   bool m_is_loaded;            ///< Flag indicating if the document was loaded successfully.
 };
 } // namespace YINI
