@@ -51,3 +51,32 @@ TEST(ExpressionTest, ParsesArrayLiterals)
     auto expr3 = parseExpression("[1, \"hello\", true]");
     EXPECT_EQ(printer.print(*expr3), "(array 1 hello true)");
 }
+
+TEST(ExpressionTest, ParsesMapAndSetLiterals)
+{
+    YINI::AstPrinter printer;
+
+    // Empty set
+    auto expr1 = parseExpression("()");
+    EXPECT_EQ(printer.print(*expr1), "(set)");
+
+    // Single-element set
+    auto expr2 = parseExpression("(1,)");
+    EXPECT_EQ(printer.print(*expr2), "(set 1)");
+
+    // Multi-element set
+    auto expr3 = parseExpression("(1, \"two\")");
+    EXPECT_EQ(printer.print(*expr3), "(set 1 two)");
+
+    // Empty map
+    auto expr4 = parseExpression("{}");
+    EXPECT_EQ(printer.print(*expr4), "(map)");
+
+    // Simple map
+    auto expr5 = parseExpression("{\"key\": \"value\"}");
+    EXPECT_EQ(printer.print(*expr5), "(map (key value))");
+
+    // Complex map
+    auto expr6 = parseExpression("{\"key1\": 1, \"key2\": [1, 2]}");
+    EXPECT_EQ(printer.print(*expr6), "(map (key1 1) (key2 (array 1 2)))");
+}

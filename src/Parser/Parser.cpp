@@ -92,9 +92,27 @@ namespace YINI
 
         if (match({TokenType::LEFT_PAREN}))
         {
-            std::unique_ptr<Expr> expr = expression();
+            if (match({TokenType::RIGHT_PAREN})) { // Empty set: ()
+                return std::make_unique<Set>(std::vector<std::unique_ptr<Expr>>{});
+            }
+
+            auto firstExpr = expression();
+
+            if (match({TokenType::COMMA})) { // It's a set
+                std::vector<std::unique_ptr<Expr>> elements;
+                elements.push_back(std::move(firstExpr));
+
+                if (!check(TokenType::RIGHT_PAREN)) { // Handles trailing comma for single-element set
+                    do {
+                        elements.push_back(expression());
+                    } while (match({TokenType::COMMA}));
+                }
+                consume(TokenType::RIGHT_PAREN, "Expect ')' after set elements.");
+                return std::make_unique<Set>(std::move(elements));
+            }
+
             consume(TokenType::RIGHT_PAREN, "Expect ')' after expression.");
-            return std::make_unique<Grouping>(std::move(expr));
+            return std::make_unique<Grouping>(std::move(firstExpr));
         }
 
         if (match({TokenType::LEFT_BRACKET}))
@@ -109,6 +127,23 @@ namespace YINI
             }
             consume(TokenType::RIGHT_BRACKET, "Expect ']' after array elements.");
             return std::make_unique<Array>(std::move(elements));
+        }
+
+        if (match({TokenType::LEFT_BRACE}))
+        {
+            std::vector<std::pair<std::unique_ptr<Expr>, std::unique_ptr<Expr>>> pairs;
+            if (!check(TokenType::RIGHT_BRACE))
+            {
+                do
+                {
+                    std::unique_ptr<Expr> key = expression();
+                    consume(TokenType::COLON, "Expect ':' after map key.");
+                    std::unique_ptr<Expr> value = expression();
+                    pairs.push_back(std::make_pair(std::move(key), std::move(value)));
+                } while (match({TokenType::COMMA}));
+            }
+            consume(TokenType::RIGHT_BRACE, "Expect '}' after map pairs.");
+            return std::make_unique<Map>(std::move(pairs));
         }
 
         throw std::runtime_error("Expect expression.");

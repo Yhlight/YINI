@@ -54,6 +54,32 @@ namespace YINI
         return parenthesize("array", exprs);
     }
 
+    std::any AstPrinter::visit(const Set& expr)
+    {
+        std::vector<std::reference_wrapper<const Expr>> exprs;
+        for (const auto& element : expr.elements)
+        {
+            exprs.push_back(std::cref(*element));
+        }
+        return parenthesize("set", exprs);
+    }
+
+    std::any AstPrinter::visit(const Map& expr)
+    {
+        std::stringstream builder;
+        builder << "(map";
+        for (const auto& pair : expr.pairs)
+        {
+            builder << " (";
+            builder << std::any_cast<std::string>(pair.first->accept(*this));
+            builder << " ";
+            builder << std::any_cast<std::string>(pair.second->accept(*this));
+            builder << ")";
+        }
+        builder << ")";
+        return builder.str();
+    }
+
     std::string AstPrinter::parenthesize(const std::string& name, const std::vector<std::reference_wrapper<const Expr>>& exprs)
     {
         std::stringstream builder;

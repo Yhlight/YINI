@@ -4,6 +4,7 @@
 #include <vector>
 #include <memory>
 #include <any>
+#include <map>
 
 namespace YINI
 {
@@ -13,6 +14,8 @@ namespace YINI
     struct Binary;
     struct Grouping;
     struct Array;
+    struct Set;
+    struct Map;
 
     // Visitor for expressions
     class ExprVisitor
@@ -23,6 +26,8 @@ namespace YINI
         virtual std::any visit(const Binary& expr) = 0;
         virtual std::any visit(const Grouping& expr) = 0;
         virtual std::any visit(const Array& expr) = 0;
+        virtual std::any visit(const Set& expr) = 0;
+        virtual std::any visit(const Map& expr) = 0;
         virtual ~ExprVisitor() = default;
     };
 
@@ -77,6 +82,24 @@ namespace YINI
             : elements(std::move(elements)) {}
         std::any accept(ExprVisitor& visitor) const override { return visitor.visit(*this); }
         std::vector<std::unique_ptr<Expr>> elements;
+    };
+
+    // Set expression node
+    struct Set : public Expr
+    {
+        Set(std::vector<std::unique_ptr<Expr>> elements)
+            : elements(std::move(elements)) {}
+        std::any accept(ExprVisitor& visitor) const override { return visitor.visit(*this); }
+        std::vector<std::unique_ptr<Expr>> elements;
+    };
+
+    // Map expression node
+    struct Map : public Expr
+    {
+        Map(std::vector<std::pair<std::unique_ptr<Expr>, std::unique_ptr<Expr>>> pairs)
+            : pairs(std::move(pairs)) {}
+        std::any accept(ExprVisitor& visitor) const override { return visitor.visit(*this); }
+        std::vector<std::pair<std::unique_ptr<Expr>, std::unique_ptr<Expr>>> pairs;
     };
 
     // Forward declarations for statement visitors
