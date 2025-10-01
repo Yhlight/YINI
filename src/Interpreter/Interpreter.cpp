@@ -131,8 +131,51 @@ namespace YINI
         return std::any{}; // Unreachable
     }
 
-    std::any Interpreter::visit(const Array& expr) { return std::any{}; }
-    std::any Interpreter::visit(const Set& expr) { return std::any{}; }
-    std::any Interpreter::visit(const Map& expr) { return std::any{}; }
-    std::any Interpreter::visit(const Call& expr) { return std::any{}; }
+    std::any Interpreter::visit(const Array& expr)
+    {
+        std::vector<std::any> elements;
+        for (const auto& element : expr.elements)
+        {
+            elements.push_back(evaluate(*element));
+        }
+        return elements;
+    }
+
+    std::any Interpreter::visit(const Set& expr)
+    {
+        std::vector<std::any> elements;
+        for (const auto& element : expr.elements)
+        {
+            elements.push_back(evaluate(*element));
+        }
+        return elements;
+    }
+
+    std::any Interpreter::visit(const Map& expr)
+    {
+        std::map<std::string, std::any> map;
+        for (const auto& pair : expr.pairs)
+        {
+            // For now, we assume keys are simple strings (literals or identifiers)
+            // A more robust implementation would evaluate the key expression
+            auto key_node = dynamic_cast<Literal*>(pair.first.get());
+            if (!key_node || key_node->value.type() != typeid(std::string)) {
+                throw std::runtime_error("Map keys must be strings.");
+            }
+            std::string key = std::any_cast<std::string>(key_node->value);
+            map[key] = evaluate(*pair.second);
+        }
+        return map;
+    }
+
+    std::any Interpreter::visit(const Call& expr)
+    {
+        // Evaluate arguments, but do nothing with them for now.
+        // This lays the groundwork for built-in functions.
+        for (const auto& argument : expr.arguments)
+        {
+            evaluate(*argument);
+        }
+        return std::any{}; // Placeholder for call result
+    }
 }
