@@ -20,3 +20,8 @@ add_test(NAME parser_test COMMAND parser_test)
 add_executable(expression_test ExpressionTest.cpp)
 target_link_libraries(expression_test Yini GTest::gtest_main)
 add_test(NAME expression_test COMMAND expression_test)
+
+# Interpreter test
+add_executable(interpreter_test InterpreterTest.cpp)
+target_link_libraries(interpreter_test Yini GTest::gtest_main)
+add_test(NAME interpreter_test COMMAND interpreter_test)
