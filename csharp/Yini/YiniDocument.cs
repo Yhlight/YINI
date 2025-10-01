@@ -9,6 +9,7 @@ namespace YINI
         private const string LibName = "yini";
         private IntPtr _handle;
         private bool _disposed = false;
+        private readonly bool _isOwnedByManager;
 
         [DllImport(LibName, EntryPoint = "yini_parse")]
         private static extern IntPtr Parse(string content, StringBuilder errorBuffer, int errorBufferSize);
@@ -45,6 +46,14 @@ namespace YINI
             {
                 throw new InvalidOperationException($"Failed to parse YINI content: {errorBuffer.ToString()}");
             }
+            _isOwnedByManager = false;
+        }
+
+        internal YiniDocument(IntPtr handle, bool isOwnedByManager)
+        {
+            if (handle == IntPtr.Zero) throw new ArgumentNullException(nameof(handle));
+            _handle = handle;
+            _isOwnedByManager = isOwnedByManager;
         }
 
         public int SectionCount => GetSectionCountInternal(_handle);
@@ -86,7 +95,7 @@ namespace YINI
         {
             if (!_disposed)
             {
-                if (_handle != IntPtr.Zero)
+                if (_handle != IntPtr.Zero && !_isOwnedByManager)
                 {
                     FreeDocument(_handle);
                     _handle = IntPtr.Zero;

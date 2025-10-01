@@ -21,6 +21,13 @@
     <ProjectReference Include="..\Yini\Yini.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Content Include="$(MSBuildProjectDirectory)\..\..\manager_test.yini">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>manager_test.yini</Link>
+    </Content>
+  </ItemGroup>
+
   <Target Name="CopyNativeLib" AfterTargets="Build">
     <Message Text="Copying native library to output directory..." Importance="high" />
     <Exec Command="cp ../../build/lib/libyini.so $(OutDir)" Condition="!$([MSBuild]::IsOSPlatform('Windows'))" />

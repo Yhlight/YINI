@@ -71,6 +71,9 @@ namespace YINI
         [DllImport(LibName, EntryPoint = "yini_map_get_value_by_key")]
         private static extern IntPtr GetMapValueByKeyInternal(IntPtr handle, [MarshalAs(UnmanagedType.LPStr)] string key);
 
+        [DllImport(LibName, EntryPoint = "yini_dyna_get_value")]
+        private static extern IntPtr GetDynaValueInternal(IntPtr handle);
+
         [DllImport(LibName, EntryPoint = "yini_value_get_coord")]
         [return: MarshalAs(UnmanagedType.I1)]
         private static extern bool GetCoordInternal(IntPtr handle, out double x, out double y, out double z, [MarshalAs(UnmanagedType.I1)] out bool is_3d);
@@ -198,6 +201,17 @@ namespace YINI
                 }
             }
             return map;
+        }
+
+        public YiniValue AsDyna()
+        {
+            if (Type != YiniType.Dyna) throw new InvalidCastException($"Cannot get value as Dyna, type is {Type}.");
+            IntPtr innerHandle = GetDynaValueInternal(_handle);
+            if (innerHandle == IntPtr.Zero)
+            {
+                throw new InvalidOperationException("Failed to retrieve inner value from Dyna value.");
+            }
+            return new YiniValue(innerHandle);
         }
 
         public YiniCoord AsCoord()

@@ -1,12 +1,16 @@
 #include "YINI/Yini.h"
 #include "YINI/Parser.hpp"
 #include "YINI/YiniException.hpp"
+#include "YINI/YiniManager.hpp"
 #include "YiniValueToString.hpp"
 #include <algorithm>
 #include <cstring> // For strncpy
 
 // Opaque struct for the document handle
 struct YiniDocumentHandle { YINI::YiniDocument doc; };
+
+// Opaque struct for the manager handle
+struct YiniManagerHandle { YINI::YiniManager manager; };
 
 // Helper to safely copy strings to a buffer
 static int safe_strncpy(char* dest, const std::string& src, int buffer_size) {
@@ -395,6 +399,90 @@ YINI_API const YiniValueHandle* yini_map_get_value_by_key(const YiniValueHandle*
     }
 
     return nullptr;
+}
+
+
+//==============================================================================
+// Manager API Implementation
+//==============================================================================
+
+YINI_API YiniManagerHandle* yini_manager_create(const char* yini_file_path)
+{
+    if (!yini_file_path) return nullptr;
+    try {
+        // The YiniManager constructor can throw, so we need to be careful.
+        // We can't use `new YiniManagerHandle{...}` initializer syntax directly with a constructor that might fail.
+        auto handle = new YiniManagerHandle{ YINI::YiniManager(yini_file_path) };
+        if (!handle->manager.isLoaded()) {
+            delete handle;
+            return nullptr;
+        }
+        return handle;
+    } catch (...) {
+        // In case the constructor throws an exception (e.g., file access issues not caught internally)
+        return nullptr;
+    }
+}
+
+YINI_API void yini_manager_free(YiniManagerHandle* handle)
+{
+    delete handle; // The manager's destructor will handle write-back
+}
+
+YINI_API bool yini_manager_is_loaded(const YiniManagerHandle* handle)
+{
+    if (!handle) return false;
+    return handle->manager.isLoaded();
+}
+
+YINI_API const YiniDocumentHandle* yini_manager_get_document(const YiniManagerHandle* handle)
+{
+    if (!handle) return nullptr;
+    // This is a bit of a hack. We are casting the address of a member variable.
+    // This is safe ONLY because YiniDocument is the first and only member of YiniDocumentHandle.
+    // A better approach might be to have the manager own a YiniDocumentHandle pointer, but this works for now.
+    return reinterpret_cast<const YiniDocumentHandle*>(&handle->manager.getDocument());
+}
+
+YINI_API void yini_manager_set_string_value(YiniManagerHandle* handle, const char* section, const char* key, const char* value)
+{
+    if (!handle || !section || !key || !value) return;
+    handle->manager.setStringValue(section, key, value);
+}
+
+YINI_API void yini_manager_set_int_value(YiniManagerHandle* handle, const char* section, const char* key, int value)
+{
+    if (!handle || !section || !key) return;
+    handle->manager.setIntValue(section, key, value);
+}
+
+YINI_API void yini_manager_set_double_value(YiniManagerHandle* handle, const char* section, const char* key, double value)
+{
+    if (!handle || !section || !key) return;
+    handle->manager.setDoubleValue(section, key, value);
+}
+
+YINI_API void yini_manager_set_bool_value(YiniManagerHandle* handle, const char* section, const char* key, bool value)
+{
+    if (!handle || !section || !key) return;
+    handle->manager.setBoolValue(section, key, value);
+}
+
+
+//==============================================================================
+// Dyna Value API Implementation
+//==============================================================================
+
+YINI_API const YiniValueHandle* yini_dyna_get_value(const YiniValueHandle* value_handle)
+{
+    if (!value_handle) return nullptr;
+    auto* value = reinterpret_cast<const YINI::YiniValue*>(value_handle);
+    if (!std::holds_alternative<std::unique_ptr<YINI::YiniDynaValue>>(value->data)) return nullptr;
+
+    const auto& dyna_ptr = std::get<std::unique_ptr<YINI::YiniDynaValue>>(value->data);
+    if (!dyna_ptr) return nullptr;
+
+    return reinterpret_cast<const YiniValueHandle*>(&dyna_ptr->value);
 }
 
 } // extern "C"

@@ -1,0 +1,11 @@
+[#define]
+version = "1.0"
+
+[Settings]
+fullscreen = Dyna(true)
+resolution = "1920x1080"
+volume = Dyna(100)
+
+[Player]
+name = "Jules"
+score = Dyna(0)
