@@ -3,9 +3,12 @@
 
 namespace YINI
 {
-    Lexer::Lexer(const std::string& source) : m_source(source)
-    {
-    }
+    const std::map<std::string, TokenType> Lexer::m_keywords = {
+        {"true", TokenType::TRUE},
+        {"false", TokenType::FALSE},
+    };
+
+    Lexer::Lexer(const std::string& source) : m_source(source) {}
 
     std::vector<Token> Lexer::scanTokens()
     {
@@ -27,6 +30,21 @@ namespace YINI
             case '[': addToken(TokenType::LEFT_BRACKET); break;
             case ']': addToken(TokenType::RIGHT_BRACKET); break;
             case '=': addToken(TokenType::EQUAL); break;
+            case '/':
+                if (match('/'))
+                {
+                    // A comment goes until the end of the line.
+                    while (peek() != '\n' && !isAtEnd()) advance();
+                }
+                else if (match('*'))
+                {
+                    blockComment();
+                }
+                else
+                {
+                    addToken(TokenType::SLASH);
+                }
+                break;
             case '"': string(); break;
             case ' ':
             case '\r':
@@ -37,7 +55,11 @@ namespace YINI
                 m_line++;
                 break;
             default:
-                if (isalpha(c))
+                if (isdigit(c))
+                {
+                    number();
+                }
+                else if (isalpha(c) || c == '_')
                 {
                     identifier();
                 }
@@ -49,9 +71,35 @@ namespace YINI
         }
     }
 
+    bool Lexer::match(char expected)
+    {
+        if (isAtEnd()) return false;
+        if (m_source[m_current] != expected) return false;
+
+        m_current++;
+        return true;
+    }
+
+    char Lexer::peek()
+    {
+        if (isAtEnd()) return '\0';
+        return m_source[m_current];
+    }
+
+    char Lexer::peekNext()
+    {
+        if (m_current + 1 >= m_source.length()) return '\0';
+        return m_source[m_current + 1];
+    }
+
     char Lexer::advance()
     {
         return m_source[m_current++];
+    }
+
+    bool Lexer::isAtEnd()
+    {
+        return m_current >= m_source.length();
     }
 
     void Lexer::addToken(TokenType type)
@@ -65,15 +113,22 @@ namespace YINI
         m_tokens.push_back({type, text, literal, m_line});
     }
 
-    bool Lexer::isAtEnd()
+    void Lexer::blockComment()
     {
-        return m_current >= m_source.length();
-    }
+        while (!(peek() == '*' && peekNext() == '/') && !isAtEnd())
+        {
+            if (peek() == '\n') m_line++;
+            advance();
+        }
 
-    char Lexer::peek()
-    {
-        if (isAtEnd()) return '\0';
-        return m_source[m_current];
+        if (isAtEnd())
+        {
+            throw std::runtime_error("Unterminated block comment.");
+        }
+
+        // Consume the */
+        advance();
+        advance();
     }
 
     void Lexer::string()
@@ -89,18 +144,43 @@ namespace YINI
             throw std::runtime_error("Unterminated string.");
         }
 
-        // The closing ".
-        advance();
+        advance(); // The closing ".
 
-        // Trim the surrounding quotes.
         std::string value = m_source.substr(m_start + 1, m_current - m_start - 2);
         addToken(TokenType::STRING, value);
     }
 
+    void Lexer::number()
+    {
+        while (isdigit(peek())) advance();
+
+        if (peek() == '.' && isdigit(peekNext()))
+        {
+            advance(); // Consume the "."
+            while (isdigit(peek())) advance();
+        }
+
+        addToken(TokenType::NUMBER, std::stod(m_source.substr(m_start, m_current - m_start)));
+    }
+
     void Lexer::identifier()
     {
-        while (isalnum(peek())) advance();
+        while (isalnum(peek()) || peek() == '_') advance();
+
         std::string text = m_source.substr(m_start, m_current - m_start);
-        addToken(TokenType::IDENTIFIER, text);
+        TokenType type = TokenType::IDENTIFIER;
+        auto it = m_keywords.find(text);
+        if (it != m_keywords.end())
+        {
+            type = it->second;
+        }
+
+        if (type == TokenType::TRUE) {
+            addToken(type, true);
+        } else if (type == TokenType::FALSE) {
+            addToken(type, false);
+        } else {
+            addToken(type, text);
+        }
     }
 }

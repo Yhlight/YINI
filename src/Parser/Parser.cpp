@@ -5,14 +5,19 @@ namespace YINI
 {
     Parser::Parser(std::vector<Token> tokens) : m_tokens(std::move(tokens)) {}
 
-    std::vector<std::unique_ptr<AstNode>> Parser::parse()
+    std::vector<std::unique_ptr<Stmt>> Parser::parse()
     {
-        std::vector<std::unique_ptr<AstNode>> statements;
+        std::vector<std::unique_ptr<Stmt>> statements;
         while (!isAtEnd())
         {
-            statements.push_back(section());
+            statements.push_back(declaration());
         }
         return statements;
+    }
+
+    std::unique_ptr<Stmt> Parser::declaration()
+    {
+        return section();
     }
 
     std::unique_ptr<Section> Parser::section()
@@ -34,8 +39,18 @@ namespace YINI
     {
         Token key = consume(TokenType::IDENTIFIER, "Expect key.");
         consume(TokenType::EQUAL, "Expect '=' after key.");
-        Token value = consume(TokenType::STRING, "Expect value.");
-        return std::make_unique<KeyValue>(key, value);
+        std::unique_ptr<Expr> value = expression();
+        return std::make_unique<KeyValue>(key, std::move(value));
+    }
+
+    std::unique_ptr<Expr> Parser::expression()
+    {
+        if (match({TokenType::STRING, TokenType::NUMBER, TokenType::TRUE, TokenType::FALSE}))
+        {
+            return std::make_unique<Literal>(previous().literal);
+        }
+
+        throw std::runtime_error("Expect expression.");
     }
 
     bool Parser::match(const std::vector<TokenType>& types)

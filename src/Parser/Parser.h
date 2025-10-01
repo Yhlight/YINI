@@ -11,9 +11,11 @@ namespace YINI
     {
     public:
         Parser(std::vector<Token> tokens);
-        std::vector<std::unique_ptr<AstNode>> parse();
+        std::vector<std::unique_ptr<Stmt>> parse();
 
     private:
+        std::unique_ptr<Expr> expression();
+        std::unique_ptr<Stmt> declaration();
         std::unique_ptr<Section> section();
         std::unique_ptr<KeyValue> keyValue();
 

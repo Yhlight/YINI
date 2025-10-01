@@ -10,10 +10,13 @@ namespace YINI
     {
         // Single-character tokens.
         LEFT_BRACKET, RIGHT_BRACKET,
-        EQUAL,
+        EQUAL, SLASH, STAR,
 
         // Literals.
-        IDENTIFIER, STRING,
+        IDENTIFIER, STRING, NUMBER,
+
+        // Keywords.
+        TRUE, FALSE,
 
         // End of file.
         END_OF_FILE
