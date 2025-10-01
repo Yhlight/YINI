@@ -31,6 +31,11 @@ add_executable(include_test IncludeTest.cpp)
 target_link_libraries(include_test Yini GTest::gtest_main)
 add_test(NAME include_test COMMAND include_test)
 
+# Serialization test
+add_executable(serialization_test SerializationTest.cpp)
+target_link_libraries(serialization_test Yini GTest::gtest_main)
+add_test(NAME serialization_test COMMAND serialization_test)
+
 # CLI test
 add_executable(cli_test CliTest.cpp)
 target_link_libraries(cli_test Yini GTest::gtest_main)

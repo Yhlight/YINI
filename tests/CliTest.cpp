@@ -47,3 +47,26 @@ TEST(CliTest, HandlesNonExistentFile)
     std::string output = exec(cmd.c_str());
     EXPECT_NE(output.find("Error: Could not open file"), std::string::npos);
 }
+
+TEST(CliTest, CompileAndDecompile)
+{
+    std::string cli_path = TOSTRING(YINI_CLI_PATH);
+    const std::string yini_file = "cli_compile_test.yini";
+    const std::string ymeta_file = "cli_compile_test.ymeta";
+
+    // 1. Create a test .yini file
+    std::ofstream(yini_file) << "[Test]\nkey = \"hello\"";
+
+    // 2. Run the compile command
+    std::string compile_cmd = cli_path + " compile " + yini_file + " " + ymeta_file;
+    std::string compile_output = exec(compile_cmd.c_str());
+    EXPECT_NE(compile_output.find("Compiled"), std::string::npos);
+
+    // 3. Run the decompile command
+    std::string decompile_cmd = cli_path + " decompile " + ymeta_file;
+    std::string decompile_output = exec(decompile_cmd.c_str());
+
+    // 4. Check the decompiled output
+    EXPECT_NE(decompile_output.find("[Test]"), std::string::npos);
+    EXPECT_NE(decompile_output.find("key: \"hello\""), std::string::npos);
+}

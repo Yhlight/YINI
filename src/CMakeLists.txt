@@ -5,6 +5,8 @@ add_library(Yini
     Interpreter/Environment.cpp
     Interpreter/Interpreter.cpp
     Core/YiniManager.cpp
+    Core/Serialization/Serializer.cpp
+    Core/Serialization/Deserializer.cpp
 )
 
 target_include_directories(Yini PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
