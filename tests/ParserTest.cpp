@@ -76,3 +76,45 @@ TEST(ParserTest, ParsesVariousDataTypes)
     auto* literal_false = dynamic_cast<YINI::Literal*>(kv_false->value.get());
     EXPECT_EQ(std::any_cast<bool>(literal_false->value), false);
 }
+
+TEST(ParserTest, ParsesSectionInheritance)
+{
+    // No inheritance
+    std::string source1 = "[SectionA]";
+    YINI::Lexer lexer1(source1);
+    std::vector<YINI::Token> tokens1 = lexer1.scanTokens();
+    YINI::Parser parser1(tokens1);
+    std::vector<std::unique_ptr<YINI::Stmt>> ast1 = parser1.parse();
+    ASSERT_EQ(ast1.size(), 1);
+    auto* sectionNode1 = dynamic_cast<YINI::Section*>(ast1[0].get());
+    ASSERT_NE(sectionNode1, nullptr);
+    EXPECT_EQ(std::any_cast<std::string>(sectionNode1->name.literal), "SectionA");
+    EXPECT_EQ(sectionNode1->parents.size(), 0);
+
+    // Single inheritance
+    std::string source2 = "[SectionB] : ParentA";
+    YINI::Lexer lexer2(source2);
+    std::vector<YINI::Token> tokens2 = lexer2.scanTokens();
+    YINI::Parser parser2(tokens2);
+    std::vector<std::unique_ptr<YINI::Stmt>> ast2 = parser2.parse();
+    ASSERT_EQ(ast2.size(), 1);
+    auto* sectionNode2 = dynamic_cast<YINI::Section*>(ast2[0].get());
+    ASSERT_NE(sectionNode2, nullptr);
+    EXPECT_EQ(std::any_cast<std::string>(sectionNode2->name.literal), "SectionB");
+    ASSERT_EQ(sectionNode2->parents.size(), 1);
+    EXPECT_EQ(std::any_cast<std::string>(sectionNode2->parents[0].literal), "ParentA");
+
+    // Multiple inheritance
+    std::string source3 = "[SectionC] : ParentA, ParentB";
+    YINI::Lexer lexer3(source3);
+    std::vector<YINI::Token> tokens3 = lexer3.scanTokens();
+    YINI::Parser parser3(tokens3);
+    std::vector<std::unique_ptr<YINI::Stmt>> ast3 = parser3.parse();
+    ASSERT_EQ(ast3.size(), 1);
+    auto* sectionNode3 = dynamic_cast<YINI::Section*>(ast3[0].get());
+    ASSERT_NE(sectionNode3, nullptr);
+    EXPECT_EQ(std::any_cast<std::string>(sectionNode3->name.literal), "SectionC");
+    ASSERT_EQ(sectionNode3->parents.size(), 2);
+    EXPECT_EQ(std::any_cast<std::string>(sectionNode3->parents[0].literal), "ParentA");
+    EXPECT_EQ(std::any_cast<std::string>(sectionNode3->parents[1].literal), "ParentB");
+}

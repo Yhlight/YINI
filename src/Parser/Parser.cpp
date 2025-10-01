@@ -26,13 +26,22 @@ namespace YINI
         Token name = consume(TokenType::IDENTIFIER, "Expect section name.");
         consume(TokenType::RIGHT_BRACKET, "Expect ']' after section name.");
 
+        std::vector<Token> parents;
+        if (match({TokenType::COLON}))
+        {
+            do
+            {
+                parents.push_back(consume(TokenType::IDENTIFIER, "Expect parent section name."));
+            } while (match({TokenType::COMMA}));
+        }
+
         std::vector<std::unique_ptr<KeyValue>> values;
         while (!check(TokenType::LEFT_BRACKET) && !isAtEnd())
         {
             values.push_back(keyValue());
         }
 
-        return std::make_unique<Section>(name, std::move(values));
+        return std::make_unique<Section>(name, std::move(parents), std::move(values));
     }
 
     std::unique_ptr<KeyValue> Parser::keyValue()

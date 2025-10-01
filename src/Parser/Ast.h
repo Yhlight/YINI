@@ -146,10 +146,11 @@ namespace YINI
 
     struct Section : public Stmt
     {
-        Section(Token name, std::vector<std::unique_ptr<KeyValue>> values)
-            : name(std::move(name)), values(std::move(values)) {}
+        Section(Token name, std::vector<Token> parents, std::vector<std::unique_ptr<KeyValue>> values)
+            : name(std::move(name)), parents(std::move(parents)), values(std::move(values)) {}
         void accept(StmtVisitor& visitor) const override { visitor.visit(*this); }
         Token name;
+        std::vector<Token> parents;
         std::vector<std::unique_ptr<KeyValue>> values;
     };
 }
