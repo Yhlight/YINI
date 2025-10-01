@@ -17,6 +17,7 @@ namespace YINI
     struct Set;
     struct Map;
     struct Call;
+    struct Variable;
 
     // Visitor for expressions
     class ExprVisitor
@@ -30,6 +31,7 @@ namespace YINI
         virtual std::any visit(const Set& expr) = 0;
         virtual std::any visit(const Map& expr) = 0;
         virtual std::any visit(const Call& expr) = 0;
+        virtual std::any visit(const Variable& expr) = 0;
         virtual ~ExprVisitor() = default;
     };
 
@@ -115,10 +117,19 @@ namespace YINI
         std::vector<std::unique_ptr<Expr>> arguments;
     };
 
+    // Variable expression node
+    struct Variable : public Expr
+    {
+        Variable(Token name) : name(std::move(name)) {}
+        std::any accept(ExprVisitor& visitor) const override { return visitor.visit(*this); }
+        Token name;
+    };
+
     // Forward declarations for statement visitors
     struct KeyValue;
     struct Section;
     struct Register;
+    struct Define;
 
     // Visitor for statements
     class StmtVisitor
@@ -127,6 +138,7 @@ namespace YINI
         virtual void visit(const KeyValue& stmt) = 0;
         virtual void visit(const Section& stmt) = 0;
         virtual void visit(const Register& stmt) = 0;
+        virtual void visit(const Define& stmt) = 0;
         virtual ~StmtVisitor() = default;
     };
 
@@ -161,5 +173,12 @@ namespace YINI
         Register(std::unique_ptr<Expr> value) : value(std::move(value)) {}
         void accept(StmtVisitor& visitor) const override { visitor.visit(*this); }
         std::unique_ptr<Expr> value;
+    };
+
+    struct Define : public Stmt
+    {
+        Define(std::vector<std::unique_ptr<KeyValue>> values) : values(std::move(values)) {}
+        void accept(StmtVisitor& visitor) const override { visitor.visit(*this); }
+        std::vector<std::unique_ptr<KeyValue>> values;
     };
 }

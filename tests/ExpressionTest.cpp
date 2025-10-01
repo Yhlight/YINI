@@ -82,6 +82,13 @@ TEST(ExpressionTest, ParsesMapAndSetLiterals)
     EXPECT_EQ(printer.print(*expr6), "(map (key1 1) (key2 (array 1 2)))");
 }
 
+TEST(ExpressionTest, ParsesVariableExpression)
+{
+    YINI::AstPrinter printer;
+    auto expr = parseExpression("@my_var");
+    EXPECT_EQ(printer.print(*expr), "my_var");
+}
+
 TEST(ExpressionTest, ParsesCallExpressions)
 {
     YINI::AstPrinter printer;

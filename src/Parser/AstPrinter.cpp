@@ -91,6 +91,11 @@ namespace YINI
         return parenthesize("call", exprs);
     }
 
+    std::any AstPrinter::visit(const Variable& expr)
+    {
+        return expr.name.lexeme;
+    }
+
     std::string AstPrinter::parenthesize(const std::string& name, const std::vector<std::reference_wrapper<const Expr>>& exprs)
     {
         std::stringstream builder;

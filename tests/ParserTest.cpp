@@ -157,3 +157,36 @@ TEST(ParserTest, ParsesRegistrationStatement)
     ASSERT_NE(literal2, nullptr);
     EXPECT_EQ(std::any_cast<std::string>(literal2->value), "another");
 }
+
+TEST(ParserTest, ParsesDefineSection)
+{
+    std::string source = R"(
+        [#define]
+        my_var = 123
+        another = "hello"
+    )";
+    YINI::Lexer lexer(source);
+    std::vector<YINI::Token> tokens = lexer.scanTokens();
+    YINI::Parser parser(tokens);
+    std::vector<std::unique_ptr<YINI::Stmt>> ast = parser.parse();
+
+    ASSERT_EQ(ast.size(), 1);
+
+    auto* defineNode = dynamic_cast<YINI::Define*>(ast[0].get());
+    ASSERT_NE(defineNode, nullptr);
+    ASSERT_EQ(defineNode->values.size(), 2);
+
+    // my_var = 123
+    auto* kv1 = defineNode->values[0].get();
+    EXPECT_EQ(std::any_cast<std::string>(kv1->key.literal), "my_var");
+    auto* literal1 = dynamic_cast<YINI::Literal*>(kv1->value.get());
+    ASSERT_NE(literal1, nullptr);
+    EXPECT_EQ(std::any_cast<double>(literal1->value), 123);
+
+    // another = "hello"
+    auto* kv2 = defineNode->values[1].get();
+    EXPECT_EQ(std::any_cast<std::string>(kv2->key.literal), "another");
+    auto* literal2 = dynamic_cast<YINI::Literal*>(kv2->value.get());
+    ASSERT_NE(literal2, nullptr);
+    EXPECT_EQ(std::any_cast<std::string>(literal2->value), "hello");
+}

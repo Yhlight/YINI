@@ -17,7 +17,25 @@ namespace YINI
 
     std::unique_ptr<Stmt> Parser::declaration()
     {
+        if (check(TokenType::LEFT_BRACKET) && m_tokens[m_current + 1].lexeme == "#define") {
+            return defineSection();
+        }
         return section();
+    }
+
+    std::unique_ptr<Stmt> Parser::defineSection()
+    {
+        consume(TokenType::LEFT_BRACKET, "Expect '[' before #define.");
+        consume(TokenType::IDENTIFIER, "Expect #define keyword.");
+        consume(TokenType::RIGHT_BRACKET, "Expect ']' after #define.");
+
+        std::vector<std::unique_ptr<KeyValue>> values;
+        while (!check(TokenType::LEFT_BRACKET) && !isAtEnd())
+        {
+            values.push_back(keyValue());
+        }
+
+        return std::make_unique<Define>(std::move(values));
     }
 
     std::unique_ptr<Section> Parser::section()
@@ -131,7 +149,18 @@ namespace YINI
 
     std::unique_ptr<Expr> Parser::primary()
     {
-        if (match({TokenType::TRUE, TokenType::FALSE, TokenType::NUMBER, TokenType::STRING, TokenType::IDENTIFIER}))
+        if (match({TokenType::TRUE, TokenType::FALSE, TokenType::NUMBER, TokenType::STRING}))
+        {
+            return std::make_unique<Literal>(previous().literal);
+        }
+
+        if (match({TokenType::AT}))
+        {
+            Token name = consume(TokenType::IDENTIFIER, "Expect variable name after '@'.");
+            return std::make_unique<Variable>(name);
+        }
+
+        if (match({TokenType::IDENTIFIER}))
         {
             return std::make_unique<Literal>(previous().literal);
         }

@@ -29,6 +29,7 @@ namespace YINI
         {
             case '(': addToken(TokenType::LEFT_PAREN); break;
             case ')': addToken(TokenType::RIGHT_PAREN); break;
+            case '@': addToken(TokenType::AT); break;
             case '{': addToken(TokenType::LEFT_BRACE); break;
             case '}': addToken(TokenType::RIGHT_BRACE); break;
             case '[': addToken(TokenType::LEFT_BRACKET); break;
@@ -71,7 +72,7 @@ namespace YINI
                 {
                     number();
                 }
-                else if (isalpha(c) || c == '_')
+                else if (isalpha(c) || c == '_' || c == '#')
                 {
                     identifier();
                 }

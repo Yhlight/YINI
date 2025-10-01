@@ -12,7 +12,7 @@ namespace YINI
         LEFT_BRACKET, RIGHT_BRACKET,
         LEFT_PAREN, RIGHT_PAREN,
         LEFT_BRACE, RIGHT_BRACE,
-        EQUAL, SLASH, STAR, PLUS, MINUS, PERCENT, COMMA, COLON,
+        EQUAL, SLASH, STAR, PLUS, MINUS, PERCENT, COMMA, COLON, AT,
 
         // Two-character tokens.
         PLUS_EQUAL,

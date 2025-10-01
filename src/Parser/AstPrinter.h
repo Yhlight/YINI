@@ -17,6 +17,7 @@ namespace YINI
         std::any visit(const Set& expr) override;
         std::any visit(const Map& expr) override;
         std::any visit(const Call& expr) override;
+        std::any visit(const Variable& expr) override;
 
     private:
         std::string parenthesize(const std::string& name, const std::vector<std::reference_wrapper<const Expr>>& exprs);
