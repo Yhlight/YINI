@@ -8,3 +8,6 @@ add_library(Yini
 )
 
 target_include_directories(Yini PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+
+add_executable(yini-cli CLI/main.cpp)
+target_link_libraries(yini-cli Yini)

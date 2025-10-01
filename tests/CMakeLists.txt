@@ -30,3 +30,12 @@ add_test(NAME interpreter_test COMMAND interpreter_test)
 add_executable(include_test IncludeTest.cpp)
 target_link_libraries(include_test Yini GTest::gtest_main)
 add_test(NAME include_test COMMAND include_test)
+
+# CLI test
+add_executable(cli_test CliTest.cpp)
+target_link_libraries(cli_test Yini GTest::gtest_main)
+
+# Pass the path to the yini-cli executable to the test
+target_compile_definitions(cli_test PRIVATE YINI_CLI_PATH="$<TARGET_FILE:yini-cli>")
+
+add_test(NAME cli_test COMMAND cli_test)
