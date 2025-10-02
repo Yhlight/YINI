@@ -1,6 +1,7 @@
 using System;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Reflection;
 
 namespace Yini
 {
@@ -110,6 +111,36 @@ namespace Yini
         public void SetBool(string section, string key, bool value)
         {
             YiniManager_SetBool(_managerPtr, section, key, value);
+        }
+
+        public T Bind<T>(string section) where T : new()
+        {
+            var instance = new T();
+            var properties = typeof(T).GetProperties(BindingFlags.Public | BindingFlags.Instance);
+
+            foreach (var prop in properties)
+            {
+                if (!prop.CanWrite) continue;
+
+                string key = prop.Name.ToLower(); // Use lowercase key for convention
+                Type propType = prop.PropertyType;
+
+                if (propType == typeof(string))
+                {
+                    prop.SetValue(instance, GetString(section, key, ""));
+                }
+                else if (propType == typeof(double) || propType == typeof(float) || propType == typeof(int))
+                {
+                    double value = GetDouble(section, key, 0.0);
+                    prop.SetValue(instance, Convert.ChangeType(value, propType));
+                }
+                else if (propType == typeof(bool))
+                {
+                    prop.SetValue(instance, GetBool(section, key, false));
+                }
+            }
+
+            return instance;
         }
 
         #region IDisposable Implementation
