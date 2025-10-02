@@ -1,18 +1,25 @@
 #pragma once
 
-#include <any>
+#pragma once
+
+#include "YiniValue.h"
+#include <memory>
 
 namespace YINI
 {
     class DynaValue
     {
     public:
-        DynaValue(std::any value) : m_value(std::move(value)) {}
+        DynaValue(YiniValue value);
+        ~DynaValue();
+        DynaValue(const DynaValue& other);
+        DynaValue& operator=(const DynaValue& other);
+        DynaValue(DynaValue&& other) noexcept;
+        DynaValue& operator=(DynaValue&& other) noexcept;
 
-        const std::any& get() const { return m_value; }
-        void set(std::any value) { m_value = std::move(value); }
+        const YiniValue& get() const;
+        void set(YiniValue value);
 
-    private:
-        std::any m_value;
+        std::unique_ptr<YiniValue> m_value;
     };
 }

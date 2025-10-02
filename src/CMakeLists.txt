@@ -5,6 +5,8 @@ add_library(Yini
     Interpreter/Environment.cpp
     Interpreter/Interpreter.cpp
     Core/YiniManager.cpp
+    Core/YiniValue.cpp
+    Core/DynaValue.cpp
     Core/Serialization/Serializer.cpp
     Core/Serialization/Deserializer.cpp
     Interop/YiniCApi.cpp

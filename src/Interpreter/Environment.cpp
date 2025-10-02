@@ -4,12 +4,12 @@
 
 namespace YINI
 {
-    void Environment::define(const std::string& name, std::any value)
+    void Environment::define(const std::string& name, YiniValue value)
     {
-        m_values[name] = value;
+        m_values[name] = std::move(value);
     }
 
-    std::any Environment::get(const Token& name)
+    YiniValue Environment::get(const Token& name)
     {
         if (m_values.count(name.lexeme))
         {

@@ -20,7 +20,7 @@ namespace YINI
             scanToken();
         }
 
-        m_tokens.push_back({TokenType::END_OF_FILE, "", std::any{}, m_line, m_column});
+        m_tokens.push_back({TokenType::END_OF_FILE, "", YiniValue{}, m_line, m_column});
         return m_tokens;
     }
 
@@ -121,10 +121,10 @@ namespace YINI
 
     void Lexer::addToken(TokenType type)
     {
-        addToken(type, std::any{});
+        addToken(type, YiniValue{});
     }
 
-    void Lexer::addToken(TokenType type, const std::any& literal)
+    void Lexer::addToken(TokenType type, const YiniValue& literal)
     {
         std::string text = m_source.substr(m_start, m_current - m_start);
         m_tokens.push_back({type, text, literal, m_line, m_start_column});

@@ -9,17 +9,17 @@ namespace YINI
     {
     public:
         std::string print(const Expr& expr);
-        std::any visit(const Literal& expr) override;
-        std::any visit(const Unary& expr) override;
-        std::any visit(const Binary& expr) override;
-        std::any visit(const Grouping& expr) override;
-        std::any visit(const Array& expr) override;
-        std::any visit(const Set& expr) override;
-        std::any visit(const Map& expr) override;
-        std::any visit(const Call& expr) override;
-        std::any visit(const Variable& expr) override;
+        YiniValue visit(const Literal& expr) override;
+        YiniValue visit(const Unary& expr) override;
+        YiniValue visit(const Binary& expr) override;
+        YiniValue visit(const Grouping& expr) override;
+        YiniValue visit(const Array& expr) override;
+        YiniValue visit(const Set& expr) override;
+        YiniValue visit(const Map& expr) override;
+        YiniValue visit(const Call& expr) override;
+        YiniValue visit(const Variable& expr) override;
 
     private:
-        std::string parenthesize(const std::string& name, const std::vector<std::reference_wrapper<const Expr>>& exprs);
+        std::string parenthesize(const std::string& name, const std::vector<const Expr*>& exprs);
     };
 }

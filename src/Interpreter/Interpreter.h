@@ -2,11 +2,11 @@
 
 #include "Parser/Ast.h"
 #include "Environment.h"
-#include <vector>
-#include <any>
+#include "Core/YiniValue.h"
 #include <map>
-#include <string>
 #include <set>
+#include <string>
+#include <vector>
 
 namespace YINI
 {
@@ -20,9 +20,9 @@ namespace YINI
     {
     public:
         void interpret(const std::vector<std::unique_ptr<Stmt>>& statements);
-        std::string stringify(const std::any& value);
+        std::string stringify(const YiniValue& value);
 
-        std::map<std::string, std::map<std::string, std::any>> resolved_sections;
+        std::map<std::string, std::map<std::string, YiniValue>> resolved_sections;
         std::map<std::string, std::map<std::string, ValueLocation>> value_locations;
 
         // Statement visitor methods
@@ -33,18 +33,18 @@ namespace YINI
         void visit(const Include& stmt) override;
 
         // Expression visitor methods
-        std::any visit(const Literal& expr) override;
-        std::any visit(const Unary& expr) override;
-        std::any visit(const Binary& expr) override;
-        std::any visit(const Grouping& expr) override;
-        std::any visit(const Array& expr) override;
-        std::any visit(const Set& expr) override;
-        std::any visit(const Map& expr) override;
-        std::any visit(const Call& expr) override;
-        std::any visit(const Variable& expr) override;
+        YiniValue visit(const Literal& expr) override;
+        YiniValue visit(const Unary& expr) override;
+        YiniValue visit(const Binary& expr) override;
+        YiniValue visit(const Grouping& expr) override;
+        YiniValue visit(const Array& expr) override;
+        YiniValue visit(const Set& expr) override;
+        YiniValue visit(const Map& expr) override;
+        YiniValue visit(const Call& expr) override;
+        YiniValue visit(const Variable& expr) override;
 
     private:
-        std::any evaluate(const Expr& expr);
+        YiniValue evaluate(const Expr& expr);
         void execute(const Stmt& stmt);
         void resolve_section(const Section* section);
 

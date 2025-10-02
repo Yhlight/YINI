@@ -1,8 +1,10 @@
 #pragma once
 
+#pragma once
+
+#include "Core/YiniValue.h"
 #include <string>
 #include <map>
-#include <any>
 #include <fstream>
 #include <vector>
 
@@ -13,10 +15,10 @@ namespace YINI
         class Deserializer
         {
         public:
-            std::map<std::string, std::map<std::string, std::any>> deserialize(const std::string& filepath);
+            std::map<std::string, std::map<std::string, YiniValue>> deserialize(const std::string& filepath);
 
         private:
-            std::any read_any(std::ifstream& in);
+            YiniValue read_value(std::ifstream& in);
             std::string read_string(std::ifstream& in);
         };
     }

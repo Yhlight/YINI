@@ -1,14 +1,70 @@
 #include "Serializer.h"
 #include "Format.h"
+#include "Core/YiniValue.h"
+#include "Core/DynaValue.h"
 #include <stdexcept>
 #include <vector>
 #include <map>
+#include <variant>
 
 namespace YINI
 {
     namespace Serialization
     {
-        void Serializer::serialize(const std::map<std::string, std::map<std::string, std::any>>& data, const std::string& filepath)
+        // Helper visitor for serializing a YiniValue
+        struct SerializeVisitor {
+            std::ofstream& out;
+            Serializer& serializer;
+
+            void operator()(std::monostate) const {
+                DataType tag = DataType::NIL;
+                out.write(reinterpret_cast<const char*>(&tag), sizeof(tag));
+            }
+            void operator()(bool val) const {
+                DataType tag = DataType::BOOL;
+                out.write(reinterpret_cast<const char*>(&tag), sizeof(tag));
+                out.write(reinterpret_cast<const char*>(&val), sizeof(val));
+            }
+            void operator()(double val) const {
+                DataType tag = DataType::DOUBLE;
+                out.write(reinterpret_cast<const char*>(&tag), sizeof(tag));
+                out.write(reinterpret_cast<const char*>(&val), sizeof(val));
+            }
+            void operator()(const std::string& val) const {
+                DataType tag = DataType::STRING;
+                out.write(reinterpret_cast<const char*>(&tag), sizeof(tag));
+                serializer.write_string(out, val);
+            }
+            void operator()(const std::unique_ptr<YiniArray>& val) const {
+                DataType tag = DataType::VECTOR;
+                out.write(reinterpret_cast<const char*>(&tag), sizeof(tag));
+                size_t count = val->size();
+                out.write(reinterpret_cast<const char*>(&count), sizeof(count));
+                for (const auto& item : *val) {
+                    serializer.write_value(out, item);
+                }
+            }
+            void operator()(const std::unique_ptr<YiniMap>& val) const {
+                DataType tag = DataType::MAP;
+                out.write(reinterpret_cast<const char*>(&tag), sizeof(tag));
+                size_t count = val->size();
+                out.write(reinterpret_cast<const char*>(&count), sizeof(count));
+                for (const auto& pair : *val) {
+                    serializer.write_string(out, pair.first);
+                    serializer.write_value(out, pair.second);
+                }
+            }
+            void operator()(const std::unique_ptr<DynaValue>& val) const {
+                // When serializing a DynaValue, we serialize its contained value.
+                if (val) {
+                    serializer.write_value(out, val->get());
+                } else {
+                    (*this)(std::monostate{});
+                }
+            }
+        };
+
+        void Serializer::serialize(const std::map<std::string, std::map<std::string, YiniValue>>& data, const std::string& filepath)
         {
             std::ofstream out(filepath, std::ios::binary);
             if (!out) {
@@ -26,7 +82,7 @@ namespace YINI
 
                 for (const auto& kv_pair : section_pair.second) {
                     write_string(out, kv_pair.first);
-                    write_any(out, kv_pair.second);
+                    write_value(out, kv_pair.second);
                 }
             }
         }
@@ -38,47 +94,9 @@ namespace YINI
             out.write(str.c_str(), len);
         }
 
-        void Serializer::write_any(std::ofstream& out, const std::any& value)
+        void Serializer::write_value(std::ofstream& out, const YiniValue& value)
         {
-            const auto& type = value.type();
-            if (type == typeid(double)) {
-                DataType tag = DataType::DOUBLE;
-                out.write(reinterpret_cast<const char*>(&tag), sizeof(tag));
-                double val = std::any_cast<double>(value);
-                out.write(reinterpret_cast<const char*>(&val), sizeof(val));
-            } else if (type == typeid(bool)) {
-                DataType tag = DataType::BOOL;
-                out.write(reinterpret_cast<const char*>(&tag), sizeof(tag));
-                bool val = std::any_cast<bool>(value);
-                out.write(reinterpret_cast<const char*>(&val), sizeof(val));
-            } else if (type == typeid(std::string)) {
-                DataType tag = DataType::STRING;
-                out.write(reinterpret_cast<const char*>(&tag), sizeof(tag));
-                write_string(out, std::any_cast<std::string>(value));
-            } else if (type == typeid(std::vector<std::any>)) {
-                DataType tag = DataType::VECTOR;
-                out.write(reinterpret_cast<const char*>(&tag), sizeof(tag));
-                const auto& vec = std::any_cast<const std::vector<std::any>&>(value);
-                size_t count = vec.size();
-                out.write(reinterpret_cast<const char*>(&count), sizeof(count));
-                for (const auto& item : vec) {
-                    write_any(out, item);
-                }
-            } else if (type == typeid(std::map<std::string, std::any>)) {
-                DataType tag = DataType::MAP;
-                out.write(reinterpret_cast<const char*>(&tag), sizeof(tag));
-                const auto& map = std::any_cast<const std::map<std::string, std::any>&>(value);
-                size_t count = map.size();
-                out.write(reinterpret_cast<const char*>(&count), sizeof(count));
-                for (const auto& pair : map) {
-                    write_string(out, pair.first);
-                    write_any(out, pair.second);
-                }
-            } else {
-                // For nil or unsupported types
-                DataType tag = DataType::NIL;
-                out.write(reinterpret_cast<const char*>(&tag), sizeof(tag));
-            }
+            std::visit(SerializeVisitor{out, *this}, value.m_value);
         }
     }
 }

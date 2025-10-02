@@ -1,8 +1,8 @@
 #pragma once
 
+#include "Core/YiniValue.h"
 #include <string>
 #include <vector>
-#include <any>
 
 namespace YINI
 {
@@ -31,7 +31,7 @@ namespace YINI
     {
         TokenType type;
         std::string lexeme;
-        std::any literal;
+        YiniValue literal;
         int line;
         int column;
     };

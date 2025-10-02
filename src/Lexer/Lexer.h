@@ -4,7 +4,6 @@
 #include <string>
 #include <vector>
 #include <map>
-#include <any>
 
 namespace YINI
 {
@@ -22,7 +21,7 @@ namespace YINI
         char advance();
         bool isAtEnd();
         void addToken(TokenType type);
-        void addToken(TokenType type, const std::any& literal);
+        void addToken(TokenType type, const YiniValue& literal);
 
         void blockComment();
         void string();

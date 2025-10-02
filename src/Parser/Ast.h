@@ -2,9 +2,10 @@
 
 #include "Lexer/Token.h"
 #include <vector>
-#include <memory>
-#include <any>
+#include "Core/YiniValue.h"
 #include <map>
+#include <memory>
+#include <vector>
 
 namespace YINI
 {
@@ -23,15 +24,15 @@ namespace YINI
     class ExprVisitor
     {
     public:
-        virtual std::any visit(const Literal& expr) = 0;
-        virtual std::any visit(const Unary& expr) = 0;
-        virtual std::any visit(const Binary& expr) = 0;
-        virtual std::any visit(const Grouping& expr) = 0;
-        virtual std::any visit(const Array& expr) = 0;
-        virtual std::any visit(const Set& expr) = 0;
-        virtual std::any visit(const Map& expr) = 0;
-        virtual std::any visit(const Call& expr) = 0;
-        virtual std::any visit(const Variable& expr) = 0;
+        virtual YiniValue visit(const Literal& expr) = 0;
+        virtual YiniValue visit(const Unary& expr) = 0;
+        virtual YiniValue visit(const Binary& expr) = 0;
+        virtual YiniValue visit(const Grouping& expr) = 0;
+        virtual YiniValue visit(const Array& expr) = 0;
+        virtual YiniValue visit(const Set& expr) = 0;
+        virtual YiniValue visit(const Map& expr) = 0;
+        virtual YiniValue visit(const Call& expr) = 0;
+        virtual YiniValue visit(const Variable& expr) = 0;
         virtual ~ExprVisitor() = default;
     };
 
@@ -40,22 +41,22 @@ namespace YINI
     {
     public:
         virtual ~Expr() = default;
-        virtual std::any accept(ExprVisitor& visitor) const = 0;
+        virtual YiniValue accept(ExprVisitor& visitor) const = 0;
     };
 
     // Literal expression node
     struct Literal : public Expr
     {
-        Literal(std::any value) : value(std::move(value)) {}
-        std::any accept(ExprVisitor& visitor) const override { return visitor.visit(*this); }
-        std::any value;
+        Literal(YiniValue value) : value(std::move(value)) {}
+        YiniValue accept(ExprVisitor& visitor) const override { return visitor.visit(*this); }
+        YiniValue value;
     };
 
     // Unary expression node
     struct Unary : public Expr
     {
         Unary(Token op, std::unique_ptr<Expr> right) : op(std::move(op)), right(std::move(right)) {}
-        std::any accept(ExprVisitor& visitor) const override { return visitor.visit(*this); }
+        YiniValue accept(ExprVisitor& visitor) const override { return visitor.visit(*this); }
         Token op;
         std::unique_ptr<Expr> right;
     };
@@ -65,7 +66,7 @@ namespace YINI
     {
         Binary(std::unique_ptr<Expr> left, Token op, std::unique_ptr<Expr> right)
             : left(std::move(left)), op(std::move(op)), right(std::move(right)) {}
-        std::any accept(ExprVisitor& visitor) const override { return visitor.visit(*this); }
+        YiniValue accept(ExprVisitor& visitor) const override { return visitor.visit(*this); }
         std::unique_ptr<Expr> left;
         Token op;
         std::unique_ptr<Expr> right;
@@ -75,7 +76,7 @@ namespace YINI
     struct Grouping : public Expr
     {
         Grouping(std::unique_ptr<Expr> expression) : expression(std::move(expression)) {}
-        std::any accept(ExprVisitor& visitor) const override { return visitor.visit(*this); }
+        YiniValue accept(ExprVisitor& visitor) const override { return visitor.visit(*this); }
         std::unique_ptr<Expr> expression;
     };
 
@@ -84,7 +85,7 @@ namespace YINI
     {
         Array(std::vector<std::unique_ptr<Expr>> elements)
             : elements(std::move(elements)) {}
-        std::any accept(ExprVisitor& visitor) const override { return visitor.visit(*this); }
+        YiniValue accept(ExprVisitor& visitor) const override { return visitor.visit(*this); }
         std::vector<std::unique_ptr<Expr>> elements;
     };
 
@@ -93,7 +94,7 @@ namespace YINI
     {
         Set(std::vector<std::unique_ptr<Expr>> elements)
             : elements(std::move(elements)) {}
-        std::any accept(ExprVisitor& visitor) const override { return visitor.visit(*this); }
+        YiniValue accept(ExprVisitor& visitor) const override { return visitor.visit(*this); }
         std::vector<std::unique_ptr<Expr>> elements;
     };
 
@@ -102,7 +103,7 @@ namespace YINI
     {
         Map(Token brace, std::vector<std::pair<std::unique_ptr<Expr>, std::unique_ptr<Expr>>> pairs)
             : brace(std::move(brace)), pairs(std::move(pairs)) {}
-        std::any accept(ExprVisitor& visitor) const override { return visitor.visit(*this); }
+        YiniValue accept(ExprVisitor& visitor) const override { return visitor.visit(*this); }
         Token brace;
         std::vector<std::pair<std::unique_ptr<Expr>, std::unique_ptr<Expr>>> pairs;
     };
@@ -112,7 +113,7 @@ namespace YINI
     {
         Call(std::unique_ptr<Expr> callee, Token paren, std::vector<std::unique_ptr<Expr>> arguments)
             : callee(std::move(callee)), paren(std::move(paren)), arguments(std::move(arguments)) {}
-        std::any accept(ExprVisitor& visitor) const override { return visitor.visit(*this); }
+        YiniValue accept(ExprVisitor& visitor) const override { return visitor.visit(*this); }
         std::unique_ptr<Expr> callee;
         Token paren; // The closing ')'
         std::vector<std::unique_ptr<Expr>> arguments;
@@ -122,7 +123,7 @@ namespace YINI
     struct Variable : public Expr
     {
         Variable(Token name) : name(std::move(name)) {}
-        std::any accept(ExprVisitor& visitor) const override { return visitor.visit(*this); }
+        YiniValue accept(ExprVisitor& visitor) const override { return visitor.visit(*this); }
         Token name;
     };
 

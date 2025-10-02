@@ -2,10 +2,12 @@
 #include "Core/Serialization/Serializer.h"
 #include "Core/Serialization/Deserializer.h"
 #include "Core/YiniException.h"
+#include "Core/YiniValue.h"
+#include "Core/DynaValue.h"
 #include <iostream>
 #include <string>
 #include <vector>
-#include <any>
+#include <variant>
 
 void print_usage() {
     std::cerr << "Usage: yini-cli <command> [args...]\n"
@@ -15,37 +17,54 @@ void print_usage() {
               << "  decompile <filepath>    Decompile and print a .ymeta file.\n";
 }
 
-void print_any(const std::any& value);
+// Forward declarations for recursive printing
+void print_value(const YINI::YiniValue& value, int indent);
+void print_map(const YINI::YiniMap& map, int indent);
 
-void print_map(const std::map<std::string, std::any>& map, int indent = 0) {
-    for (const auto& pair : map) {
-        std::cout << std::string(indent, ' ') << pair.first << ": ";
-        print_any(pair.second);
-        std::cout << "\n";
-    }
-}
+// Visitor for printing a YiniValue
+struct PrintVisitor {
+    int indent;
 
-void print_any(const std::any& value) {
-    if (value.type() == typeid(double)) {
-        std::cout << std::any_cast<double>(value);
-    } else if (value.type() == typeid(bool)) {
-        std::cout << (std::any_cast<bool>(value) ? "true" : "false");
-    } else if (value.type() == typeid(std::string)) {
-        std::cout << "\"" << std::any_cast<std::string>(value) << "\"";
-    } else if (value.type() == typeid(std::vector<std::any>)) {
+    void operator()(std::monostate) const { std::cout << "nil"; }
+    void operator()(bool value) const { std::cout << (value ? "true" : "false"); }
+    void operator()(double value) const { std::cout << value; }
+    void operator()(const std::string& value) const { std::cout << "\"" << value << "\""; }
+
+    void operator()(const std::unique_ptr<YINI::YiniArray>& value) const {
         std::cout << "[ ";
-        const auto& vec = std::any_cast<const std::vector<std::any>&>(value);
-        for (const auto& item : vec) {
-            print_any(item);
+        for (const auto& item : *value) {
+            print_value(item, indent);
             std::cout << " ";
         }
         std::cout << "]";
-    } else if (value.type() == typeid(std::map<std::string, std::any>)) {
+    }
+
+    void operator()(const std::unique_ptr<YINI::YiniMap>& value) const {
         std::cout << "{\n";
-        print_map(std::any_cast<const std::map<std::string, std::any>&>(value), 4);
-        std::cout << std::string(2, ' ') << "}";
-    } else {
-        std::cout << "nil";
+        print_map(*value, indent + 2);
+        std::cout << std::string(indent, ' ') << "}";
+    }
+
+    void operator()(const std::unique_ptr<YINI::DynaValue>& value) const {
+        std::cout << "Dyna(";
+        if (value && value->m_value) {
+            print_value(*(value->m_value), indent);
+        } else {
+            std::cout << "nil";
+        }
+        std::cout << ")";
+    }
+};
+
+void print_value(const YINI::YiniValue& value, int indent = 0) {
+    std::visit(PrintVisitor{indent}, value.m_value);
+}
+
+void print_map(const YINI::YiniMap& map, int indent = 0) {
+    for (const auto& pair : map) {
+        std::cout << std::string(indent, ' ') << pair.first << ": ";
+        print_value(pair.second, indent);
+        std::cout << "\n";
     }
 }
 

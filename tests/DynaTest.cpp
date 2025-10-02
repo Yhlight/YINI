@@ -4,6 +4,7 @@
 #include <fstream>
 #include <sstream>
 #include <string>
+#include <variant>
 
 // Helper to read a file's content into a string
 std::string get_file_contents(const std::string& path) {
@@ -27,10 +28,11 @@ TEST(DynaTest, InterpreterCreatesDynaValue) {
     ASSERT_EQ(section.count("my_dynamic_val"), 1);
 
     const auto& value = section.at("my_dynamic_val");
-    ASSERT_EQ(value.type(), typeid(YINI::DynaValue));
+    auto* dyna_val_ptr = std::get_if<std::unique_ptr<YINI::DynaValue>>(&value.m_value);
+    ASSERT_NE(dyna_val_ptr, nullptr);
 
-    auto dyna_val = std::any_cast<YINI::DynaValue>(value);
-    EXPECT_EQ(std::any_cast<double>(dyna_val.get()), 123);
+    const auto& inner_value = (*dyna_val_ptr)->get();
+    EXPECT_EQ(std::get<double>(inner_value.m_value), 123);
 }
 
 TEST(DynaTest, NonDestructiveWriteBack) {
@@ -48,11 +50,11 @@ TEST(DynaTest, NonDestructiveWriteBack) {
     manager.load(filepath);
 
     // Verify initial value
-    EXPECT_EQ(std::any_cast<double>(manager.get_value("Settings", "volume")), 100);
+    EXPECT_EQ(std::get<double>(manager.get_value("Settings", "volume").m_value), 100);
 
     // Set a new value
     manager.set_value("Settings", "volume", 75.0);
-    EXPECT_EQ(std::any_cast<double>(manager.get_value("Settings", "volume")), 75.0);
+    EXPECT_EQ(std::get<double>(manager.get_value("Settings", "volume").m_value), 75.0);
 
     // 2. Save the changes
     manager.save_changes();
@@ -61,7 +63,7 @@ TEST(DynaTest, NonDestructiveWriteBack) {
     std::string new_content = get_file_contents(filepath);
 
     // Check that the dynamic value was updated
-    EXPECT_NE(new_content.find("volume = 75 "), std::string::npos);
+    EXPECT_NE(new_content.find("volume = 75"), std::string::npos);
 
     // Check that comments and other lines are preserved
     EXPECT_NE(new_content.find("// This is a test file for dynamic values."), std::string::npos);

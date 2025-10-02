@@ -2,109 +2,113 @@
 #include <sstream>
 #include <vector>
 #include <functional>
+#include <variant>
 
 namespace YINI
 {
     std::string AstPrinter::print(const Expr& expr)
     {
-        return std::any_cast<std::string>(expr.accept(*this));
+        YiniValue result = expr.accept(*this);
+        if (const auto* str = std::get_if<std::string>(&result.m_value)) {
+            return *str;
+        }
+        return "[AstPrinter: Error printing expression]";
     }
 
-    std::any AstPrinter::visit(const Literal& expr)
-    {
-        if (expr.value.type() == typeid(std::string))
-        {
-            return std::any_cast<std::string>(expr.value);
-        }
-        if (expr.value.type() == typeid(double))
-        {
+    // Visitor for printing literal values
+    struct LiteralPrintVisitor {
+        std::string operator()(std::monostate) const { return "nil"; }
+        std::string operator()(bool value) const { return value ? "true" : "false"; }
+        std::string operator()(double value) const {
             std::stringstream ss;
-            ss << std::any_cast<double>(expr.value);
+            ss << value;
             return ss.str();
         }
-        if (expr.value.type() == typeid(bool))
-        {
-            return std::string(std::any_cast<bool>(expr.value) ? "true" : "false");
-        }
-        return std::string("nil");
+        std::string operator()(const std::string& value) const { return value; }
+        template <typename T>
+        std::string operator()(const std::unique_ptr<T>&) const { return "unprintable_ptr"; }
+    };
+
+    YiniValue AstPrinter::visit(const Literal& expr)
+    {
+        return std::visit(LiteralPrintVisitor{}, expr.value.m_value);
     }
 
-    std::any AstPrinter::visit(const Unary& expr)
+    YiniValue AstPrinter::visit(const Unary& expr)
     {
-        return parenthesize(expr.op.lexeme, {std::cref(*expr.right)});
+        return parenthesize(expr.op.lexeme, {expr.right.get()});
     }
 
-    std::any AstPrinter::visit(const Binary& expr)
+    YiniValue AstPrinter::visit(const Binary& expr)
     {
-        return parenthesize(expr.op.lexeme, {std::cref(*expr.left), std::cref(*expr.right)});
+        return parenthesize(expr.op.lexeme, {expr.left.get(), expr.right.get()});
     }
 
-    std::any AstPrinter::visit(const Grouping& expr)
+    YiniValue AstPrinter::visit(const Grouping& expr)
     {
-        return parenthesize("group", {std::cref(*expr.expression)});
+        return parenthesize("group", {expr.expression.get()});
     }
 
-    std::any AstPrinter::visit(const Array& expr)
+    YiniValue AstPrinter::visit(const Array& expr)
     {
-        std::vector<std::reference_wrapper<const Expr>> exprs;
+        std::vector<const Expr*> exprs;
         for (const auto& element : expr.elements)
         {
-            exprs.push_back(std::cref(*element));
+            exprs.push_back(element.get());
         }
         return parenthesize("array", exprs);
     }
 
-    std::any AstPrinter::visit(const Set& expr)
+    YiniValue AstPrinter::visit(const Set& expr)
     {
-        std::vector<std::reference_wrapper<const Expr>> exprs;
+        std::vector<const Expr*> exprs;
         for (const auto& element : expr.elements)
         {
-            exprs.push_back(std::cref(*element));
+            exprs.push_back(element.get());
         }
         return parenthesize("set", exprs);
     }
 
-    std::any AstPrinter::visit(const Map& expr)
+    YiniValue AstPrinter::visit(const Map& expr)
     {
         std::stringstream builder;
         builder << "(map";
         for (const auto& pair : expr.pairs)
         {
             builder << " (";
-            builder << std::any_cast<std::string>(pair.first->accept(*this));
+            builder << print(*pair.first);
             builder << " ";
-            builder << std::any_cast<std::string>(pair.second->accept(*this));
+            builder << print(*pair.second);
             builder << ")";
         }
         builder << ")";
         return builder.str();
     }
 
-    std::any AstPrinter::visit(const Call& expr)
+    YiniValue AstPrinter::visit(const Call& expr)
     {
-        std::vector<std::reference_wrapper<const Expr>> exprs;
-        exprs.push_back(std::cref(*expr.callee));
+        std::vector<const Expr*> exprs;
+        exprs.push_back(expr.callee.get());
         for (const auto& argument : expr.arguments)
         {
-            exprs.push_back(std::cref(*argument));
+            exprs.push_back(argument.get());
         }
         return parenthesize("call", exprs);
     }
 
-    std::any AstPrinter::visit(const Variable& expr)
+    YiniValue AstPrinter::visit(const Variable& expr)
     {
         return expr.name.lexeme;
     }
 
-    std::string AstPrinter::parenthesize(const std::string& name, const std::vector<std::reference_wrapper<const Expr>>& exprs)
+    std::string AstPrinter::parenthesize(const std::string& name, const std::vector<const Expr*>& exprs)
     {
         std::stringstream builder;
         builder << "(" << name;
-        for (const auto& expr_ref : exprs)
+        for (const auto* expr : exprs)
         {
-            const Expr& expr = expr_ref.get();
             builder << " ";
-            builder << std::any_cast<std::string>(expr.accept(*this));
+            builder << print(*expr);
         }
         builder << ")";
         return builder.str();

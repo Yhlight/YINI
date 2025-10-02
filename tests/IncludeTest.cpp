@@ -2,7 +2,7 @@
 #include "Core/YiniManager.h"
 #include <fstream>
 #include <vector>
-#include <any>
+#include <variant>
 
 TEST(IncludeTest, HandlesFileInclusionAndMerging)
 {
@@ -50,14 +50,14 @@ TEST(IncludeTest, HandlesFileInclusionAndMerging)
     // Test merged [Shared] section
     ASSERT_EQ(resolved.count("Shared"), 1);
     const auto& shared_section = resolved.at("Shared");
-    EXPECT_EQ(std::any_cast<std::string>(shared_section.at("key1")), "one");
-    EXPECT_EQ(std::any_cast<double>(shared_section.at("key2")), 2);
-    EXPECT_EQ(std::any_cast<std::string>(shared_section.at("key3")), "root");
-    EXPECT_EQ(std::any_cast<std::string>(shared_section.at("key4")), "root");
+    EXPECT_EQ(std::get<std::string>(shared_section.at("key1").m_value), "one");
+    EXPECT_EQ(std::get<double>(shared_section.at("key2").m_value), 2);
+    EXPECT_EQ(std::get<std::string>(shared_section.at("key3").m_value), "root");
+    EXPECT_EQ(std::get<std::string>(shared_section.at("key4").m_value), "root");
 
     // Test merged [#define] macros via the [Result] section
     ASSERT_EQ(resolved.count("Result"), 1);
     const auto& result_section = resolved.at("Result");
-    EXPECT_EQ(std::any_cast<std::string>(result_section.at("resolved_var1")), "from root");
-    EXPECT_EQ(std::any_cast<std::string>(result_section.at("resolved_var2")), "from two");
+    EXPECT_EQ(std::get<std::string>(result_section.at("resolved_var1").m_value), "from root");
+    EXPECT_EQ(std::get<std::string>(result_section.at("resolved_var2").m_value), "from two");
 }

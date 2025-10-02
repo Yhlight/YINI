@@ -3,7 +3,7 @@
 #include "Core/YiniException.h"
 #include <fstream>
 #include <vector>
-#include <any>
+#include <variant>
 
 // A helper function to create a temporary file, load it with the manager, and return the interpreter.
 YINI::Interpreter create_and_load_manager(const std::string& filename, const std::string& source) {
@@ -28,7 +28,7 @@ TEST(InterpreterTest, HandlesMacroDefinitionAndResolution)
 
     auto interpreter = create_and_load_manager("test_macro.yini", source);
     ASSERT_EQ(interpreter.resolved_sections["MySection"].count("key"), 1);
-    EXPECT_EQ(std::any_cast<double>(interpreter.resolved_sections["MySection"]["key"]), 123);
+    EXPECT_EQ(std::get<double>(interpreter.resolved_sections["MySection"]["key"].m_value), 123);
 }
 
 TEST(InterpreterTest, ThrowsOnUndefinedVariable)
@@ -54,10 +54,10 @@ TEST(InterpreterTest, EvaluatesArithmeticExpressions)
     )";
 
     auto interpreter = create_and_load_manager("test_arithmetic.yini", source);
-    EXPECT_EQ(std::any_cast<double>(interpreter.resolved_sections["MySection"]["val1"]), 16);
-    EXPECT_EQ(std::any_cast<double>(interpreter.resolved_sections["MySection"]["val2"]), 36);
-    EXPECT_EQ(std::any_cast<double>(interpreter.resolved_sections["MySection"]["val3"]), -11);
-    EXPECT_EQ(std::any_cast<double>(interpreter.resolved_sections["MySection"]["val4"]), 1);
+    EXPECT_EQ(std::get<double>(interpreter.resolved_sections["MySection"]["val1"].m_value), 16);
+    EXPECT_EQ(std::get<double>(interpreter.resolved_sections["MySection"]["val2"].m_value), 36);
+    EXPECT_EQ(std::get<double>(interpreter.resolved_sections["MySection"]["val3"].m_value), -11);
+    EXPECT_EQ(std::get<double>(interpreter.resolved_sections["MySection"]["val4"].m_value), 1);
 }
 
 TEST(InterpreterTest, ThrowsOnTypeMismatch)
@@ -91,26 +91,35 @@ TEST(InterpreterTest, EvaluatesDataStructures)
 
     // Test Array
     ASSERT_EQ(interpreter.resolved_sections["MySection"].count("my_array"), 1);
-    auto arr = std::any_cast<std::vector<std::any>>(interpreter.resolved_sections["MySection"]["my_array"]);
+    auto& arr_val = interpreter.resolved_sections["MySection"]["my_array"];
+    auto* arr_ptr = std::get_if<std::unique_ptr<YINI::YiniArray>>(&arr_val.m_value);
+    ASSERT_NE(arr_ptr, nullptr);
+    const auto& arr = **arr_ptr;
     ASSERT_EQ(arr.size(), 3);
-    EXPECT_EQ(std::any_cast<double>(arr[0]), 1);
-    EXPECT_EQ(std::any_cast<std::string>(arr[1]), "two");
-    EXPECT_EQ(std::any_cast<double>(arr[2]), 3.0);
+    EXPECT_EQ(std::get<double>(arr[0].m_value), 1);
+    EXPECT_EQ(std::get<std::string>(arr[1].m_value), "two");
+    EXPECT_EQ(std::get<double>(arr[2].m_value), 3.0);
 
-    // Test Set (currently represented as a vector)
+    // Test Set (currently represented as an array)
     ASSERT_EQ(interpreter.resolved_sections["MySection"].count("my_set"), 1);
-    auto set = std::any_cast<std::vector<std::any>>(interpreter.resolved_sections["MySection"]["my_set"]);
+    auto& set_val = interpreter.resolved_sections["MySection"]["my_set"];
+    auto* set_ptr = std::get_if<std::unique_ptr<YINI::YiniArray>>(&set_val.m_value);
+    ASSERT_NE(set_ptr, nullptr);
+    const auto& set = **set_ptr;
     ASSERT_EQ(set.size(), 3);
-    EXPECT_EQ(std::any_cast<double>(set[0]), 1);
-    EXPECT_EQ(std::any_cast<std::string>(set[1]), "two");
-    EXPECT_EQ(std::any_cast<double>(set[2]), 3.0);
+    EXPECT_EQ(std::get<double>(set[0].m_value), 1);
+    EXPECT_EQ(std::get<std::string>(set[1].m_value), "two");
+    EXPECT_EQ(std::get<double>(set[2].m_value), 3.0);
 
     // Test Map
     ASSERT_EQ(interpreter.resolved_sections["MySection"].count("my_map"), 1);
-    auto map = std::any_cast<std::map<std::string, std::any>>(interpreter.resolved_sections["MySection"]["my_map"]);
+    auto& map_val = interpreter.resolved_sections["MySection"]["my_map"];
+    auto* map_ptr = std::get_if<std::unique_ptr<YINI::YiniMap>>(&map_val.m_value);
+    ASSERT_NE(map_ptr, nullptr);
+    const auto& map = **map_ptr;
     ASSERT_EQ(map.size(), 2);
-    EXPECT_EQ(std::any_cast<double>(map["a"]), 1);
-    EXPECT_EQ(std::any_cast<std::string>(map["b"]), "two");
+    EXPECT_EQ(std::get<double>(map.at("a").m_value), 1);
+    EXPECT_EQ(std::get<std::string>(map.at("b").m_value), "two");
 }
 
 TEST(InterpreterTest, HandlesSectionInheritance)
@@ -134,10 +143,10 @@ TEST(InterpreterTest, HandlesSectionInheritance)
     ASSERT_EQ(interpreter.resolved_sections.count("Child"), 1);
     const auto& child_section = interpreter.resolved_sections["Child"];
 
-    EXPECT_EQ(std::any_cast<double>(child_section.at("val1")), 100);       // Child overrides ParentA
-    EXPECT_EQ(std::any_cast<std::string>(child_section.at("val2")), "overridden"); // ParentB overrides ParentA
-    EXPECT_EQ(std::any_cast<double>(child_section.at("val3")), 3);          // Inherited from ParentB
-    EXPECT_EQ(std::any_cast<double>(child_section.at("val4")), 4);          // Defined in Child
+    EXPECT_EQ(std::get<double>(child_section.at("val1").m_value), 100);       // Child overrides ParentA
+    EXPECT_EQ(std::get<std::string>(child_section.at("val2").m_value), "overridden"); // ParentB overrides ParentA
+    EXPECT_EQ(std::get<double>(child_section.at("val3").m_value), 3);          // Inherited from ParentB
+    EXPECT_EQ(std::get<double>(child_section.at("val4").m_value), 4);          // Defined in Child
 }
 
 TEST(InterpreterTest, ThrowsOnCircularInheritance)
