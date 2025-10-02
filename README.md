@@ -9,6 +9,40 @@ YINI is a modern, feature-rich configuration file format based on the INI syntax
 *   **Cross-Platform:** YINI is built with C++17 and can be easily integrated into any game engine.
 *   **C# Interoperability:** YINI provides a C# wrapper that makes it easy to use in Unity and other .NET environments.
 
+## Examples
+
+### C# Model Binding
+
+YINI provides a convenient `Bind<T>` method in its C# wrapper, allowing you to map a YINI section directly to a C# object.
+
+**YINI File (`player.yini`):**
+```yini
+[playerstats]
+name = Jules
+level = 99
+health = 125.5
+isactive = true
+```
+
+**C# Code:**
+```csharp
+public class PlayerStats
+{
+    public string Name { get; set; }
+    public int Level { get; set; }
+    public double Health { get; set; }
+    public bool IsActive { get; set; }
+}
+
+// ...
+
+var manager = new YiniManager();
+manager.Load("player.yini");
+PlayerStats stats = manager.Bind<PlayerStats>("playerstats");
+
+// The 'stats' object is now populated with the values from the file.
+```
+
 ## Getting Started
 
 To get started with YINI, check out the following resources:

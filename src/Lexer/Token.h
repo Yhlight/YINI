@@ -18,7 +18,7 @@ namespace YINI
         PLUS_EQUAL,
 
         // Literals.
-        IDENTIFIER, STRING, NUMBER, ENV_VAR,
+        IDENTIFIER, STRING, NUMBER,
 
         // Keywords.
         TRUE, FALSE,

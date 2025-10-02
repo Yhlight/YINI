@@ -1,6 +1,7 @@
 using System;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Reflection;
 
 namespace Yini
 {
@@ -40,42 +41,6 @@ namespace Yini
 
         [DllImport(LibName, EntryPoint = "yini_manager_set_bool")]
         private static extern void YiniManager_SetBool(IntPtr manager, string section, string key, bool value);
-
-        [DllImport(LibName, EntryPoint = "yini_manager_set_doubles")]
-        private static extern void YiniManager_SetDoubles(IntPtr manager, YiniDoubleKeyValue[] keyValues, int count);
-
-        [DllImport(LibName, EntryPoint = "yini_manager_set_strings")]
-        private static extern void YiniManager_SetStrings(IntPtr manager, YiniStringKeyValue[] keyValues, int count);
-
-        [DllImport(LibName, EntryPoint = "yini_manager_set_bools")]
-        private static extern void YiniManager_SetBools(IntPtr manager, YiniBoolKeyValue[] keyValues, int count);
-        #endregion
-
-        #region Structs for interop
-        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi)]
-        private struct YiniDoubleKeyValue
-        {
-            public string section;
-            public string key;
-            public double value;
-        }
-
-        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi)]
-        private struct YiniStringKeyValue
-        {
-            public string section;
-            public string key;
-            public string value;
-        }
-
-        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi)]
-        private struct YiniBoolKeyValue
-        {
-            public string section;
-            public string key;
-            [MarshalAs(UnmanagedType.I1)]
-            public bool value;
-        }
         #endregion
 
         public YiniManager()
@@ -148,22 +113,34 @@ namespace Yini
             YiniManager_SetBool(_managerPtr, section, key, value);
         }
 
-        public void SetDoubles(params (string section, string key, double value)[] values)
+        public T Bind<T>(string section) where T : new()
         {
-            var kvs = Array.ConvertAll(values, item => new YiniDoubleKeyValue { section = item.section, key = item.key, value = item.value });
-            YiniManager_SetDoubles(_managerPtr, kvs, kvs.Length);
-        }
+            var instance = new T();
+            var properties = typeof(T).GetProperties(BindingFlags.Public | BindingFlags.Instance);
 
-        public void SetStrings(params (string section, string key, string value)[] values)
-        {
-            var kvs = Array.ConvertAll(values, item => new YiniStringKeyValue { section = item.section, key = item.key, value = item.value });
-            YiniManager_SetStrings(_managerPtr, kvs, kvs.Length);
-        }
+            foreach (var prop in properties)
+            {
+                if (!prop.CanWrite) continue;
 
-        public void SetBools(params (string section, string key, bool value)[] values)
-        {
-            var kvs = Array.ConvertAll(values, item => new YiniBoolKeyValue { section = item.section, key = item.key, value = item.value });
-            YiniManager_SetBools(_managerPtr, kvs, kvs.Length);
+                string key = prop.Name.ToLower(); // Use lowercase key for convention
+                Type propType = prop.PropertyType;
+
+                if (propType == typeof(string))
+                {
+                    prop.SetValue(instance, GetString(section, key, ""));
+                }
+                else if (propType == typeof(double) || propType == typeof(float) || propType == typeof(int))
+                {
+                    double value = GetDouble(section, key, 0.0);
+                    prop.SetValue(instance, Convert.ChangeType(value, propType));
+                }
+                else if (propType == typeof(bool))
+                {
+                    prop.SetValue(instance, GetBool(section, key, false));
+                }
+            }
+
+            return instance;
         }
 
         #region IDisposable Implementation

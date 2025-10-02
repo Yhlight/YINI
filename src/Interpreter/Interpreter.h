@@ -42,8 +42,6 @@ namespace YINI
         std::any visit(const Map& expr) override;
         std::any visit(const Call& expr) override;
         std::any visit(const Variable& expr) override;
-        std::any visit(const EnvironmentVariable& expr) override;
-        const Environment& get_globals() const { return m_globals; }
 
     private:
         std::any evaluate(const Expr& expr);
@@ -51,8 +49,6 @@ namespace YINI
         void resolve_section(const Section* section);
 
         Environment m_globals;
-
-    private:
         std::map<std::string, const Section*> m_sections;
         std::set<std::string> m_resolved;
         std::set<std::string> m_resolving; // For cycle detection

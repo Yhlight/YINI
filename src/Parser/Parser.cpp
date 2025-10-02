@@ -1,5 +1,6 @@
 #include "Parser.h"
 #include "Core/YiniException.h"
+#include <stdexcept>
 
 namespace YINI
 {
@@ -17,20 +18,15 @@ namespace YINI
 
     std::unique_ptr<Stmt> Parser::declaration()
     {
-        try {
-            if (check(TokenType::LEFT_BRACKET) && m_tokens[m_current + 1].type == TokenType::IDENTIFIER) {
-                if (m_tokens[m_current + 1].lexeme == "#define") {
-                    return defineSection();
-                }
-                if (m_tokens[m_current + 1].lexeme == "#include") {
-                    return includeSection();
-                }
+        if (check(TokenType::LEFT_BRACKET) && m_tokens[m_current + 1].type == TokenType::IDENTIFIER) {
+            if (m_tokens[m_current + 1].lexeme == "#define") {
+                return defineSection();
             }
-            return section();
-        } catch (YiniException& e) {
-            // synchronize();
-            throw;
+            if (m_tokens[m_current + 1].lexeme == "#include") {
+                return includeSection();
+            }
         }
+        return section();
     }
 
     std::unique_ptr<Stmt> Parser::includeSection()
@@ -47,7 +43,7 @@ namespace YINI
             if (reg) {
                  files.push_back(std::move(reg->value));
             } else {
-                throw YiniException("Expected '+=' statement inside [#include] block.", peek().line, peek().column);
+                throw std::runtime_error("Expected '+=' statement inside [#include] block.");
             }
         }
 
@@ -189,19 +185,10 @@ namespace YINI
             return std::make_unique<Literal>(previous().literal);
         }
 
-        if (match({TokenType::ENV_VAR}))
-        {
-            return std::make_unique<EnvironmentVariable>(previous());
-        }
-
         if (match({TokenType::AT}))
         {
-            if (peek().type == TokenType::IDENTIFIER) {
-                Token name = advance();
-                return std::make_unique<Variable>(name);
-            }
-            // It's just an '@', probably for completion. Treat it as a literal string.
-            return std::make_unique<Literal>(previous().lexeme);
+            Token name = consume(TokenType::IDENTIFIER, "Expect variable name after '@'.");
+            return std::make_unique<Variable>(name);
         }
 
         if (match({TokenType::IDENTIFIER}))
@@ -266,7 +253,7 @@ namespace YINI
             return std::make_unique<Map>(brace, std::move(pairs));
         }
 
-        throw YiniException("Expect expression.", peek().line, peek().column);
+        throw YiniException("Expect expression.", peek().line);
     }
 
     bool Parser::match(const std::vector<TokenType>& types)
@@ -285,7 +272,7 @@ namespace YINI
     Token Parser::consume(TokenType type, const std::string& message)
     {
         if (check(type)) return advance();
-        throw YiniException(message, peek().line, peek().column);
+        throw YiniException(message, peek().line);
     }
 
     bool Parser::check(TokenType type)

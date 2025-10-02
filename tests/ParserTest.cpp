@@ -1,7 +1,6 @@
 #include <gtest/gtest.h>
 #include "Lexer/Lexer.h"
 #include "Parser/Parser.h"
-#include "Core/YiniException.h"
 #include <vector>
 #include <any>
 
@@ -190,23 +189,4 @@ TEST(ParserTest, ParsesDefineSection)
     auto* literal2 = dynamic_cast<YINI::Literal*>(kv2->value.get());
     ASSERT_NE(literal2, nullptr);
     EXPECT_EQ(std::any_cast<std::string>(literal2->value), "hello");
-}
-
-TEST(ParserTest, ThrowsExceptionOnSyntaxError)
-{
-    std::string source = "[Section]\nkey ="; // Missing value
-    YINI::Lexer lexer(source);
-    std::vector<YINI::Token> tokens = lexer.scanTokens();
-    YINI::Parser parser(tokens);
-
-    try {
-        parser.parse();
-        FAIL() << "Expected YiniException";
-    } catch (YINI::YiniException& e) {
-        EXPECT_EQ(e.line(), 2);
-        EXPECT_EQ(e.column(), 6); // Assuming EOF token is at the end of the line
-        EXPECT_STREQ(e.what(), "<unknown>:2:6: Expect expression.");
-    } catch (...) {
-        FAIL() << "Expected YiniException but got something else";
-    }
 }

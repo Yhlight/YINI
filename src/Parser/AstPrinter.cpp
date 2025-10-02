@@ -109,9 +109,4 @@ namespace YINI
         builder << ")";
         return builder.str();
     }
-
-    std::any AstPrinter::visit(const EnvironmentVariable& expr)
-    {
-        return "(env " + std::any_cast<std::string>(expr.token.literal) + ")";
-    }
 }

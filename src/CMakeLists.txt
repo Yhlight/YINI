@@ -14,6 +14,3 @@ target_include_directories(Yini PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
 add_executable(yini-cli CLI/main.cpp)
 target_link_libraries(yini-cli Yini)
-
-add_executable(yini-lsp LSP/main.cpp)
-target_link_libraries(yini-lsp Yini nlohmann_json::nlohmann_json)

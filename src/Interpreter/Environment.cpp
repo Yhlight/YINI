@@ -16,10 +16,6 @@ namespace YINI
             return m_values.at(name.lexeme);
         }
 
-        throw YiniException("Undefined variable '" + name.lexeme + "'.", name.line, name.column);
-    }
-
-    const std::map<std::string, std::any>& Environment::get_all() const {
-        return m_values;
+        throw YiniException("Undefined variable '" + name.lexeme + "'.", name.line);
     }
 }
