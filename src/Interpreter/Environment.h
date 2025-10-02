@@ -12,6 +12,7 @@ namespace YINI
     public:
         void define(const std::string& name, std::any value);
         std::any get(const Token& name);
+        const std::map<std::string, std::any>& get_all() const;
 
     private:
         std::map<std::string, std::any> m_values;

@@ -14,20 +14,23 @@ namespace YINI
 
     void YiniManager::load(const std::string& filepath)
     {
-        m_filepath = filepath;
-
         std::ifstream file(filepath);
         if (!file.is_open()) {
             throw YiniException("Could not open file", filepath, 0, 0);
         }
-        std::string current_line;
-        while (std::getline(file, current_line)) {
-            m_lines.push_back(current_line);
-        }
-        file.close();
+        std::stringstream buffer;
+        buffer << file.rdbuf();
+        load_from_string(buffer.str(), filepath);
+    }
 
+    void YiniManager::load_from_string(const std::string& content, const std::string& filepath) {
+        m_filepath = filepath;
+        m_lines.clear();
+        std::stringstream ss(content);
+        std::string current_line;
+        while (std::getline(ss, current_line)) { m_lines.push_back(current_line); }
         std::set<std::string> loaded_files;
-        auto final_ast = load_file(filepath, loaded_files);
+        auto final_ast = load_file(filepath, loaded_files, content);
         interpreter.interpret(final_ast);
     }
 
@@ -71,21 +74,31 @@ namespace YINI
         throw YiniException("Cannot set value: section '" + section + "' does not exist.", m_filepath, 0, 0);
     }
 
-    std::vector<std::unique_ptr<Stmt>> YiniManager::load_file(const std::string& filepath, std::set<std::string>& loaded_files)
+    std::vector<std::unique_ptr<Stmt>> YiniManager::load_file(const std::string& filepath, std::set<std::string>& loaded_files, const std::optional<std::string>& content)
     {
-        if (loaded_files.count(filepath)) {
-            // In a real implementation, might want to warn or just ignore. For now, ignore.
+        if (!filepath.empty() && loaded_files.count(filepath)) {
             return {};
         }
-        loaded_files.insert(filepath);
-
-        std::ifstream file(filepath);
-        if (!file.is_open()) {
-            throw YiniException("Could not open file", filepath, 0, 0);
+        if (!filepath.empty()) {
+            loaded_files.insert(filepath);
         }
-        std::stringstream buffer;
-        buffer << file.rdbuf();
-        std::string source = buffer.str();
+
+        std::string source;
+        if (content) {
+            source = *content;
+        } else {
+            if (filepath.empty()) {
+                // This case should ideally not be reached if called from public methods
+                throw YiniException("Cannot load from empty filepath and no content.", "", 0, 0);
+            }
+            std::ifstream file(filepath);
+            if (!file.is_open()) {
+                throw YiniException("Could not open file", filepath, 0, 0);
+            }
+            std::stringstream buffer;
+            buffer << file.rdbuf();
+            source = buffer.str();
+        }
 
         Lexer lexer(source);
         std::vector<Token> tokens = lexer.scanTokens();

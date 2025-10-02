@@ -191,8 +191,12 @@ namespace YINI
 
         if (match({TokenType::AT}))
         {
-            Token name = consume(TokenType::IDENTIFIER, "Expect variable name after '@'.");
-            return std::make_unique<Variable>(name);
+            if (peek().type == TokenType::IDENTIFIER) {
+                Token name = advance();
+                return std::make_unique<Variable>(name);
+            }
+            // It's just an '@', probably for completion. Treat it as a literal string.
+            return std::make_unique<Literal>(previous().lexeme);
         }
 
         if (match({TokenType::IDENTIFIER}))

@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 #include <memory>
+#include <optional>
 #include <set>
 #include <map>
 
@@ -23,6 +24,7 @@ namespace YINI
     public:
         YiniManager();
         void load(const std::string& filepath);
+        void load_from_string(const std::string& content, const std::string& filepath = "");
         void save_changes();
         std::any get_value(const std::string& section, const std::string& key);
         void set_value(const std::string& section, const std::string& key, std::any value);
@@ -30,7 +32,7 @@ namespace YINI
         Interpreter interpreter;
 
     private:
-        std::vector<std::unique_ptr<Stmt>> load_file(const std::string& filepath, std::set<std::string>& loaded_files);
+        std::vector<std::unique_ptr<Stmt>> load_file(const std::string& filepath, std::set<std::string>& loaded_files, const std::optional<std::string>& content = std::nullopt);
         void merge_asts(std::vector<std::unique_ptr<Stmt>>& base_ast, std::vector<std::unique_ptr<Stmt>>& new_ast);
         void update_line(std::string& line, const DirtyValue& dirty_value);
 

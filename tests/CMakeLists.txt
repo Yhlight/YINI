@@ -49,3 +49,9 @@ target_link_libraries(cli_test Yini GTest::gtest_main)
 target_compile_definitions(cli_test PRIVATE YINI_CLI_PATH="$<TARGET_FILE:yini-cli>")
 
 add_test(NAME cli_test COMMAND cli_test)
+
+# LSP test
+add_executable(lsp_test LspTest.cpp)
+target_link_libraries(lsp_test Yini GTest::gtest_main nlohmann_json::nlohmann_json)
+target_compile_definitions(lsp_test PRIVATE YINI_LSP_PATH="$<TARGET_FILE:yini-lsp>")
+add_test(NAME lsp_test COMMAND lsp_test)
