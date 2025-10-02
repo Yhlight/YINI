@@ -1,33 +1,19 @@
-# CMake
+# Build artifacts
 build/
-CMakeCache.txt
-CMakeFiles/
-cmake_install.cmake
-compile_commands.json
+bin/
+obj/
 
-# Visual Studio Code
-.vscode/
-
-# C# / .NET
-[Bb]in/
-[Oo]bj/
+# User-specific files
 *.user
-*.userosscache
-*.sln.docstates
+*.suo
+*.ide/
 
-# Binaries
-*.exe
-*.out
-*.dll
-*.so
-*.dylib
+# Rider files
+.idea/
 
-# Libraries
-*.a
-*.lib
+# macOS files
+.DS_Store
 
-# Other
-*.YMETA
+# Ymeta files
 *.ymeta
-xcuserdata/
-*.DS_Store
+*.YMETA
