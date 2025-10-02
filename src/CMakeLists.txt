@@ -1,4 +1,4 @@
-add_library(Yini
+add_library(Yini SHARED
     Lexer/Lexer.cpp
     Parser/Parser.cpp
     Parser/AstPrinter.cpp
@@ -7,6 +7,7 @@ add_library(Yini
     Core/YiniManager.cpp
     Core/Serialization/Serializer.cpp
     Core/Serialization/Deserializer.cpp
+    Interop/YiniCApi.cpp
 )
 
 target_include_directories(Yini PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

@@ -8,6 +8,13 @@ compile_commands.json
 # Visual Studio Code
 .vscode/
 
+# C# / .NET
+[Bb]in/
+[Oo]bj/
+*.user
+*.userosscache
+*.sln.docstates
+
 # Binaries
 *.exe
 *.out
