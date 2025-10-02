@@ -69,13 +69,13 @@ namespace YINI
 
     static void check_number_operand(const Token& op, const YiniValue& operand) {
         if (!is_number(operand)) {
-            throw YiniException("Operand must be a number for operator '" + op.lexeme + "'.", op.line);
+            throw YiniException("Operand must be a number for operator '" + op.lexeme + "'.", op.line, op.column, op.filepath);
         }
     }
 
     static void check_number_operands(const Token& op, const YiniValue& left, const YiniValue& right) {
         if (!is_number(left) || !is_number(right)) {
-            throw YiniException("Operands must be numbers for operator '" + op.lexeme + "'.", op.line);
+            throw YiniException("Operands must be numbers for operator '" + op.lexeme + "'.", op.line, op.column, op.filepath);
         }
     }
 
@@ -100,7 +100,7 @@ namespace YINI
     {
         if (m_resolved.count(section->name.lexeme)) return;
         if (m_resolving.count(section->name.lexeme)) {
-            throw YiniException("Circular inheritance detected involving section '" + section->name.lexeme + "'.", section->name.line);
+            throw YiniException("Circular inheritance detected involving section '" + section->name.lexeme + "'.", section->name.line, section->name.column, section->name.filepath);
         }
 
         m_resolving.insert(section->name.lexeme);
@@ -108,7 +108,7 @@ namespace YINI
         for (const auto& parent_token : section->parents)
         {
             if (!m_sections.count(parent_token.lexeme)) {
-                throw YiniException("Parent section '" + parent_token.lexeme + "' not found.", parent_token.line);
+                throw YiniException("Parent section '" + parent_token.lexeme + "' not found.", parent_token.line, parent_token.column, parent_token.filepath);
             }
             resolve_section(m_sections.at(parent_token.lexeme));
         }
@@ -179,10 +179,10 @@ namespace YINI
             case TokenType::MINUS: return left_val - right_val;
             case TokenType::STAR: return left_val * right_val;
             case TokenType::SLASH:
-                if (right_val == 0) throw YiniException("Division by zero.", expr.op.line);
+                if (right_val == 0) throw YiniException("Division by zero.", expr.op.line, expr.op.column, expr.op.filepath);
                 return left_val / right_val;
             case TokenType::PERCENT:
-                if (right_val == 0) throw YiniException("Division by zero.", expr.op.line);
+                if (right_val == 0) throw YiniException("Division by zero.", expr.op.line, expr.op.column, expr.op.filepath);
                 return fmod(left_val, right_val);
             default: break;
         }
@@ -216,7 +216,7 @@ namespace YINI
         {
             YiniValue key_val = evaluate(*pair.first);
             if (!std::holds_alternative<std::string>(key_val.m_value)) {
-                throw YiniException("Map keys must evaluate to strings.", expr.brace.line);
+                throw YiniException("Map keys must evaluate to strings.", expr.brace.line, expr.brace.column, expr.brace.filepath);
             }
             map[std::get<std::string>(key_val.m_value)] = evaluate(*pair.second);
         }
@@ -227,13 +227,13 @@ namespace YINI
     {
         auto callee = evaluate(*expr.callee);
         if (!std::holds_alternative<std::string>(callee.m_value)) {
-            throw YiniException("Can only call functions by name.", expr.paren.line);
+            throw YiniException("Can only call functions by name.", expr.paren.line, expr.paren.column, expr.paren.filepath);
         }
         std::string callee_name = std::get<std::string>(callee.m_value);
 
         if (callee_name == "Dyna" || callee_name == "dyna") {
             if (expr.arguments.size() != 1) {
-                throw YiniException("Dyna() expects exactly one argument.", expr.paren.line);
+                throw YiniException("Dyna() expects exactly one argument.", expr.paren.line, expr.paren.column, expr.paren.filepath);
             }
             return YiniValue(DynaValue(evaluate(*expr.arguments[0])));
         }

@@ -70,7 +70,7 @@ namespace YINI
         buffer << file.rdbuf();
         std::string source = buffer.str();
 
-        Lexer lexer(source);
+        Lexer lexer(source, filepath);
         std::vector<Token> tokens = lexer.scanTokens();
         Parser parser(tokens);
         std::vector<std::unique_ptr<Stmt>> current_ast = parser.parse();

@@ -34,5 +34,6 @@ namespace YINI
         YiniValue literal;
         int line;
         int column;
+        std::string filepath;
     };
 }

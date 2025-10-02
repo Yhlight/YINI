@@ -34,10 +34,14 @@ TEST(CliTest, CheckValidFile)
 TEST(CliTest, CheckInvalidFile)
 {
     std::string cli_path = TOSTRING(YINI_CLI_PATH);
-    std::ofstream("invalid_cli_test.yini") << "[Section\nkey = value";
-    std::string cmd = cli_path + " check invalid_cli_test.yini 2>&1";
+    const std::string filename = "invalid_cli_test.yini";
+    std::ofstream(filename) << "[Section\nkey = value";
+    std::string cmd = cli_path + " check " + filename + " 2>&1";
     std::string output = exec(cmd.c_str());
-    EXPECT_NE(output.find("Error:"), std::string::npos);
+
+    // The parser expects a ']' after the section name but finds 'key' on the next line.
+    std::string expected_error = "[" + filename + ":2:1] Error: Expect ']' after section name.";
+    EXPECT_NE(output.find(expected_error), std::string::npos);
 }
 
 TEST(CliTest, HandlesNonExistentFile)

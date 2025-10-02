@@ -9,7 +9,8 @@ namespace YINI
         {"false", TokenType::FALSE},
     };
 
-    Lexer::Lexer(const std::string& source) : m_source(source) {}
+    Lexer::Lexer(const std::string& source, const std::string& filepath)
+        : m_source(source), m_filepath(filepath) {}
 
     std::vector<Token> Lexer::scanTokens()
     {
@@ -20,7 +21,7 @@ namespace YINI
             scanToken();
         }
 
-        m_tokens.push_back({TokenType::END_OF_FILE, "", YiniValue{}, m_line, m_column});
+        m_tokens.push_back({TokenType::END_OF_FILE, "", YiniValue{}, m_line, m_column, m_filepath});
         return m_tokens;
     }
 
@@ -81,7 +82,7 @@ namespace YINI
                 }
                 else
                 {
-                    throw YiniException("Unexpected character.", m_line);
+                    throw YiniException("Unexpected character.", m_line, m_start_column, m_filepath);
                 }
                 break;
         }
@@ -127,7 +128,7 @@ namespace YINI
     void Lexer::addToken(TokenType type, const YiniValue& literal)
     {
         std::string text = m_source.substr(m_start, m_current - m_start);
-        m_tokens.push_back({type, text, literal, m_line, m_start_column});
+        m_tokens.push_back({type, text, literal, m_line, m_start_column, m_filepath});
     }
 
     void Lexer::blockComment()
@@ -140,7 +141,7 @@ namespace YINI
 
         if (isAtEnd())
         {
-            throw YiniException("Unterminated block comment.", m_line);
+            throw YiniException("Unterminated block comment.", m_line, m_column, m_filepath);
         }
 
         // Consume the */
@@ -158,7 +159,7 @@ namespace YINI
 
         if (isAtEnd())
         {
-            throw YiniException("Unterminated string.", m_line);
+            throw YiniException("Unterminated string.", m_line, m_column, m_filepath);
         }
 
         advance(); // The closing ".

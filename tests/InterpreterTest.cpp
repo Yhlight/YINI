@@ -33,12 +33,20 @@ TEST(InterpreterTest, HandlesMacroDefinitionAndResolution)
 
 TEST(InterpreterTest, ThrowsOnUndefinedVariable)
 {
+    std::string filename = "test_undef.yini";
     std::string source = R"(
-        [MySection]
-        key = @undefined_macro
-    )";
-
-    EXPECT_THROW(create_and_load_manager("test_undef.yini", source), YINI::YiniException);
+[MySection]
+key = @undefined_macro
+)";
+    try {
+        create_and_load_manager(filename, source);
+        FAIL() << "Expected YiniException";
+    } catch (const YINI::YiniException& e) {
+        EXPECT_EQ(e.line(), 3);
+        EXPECT_EQ(e.column(), 8);
+        EXPECT_EQ(e.filepath(), filename);
+        EXPECT_STREQ(e.what(), "Undefined variable 'undefined_macro'.");
+    }
 }
 
 TEST(InterpreterTest, EvaluatesArithmeticExpressions)
@@ -62,20 +70,38 @@ TEST(InterpreterTest, EvaluatesArithmeticExpressions)
 
 TEST(InterpreterTest, ThrowsOnTypeMismatch)
 {
+    std::string filename = "test_typemismatch.yini";
     std::string source = R"(
-        [MySection]
-        val = 10 + "hello"
-    )";
-    EXPECT_THROW(create_and_load_manager("test_typemismatch.yini", source), YINI::YiniException);
+[MySection]
+val = 10 + "hello"
+)";
+    try {
+        create_and_load_manager(filename, source);
+        FAIL() << "Expected YiniException";
+    } catch (const YINI::YiniException& e) {
+        EXPECT_EQ(e.line(), 3);
+        EXPECT_EQ(e.column(), 10);
+        EXPECT_EQ(e.filepath(), filename);
+        EXPECT_STREQ(e.what(), "Operands must be numbers for operator '+'.");
+    }
 }
 
 TEST(InterpreterTest, ThrowsOnDivisionByZero)
 {
+    std::string filename = "test_divzero.yini";
     std::string source = R"(
-        [MySection]
-        val = 10 / 0
-    )";
-    EXPECT_THROW(create_and_load_manager("test_divzero.yini", source), YINI::YiniException);
+[MySection]
+val = 10 / 0
+)";
+    try {
+        create_and_load_manager(filename, source);
+        FAIL() << "Expected YiniException";
+    } catch (const YINI::YiniException& e) {
+        EXPECT_EQ(e.line(), 3);
+        EXPECT_EQ(e.column(), 10);
+        EXPECT_EQ(e.filepath(), filename);
+        EXPECT_STREQ(e.what(), "Division by zero.");
+    }
 }
 
 TEST(InterpreterTest, EvaluatesDataStructures)
@@ -151,17 +177,34 @@ TEST(InterpreterTest, HandlesSectionInheritance)
 
 TEST(InterpreterTest, ThrowsOnCircularInheritance)
 {
+    std::string filename = "test_circular.yini";
     std::string source = R"(
-        [A] : B
-        [B] : A
-    )";
-    EXPECT_THROW(create_and_load_manager("test_circular.yini", source), YINI::YiniException);
+[A] : B
+[B] : A
+)";
+    try {
+        create_and_load_manager(filename, source);
+        FAIL() << "Expected YiniException";
+    } catch (const YINI::YiniException& e) {
+        EXPECT_EQ(e.line(), 2);
+        EXPECT_EQ(e.filepath(), filename);
+        EXPECT_STREQ(e.what(), "Circular inheritance detected involving section 'A'.");
+    }
 }
 
 TEST(InterpreterTest, ThrowsOnUndefinedParent)
 {
+    std::string filename = "test_undefparent.yini";
     std::string source = R"(
-        [A] : NonExistent
-    )";
-    EXPECT_THROW(create_and_load_manager("test_undefparent.yini", source), YINI::YiniException);
+[A] : NonExistent
+)";
+    try {
+        create_and_load_manager(filename, source);
+        FAIL() << "Expected YiniException";
+    } catch (const YINI::YiniException& e) {
+        EXPECT_EQ(e.line(), 2);
+        EXPECT_EQ(e.column(), 7);
+        EXPECT_EQ(e.filepath(), filename);
+        EXPECT_STREQ(e.what(), "Parent section 'NonExistent' not found.");
+    }
 }

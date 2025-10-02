@@ -43,7 +43,8 @@ namespace YINI
             if (reg) {
                  files.push_back(std::move(reg->value));
             } else {
-                throw std::runtime_error("Expected '+=' statement inside [#include] block.");
+                const Token& token = peek();
+                throw YiniException("Expected '+=' statement inside [#include] block.", token.line, token.column, token.filepath);
             }
         }
 
@@ -253,7 +254,8 @@ namespace YINI
             return std::make_unique<Map>(brace, std::move(pairs));
         }
 
-        throw YiniException("Expect expression.", peek().line);
+        const Token& token = peek();
+        throw YiniException("Expect expression.", token.line, token.column, token.filepath);
     }
 
     bool Parser::match(const std::vector<TokenType>& types)
@@ -272,7 +274,8 @@ namespace YINI
     Token Parser::consume(TokenType type, const std::string& message)
     {
         if (check(type)) return advance();
-        throw YiniException(message, peek().line);
+        const Token& token = peek();
+        throw YiniException(message, token.line, token.column, token.filepath);
     }
 
     bool Parser::check(TokenType type)

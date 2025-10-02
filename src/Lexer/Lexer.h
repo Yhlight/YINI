@@ -10,7 +10,7 @@ namespace YINI
     class Lexer
     {
     public:
-        Lexer(const std::string& source);
+        Lexer(const std::string& source, const std::string& filepath = "");
         std::vector<Token> scanTokens();
 
     private:
@@ -29,6 +29,7 @@ namespace YINI
         void identifier();
 
         std::string m_source;
+        std::string m_filepath;
         std::vector<Token> m_tokens;
         int m_start = 0;
         int m_current = 0;
