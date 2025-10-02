@@ -93,7 +93,23 @@ player_name = "Jules"
 playerNameLabel = @player_name
 ```
 
-## 8. File Includes
+## 8. Environment Variable Substitution
+
+YINI supports substituting values from system environment variables using the `${VAR_NAME}` syntax. This is particularly useful for providing sensitive data like API keys or passwords without hardcoding them into your configuration files.
+
+If the environment variable is set, its value will be used. If it is not set, it will be replaced with an empty string.
+
+```yini
+[Database]
+# The password will be read from the DB_PASSWORD environment variable
+password = ${DB_PASSWORD}
+
+[API]
+# The API key will be read from the API_KEY environment variable
+key = ${API_KEY}
+```
+
+## 9. File Includes
 
 YINI supports file includes, which allow you to split your configuration into multiple files.
 
@@ -105,7 +121,7 @@ YINI supports file includes, which allow you to split your configuration into mu
 
 The included files are merged in the order they are specified, with later files overriding earlier ones.
 
-## 9. Arithmetic Operations
+## 10. Arithmetic Operations
 
 YINI supports basic arithmetic operations, including `+`, `-`, `*`, `/`, and `%`.
 
@@ -117,10 +133,10 @@ base_damage = 10
 attack_damage = @base_damage * 1.5
 ```
 
-## 10. YMETA Files
+## 11. YMETA Files
 
 For each YINI file, a corresponding `.ymeta` file is generated to cache information and store dynamic values. This improves performance by avoiding the need to re-parse the YINI file on every load.
 
-## 11. CLI
+## 12. CLI
 
 YINI includes a command-line interface (CLI) tool for compiling, decompiling, and validating YINI files.

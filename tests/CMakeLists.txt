@@ -49,3 +49,8 @@ target_link_libraries(cli_test Yini GTest::gtest_main)
 target_compile_definitions(cli_test PRIVATE YINI_CLI_PATH="$<TARGET_FILE:yini-cli>")
 
 add_test(NAME cli_test COMMAND cli_test)
+
+# Environment test
+add_executable(environment_test EnvironmentTest.cpp)
+target_link_libraries(environment_test Yini GTest::gtest_main)
+add_test(NAME environment_test COMMAND environment_test)

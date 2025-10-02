@@ -18,6 +18,7 @@ namespace YINI
     struct Map;
     struct Call;
     struct Variable;
+    struct EnvironmentVariable;
 
     // Visitor for expressions
     class ExprVisitor
@@ -32,6 +33,7 @@ namespace YINI
         virtual std::any visit(const Map& expr) = 0;
         virtual std::any visit(const Call& expr) = 0;
         virtual std::any visit(const Variable& expr) = 0;
+        virtual std::any visit(const EnvironmentVariable& expr) = 0;
         virtual ~ExprVisitor() = default;
     };
 
@@ -124,6 +126,14 @@ namespace YINI
         Variable(Token name) : name(std::move(name)) {}
         std::any accept(ExprVisitor& visitor) const override { return visitor.visit(*this); }
         Token name;
+    };
+
+    // EnvironmentVariable expression node
+    struct EnvironmentVariable : public Expr
+    {
+        EnvironmentVariable(Token token) : token(std::move(token)) {}
+        std::any accept(ExprVisitor& visitor) const override { return visitor.visit(*this); }
+        Token token;
     };
 
     // Forward declarations for statement visitors

@@ -8,6 +8,7 @@ YINI is a modern, feature-rich configuration file format based on the INI syntax
 *   **Dynamic Values:** YINI allows you to define dynamic values that can be updated in real-time during gameplay.
 *   **Cross-Platform:** YINI is built with C++17 and can be easily integrated into any game engine.
 *   **C# Interoperability:** YINI provides a C# wrapper that makes it easy to use in Unity and other .NET environments.
+*   **Environment Variable Substitution:** YINI supports reading values from environment variables using the `${VAR_NAME}` syntax. This is useful for providing sensitive information like API keys without hardcoding them in the configuration file.
 
 ## Getting Started
 

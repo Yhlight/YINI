@@ -303,4 +303,13 @@ namespace YINI
         // Placeholder for other function calls
         return std::any{};
     }
+
+    std::any Interpreter::visit(const EnvironmentVariable& expr)
+    {
+        const char* value = std::getenv(std::any_cast<std::string>(expr.token.literal).c_str());
+        if (value == nullptr) {
+            return std::string(""); // Return empty string if not found
+        }
+        return std::string(value);
+    }
 }

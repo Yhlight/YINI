@@ -28,6 +28,7 @@ namespace YINI
         void string();
         void number();
         void identifier();
+        void environmentVariable();
 
         std::string m_source;
         std::vector<Token> m_tokens;

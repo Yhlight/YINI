@@ -185,6 +185,11 @@ namespace YINI
             return std::make_unique<Literal>(previous().literal);
         }
 
+        if (match({TokenType::ENV_VAR}))
+        {
+            return std::make_unique<EnvironmentVariable>(previous());
+        }
+
         if (match({TokenType::AT}))
         {
             Token name = consume(TokenType::IDENTIFIER, "Expect variable name after '@'.");

@@ -61,6 +61,13 @@ namespace YINI
                 }
                 break;
             case '"': string(); break;
+            case '$':
+                if (match('{')) {
+                    environmentVariable();
+                } else {
+                    throw std::runtime_error("Unexpected character.");
+                }
+                break;
             case ' ':
             case '\r':
             case '\t':
@@ -199,5 +206,25 @@ namespace YINI
         } else {
             addToken(type, text);
         }
+    }
+
+    void Lexer::environmentVariable()
+    {
+        while (peek() != '}' && !isAtEnd())
+        {
+            if (peek() == '\n') m_line++;
+            advance();
+        }
+
+        if (isAtEnd())
+        {
+            throw std::runtime_error("Unterminated environment variable.");
+        }
+
+        advance(); // The closing }.
+
+        // The variable name is between ${ and }
+        std::string value = m_source.substr(m_start + 2, m_current - m_start - 3);
+        addToken(TokenType::ENV_VAR, value);
     }
 }
