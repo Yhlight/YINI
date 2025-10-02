@@ -1,6 +1,7 @@
 #include "YiniManager.h"
 #include "Lexer/Lexer.h"
 #include "Parser/Parser.h"
+#include "Core/YiniException.h"
 #include <fstream>
 #include <sstream>
 #include <iostream>
@@ -14,6 +15,17 @@ namespace YINI
     void YiniManager::load(const std::string& filepath)
     {
         m_filepath = filepath;
+
+        std::ifstream file(filepath);
+        if (!file.is_open()) {
+            throw YiniException("Could not open file", filepath, 0, 0);
+        }
+        std::string current_line;
+        while (std::getline(file, current_line)) {
+            m_lines.push_back(current_line);
+        }
+        file.close();
+
         std::set<std::string> loaded_files;
         auto final_ast = load_file(filepath, loaded_files);
         interpreter.interpret(final_ast);
@@ -28,7 +40,7 @@ namespace YINI
             }
             return value;
         }
-        throw std::runtime_error("Value not found for section '" + section + "' and key '" + key + "'.");
+        throw YiniException("Value not found for section '" + section + "' and key '" + key + "'.", m_filepath, 0, 0);
     }
 
     void YiniManager::set_value(const std::string& section, const std::string& key, std::any new_value)
@@ -43,7 +55,8 @@ namespace YINI
                 return;
             } else {
                 // Key exists but is not dynamic.
-                throw std::runtime_error("Cannot set value: key '" + key + "' in section '" + section + "' is not dynamic.");
+                const auto& location = interpreter.value_locations.at(section).at(key);
+                throw YiniException("Cannot set value: key '" + key + "' in section '" + section + "' is not dynamic.", m_filepath, location.line, location.column);
             }
         }
 
@@ -55,7 +68,7 @@ namespace YINI
         }
 
         // Case 3: The section does not exist.
-        throw std::runtime_error("Cannot set value: section '" + section + "' does not exist.");
+        throw YiniException("Cannot set value: section '" + section + "' does not exist.", m_filepath, 0, 0);
     }
 
     std::vector<std::unique_ptr<Stmt>> YiniManager::load_file(const std::string& filepath, std::set<std::string>& loaded_files)
@@ -68,7 +81,7 @@ namespace YINI
 
         std::ifstream file(filepath);
         if (!file.is_open()) {
-            throw std::runtime_error("Could not open file: " + filepath);
+            throw YiniException("Could not open file", filepath, 0, 0);
         }
         std::stringstream buffer;
         buffer << file.rdbuf();
@@ -77,7 +90,13 @@ namespace YINI
         Lexer lexer(source);
         std::vector<Token> tokens = lexer.scanTokens();
         Parser parser(tokens);
-        std::vector<std::unique_ptr<Stmt>> current_ast = parser.parse();
+        std::vector<std::unique_ptr<Stmt>> current_ast;
+        try {
+            current_ast = parser.parse();
+        } catch (YiniException& e) {
+            e.set_filepath(filepath);
+            throw;
+        }
 
         std::vector<std::unique_ptr<Stmt>> combined_ast;
 
@@ -101,46 +120,38 @@ namespace YINI
         return combined_ast;
     }
 
+    void YiniManager::update_line(std::string& line, const DirtyValue& dirty_value)
+    {
+        size_t eq_pos = line.find('=');
+        std::string key_part = line.substr(0, eq_pos + 1);
+
+        std::string comment_part = "";
+        size_t comment_pos = line.find("//");
+        if (comment_pos != std::string::npos && comment_pos > eq_pos) {
+            comment_part = line.substr(comment_pos);
+        }
+
+        line = key_part + " " + interpreter.stringify(dirty_value.value) + (comment_part.empty() ? "" : " " + comment_part);
+    }
+
     void YiniManager::save_changes()
     {
         if (m_dirty_values.empty()) {
             return; // Nothing to save
         }
 
-        std::ifstream infile(m_filepath);
-        if (!infile) {
-            throw std::runtime_error("Could not open original file for reading: " + m_filepath);
-        }
-
-        std::vector<std::string> lines;
-        std::string current_line;
-        while (std::getline(infile, current_line)) {
-            lines.push_back(current_line);
-        }
-        infile.close();
-
         std::map<std::string, bool> new_sections_written;
 
         for (auto const& [section, keys] : m_dirty_values) {
             for (auto const& [key, dirty_value] : keys) {
                 if (dirty_value.line > 0) { // Existing value
-                    std::string& line = lines[dirty_value.line - 1];
-                    size_t eq_pos = line.find('=');
-                    std::string key_part = line.substr(0, eq_pos + 1);
-
-                    std::string comment_part = "";
-                    size_t comment_pos = line.find("//");
-                    if (comment_pos != std::string::npos && comment_pos > eq_pos) {
-                        comment_part = line.substr(comment_pos);
-                    }
-
-                    line = key_part + " " + interpreter.stringify(dirty_value.value) + (comment_part.empty() ? "" : " " + comment_part);
+                    update_line(m_lines[dirty_value.line - 1], dirty_value);
                 } else { // New value
                     if (!new_sections_written[section]) {
-                        lines.push_back("[" + section + "]");
+                        m_lines.push_back("[" + section + "]");
                         new_sections_written[section] = true;
                     }
-                    lines.push_back(key + " = " + interpreter.stringify(dirty_value.value));
+                    m_lines.push_back(key + " = " + interpreter.stringify(dirty_value.value));
                 }
             }
         }
@@ -148,17 +159,17 @@ namespace YINI
         std::string temp_filepath = m_filepath + ".tmp";
         std::ofstream outfile(temp_filepath, std::ios::trunc);
         if (!outfile) {
-            throw std::runtime_error("Could not open temporary file for writing: " + temp_filepath);
+            throw YiniException("Could not open temporary file for writing", temp_filepath, 0, 0);
         }
 
-        for (const auto& line : lines) {
+        for (const auto& line : m_lines) {
             outfile << line << "\n";
         }
         outfile.close();
 
         if (std::rename(temp_filepath.c_str(), m_filepath.c_str()) != 0) {
             std::remove(temp_filepath.c_str());
-            throw std::runtime_error("Failed to rename temporary file.");
+            throw YiniException("Failed to rename temporary file", temp_filepath, 0, 0);
         }
 
         m_dirty_values.clear();

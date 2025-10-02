@@ -32,8 +32,10 @@ namespace YINI
     private:
         std::vector<std::unique_ptr<Stmt>> load_file(const std::string& filepath, std::set<std::string>& loaded_files);
         void merge_asts(std::vector<std::unique_ptr<Stmt>>& base_ast, std::vector<std::unique_ptr<Stmt>>& new_ast);
+        void update_line(std::string& line, const DirtyValue& dirty_value);
 
         std::string m_filepath;
+        std::vector<std::string> m_lines;
         std::map<std::string, std::map<std::string, DirtyValue>> m_dirty_values;
     };
 }

@@ -22,6 +22,27 @@ extern "C" {
     YINI_API void yini_manager_set_string(void* manager, const char* section, const char* key, const char* value);
     YINI_API void yini_manager_set_bool(void* manager, const char* section, const char* key, bool value);
 
+    typedef struct {
+        const char* section;
+        const char* key;
+        double value;
+    } YiniDoubleKeyValue;
+
+    typedef struct {
+        const char* section;
+        const char* key;
+        const char* value;
+    } YiniStringKeyValue;
+
+    typedef struct {
+        const char* section;
+        const char* key;
+        bool value;
+    } YiniBoolKeyValue;
+
+    YINI_API void yini_manager_set_doubles(void* manager, const YiniDoubleKeyValue* key_values, int count);
+    YINI_API void yini_manager_set_strings(void* manager, const YiniStringKeyValue* key_values, int count);
+    YINI_API void yini_manager_set_bools(void* manager, const YiniBoolKeyValue* key_values, int count);
 }
 
 #endif // YINI_C_API_H

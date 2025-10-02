@@ -1,5 +1,6 @@
 #include "Deserializer.h"
 #include "Format.h"
+#include "Core/YiniException.h"
 #include <stdexcept>
 
 namespace YINI
@@ -10,7 +11,7 @@ namespace YINI
         {
             std::ifstream in(filepath, std::ios::binary);
             if (!in) {
-                throw std::runtime_error("Cannot open file for reading: " + filepath);
+                throw YiniException("Cannot open file for reading", filepath, 0, 0);
             }
 
             std::map<std::string, std::map<std::string, std::any>> data;
@@ -27,7 +28,7 @@ namespace YINI
 
                 for (size_t j = 0; j < kv_count; ++j) {
                     std::string key = read_string(in);
-                    section_data[key] = read_any(in);
+                    section_data[key] = read_any(in, filepath);
                 }
                 data[section_name] = section_data;
             }
@@ -44,7 +45,7 @@ namespace YINI
             return str;
         }
 
-        std::any Deserializer::read_any(std::ifstream& in)
+        std::any Deserializer::read_any(std::ifstream& in, const std::string& filepath)
         {
             DataType tag;
             in.read(reinterpret_cast<char*>(&tag), sizeof(tag));
@@ -71,7 +72,7 @@ namespace YINI
                     std::vector<std::any> vec;
                     vec.reserve(count);
                     for (size_t i = 0; i < count; ++i) {
-                        vec.push_back(read_any(in));
+                        vec.push_back(read_any(in, filepath));
                     }
                     return vec;
                 }
@@ -81,12 +82,12 @@ namespace YINI
                     std::map<std::string, std::any> map;
                     for (size_t i = 0; i < count; ++i) {
                         std::string key = read_string(in);
-                        map[key] = read_any(in);
+                        map[key] = read_any(in, filepath);
                     }
                     return map;
                 }
             }
-            throw std::runtime_error("Unknown data type tag in .ymeta file.");
+            throw YiniException("Unknown data type tag in .ymeta file.", filepath, 0, 0);
         }
     }
 }

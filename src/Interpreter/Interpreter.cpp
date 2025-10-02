@@ -71,13 +71,13 @@ namespace YINI
 
     static void check_number_operand(const Token& op, const std::any& operand) {
         if (!is_number(operand)) {
-            throw YiniException("Operand must be a number for operator '" + op.lexeme + "'.", op.line);
+            throw YiniException("Operand must be a number for operator '" + op.lexeme + "'.", op.line, op.column);
         }
     }
 
     static void check_number_operands(const Token& op, const std::any& left, const std::any& right) {
         if (!is_number(left) || !is_number(right)) {
-            throw YiniException("Operands must be numbers for operator '" + op.lexeme + "'.", op.line);
+            throw YiniException("Operands must be numbers for operator '" + op.lexeme + "'.", op.line, op.column);
         }
     }
 
@@ -106,7 +106,7 @@ namespace YINI
             return; // Already resolved
         }
         if (m_resolving.count(section->name.lexeme)) {
-            throw YiniException("Circular inheritance detected involving section '" + section->name.lexeme + "'.", section->name.line);
+            throw YiniException("Circular inheritance detected involving section '" + section->name.lexeme + "'.", section->name.line, section->name.column);
         }
 
         m_resolving.insert(section->name.lexeme);
@@ -115,7 +115,7 @@ namespace YINI
         for (const auto& parent_token : section->parents)
         {
             if (!m_sections.count(parent_token.lexeme)) {
-                throw YiniException("Parent section '" + parent_token.lexeme + "' not found.", parent_token.line);
+                throw YiniException("Parent section '" + parent_token.lexeme + "' not found.", parent_token.line, parent_token.column);
             }
             resolve_section(m_sections.at(parent_token.lexeme));
         }
@@ -232,10 +232,10 @@ namespace YINI
             case TokenType::STAR:
                 return left_val * right_val;
             case TokenType::SLASH:
-                if (right_val == 0) throw YiniException("Division by zero.", expr.op.line);
+                if (right_val == 0) throw YiniException("Division by zero.", expr.op.line, expr.op.column);
                 return left_val / right_val;
             case TokenType::PERCENT:
-                if (right_val == 0) throw YiniException("Division by zero.", expr.op.line);
+                if (right_val == 0) throw YiniException("Division by zero.", expr.op.line, expr.op.column);
                 return fmod(left_val, right_val);
             default:
                 break;
@@ -273,7 +273,7 @@ namespace YINI
             // A more robust implementation would evaluate the key expression
             auto key_node = dynamic_cast<Literal*>(pair.first.get());
             if (!key_node || key_node->value.type() != typeid(std::string)) {
-                throw YiniException("Map keys must be strings.", expr.brace.line);
+                throw YiniException("Map keys must be strings.", expr.brace.line, expr.brace.column);
             }
             std::string key = std::any_cast<std::string>(key_node->value);
             map[key] = evaluate(*pair.second);
@@ -289,12 +289,12 @@ namespace YINI
         if (callee.type() == typeid(std::string)) {
             callee_name = std::any_cast<std::string>(callee);
         } else {
-            throw YiniException("Can only call functions and constructors.", expr.paren.line);
+            throw YiniException("Can only call functions and constructors.", expr.paren.line, expr.paren.column);
         }
 
         if (callee_name == "Dyna" || callee_name == "dyna") {
             if (expr.arguments.size() != 1) {
-                throw YiniException("Dyna() expects exactly one argument.", expr.paren.line);
+                throw YiniException("Dyna() expects exactly one argument.", expr.paren.line, expr.paren.column);
             }
             std::any value = evaluate(*expr.arguments[0]);
             return DynaValue(value);

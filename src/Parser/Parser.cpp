@@ -1,6 +1,5 @@
 #include "Parser.h"
 #include "Core/YiniException.h"
-#include <stdexcept>
 
 namespace YINI
 {
@@ -18,15 +17,20 @@ namespace YINI
 
     std::unique_ptr<Stmt> Parser::declaration()
     {
-        if (check(TokenType::LEFT_BRACKET) && m_tokens[m_current + 1].type == TokenType::IDENTIFIER) {
-            if (m_tokens[m_current + 1].lexeme == "#define") {
-                return defineSection();
+        try {
+            if (check(TokenType::LEFT_BRACKET) && m_tokens[m_current + 1].type == TokenType::IDENTIFIER) {
+                if (m_tokens[m_current + 1].lexeme == "#define") {
+                    return defineSection();
+                }
+                if (m_tokens[m_current + 1].lexeme == "#include") {
+                    return includeSection();
+                }
             }
-            if (m_tokens[m_current + 1].lexeme == "#include") {
-                return includeSection();
-            }
+            return section();
+        } catch (YiniException& e) {
+            // synchronize();
+            throw;
         }
-        return section();
     }
 
     std::unique_ptr<Stmt> Parser::includeSection()
@@ -43,7 +47,7 @@ namespace YINI
             if (reg) {
                  files.push_back(std::move(reg->value));
             } else {
-                throw std::runtime_error("Expected '+=' statement inside [#include] block.");
+                throw YiniException("Expected '+=' statement inside [#include] block.", peek().line, peek().column);
             }
         }
 
@@ -253,7 +257,7 @@ namespace YINI
             return std::make_unique<Map>(brace, std::move(pairs));
         }
 
-        throw YiniException("Expect expression.", peek().line);
+        throw YiniException("Expect expression.", peek().line, peek().column);
     }
 
     bool Parser::match(const std::vector<TokenType>& types)
@@ -272,7 +276,7 @@ namespace YINI
     Token Parser::consume(TokenType type, const std::string& message)
     {
         if (check(type)) return advance();
-        throw YiniException(message, peek().line);
+        throw YiniException(message, peek().line, peek().column);
     }
 
     bool Parser::check(TokenType type)

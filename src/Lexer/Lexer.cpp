@@ -81,7 +81,7 @@ namespace YINI
                 }
                 else
                 {
-                    throw YiniException("Unexpected character.", m_line);
+                    throw YiniException("Unexpected character.", m_line, m_column);
                 }
                 break;
         }
@@ -140,7 +140,7 @@ namespace YINI
 
         if (isAtEnd())
         {
-            throw YiniException("Unterminated block comment.", m_line);
+            throw YiniException("Unterminated block comment.", m_line, m_column);
         }
 
         // Consume the */
@@ -158,7 +158,7 @@ namespace YINI
 
         if (isAtEnd())
         {
-            throw YiniException("Unterminated string.", m_line);
+            throw YiniException("Unterminated string.", m_line, m_column);
         }
 
         advance(); // The closing ".

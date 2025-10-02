@@ -93,3 +93,21 @@ YINI_API void yini_manager_set_string(void* manager, const char* section, const 
 YINI_API void yini_manager_set_bool(void* manager, const char* section, const char* key, bool value) {
     as_manager(manager)->set_value(section, key, value);
 }
+
+YINI_API void yini_manager_set_doubles(void* manager, const YiniDoubleKeyValue* key_values, int count) {
+    for (int i = 0; i < count; ++i) {
+        yini_manager_set_double(manager, key_values[i].section, key_values[i].key, key_values[i].value);
+    }
+}
+
+YINI_API void yini_manager_set_strings(void* manager, const YiniStringKeyValue* key_values, int count) {
+    for (int i = 0; i < count; ++i) {
+        yini_manager_set_string(manager, key_values[i].section, key_values[i].key, key_values[i].value);
+    }
+}
+
+YINI_API void yini_manager_set_bools(void* manager, const YiniBoolKeyValue* key_values, int count) {
+    for (int i = 0; i < count; ++i) {
+        yini_manager_set_bool(manager, key_values[i].section, key_values[i].key, key_values[i].value);
+    }
+}

@@ -45,7 +45,8 @@ TEST(CliTest, HandlesNonExistentFile)
     std::string cli_path = TOSTRING(YINI_CLI_PATH);
     std::string cmd = cli_path + " check non_existent_file.yini 2>&1";
     std::string output = exec(cmd.c_str());
-    EXPECT_NE(output.find("Error: Could not open file"), std::string::npos);
+    EXPECT_NE(output.find("Error:"), std::string::npos);
+    EXPECT_NE(output.find("Could not open file"), std::string::npos);
 }
 
 TEST(CliTest, CompileAndDecompile)

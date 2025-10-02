@@ -1,6 +1,6 @@
 #include "Serializer.h"
 #include "Format.h"
-#include <stdexcept>
+#include "Core/YiniException.h"
 #include <vector>
 #include <map>
 
@@ -12,7 +12,7 @@ namespace YINI
         {
             std::ofstream out(filepath, std::ios::binary);
             if (!out) {
-                throw std::runtime_error("Cannot open file for writing: " + filepath);
+                throw YiniException("Cannot open file for writing", filepath, 0, 0);
             }
 
             size_t section_count = data.size();
