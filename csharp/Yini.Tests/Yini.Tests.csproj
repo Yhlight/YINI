@@ -20,4 +20,8 @@
     <ProjectReference Include="..\Yini\Yini.csproj" />
   </ItemGroup>
 
+  <Target Name="CopyNativeLibrary" AfterTargets="Build">
+    <Copy SourceFiles="/app/build/src/libYini.so" DestinationFolder="$(TargetDir)" />
+  </Target>
+
 </Project>
