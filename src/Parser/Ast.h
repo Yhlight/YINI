@@ -100,9 +100,10 @@ namespace YINI
     // Map expression node
     struct Map : public Expr
     {
-        Map(std::vector<std::pair<std::unique_ptr<Expr>, std::unique_ptr<Expr>>> pairs)
-            : pairs(std::move(pairs)) {}
+        Map(Token brace, std::vector<std::pair<std::unique_ptr<Expr>, std::unique_ptr<Expr>>> pairs)
+            : brace(std::move(brace)), pairs(std::move(pairs)) {}
         std::any accept(ExprVisitor& visitor) const override { return visitor.visit(*this); }
+        Token brace;
         std::vector<std::pair<std::unique_ptr<Expr>, std::unique_ptr<Expr>>> pairs;
     };
 

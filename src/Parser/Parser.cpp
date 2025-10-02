@@ -1,4 +1,5 @@
 #include "Parser.h"
+#include "Core/YiniException.h"
 #include <stdexcept>
 
 namespace YINI
@@ -232,6 +233,7 @@ namespace YINI
 
         if (match({TokenType::LEFT_BRACE}))
         {
+            Token brace = previous();
             std::vector<std::pair<std::unique_ptr<Expr>, std::unique_ptr<Expr>>> pairs;
             if (!check(TokenType::RIGHT_BRACE))
             {
@@ -244,10 +246,10 @@ namespace YINI
                 } while (match({TokenType::COMMA}));
             }
             consume(TokenType::RIGHT_BRACE, "Expect '}' after map pairs.");
-            return std::make_unique<Map>(std::move(pairs));
+            return std::make_unique<Map>(brace, std::move(pairs));
         }
 
-        throw std::runtime_error("Expect expression.");
+        throw YiniException("Expect expression.", peek().line);
     }
 
     bool Parser::match(const std::vector<TokenType>& types)
@@ -266,7 +268,7 @@ namespace YINI
     Token Parser::consume(TokenType type, const std::string& message)
     {
         if (check(type)) return advance();
-        throw std::runtime_error(message);
+        throw YiniException(message, peek().line);
     }
 
     bool Parser::check(TokenType type)

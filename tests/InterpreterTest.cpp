@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include "Core/YiniManager.h"
+#include "Core/YiniException.h"
 #include <fstream>
 #include <vector>
 #include <any>
@@ -37,7 +38,7 @@ TEST(InterpreterTest, ThrowsOnUndefinedVariable)
         key = @undefined_macro
     )";
 
-    EXPECT_THROW(create_and_load_manager("test_undef.yini", source), std::runtime_error);
+    EXPECT_THROW(create_and_load_manager("test_undef.yini", source), YINI::YiniException);
 }
 
 TEST(InterpreterTest, EvaluatesArithmeticExpressions)
@@ -65,7 +66,7 @@ TEST(InterpreterTest, ThrowsOnTypeMismatch)
         [MySection]
         val = 10 + "hello"
     )";
-    EXPECT_THROW(create_and_load_manager("test_typemismatch.yini", source), std::runtime_error);
+    EXPECT_THROW(create_and_load_manager("test_typemismatch.yini", source), YINI::YiniException);
 }
 
 TEST(InterpreterTest, ThrowsOnDivisionByZero)
@@ -74,7 +75,7 @@ TEST(InterpreterTest, ThrowsOnDivisionByZero)
         [MySection]
         val = 10 / 0
     )";
-    EXPECT_THROW(create_and_load_manager("test_divzero.yini", source), std::runtime_error);
+    EXPECT_THROW(create_and_load_manager("test_divzero.yini", source), YINI::YiniException);
 }
 
 TEST(InterpreterTest, EvaluatesDataStructures)
@@ -145,7 +146,7 @@ TEST(InterpreterTest, ThrowsOnCircularInheritance)
         [A] : B
         [B] : A
     )";
-    EXPECT_THROW(create_and_load_manager("test_circular.yini", source), std::runtime_error);
+    EXPECT_THROW(create_and_load_manager("test_circular.yini", source), YINI::YiniException);
 }
 
 TEST(InterpreterTest, ThrowsOnUndefinedParent)
@@ -153,5 +154,5 @@ TEST(InterpreterTest, ThrowsOnUndefinedParent)
     std::string source = R"(
         [A] : NonExistent
     )";
-    EXPECT_THROW(create_and_load_manager("test_undefparent.yini", source), std::runtime_error);
+    EXPECT_THROW(create_and_load_manager("test_undefparent.yini", source), YINI::YiniException);
 }

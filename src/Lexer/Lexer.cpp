@@ -1,4 +1,5 @@
 #include "Lexer.h"
+#include "Core/YiniException.h"
 #include <stdexcept>
 
 namespace YINI
@@ -78,7 +79,7 @@ namespace YINI
                 }
                 else
                 {
-                    throw std::runtime_error("Unexpected character.");
+                    throw YiniException("Unexpected character.", m_line);
                 }
                 break;
         }
@@ -136,7 +137,7 @@ namespace YINI
 
         if (isAtEnd())
         {
-            throw std::runtime_error("Unterminated block comment.");
+            throw YiniException("Unterminated block comment.", m_line);
         }
 
         // Consume the */
@@ -154,7 +155,7 @@ namespace YINI
 
         if (isAtEnd())
         {
-            throw std::runtime_error("Unterminated string.");
+            throw YiniException("Unterminated string.", m_line);
         }
 
         advance(); // The closing ".

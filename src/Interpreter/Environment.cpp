@@ -1,4 +1,5 @@
 #include "Environment.h"
+#include "Core/YiniException.h"
 #include <stdexcept>
 
 namespace YINI
@@ -15,6 +16,6 @@ namespace YINI
             return m_values.at(name.lexeme);
         }
 
-        throw std::runtime_error("Undefined variable '" + name.lexeme + "'.");
+        throw YiniException("Undefined variable '" + name.lexeme + "'.", name.line);
     }
 }

@@ -1,6 +1,7 @@
 #include "Core/YiniManager.h"
 #include "Core/Serialization/Serializer.h"
 #include "Core/Serialization/Deserializer.h"
+#include "Core/YiniException.h"
 #include <iostream>
 #include <string>
 #include <vector>
@@ -80,6 +81,9 @@ int main(int argc, char* argv[])
             print_usage();
             return 1;
         }
+    } catch (const YINI::YiniException& e) {
+        std::cerr << "[line " << e.line() << "] Error: " << e.what() << std::endl;
+        return 1;
     } catch (const std::exception& e) {
         std::cerr << "Error: " << e.what() << std::endl;
         return 1;
