@@ -159,6 +159,8 @@ namespace YINI
         void accept(StmtVisitor& visitor) const override { visitor.visit(*this); }
         Token key;
         std::unique_ptr<Expr> value;
+        int value_line = 0;
+        int value_column = 0;
     };
 
     struct Section : public Stmt

@@ -109,8 +109,12 @@ namespace YINI
     {
         Token key = consume(TokenType::IDENTIFIER, "Expect key.");
         consume(TokenType::EQUAL, "Expect '=' after key.");
+        Token valueStartToken = peek();
         std::unique_ptr<Expr> value = expression();
-        return std::make_unique<KeyValue>(key, std::move(value));
+        auto kv = std::make_unique<KeyValue>(key, std::move(value));
+        kv->value_line = valueStartToken.line;
+        kv->value_column = valueStartToken.column;
+        return kv;
     }
 
     std::unique_ptr<Expr> Parser::expression()

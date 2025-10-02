@@ -11,6 +11,13 @@
 
 namespace YINI
 {
+    struct DirtyValue
+    {
+        std::any value;
+        int line;
+        int column;
+    };
+
     class YiniManager
     {
     public:
@@ -27,6 +34,6 @@ namespace YINI
         void merge_asts(std::vector<std::unique_ptr<Stmt>>& base_ast, std::vector<std::unique_ptr<Stmt>>& new_ast);
 
         std::string m_filepath;
-        std::map<std::string, std::map<std::string, std::any>> m_dirty_values;
+        std::map<std::string, std::map<std::string, DirtyValue>> m_dirty_values;
     };
 }

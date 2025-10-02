@@ -156,6 +156,7 @@ namespace YINI
     {
         std::any value = evaluate(*stmt.value);
         resolved_sections[m_current_section_name][stmt.key.lexeme] = value;
+        value_locations[m_current_section_name][stmt.key.lexeme] = {stmt.value_line, stmt.value_column};
     }
 
     void Interpreter::visit(const Section& stmt)

@@ -34,6 +34,8 @@ namespace YINI
         int m_start = 0;
         int m_current = 0;
         int m_line = 1;
+        int m_column = 1;
+        int m_start_column = 1;
         static const std::map<std::string, TokenType> m_keywords;
     };
 }

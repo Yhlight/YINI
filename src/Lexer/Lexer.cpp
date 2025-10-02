@@ -16,10 +16,11 @@ namespace YINI
         while (!isAtEnd())
         {
             m_start = m_current;
+            m_start_column = m_column;
             scanToken();
         }
 
-        m_tokens.push_back({TokenType::END_OF_FILE, "", std::any{}, m_line});
+        m_tokens.push_back({TokenType::END_OF_FILE, "", std::any{}, m_line, m_column});
         return m_tokens;
     }
 
@@ -67,6 +68,7 @@ namespace YINI
                 break;
             case '\n':
                 m_line++;
+                m_column = 1;
                 break;
             default:
                 if (isdigit(c))
@@ -108,6 +110,7 @@ namespace YINI
 
     char Lexer::advance()
     {
+        m_column++;
         return m_source[m_current++];
     }
 
@@ -124,7 +127,7 @@ namespace YINI
     void Lexer::addToken(TokenType type, const std::any& literal)
     {
         std::string text = m_source.substr(m_start, m_current - m_start);
-        m_tokens.push_back({type, text, literal, m_line});
+        m_tokens.push_back({type, text, literal, m_line, m_start_column});
     }
 
     void Lexer::blockComment()

@@ -33,5 +33,6 @@ namespace YINI
         std::string lexeme;
         std::any literal;
         int line;
+        int column;
     };
 }

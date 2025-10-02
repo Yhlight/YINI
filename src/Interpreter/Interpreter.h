@@ -10,6 +10,12 @@
 
 namespace YINI
 {
+    struct ValueLocation
+    {
+        int line;
+        int column;
+    };
+
     class Interpreter : public ExprVisitor, public StmtVisitor
     {
     public:
@@ -17,6 +23,7 @@ namespace YINI
         std::string stringify(const std::any& value);
 
         std::map<std::string, std::map<std::string, std::any>> resolved_sections;
+        std::map<std::string, std::map<std::string, ValueLocation>> value_locations;
 
         // Statement visitor methods
         void visit(const KeyValue& stmt) override;

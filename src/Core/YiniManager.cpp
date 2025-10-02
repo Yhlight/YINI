@@ -33,15 +33,29 @@ namespace YINI
 
     void YiniManager::set_value(const std::string& section, const std::string& key, std::any new_value)
     {
+        // Case 1: The key already exists.
         if (interpreter.resolved_sections.count(section) && interpreter.resolved_sections[section].count(key)) {
             std::any& value = interpreter.resolved_sections[section][key];
             if (value.type() == typeid(DynaValue)) {
                 std::any_cast<DynaValue&>(value).set(new_value);
-                m_dirty_values[section][key] = new_value;
+                const auto& location = interpreter.value_locations.at(section).at(key);
+                m_dirty_values[section][key] = {new_value, location.line, location.column};
                 return;
+            } else {
+                // Key exists but is not dynamic.
+                throw std::runtime_error("Cannot set value: key '" + key + "' in section '" + section + "' is not dynamic.");
             }
         }
-        throw std::runtime_error("Cannot set value: key '" + key + "' in section '" + section + "' is not dynamic or does not exist.");
+
+        // Case 2: The key does not exist, but the section does. Add a new value.
+        if (interpreter.resolved_sections.count(section)) {
+            interpreter.resolved_sections[section][key] = DynaValue(new_value);
+            m_dirty_values[section][key] = {new_value, 0, 0}; // line 0 indicates a new value to be appended.
+            return;
+        }
+
+        // Case 3: The section does not exist.
+        throw std::runtime_error("Cannot set value: section '" + section + "' does not exist.");
     }
 
     std::vector<std::unique_ptr<Stmt>> YiniManager::load_file(const std::string& filepath, std::set<std::string>& loaded_files)
@@ -98,60 +112,48 @@ namespace YINI
             throw std::runtime_error("Could not open original file for reading: " + m_filepath);
         }
 
+        std::vector<std::string> lines;
+        std::string current_line;
+        while (std::getline(infile, current_line)) {
+            lines.push_back(current_line);
+        }
+        infile.close();
+
+        std::map<std::string, bool> new_sections_written;
+
+        for (auto const& [section, keys] : m_dirty_values) {
+            for (auto const& [key, dirty_value] : keys) {
+                if (dirty_value.line > 0) { // Existing value
+                    std::string& line = lines[dirty_value.line - 1];
+                    size_t eq_pos = line.find('=');
+                    std::string key_part = line.substr(0, eq_pos + 1);
+
+                    std::string comment_part = "";
+                    size_t comment_pos = line.find("//");
+                    if (comment_pos != std::string::npos && comment_pos > eq_pos) {
+                        comment_part = line.substr(comment_pos);
+                    }
+
+                    line = key_part + " " + interpreter.stringify(dirty_value.value) + (comment_part.empty() ? "" : " " + comment_part);
+                } else { // New value
+                    if (!new_sections_written[section]) {
+                        lines.push_back("[" + section + "]");
+                        new_sections_written[section] = true;
+                    }
+                    lines.push_back(key + " = " + interpreter.stringify(dirty_value.value));
+                }
+            }
+        }
+
         std::string temp_filepath = m_filepath + ".tmp";
         std::ofstream outfile(temp_filepath, std::ios::trunc);
         if (!outfile) {
             throw std::runtime_error("Could not open temporary file for writing: " + temp_filepath);
         }
 
-        std::string line;
-        std::string current_section;
-        std::regex section_regex(R"(\s*\[([^\]]+)\]\s*)");
-
-        while (std::getline(infile, line)) {
-            std::smatch match;
-            if (std::regex_match(line, match, section_regex)) {
-                current_section = match[1].str();
-            } else {
-                size_t eq_pos = line.find('=');
-                if (eq_pos != std::string::npos) {
-                    std::string key = line.substr(0, eq_pos);
-                    key.erase(0, key.find_first_not_of(" \t\n\r"));
-                    key.erase(key.find_last_not_of(" \t\n\r") + 1);
-
-                    if (!current_section.empty() && m_dirty_values.count(current_section) && m_dirty_values[current_section].count(key)) {
-                        std::string new_value_str = interpreter.stringify(m_dirty_values[current_section][key]);
-
-                        std::string comment_part = "";
-                        size_t comment_pos = line.find("//");
-                        if (comment_pos != std::string::npos && comment_pos > eq_pos) {
-                            comment_part = line.substr(comment_pos);
-                        }
-
-                        std::string key_part = line.substr(0, eq_pos + 1);
-                        line = key_part + " " + new_value_str + (comment_part.empty() ? "" : " " + comment_part);
-
-                        // Mark as written
-                        m_dirty_values[current_section].erase(key);
-                        if (m_dirty_values[current_section].empty()) {
-                            m_dirty_values.erase(current_section);
-                        }
-                    }
-                }
-            }
+        for (const auto& line : lines) {
             outfile << line << "\n";
         }
-
-        infile.close();
-
-        // Append any new values that were not in the original file
-        for (const auto& section_pair : m_dirty_values) {
-            outfile << "[" << section_pair.first << "]\n";
-            for (const auto& key_pair : section_pair.second) {
-                outfile << key_pair.first << " = " << interpreter.stringify(key_pair.second) << "\n";
-            }
-        }
-
         outfile.close();
 
         if (std::rename(temp_filepath.c_str(), m_filepath.c_str()) != 0) {
