@@ -11,11 +11,31 @@ void print_usage() {
     std::cerr << "Usage: yini-cli <command> [args...]\n"
               << "Commands:\n"
               << "  check <filepath>        Validate a .yini file.\n"
+              << "  get <filepath> <section> <key> Get a value.\n"
+              << "  set <filepath> <section> <key> <value> Set a value.\n"
               << "  compile <in> <out>      Compile a .yini file to .ymeta.\n"
               << "  decompile <filepath>    Decompile and print a .ymeta file.\n";
 }
 
 void print_any(const std::any& value);
+
+std::any parse_cli_value(const std::string& value_str) {
+    if (value_str == "true") return true;
+    if (value_str == "false") return false;
+    try {
+        size_t pos;
+        double num_val = std::stod(value_str, &pos);
+        if (pos == value_str.length()) {
+            return num_val;
+        }
+    } catch (const std::invalid_argument&) {
+        // Not a number, treat as a string.
+    }
+    if (value_str.length() >= 2 && value_str.front() == '"' && value_str.back() == '"') {
+        return value_str.substr(1, value_str.length() - 2);
+    }
+    return value_str;
+}
 
 void print_map(const std::map<std::string, std::any>& map, int indent = 0) {
     for (const auto& pair : map) {
@@ -64,6 +84,18 @@ int main(int argc, char* argv[])
             YINI::YiniManager manager;
             manager.load(argv[2]);
             std::cout << "File '" << argv[2] << "' is valid." << std::endl;
+        } else if (command == "get" && argc == 5) {
+            YINI::YiniManager manager;
+            manager.load(argv[2]);
+            auto value = manager.get_value(argv[3], argv[4]);
+            print_any(value);
+            std::cout << std::endl;
+        } else if (command == "set" && argc == 6) {
+            YINI::YiniManager manager;
+            manager.load(argv[2]);
+            manager.set_value(argv[3], argv[4], parse_cli_value(argv[5]));
+            manager.save_changes();
+            std::cout << "Set '" << argv[4] << "' in section '" << argv[3] << "'." << std::endl;
         } else if (command == "compile" && argc == 4) {
             YINI::YiniManager manager;
             manager.load(argv[2]);

@@ -71,3 +71,29 @@ TEST(CliTest, CompileAndDecompile)
     EXPECT_NE(decompile_output.find("[Test]"), std::string::npos);
     EXPECT_NE(decompile_output.find("key: \"hello\""), std::string::npos);
 }
+
+TEST(CliTest, GetValue)
+{
+    std::string cli_path = TOSTRING(YINI_CLI_PATH);
+    const std::string yini_file = "cli_get_test.yini";
+    std::ofstream(yini_file) << "[Settings]\nvolume = 100";
+
+    std::string cmd = cli_path + " get " + yini_file + " Settings volume";
+    std::string output = exec(cmd.c_str());
+    EXPECT_EQ(output, "100\n");
+}
+
+TEST(CliTest, SetValue)
+{
+    std::string cli_path = TOSTRING(YINI_CLI_PATH);
+    const std::string yini_file = "cli_set_test.yini";
+    std::ofstream(yini_file) << "[Settings]\nvolume = Dyna(100)";
+
+    std::string cmd = cli_path + " set " + yini_file + " Settings volume 50";
+    std::string output = exec(cmd.c_str());
+    EXPECT_NE(output.find("Set 'volume' in section 'Settings'."), std::string::npos);
+
+    std::ifstream infile(yini_file);
+    std::string content((std::istreambuf_iterator<char>(infile)), std::istreambuf_iterator<char>());
+    EXPECT_NE(content.find("volume = 50"), std::string::npos);
+}
