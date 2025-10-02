@@ -14,6 +14,7 @@ namespace YINI
     {
     public:
         void interpret(const std::vector<std::unique_ptr<Stmt>>& statements);
+        std::string stringify(const std::any& value);
 
         std::map<std::string, std::map<std::string, std::any>> resolved_sections;
 

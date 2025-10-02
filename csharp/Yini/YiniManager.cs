@@ -27,7 +27,7 @@ namespace Yini
         private static extern bool YiniManager_GetDouble(IntPtr manager, string section, string key, out double outValue);
 
         [DllImport(LibName, EntryPoint = "yini_manager_get_string")]
-        private static extern bool YiniManager_GetString(IntPtr manager, string section, string key, StringBuilder outBuffer, int bufferSize);
+        private static extern int YiniManager_GetString(IntPtr manager, string section, string key, StringBuilder? outBuffer, int bufferSize);
 
         [DllImport(LibName, EntryPoint = "yini_manager_get_bool")]
         private static extern bool YiniManager_GetBool(IntPtr manager, string section, string key, out bool outValue);
@@ -72,11 +72,19 @@ namespace Yini
 
         public string GetString(string section, string key, string defaultValue = "")
         {
-            StringBuilder buffer = new StringBuilder(1024);
-            if (YiniManager_GetString(_managerPtr, section, key, buffer, buffer.Capacity))
+            int requiredSize = YiniManager_GetString(_managerPtr, section, key, null, 0);
+            if (requiredSize <= 0)
+            {
+                return defaultValue;
+            }
+
+            StringBuilder buffer = new StringBuilder(requiredSize);
+            int size = YiniManager_GetString(_managerPtr, section, key, buffer, buffer.Capacity);
+            if (size > 0)
             {
                 return buffer.ToString();
             }
+
             return defaultValue;
         }
 

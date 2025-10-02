@@ -46,23 +46,29 @@ YINI_API bool yini_manager_get_double(void* manager, const char* section, const 
     return false;
 }
 
-YINI_API bool yini_manager_get_string(void* manager, const char* section, const char* key, char* out_buffer, int buffer_size) {
+YINI_API int yini_manager_get_string(void* manager, const char* section, const char* key, char* out_buffer, int buffer_size) {
     try {
         std::any value = as_manager(manager)->get_value(section, key);
         if (value.type() == typeid(std::string)) {
             const std::string& str = std::any_cast<const std::string&>(value);
-            if (str.length() < buffer_size) {
-                #ifdef _WIN32
-                    strcpy_s(out_buffer, buffer_size, str.c_str());
-                #else
-                    strncpy(out_buffer, str.c_str(), buffer_size - 1);
-                    out_buffer[buffer_size - 1] = '\0';
-                #endif
-                return true;
+            size_t required_size = str.length() + 1;
+
+            if (out_buffer == nullptr || buffer_size < required_size) {
+                return static_cast<int>(required_size);
             }
+
+            #ifdef _WIN32
+                strcpy_s(out_buffer, buffer_size, str.c_str());
+            #else
+                strncpy(out_buffer, str.c_str(), buffer_size);
+                out_buffer[buffer_size - 1] = '\0';
+            #endif
+            return static_cast<int>(str.length());
         }
-    } catch (...) {}
-    return false;
+    } catch (...) {
+        return -1;
+    }
+    return -1; // Not found or wrong type
 }
 
 YINI_API bool yini_manager_get_bool(void* manager, const char* section, const char* key, bool* out_value) {

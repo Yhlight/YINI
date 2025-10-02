@@ -52,12 +52,41 @@ rate = 1.0
             string newContent = File.ReadAllText(TestFileName);
 
             // Check that the dynamic value was updated
-            Assert.IsTrue(newContent.Contains("volume = 50.000000"), "The dynamic value was not updated correctly.");
+            Assert.IsTrue(newContent.Contains("volume = 50 "), "The dynamic value was not updated correctly.");
 
             // Check that comments and other lines are preserved
             Assert.IsTrue(newContent.Contains("// C# Test File"), "The top-level comment was not preserved.");
             Assert.IsTrue(newContent.Contains("// Dynamic master volume"), "The inline comment was not preserved.");
             Assert.IsTrue(newContent.Contains("rate = 1.0"), "The non-dynamic value was not preserved.");
+        }
+
+        [TestMethod]
+        public void GetString_ReturnsCorrectValue()
+        {
+            // 1. Create a test .yini file with a string value
+            string longString = new string('a', 2048);
+            string fileContent = $@"
+[Strings]
+short = ""Hello""
+long = ""{longString}""
+";
+            File.WriteAllText(TestFileName, fileContent);
+
+            // 2. Load the file
+            using (var manager = new YiniManager())
+            {
+                manager.Load(TestFileName);
+
+                // 3. Get the string values
+                string shortResult = manager.GetString("Strings", "short");
+                string longResult = manager.GetString("Strings", "long");
+                string nonExistentResult = manager.GetString("Strings", "nonexistent", "default");
+
+                // 4. Assert correctness
+                Assert.AreEqual("Hello", shortResult);
+                Assert.AreEqual(longString, longResult);
+                Assert.AreEqual("default", nonExistentResult);
+            }
         }
     }
 }

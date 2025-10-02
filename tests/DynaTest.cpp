@@ -61,7 +61,7 @@ TEST(DynaTest, NonDestructiveWriteBack) {
     std::string new_content = get_file_contents(filepath);
 
     // Check that the dynamic value was updated
-    EXPECT_NE(new_content.find("volume = 75.000000"), std::string::npos);
+    EXPECT_NE(new_content.find("volume = 75 "), std::string::npos);
 
     // Check that comments and other lines are preserved
     EXPECT_NE(new_content.find("// This is a test file for dynamic values."), std::string::npos);

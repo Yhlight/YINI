@@ -3,9 +3,67 @@
 #include "Core/YiniException.h"
 #include <cmath>
 #include <stdexcept>
+#include <sstream>
+#include <vector>
+#include <map>
 
 namespace YINI
 {
+    std::string Interpreter::stringify(const std::any& value)
+    {
+        if (value.type() == typeid(nullptr)) return "null";
+
+        if (value.type() == typeid(double)) {
+            std::string str = std::to_string(std::any_cast<double>(value));
+            // Remove trailing zeros
+            str.erase(str.find_last_not_of('0') + 1, std::string::npos);
+            if (str.back() == '.') {
+                str.pop_back();
+            }
+            return str;
+        }
+
+        if (value.type() == typeid(bool)) {
+            return std::any_cast<bool>(value) ? "true" : "false";
+        }
+
+        if (value.type() == typeid(std::string)) {
+            return "\"" + std::any_cast<std::string>(value) + "\"";
+        }
+
+        if (value.type() == typeid(std::vector<std::any>)) {
+            std::stringstream ss;
+            ss << "[";
+            const auto& vec = std::any_cast<const std::vector<std::any>&>(value);
+            for (size_t i = 0; i < vec.size(); ++i) {
+                ss << stringify(vec[i]);
+                if (i < vec.size() - 1) {
+                    ss << ", ";
+                }
+            }
+            ss << "]";
+            return ss.str();
+        }
+
+        if (value.type() == typeid(std::map<std::string, std::any>)) {
+            std::stringstream ss;
+            ss << "{";
+            const auto& map = std::any_cast<const std::map<std::string, std::any>&>(value);
+            size_t i = 0;
+            for (const auto& pair : map) {
+                ss << "\"" << pair.first << "\": " << stringify(pair.second);
+                if (i < map.size() - 1) {
+                    ss << ", ";
+                }
+                i++;
+            }
+            ss << "}";
+            return ss.str();
+        }
+
+        return "unsupported_type";
+    }
+
     // Helper functions for type checking
     static bool is_number(const std::any& value) {
         return value.type() == typeid(double);
