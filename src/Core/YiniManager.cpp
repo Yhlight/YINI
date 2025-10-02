@@ -5,6 +5,7 @@
 #include <sstream>
 #include <iostream>
 #include <regex>
+#include <cstdio>
 
 namespace YINI
 {
@@ -152,7 +153,9 @@ namespace YINI
     std::string YiniManager::any_to_string(const std::any& value)
     {
         if (value.type() == typeid(double)) {
-            return std::to_string(std::any_cast<double>(value));
+            char buffer[50]; // A buffer large enough for typical double representations
+            snprintf(buffer, sizeof(buffer), "%f", std::any_cast<double>(value));
+            return std::string(buffer);
         }
         if (value.type() == typeid(bool)) {
             return std::any_cast<bool>(value) ? "true" : "false";
@@ -160,7 +163,8 @@ namespace YINI
         if (value.type() == typeid(std::string)) {
             return "\"" + std::any_cast<std::string>(value) + "\"";
         }
-        // Basic support for other types for now
+        // This part is simplified; a full implementation would need to
+        // recursively serialize vectors and maps into their string representations.
         return "unsupported_type";
     }
 
