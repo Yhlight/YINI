@@ -31,6 +31,11 @@ add_executable(include_test IncludeTest.cpp)
 target_link_libraries(include_test Yini GTest::gtest_main)
 add_test(NAME include_test COMMAND include_test)
 
+# Dyna test
+add_executable(dyna_test DynaTest.cpp)
+target_link_libraries(dyna_test Yini GTest::gtest_main)
+add_test(NAME dyna_test COMMAND dyna_test)
+
 # Serialization test
 add_executable(serialization_test SerializationTest.cpp)
 target_link_libraries(serialization_test Yini GTest::gtest_main)

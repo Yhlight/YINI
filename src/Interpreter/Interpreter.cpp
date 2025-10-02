@@ -1,4 +1,5 @@
 #include "Interpreter.h"
+#include "Core/DynaValue.h"
 #include <cmath>
 #include <stdexcept>
 
@@ -222,12 +223,24 @@ namespace YINI
 
     std::any Interpreter::visit(const Call& expr)
     {
-        // Evaluate arguments, but do nothing with them for now.
-        // This lays the groundwork for built-in functions.
-        for (const auto& argument : expr.arguments)
-        {
-            evaluate(*argument);
+        auto callee = evaluate(*expr.callee);
+        std::string callee_name;
+
+        if (callee.type() == typeid(std::string)) {
+            callee_name = std::any_cast<std::string>(callee);
+        } else {
+            throw std::runtime_error("Can only call functions and constructors.");
         }
-        return std::any{}; // Placeholder for call result
+
+        if (callee_name == "Dyna" || callee_name == "dyna") {
+            if (expr.arguments.size() != 1) {
+                throw std::runtime_error("Dyna() expects exactly one argument.");
+            }
+            std::any value = evaluate(*expr.arguments[0]);
+            return DynaValue(value);
+        }
+
+        // Placeholder for other function calls
+        return std::any{};
     }
 }

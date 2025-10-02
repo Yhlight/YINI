@@ -4,6 +4,7 @@
 #include <fstream>
 #include <sstream>
 #include <iostream>
+#include <regex>
 
 namespace YINI
 {
@@ -11,9 +12,35 @@ namespace YINI
 
     void YiniManager::load(const std::string& filepath)
     {
+        m_filepath = filepath;
         std::set<std::string> loaded_files;
         auto final_ast = load_file(filepath, loaded_files);
         interpreter.interpret(final_ast);
+    }
+
+    std::any YiniManager::get_value(const std::string& section, const std::string& key)
+    {
+        if (interpreter.resolved_sections.count(section) && interpreter.resolved_sections[section].count(key)) {
+            std::any& value = interpreter.resolved_sections[section][key];
+            if (value.type() == typeid(DynaValue)) {
+                return std::any_cast<DynaValue&>(value).get();
+            }
+            return value;
+        }
+        throw std::runtime_error("Value not found for section '" + section + "' and key '" + key + "'.");
+    }
+
+    void YiniManager::set_value(const std::string& section, const std::string& key, std::any new_value)
+    {
+        if (interpreter.resolved_sections.count(section) && interpreter.resolved_sections[section].count(key)) {
+            std::any& value = interpreter.resolved_sections[section][key];
+            if (value.type() == typeid(DynaValue)) {
+                std::any_cast<DynaValue&>(value).set(new_value);
+                m_dirty_values[section][key] = new_value;
+                return;
+            }
+        }
+        throw std::runtime_error("Cannot set value: key '" + key + "' in section '" + section + "' is not dynamic or does not exist.");
     }
 
     std::vector<std::unique_ptr<Stmt>> YiniManager::load_file(const std::string& filepath, std::set<std::string>& loaded_files)
@@ -57,6 +84,84 @@ namespace YINI
         merge_asts(combined_ast, current_ast);
 
         return combined_ast;
+    }
+
+    void YiniManager::save_changes()
+    {
+        if (m_dirty_values.empty()) {
+            return; // Nothing to save
+        }
+
+        std::ifstream infile(m_filepath);
+        if (!infile) {
+            throw std::runtime_error("Could not open original file for reading: " + m_filepath);
+        }
+
+        std::vector<std::string> lines;
+        std::string line;
+        while (std::getline(infile, line)) {
+            lines.push_back(line);
+        }
+        infile.close();
+
+        std::string current_section;
+        std::regex section_regex(R"(\s*\[([^\]]+)\]\s*)");
+
+        for (auto& l : lines) {
+            std::smatch match;
+            if (std::regex_match(l, match, section_regex)) {
+                current_section = match[1].str();
+                continue;
+            }
+
+            size_t eq_pos = l.find('=');
+            if (eq_pos == std::string::npos) {
+                continue;
+            }
+
+            std::string key = l.substr(0, eq_pos);
+            key.erase(0, key.find_first_not_of(" \t\n\r"));
+            key.erase(key.find_last_not_of(" \t\n\r") + 1);
+
+            if (!current_section.empty() && m_dirty_values.count(current_section) && m_dirty_values[current_section].count(key)) {
+                std::string new_value_str = any_to_string(m_dirty_values[current_section][key]);
+
+                std::string comment_part = "";
+                size_t comment_pos = l.find("//");
+                if (comment_pos != std::string::npos && comment_pos > eq_pos) {
+                    comment_part = l.substr(comment_pos);
+                }
+
+                std::string key_part = l.substr(0, eq_pos + 1);
+                l = key_part + " " + new_value_str + (comment_part.empty() ? "" : " " + comment_part);
+            }
+        }
+
+        std::ofstream outfile(m_filepath, std::ios::trunc);
+        if (!outfile) {
+            throw std::runtime_error("Could not open file for writing: " + m_filepath);
+        }
+
+        for (size_t i = 0; i < lines.size(); ++i) {
+            outfile << lines[i] << (i == lines.size() - 1 ? "" : "\n");
+        }
+
+        m_dirty_values.clear();
+    }
+
+    std::string YiniManager::any_to_string(const std::any& value)
+    {
+        if (value.type() == typeid(double)) {
+            return std::to_string(std::any_cast<double>(value));
+        }
+        if (value.type() == typeid(bool)) {
+            return std::any_cast<bool>(value) ? "true" : "false";
+        }
+        if (value.type() == typeid(std::string)) {
+            return "\"" + std::any_cast<std::string>(value) + "\"";
+        }
+        // Basic support for other types for now
+        return "unsupported_type";
     }
 
     void YiniManager::merge_asts(std::vector<std::unique_ptr<Stmt>>& base_ast, std::vector<std::unique_ptr<Stmt>>& new_ast)

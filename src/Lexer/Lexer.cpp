@@ -178,7 +178,7 @@ namespace YINI
 
     void Lexer::identifier()
     {
-        while (isalnum(peek()) || peek() == '_') advance();
+        while (isalnum(peek()) || peek() == '_' || peek() == '#') advance();
 
         std::string text = m_source.substr(m_start, m_current - m_start);
         TokenType type = TokenType::IDENTIFIER;
