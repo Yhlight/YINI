@@ -42,6 +42,7 @@ namespace YINI
         std::any visit(const Map& expr) override;
         std::any visit(const Call& expr) override;
         std::any visit(const Variable& expr) override;
+        std::any visit(const EnvironmentVariable& expr) override;
         const Environment& get_globals() const { return m_globals; }
 
     private:

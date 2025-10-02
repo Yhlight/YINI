@@ -189,6 +189,11 @@ namespace YINI
             return std::make_unique<Literal>(previous().literal);
         }
 
+        if (match({TokenType::ENV_VAR}))
+        {
+            return std::make_unique<EnvironmentVariable>(previous());
+        }
+
         if (match({TokenType::AT}))
         {
             if (peek().type == TokenType::IDENTIFIER) {

@@ -15,20 +15,33 @@ using json = nlohmann::json;
 
 // Helper to send a raw message string to the LSP server and get the response
 std::string send_raw_message(const std::string& message) {
-    std::string lsp_path = TOSTRING(YINI_LSP_PATH);
-    // Add a small sleep to give the LSP server time to process and respond
-    // before the pipe is closed. Use printf to avoid echo's escape sequence interpretation.
-    std::string cmd = "(printf '%s' '" + message + "'; sleep 0.2) | " + lsp_path;
+    // Create a temporary file to write the message to, avoiding shell quoting issues.
+    char tmp_filename[] = "/tmp/yini_lsp_test_XXXXXX";
+    int fd = mkstemp(tmp_filename);
+    if (fd == -1) {
+        throw std::runtime_error("Failed to create temporary file for test.");
+    }
+    write(fd, message.c_str(), message.length());
+    close(fd);
 
-    std::array<char, 512> buffer;
+    std::string lsp_path = TOSTRING(YINI_LSP_PATH);
+    std::string cmd = "cat " + std::string(tmp_filename) + " | " + lsp_path;
+
+    std::array<char, 1024> buffer;
     std::string result;
     std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(cmd.c_str(), "r"), pclose);
+
     if (!pipe) {
+        remove(tmp_filename);
         throw std::runtime_error("popen() failed!");
     }
     while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
         result += buffer.data();
     }
+
+    // Clean up the temporary file after reading is complete
+    remove(tmp_filename);
+
     return result;
 }
 
