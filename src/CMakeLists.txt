@@ -19,6 +19,18 @@ target_include_directories(Yini
         $<INSTALL_INTERFACE:include>
 )
 
+target_sources(Yini
+    PUBLIC FILE_SET HEADERS
+    BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}
+    FILES
+        Core/DynaValue.h
+        Core/YiniException.h
+        Core/YiniManager.h
+        Core/YiniValue.h
+        Core/Validator.h
+        Interop/YiniCApi.h
+)
+
 target_compile_features(Yini PUBLIC cxx_std_17)
 
 option(YINI_BUILD_CLI "Build the YINI command-line interface" ON)
