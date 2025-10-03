@@ -20,6 +20,7 @@ namespace YINI
     struct Call;
     struct Variable;
     struct EnvVariable;
+    struct XRef;
 
     // Visitor for expressions
     class ExprVisitor
@@ -35,6 +36,7 @@ namespace YINI
         virtual YiniValue visit(const Call& expr) = 0;
         virtual YiniValue visit(const Variable& expr) = 0;
         virtual YiniValue visit(const EnvVariable& expr) = 0;
+        virtual YiniValue visit(const XRef& expr) = 0;
         virtual ~ExprVisitor() = default;
     };
 
@@ -137,6 +139,16 @@ namespace YINI
         YiniValue accept(ExprVisitor& visitor) const override { return visitor.visit(*this); }
         Token name; // The token representing the variable's name
         std::unique_ptr<Expr> default_value; // The expression for the default value, can be nullptr
+    };
+
+    // Environment variable expression node, e.g., ${VAR_NAME:default_value}
+    struct XRef : public Expr
+    {
+        XRef(Token section, Token key)
+            : section(std::move(section)), key(std::move(key)) {}
+        YiniValue accept(ExprVisitor& visitor) const override { return visitor.visit(*this); }
+        Token section;
+        Token key;
     };
 
     // Forward declarations for statement visitors

@@ -198,6 +198,15 @@ namespace YINI
             return std::make_unique<EnvVariable>(name, std::move(defaultValue));
         }
 
+        if (match({TokenType::AT_LEFT_BRACE}))
+        {
+            Token section = consume(TokenType::IDENTIFIER, "Expect section name in cross-reference.");
+            consume(TokenType::DOT, "Expect '.' between section and key.");
+            Token key = consume(TokenType::IDENTIFIER, "Expect key name in cross-reference.");
+            consume(TokenType::RIGHT_BRACE, "Expect '}' after cross-reference.");
+            return std::make_unique<XRef>(section, key);
+        }
+
         if (match({TokenType::AT}))
         {
             Token name = consume(TokenType::IDENTIFIER, "Expect variable name after '@'.");

@@ -65,3 +65,8 @@ add_test(NAME complex_interpreter_test COMMAND complex_interpreter_test)
 add_executable(c_api_test CApiTest.cpp)
 target_link_libraries(c_api_test Yini GTest::gtest_main)
 add_test(NAME c_api_test COMMAND c_api_test)
+
+# Cross-reference test
+add_executable(xref_test XRefTest.cpp)
+target_link_libraries(xref_test Yini GTest::gtest_main)
+add_test(NAME xref_test COMMAND xref_test)

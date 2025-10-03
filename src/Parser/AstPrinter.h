@@ -19,6 +19,7 @@ namespace YINI
         YiniValue visit(const Call& expr) override;
         YiniValue visit(const Variable& expr) override;
         YiniValue visit(const EnvVariable& expr) override;
+        YiniValue visit(const XRef& expr) override;
 
     private:
         std::string parenthesize(const std::string& name, const std::vector<const Expr*>& exprs);

@@ -11,7 +11,8 @@ namespace YINI
     {
     public:
         void define(const std::string& name, YiniValue value);
-        YiniValue get(const Token& name);
+        YiniValue get(const Token& name) const;
+        void clear();
 
     private:
         std::map<std::string, YiniValue> m_values;
