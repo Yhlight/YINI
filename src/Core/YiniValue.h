@@ -1,3 +1,7 @@
+/**
+ * @file YiniValue.h
+ * @brief Defines the YiniValue class, a type-safe variant for holding all supported YINI data types.
+ */
 #pragma once
 
 #include <variant>
@@ -12,11 +16,25 @@ namespace YINI
     class YiniValue;
     class DynaValue;
 
-    // Define collection types using YiniValue
+    /**
+     * @typedef YiniArray
+     * @brief A type alias for a vector of YiniValue objects, representing an array in YINI.
+     */
     using YiniArray = std::vector<YiniValue>;
+
+    /**
+     * @typedef YiniMap
+     * @brief A type alias for a map with string keys and YiniValue values, representing a map in YINI.
+     */
     using YiniMap = std::map<std::string, YiniValue>;
 
-    // Use unique_ptr to break the recursive dependency for std::variant
+    /**
+     * @typedef YiniValueBase
+     * @brief The underlying std::variant that holds the possible YINI data types.
+     *
+     * `std::unique_ptr` is used for recursive types (arrays, maps, and dynamic values)
+     * to break the circular dependency and allow for incomplete types in the variant.
+     */
     using YiniValueBase = std::variant<
         std::monostate, // Represents a null or uninitialized value
         bool,
@@ -27,13 +45,18 @@ namespace YINI
         std::unique_ptr<DynaValue>
     >;
 
-    // YiniValue is a wrapper around the variant to provide a nicer interface
-    // and handle the unique_ptr indirection.
+    /**
+     * @class YiniValue
+     * @brief A wrapper around a std::variant to provide a type-safe container for any value that can be represented in YINI.
+     *
+     * This class provides constructors for easy creation of values and manages the
+     * memory for heap-allocated recursive types like arrays and maps.
+     */
     class YiniValue
     {
     public:
         // Constructors
-        YiniValue(); // default to monostate
+        YiniValue();
         YiniValue(bool value);
         YiniValue(double value);
         YiniValue(const std::string& value);
@@ -53,7 +76,9 @@ namespace YINI
         YiniValue(YiniValue&& other) noexcept;
         YiniValue& operator=(YiniValue&& other) noexcept;
 
-        // The underlying variant
+        /**
+         * @brief The underlying std::variant holding the actual value.
+         */
         YiniValueBase m_value;
     };
 }

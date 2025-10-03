@@ -1,19 +1,8 @@
 # Build artifacts
-build/
-bin/
-obj/
-
-# User-specific files
-*.user
-*.suo
-*.ide/
-
-# Rider files
-.idea/
-
-# macOS files
-.DS_Store
-
-# Ymeta files
+/build/
+*.tmp
 *.ymeta
-*.YMETA
+*.yini
+
+# Doxygen output
+/docs/api/
