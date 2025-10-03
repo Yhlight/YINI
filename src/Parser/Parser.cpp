@@ -25,6 +25,9 @@ namespace YINI
             if (m_tokens[m_current + 1].lexeme == "#include") {
                 return includeSection();
             }
+            if (m_tokens[m_current + 1].lexeme == "#schema") {
+                return schemaSection();
+            }
         }
         return section();
     }
@@ -64,6 +67,30 @@ namespace YINI
         }
 
         return std::make_unique<Define>(std::move(values));
+    }
+
+    std::unique_ptr<Stmt> Parser::schemaSection()
+    {
+        consume(TokenType::LEFT_BRACKET, "Expect '[' before #schema.");
+        consume(TokenType::IDENTIFIER, "Expect #schema keyword.");
+        consume(TokenType::RIGHT_BRACKET, "Expect ']' after #schema.");
+
+        std::vector<std::unique_ptr<Section>> sections;
+        while (!isAtEnd() && peek().type == TokenType::LEFT_BRACKET)
+        {
+            // Stop parsing schema sections if we find the #end_schema block
+            if (m_tokens.size() > m_current + 1 && m_tokens[m_current + 1].type == TokenType::IDENTIFIER && m_tokens[m_current + 1].lexeme == "#end_schema") {
+                break;
+            }
+            sections.push_back(section());
+        }
+
+        // Consume the closing [#end_schema] block
+        consume(TokenType::LEFT_BRACKET, "Expect '[' before #end_schema.");
+        consume(TokenType::IDENTIFIER, "Expect #end_schema keyword.");
+        consume(TokenType::RIGHT_BRACKET, "Expect ']' after #end_schema.");
+
+        return std::make_unique<Schema>(std::move(sections));
     }
 
     std::unique_ptr<Section> Parser::section()
@@ -184,6 +211,27 @@ namespace YINI
         if (match({TokenType::TRUE, TokenType::FALSE, TokenType::NUMBER, TokenType::STRING}))
         {
             return std::make_unique<Literal>(previous().literal);
+        }
+
+        if (match({TokenType::DOLLAR_LEFT_BRACE}))
+        {
+            Token name = consume(TokenType::IDENTIFIER, "Expect environment variable name.");
+            std::unique_ptr<Expr> defaultValue = nullptr;
+            if (match({TokenType::COLON}))
+            {
+                defaultValue = expression();
+            }
+            consume(TokenType::RIGHT_BRACE, "Expect '}' after environment variable.");
+            return std::make_unique<EnvVariable>(name, std::move(defaultValue));
+        }
+
+        if (match({TokenType::AT_LEFT_BRACE}))
+        {
+            Token section = consume(TokenType::IDENTIFIER, "Expect section name in cross-reference.");
+            consume(TokenType::DOT, "Expect '.' between section and key.");
+            Token key = consume(TokenType::IDENTIFIER, "Expect key name in cross-reference.");
+            consume(TokenType::RIGHT_BRACE, "Expect '}' after cross-reference.");
+            return std::make_unique<XRef>(section, key);
         }
 
         if (match({TokenType::AT}))

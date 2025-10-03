@@ -32,7 +32,9 @@ namespace YINI
         {
             case '(': addToken(TokenType::LEFT_PAREN); break;
             case ')': addToken(TokenType::RIGHT_PAREN); break;
-            case '@': addToken(TokenType::AT); break;
+            case '@':
+                addToken(match('{') ? TokenType::AT_LEFT_BRACE : TokenType::AT);
+                break;
             case '{': addToken(TokenType::LEFT_BRACE); break;
             case '}': addToken(TokenType::RIGHT_BRACE); break;
             case '[': addToken(TokenType::LEFT_BRACKET); break;
@@ -46,6 +48,7 @@ namespace YINI
             case '%': addToken(TokenType::PERCENT); break;
             case ',': addToken(TokenType::COMMA); break;
             case ':': addToken(TokenType::COLON); break;
+            case '.': addToken(TokenType::DOT); break;
             case '/':
                 if (match('/'))
                 {
@@ -59,6 +62,13 @@ namespace YINI
                 else
                 {
                     addToken(TokenType::SLASH);
+                }
+                break;
+            case '$':
+                if (match('{')) {
+                    addToken(TokenType::DOLLAR_LEFT_BRACE);
+                } else {
+                    throw ParsingError("Unexpected character.", m_line, m_start_column, m_filepath);
                 }
                 break;
             case '"': string(); break;

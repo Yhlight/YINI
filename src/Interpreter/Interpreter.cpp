@@ -7,6 +7,7 @@
 #include <vector>
 #include <map>
 #include <variant>
+#include <cstdlib> // For getenv
 
 namespace YINI
 {
@@ -81,23 +82,49 @@ namespace YINI
 
     void Interpreter::interpret(const std::vector<std::unique_ptr<Stmt>>& statements)
     {
+        // Clear state for potential reuse of the interpreter instance
+        m_sections.clear();
+        m_globals.clear();
+        m_expression_map.clear();
+        m_kv_map.clear();
+        m_resolved.clear();
+        m_resolving.clear();
+        resolved_sections.clear();
+        value_locations.clear();
+        m_currently_resolving_values.clear();
+
+        // 1. Discovery Pass: Find all sections and global definitions
         for (const auto& statement : statements)
         {
             if (auto* define = dynamic_cast<Define*>(statement.get())) {
-                execute(*define);
+                execute(*define); // Populates m_globals
             } else if (auto* section = dynamic_cast<Section*>(statement.get())) {
+                if (m_sections.count(section->name.lexeme)) {
+                    throw RuntimeError("Section '" + section->name.lexeme + "' has already been defined.", section->name.line, section->name.column, section->name.filepath);
+                }
                 m_sections[section->name.lexeme] = section;
             }
         }
 
+        // 2. Mapping Pass: Build the expression map, handling inheritance
         for (const auto& pair : m_sections)
         {
-            resolve_section(pair.second);
+            build_expression_map(pair.second);
+        }
+
+        // 3. Evaluation Pass: Resolve all expressions
+        for (const auto& section_pair : m_expression_map) {
+            const std::string& section_name = section_pair.first;
+            for (const auto& key_pair : section_pair.second) {
+                // This will trigger the recursive, on-demand evaluation for each key
+                visit(XRef(Token{TokenType::IDENTIFIER, section_name}, Token{TokenType::IDENTIFIER, key_pair.first}));
+            }
         }
     }
 
-    void Interpreter::resolve_section(const Section* section)
+    void Interpreter::build_expression_map(const Section* section)
     {
+        // Check for inheritance cycles
         if (m_resolved.count(section->name.lexeme)) return;
         if (m_resolving.count(section->name.lexeme)) {
             throw RuntimeError("Circular inheritance detected involving section '" + section->name.lexeme + "'.", section->name.line, section->name.column, section->name.filepath);
@@ -105,27 +132,36 @@ namespace YINI
 
         m_resolving.insert(section->name.lexeme);
 
+        // Recursively build maps for parent sections first
         for (const auto& parent_token : section->parents)
         {
             if (!m_sections.count(parent_token.lexeme)) {
                 throw RuntimeError("Parent section '" + parent_token.lexeme + "' not found.", parent_token.line, parent_token.column, parent_token.filepath);
             }
-            resolve_section(m_sections.at(parent_token.lexeme));
+            build_expression_map(m_sections.at(parent_token.lexeme));
         }
 
-        resolved_sections[section->name.lexeme] = {};
+        // Inherit expressions from parents
+        if (!m_expression_map.count(section->name.lexeme)) {
+            m_expression_map[section->name.lexeme] = {};
+            m_kv_map[section->name.lexeme] = {};
+        }
         for (const auto& parent_token : section->parents)
         {
-            const auto& parent_values = resolved_sections.at(parent_token.lexeme);
-            for (const auto& pair : parent_values) {
-                resolved_sections[section->name.lexeme][pair.first] = pair.second;
+            const auto& parent_exprs = m_expression_map.at(parent_token.lexeme);
+            for (const auto& pair : parent_exprs) {
+                m_expression_map[section->name.lexeme][pair.first] = pair.second;
+                m_kv_map[section->name.lexeme][pair.first] = m_kv_map.at(parent_token.lexeme).at(pair.first);
             }
         }
 
-        m_current_section_name = section->name.lexeme;
+        // Add expressions from the current section, overriding parents
         for (const auto& statement : section->statements)
         {
-            execute(*statement);
+            if (auto* kv = dynamic_cast<const KeyValue*>(statement.get())) {
+                m_expression_map[section->name.lexeme][kv->key.lexeme] = kv->value.get();
+                m_kv_map[section->name.lexeme][kv->key.lexeme] = kv;
+            }
         }
 
         m_resolving.erase(section->name.lexeme);
@@ -135,16 +171,11 @@ namespace YINI
     void Interpreter::execute(const Stmt& stmt) { stmt.accept(*this); }
     YiniValue Interpreter::evaluate(const Expr& expr) { return expr.accept(*this); }
 
-    void Interpreter::visit(const KeyValue& stmt)
-    {
-        YiniValue value = evaluate(*stmt.value);
-        resolved_sections[m_current_section_name][stmt.key.lexeme] = value;
-        value_locations[m_current_section_name][stmt.key.lexeme] = {stmt.value_line, stmt.value_column};
-    }
-
-    void Interpreter::visit(const Section& stmt) {} // Handled in resolve_section
-    void Interpreter::visit(const Register& stmt) { evaluate(*stmt.value); }
-    void Interpreter::visit(const Include& stmt) {} // Handled by file loader
+    void Interpreter::visit(const KeyValue& stmt) {}
+    void Interpreter::visit(const Section& stmt) {}
+    void Interpreter::visit(const Register& stmt) {}
+    void Interpreter::visit(const Include& stmt) {}
+    void Interpreter::visit(const Schema& stmt) {}
 
     void Interpreter::visit(const Define& stmt)
     {
@@ -157,6 +188,58 @@ namespace YINI
     YiniValue Interpreter::visit(const Literal& expr) { return expr.value; }
     YiniValue Interpreter::visit(const Variable& expr) { return m_globals.get(expr.name); }
     YiniValue Interpreter::visit(const Grouping& expr) { return evaluate(*expr.expression); }
+
+    YiniValue Interpreter::visit(const EnvVariable& expr)
+    {
+        const char* value = std::getenv(expr.name.lexeme.c_str());
+        if (value != nullptr)
+        {
+            return std::string(value);
+        }
+
+        if (expr.default_value != nullptr)
+        {
+            return evaluate(*expr.default_value);
+        }
+
+        throw RuntimeError("Required environment variable '" + expr.name.lexeme + "' is not set and no default value is provided.", expr.name.line, expr.name.column, expr.name.filepath);
+    }
+
+    YiniValue Interpreter::visit(const XRef& expr) {
+        std::string section_name = expr.section.lexeme;
+        std::string key_name = expr.key.lexeme;
+        std::string full_ref = section_name + "." + key_name;
+
+        // If value is already resolved, return it from the cache
+        if (resolved_sections.count(section_name) && resolved_sections.at(section_name).count(key_name)) {
+            return resolved_sections.at(section_name).at(key_name);
+        }
+
+        // Check for circular references
+        if (m_currently_resolving_values.count(full_ref)) {
+            throw RuntimeError("Circular reference detected for value '" + full_ref + "'.", expr.section.line, expr.section.column, expr.section.filepath);
+        }
+
+        // Check if the expression to be resolved exists in our map
+        if (!m_expression_map.count(section_name) || !m_expression_map.at(section_name).count(key_name)) {
+            throw RuntimeError("Referenced key '" + key_name + "' not found in section '" + section_name + "'.", expr.key.line, expr.key.column, expr.key.filepath);
+        }
+
+        m_currently_resolving_values.insert(full_ref);
+
+        // Recursively evaluate the expression
+        const Expr* expr_to_eval = m_expression_map.at(section_name).at(key_name);
+        YiniValue result = evaluate(*expr_to_eval);
+
+        // Cache the result and its location
+        resolved_sections[section_name][key_name] = result;
+        const auto* kv_stmt = m_kv_map.at(section_name).at(key_name);
+        value_locations[section_name][key_name] = {kv_stmt->value_line, kv_stmt->value_column};
+
+        m_currently_resolving_values.erase(full_ref);
+
+        return result;
+    }
 
     YiniValue Interpreter::visit(const Unary& expr)
     {

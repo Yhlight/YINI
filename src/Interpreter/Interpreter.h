@@ -31,6 +31,7 @@ namespace YINI
         void visit(const Register& stmt) override;
         void visit(const Define& stmt) override;
         void visit(const Include& stmt) override;
+        void visit(const Schema& stmt) override;
 
         // Expression visitor methods
         YiniValue visit(const Literal& expr) override;
@@ -42,16 +43,23 @@ namespace YINI
         YiniValue visit(const Map& expr) override;
         YiniValue visit(const Call& expr) override;
         YiniValue visit(const Variable& expr) override;
+        YiniValue visit(const EnvVariable& expr) override;
+        YiniValue visit(const XRef& expr) override;
 
     private:
         YiniValue evaluate(const Expr& expr);
         void execute(const Stmt& stmt);
-        void resolve_section(const Section* section);
+        void build_expression_map(const Section* section);
 
         Environment m_globals;
         std::map<std::string, const Section*> m_sections;
         std::set<std::string> m_resolved;
         std::set<std::string> m_resolving; // For cycle detection
+
+        // New members for on-demand resolution
+        std::map<std::string, std::map<std::string, const Expr*>> m_expression_map;
+        std::map<std::string, std::map<std::string, const KeyValue*>> m_kv_map; // For error reporting
+        std::set<std::string> m_currently_resolving_values; // For cycle detection
         std::string m_current_section_name;
     };
 }

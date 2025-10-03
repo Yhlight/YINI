@@ -1,6 +1,5 @@
 #include "Environment.h"
 #include "Core/YiniException.h"
-#include <stdexcept>
 
 namespace YINI
 {
@@ -9,13 +8,17 @@ namespace YINI
         m_values[name] = std::move(value);
     }
 
-    YiniValue Environment::get(const Token& name)
+    YiniValue Environment::get(const Token& name) const
     {
         if (m_values.count(name.lexeme))
         {
             return m_values.at(name.lexeme);
         }
-
         throw RuntimeError("Undefined variable '" + name.lexeme + "'.", name.line, name.column, name.filepath);
+    }
+
+    void Environment::clear()
+    {
+        m_values.clear();
     }
 }

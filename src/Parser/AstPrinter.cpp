@@ -101,6 +101,20 @@ namespace YINI
         return expr.name.lexeme;
     }
 
+    YiniValue AstPrinter::visit(const EnvVariable& expr)
+    {
+        if (expr.default_value)
+        {
+            return parenthesize("${" + expr.name.lexeme + "}", {expr.default_value.get()});
+        }
+        return parenthesize("${" + expr.name.lexeme + "}", {});
+    }
+
+    YiniValue AstPrinter::visit(const XRef& expr)
+    {
+        return parenthesize("@{" + expr.section.lexeme + "." + expr.key.lexeme + "}", {});
+    }
+
     std::string AstPrinter::parenthesize(const std::string& name, const std::vector<const Expr*>& exprs)
     {
         std::stringstream builder;

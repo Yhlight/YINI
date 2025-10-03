@@ -19,6 +19,8 @@ namespace YINI
     struct Map;
     struct Call;
     struct Variable;
+    struct EnvVariable;
+    struct XRef;
 
     // Visitor for expressions
     class ExprVisitor
@@ -33,6 +35,8 @@ namespace YINI
         virtual YiniValue visit(const Map& expr) = 0;
         virtual YiniValue visit(const Call& expr) = 0;
         virtual YiniValue visit(const Variable& expr) = 0;
+        virtual YiniValue visit(const EnvVariable& expr) = 0;
+        virtual YiniValue visit(const XRef& expr) = 0;
         virtual ~ExprVisitor() = default;
     };
 
@@ -127,12 +131,33 @@ namespace YINI
         Token name;
     };
 
+    // Environment variable expression node, e.g., ${VAR_NAME:default_value}
+    struct EnvVariable : public Expr
+    {
+        EnvVariable(Token name, std::unique_ptr<Expr> default_value)
+            : name(std::move(name)), default_value(std::move(default_value)) {}
+        YiniValue accept(ExprVisitor& visitor) const override { return visitor.visit(*this); }
+        Token name; // The token representing the variable's name
+        std::unique_ptr<Expr> default_value; // The expression for the default value, can be nullptr
+    };
+
+    // Environment variable expression node, e.g., ${VAR_NAME:default_value}
+    struct XRef : public Expr
+    {
+        XRef(Token section, Token key)
+            : section(std::move(section)), key(std::move(key)) {}
+        YiniValue accept(ExprVisitor& visitor) const override { return visitor.visit(*this); }
+        Token section;
+        Token key;
+    };
+
     // Forward declarations for statement visitors
     struct KeyValue;
     struct Section;
     struct Register;
     struct Define;
     struct Include;
+    struct Schema;
 
     // Visitor for statements
     class StmtVisitor
@@ -143,6 +168,7 @@ namespace YINI
         virtual void visit(const Register& stmt) = 0;
         virtual void visit(const Define& stmt) = 0;
         virtual void visit(const Include& stmt) = 0;
+        virtual void visit(const Schema& stmt) = 0;
         virtual ~StmtVisitor() = default;
     };
 
@@ -193,5 +219,14 @@ namespace YINI
         Include(std::vector<std::unique_ptr<Expr>> files) : files(std::move(files)) {}
         void accept(StmtVisitor& visitor) const override { visitor.visit(*this); }
         std::vector<std::unique_ptr<Expr>> files;
+    };
+
+    // Schema statement node, representing a [#schema] block
+    struct Schema : public Stmt
+    {
+        Schema(std::vector<std::unique_ptr<Section>> sections)
+            : sections(std::move(sections)) {}
+        void accept(StmtVisitor& visitor) const override { visitor.visit(*this); }
+        std::vector<std::unique_ptr<Section>> sections;
     };
 }
