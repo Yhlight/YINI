@@ -203,23 +203,64 @@ namespace YINI
 
             if (auto* new_define = dynamic_cast<Define*>(new_stmt_ptr.get())) {
                 if (!base_define) {
-                    base_ast.insert(base_ast.begin(), std::make_unique<Define>(std::vector<std::unique_ptr<KeyValue>>{}));
-                    base_define = dynamic_cast<Define*>(base_ast[0].get());
+                // If base has no define block, create one and add it to the front.
+                auto created_define = std::make_unique<Define>(std::vector<std::unique_ptr<KeyValue>>{});
+                base_define = created_define.get();
+                base_ast.insert(base_ast.begin(), std::move(created_define));
                 }
-                for (auto& kv : new_define->values) {
-                    base_define->values.push_back(std::move(kv));
+
+            // Index existing macros for efficient lookup
+            std::map<std::string, KeyValue*> existing_macros;
+            for (auto& kv : base_define->values) {
+                existing_macros[kv->key.lexeme] = kv.get();
+            }
+
+            // Merge new macros, overriding existing ones
+            for (auto& new_macro_ptr : new_define->values) {
+                auto* new_macro = new_macro_ptr.get();
+                if (existing_macros.count(new_macro->key.lexeme)) {
+                    existing_macros[new_macro->key.lexeme]->value = std::move(new_macro->value);
+                } else {
+                    existing_macros[new_macro->key.lexeme] = new_macro;
+                    base_define->values.push_back(std::move(new_macro_ptr));
+                }
                 }
             } else if (auto* new_section = dynamic_cast<Section*>(new_stmt_ptr.get())) {
                 if (base_sections.count(new_section->name.lexeme)) {
+                // Section exists, merge statements
                     auto* existing_section = base_sections[new_section->name.lexeme];
-                    for (auto& s : new_section->statements) {
-                        existing_section->statements.push_back(std::move(s));
+
+                // Index existing keys for efficient lookup
+                std::map<std::string, KeyValue*> existing_kvs;
+                for (auto& stmt : existing_section->statements) {
+                    if (auto* kv = dynamic_cast<KeyValue*>(stmt.get())) {
+                        existing_kvs[kv->key.lexeme] = kv;
+                    }
+                }
+
+                // Merge new statements, overriding existing key-values
+                for (auto& new_section_stmt_ptr : new_section->statements) {
+                    if (auto* new_kv = dynamic_cast<KeyValue*>(new_section_stmt_ptr.get())) {
+                        if (existing_kvs.count(new_kv->key.lexeme)) {
+                            existing_kvs[new_kv->key.lexeme]->value = std::move(new_kv->value);
+                        } else {
+                            existing_kvs[new_kv->key.lexeme] = new_kv;
+                            existing_section->statements.push_back(std::move(new_section_stmt_ptr));
+                        }
+                    } else {
+                        // For other statements like Register (`+=`), just append them
+                        existing_section->statements.push_back(std::move(new_section_stmt_ptr));
+                    }
                     }
                 } else {
+                // Section is new, just move the whole thing
                     base_ast.push_back(std::move(new_stmt_ptr));
+                // And add it to our index for subsequent merges in the same load operation
                     base_sections[new_section->name.lexeme] = new_section;
                 }
             } else if (!dynamic_cast<Include*>(new_stmt_ptr.get())) {
+            // For other top-level statements (if any), just append them.
+            // We specifically ignore Include nodes as they've already been processed.
                 base_ast.push_back(std::move(new_stmt_ptr));
             }
         }
