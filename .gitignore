@@ -6,3 +6,7 @@
 
 # Doxygen output
 /docs/api/
+
+# .NET build artifacts
+[Bb]in/
+[Oo]bj/

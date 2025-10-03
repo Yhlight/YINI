@@ -12,7 +12,7 @@ void create_test_file(const std::string& filename, const std::string& content) {
 }
 
 TEST(CApiTest, CreateAndDestroyManager) {
-    void* manager = yini_manager_create();
+    Yini_ManagerHandle manager = yini_manager_create();
     ASSERT_NE(manager, nullptr);
     yini_manager_destroy(manager);
 }
@@ -21,12 +21,12 @@ TEST(CApiTest, LoadFile) {
     const std::string filename = "c_api_load_test.yini";
     create_test_file(filename, "[Test]\nkey=val");
 
-    void* manager = yini_manager_create();
+    Yini_ManagerHandle manager = yini_manager_create();
     EXPECT_TRUE(yini_manager_load(manager, filename.c_str()));
     yini_manager_destroy(manager);
 
     // Test with a non-existent file
-    void* manager2 = yini_manager_create();
+    Yini_ManagerHandle manager2 = yini_manager_create();
     EXPECT_FALSE(yini_manager_load(manager2, "non_existent_file.yini"));
     yini_manager_destroy(manager2);
 }
@@ -41,31 +41,47 @@ TEST(CApiTest, GetValues) {
         my_bool_false = false
     )");
 
-    void* manager = yini_manager_create();
+    Yini_ManagerHandle manager = yini_manager_create();
     yini_manager_load(manager, filename.c_str());
 
     // Test get double
     double d_val;
-    EXPECT_TRUE(yini_manager_get_double(manager, "MySection", "my_double", &d_val));
+    Yini_ValueHandle d_handle = yini_manager_get_value(manager, "MySection", "my_double");
+    ASSERT_NE(d_handle, nullptr);
+    EXPECT_EQ(yini_value_get_type(d_handle), YINI_TYPE_DOUBLE);
+    EXPECT_TRUE(yini_value_get_double(d_handle, &d_val));
     EXPECT_DOUBLE_EQ(d_val, 123.45);
+    yini_value_destroy(d_handle);
 
     // Test get string
-    int required_size = yini_manager_get_string(manager, "MySection", "my_string", nullptr, 0);
+    Yini_ValueHandle s_handle = yini_manager_get_value(manager, "MySection", "my_string");
+    ASSERT_NE(s_handle, nullptr);
+    EXPECT_EQ(yini_value_get_type(s_handle), YINI_TYPE_STRING);
+    int required_size = yini_value_get_string(s_handle, nullptr, 0);
     ASSERT_GT(required_size, 0);
     std::vector<char> buffer(required_size);
-    int written_size = yini_manager_get_string(manager, "MySection", "my_string", buffer.data(), required_size);
+    int written_size = yini_value_get_string(s_handle, buffer.data(), required_size);
     EXPECT_EQ(written_size, required_size - 1);
     EXPECT_STREQ(buffer.data(), "hello world");
+    yini_value_destroy(s_handle);
 
     // Test get bool
     bool b_val;
-    EXPECT_TRUE(yini_manager_get_bool(manager, "MySection", "my_bool_true", &b_val));
+    Yini_ValueHandle bt_handle = yini_manager_get_value(manager, "MySection", "my_bool_true");
+    ASSERT_NE(bt_handle, nullptr);
+    EXPECT_TRUE(yini_value_get_bool(bt_handle, &b_val));
     EXPECT_TRUE(b_val);
-    EXPECT_TRUE(yini_manager_get_bool(manager, "MySection", "my_bool_false", &b_val));
+    yini_value_destroy(bt_handle);
+
+    Yini_ValueHandle bf_handle = yini_manager_get_value(manager, "MySection", "my_bool_false");
+    ASSERT_NE(bf_handle, nullptr);
+    EXPECT_TRUE(yini_value_get_bool(bf_handle, &b_val));
     EXPECT_FALSE(b_val);
+    yini_value_destroy(bf_handle);
 
     // Test non-existent key
-    EXPECT_FALSE(yini_manager_get_double(manager, "MySection", "non_existent", &d_val));
+    Yini_ValueHandle n_handle = yini_manager_get_value(manager, "MySection", "non_existent");
+    EXPECT_EQ(n_handle, nullptr);
 
     yini_manager_destroy(manager);
 }
@@ -79,33 +95,48 @@ TEST(CApiTest, SetAndSaveChanges) {
         fullscreen = Dyna(true)
     )");
 
-    void* manager = yini_manager_create();
+    Yini_ManagerHandle manager = yini_manager_create();
     yini_manager_load(manager, filename.c_str());
 
     // Set new values
-    yini_manager_set_double(manager, "Settings", "volume", 50.5);
-    yini_manager_set_string(manager, "Settings", "username", "player2");
-    yini_manager_set_bool(manager, "Settings", "fullscreen", false);
+    Yini_ValueHandle double_val = yini_value_create_double(50.5);
+    Yini_ValueHandle string_val = yini_value_create_string("player2");
+    Yini_ValueHandle bool_val = yini_value_create_bool(false);
+
+    yini_manager_set_value(manager, "Settings", "volume", double_val);
+    yini_manager_set_value(manager, "Settings", "username", string_val);
+    yini_manager_set_value(manager, "Settings", "fullscreen", bool_val);
+
+    // Destroy the handles now that they've been passed to the manager
+    yini_value_destroy(double_val);
+    yini_value_destroy(string_val);
+    yini_value_destroy(bool_val);
 
     // Save changes
     yini_manager_save_changes(manager);
     yini_manager_destroy(manager);
 
     // Load a new manager and verify the changes were saved
-    void* verify_manager = yini_manager_create();
+    Yini_ManagerHandle verify_manager = yini_manager_create();
     yini_manager_load(verify_manager, filename.c_str());
 
     double d_val;
-    EXPECT_TRUE(yini_manager_get_double(verify_manager, "Settings", "volume", &d_val));
+    Yini_ValueHandle d_handle_verify = yini_manager_get_value(verify_manager, "Settings", "volume");
+    EXPECT_TRUE(yini_value_get_double(d_handle_verify, &d_val));
     EXPECT_DOUBLE_EQ(d_val, 50.5);
+    yini_value_destroy(d_handle_verify);
 
     char buffer[20];
-    yini_manager_get_string(verify_manager, "Settings", "username", buffer, 20);
+    Yini_ValueHandle s_handle_verify = yini_manager_get_value(verify_manager, "Settings", "username");
+    yini_value_get_string(s_handle_verify, buffer, 20);
     EXPECT_STREQ(buffer, "player2");
+    yini_value_destroy(s_handle_verify);
 
     bool b_val;
-    EXPECT_TRUE(yini_manager_get_bool(verify_manager, "Settings", "fullscreen", &b_val));
+    Yini_ValueHandle b_handle_verify = yini_manager_get_value(verify_manager, "Settings", "fullscreen");
+    EXPECT_TRUE(yini_value_get_bool(b_handle_verify, &b_val));
     EXPECT_FALSE(b_val);
+    yini_value_destroy(b_handle_verify);
 
     yini_manager_destroy(verify_manager);
 }
