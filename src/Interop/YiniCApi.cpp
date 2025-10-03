@@ -66,8 +66,16 @@ YINI_API void yini_manager_save_changes(Yini_ManagerHandle manager) {
 YINI_API Yini_ValueHandle yini_manager_get_value(Yini_ManagerHandle manager, const char* section, const char* key) {
     if (!manager || !section || !key) return nullptr;
     try {
-        // Return a new copy of the value. Caller takes ownership.
-        return reinterpret_cast<Yini_ValueHandle>(new YINI::YiniValue(as_manager(manager)->get_value(section, key)));
+        YINI::YiniValue value = as_manager(manager)->get_value(section, key);
+
+        // If the retrieved value is dynamic, unwrap it to get the underlying value.
+        if (auto* dyna_ptr = std::get_if<std::unique_ptr<YINI::DynaValue>>(&value.m_value)) {
+            // Return a new copy of the *inner* value. Caller takes ownership.
+            return reinterpret_cast<Yini_ValueHandle>(new YINI::YiniValue((*dyna_ptr)->get()));
+        }
+
+        // It's not a dynamic value, so return a new copy of the original.
+        return reinterpret_cast<Yini_ValueHandle>(new YINI::YiniValue(value));
     } catch (...) {
         return nullptr;
     }

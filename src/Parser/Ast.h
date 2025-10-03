@@ -202,8 +202,9 @@ namespace YINI
 
     struct Register : public Stmt
     {
-        Register(std::unique_ptr<Expr> value) : value(std::move(value)) {}
+        Register(Token key, std::unique_ptr<Expr> value) : key(std::move(key)), value(std::move(value)) {}
         void accept(StmtVisitor& visitor) const override { visitor.visit(*this); }
+        Token key;
         std::unique_ptr<Expr> value;
     };
 

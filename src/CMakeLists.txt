@@ -33,10 +33,13 @@ target_sources(Yini
 
 target_compile_features(Yini PUBLIC cxx_std_17)
 
+set_target_properties(Yini PROPERTIES FOLDER "Libraries")
+
 option(YINI_BUILD_CLI "Build the YINI command-line interface" ON)
 
 if(YINI_BUILD_CLI)
     add_executable(yini-cli CLI/main.cpp)
+    set_target_properties(yini-cli PROPERTIES FOLDER "Executables")
     target_link_libraries(yini-cli PRIVATE Yini)
     target_compile_features(yini-cli PRIVATE cxx_std_17)
 

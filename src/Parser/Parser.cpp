@@ -39,16 +39,15 @@ namespace YINI
         consume(TokenType::RIGHT_BRACKET, "Expect ']' after #include.");
 
         std::vector<std::unique_ptr<Expr>> files;
-        while (!check(TokenType::LEFT_BRACKET) && !isAtEnd())
+        while (match({TokenType::PLUS_EQUAL}))
         {
-            auto reg_stmt = registration();
-            auto* reg = dynamic_cast<Register*>(reg_stmt.get());
-            if (reg) {
-                 files.push_back(std::move(reg->value));
-            } else {
-                const Token& token = peek();
-                throw ParsingError("Expected '+=' statement inside [#include] block.", token.line, token.column, token.filepath);
-            }
+            files.push_back(expression());
+        }
+
+        if (!check(TokenType::LEFT_BRACKET) && !isAtEnd())
+        {
+            const Token& token = peek();
+            throw ParsingError("Only '+=' statements are allowed inside an [#include] block.", token.line, token.column, token.filepath);
         }
 
         return std::make_unique<Include>(std::move(files));
@@ -119,18 +118,29 @@ namespace YINI
 
     std::unique_ptr<Stmt> Parser::statement()
     {
-        if (peek().type == TokenType::PLUS_EQUAL)
+        // Look ahead to distinguish between `key = value` and `key += value`
+        if (check(TokenType::IDENTIFIER) && m_tokens.size() > m_current + 1 && m_tokens[m_current + 1].type == TokenType::PLUS_EQUAL)
         {
             return registration();
+        }
+        // Key-less registration for include blocks
+        if (peek().type == TokenType::PLUS_EQUAL)
+        {
+            consume(TokenType::PLUS_EQUAL, "Expect '+=' for registration.");
+            std::unique_ptr<Expr> value = expression();
+            // This is a special case for includes, it doesn't have a key token.
+            // We pass an empty token, which should be handled by the interpreter.
+            return std::make_unique<Register>(Token{}, std::move(value));
         }
         return keyValue();
     }
 
     std::unique_ptr<Stmt> Parser::registration()
     {
+        Token key = consume(TokenType::IDENTIFIER, "Expect key for registration.");
         consume(TokenType::PLUS_EQUAL, "Expect '+=' for registration.");
         std::unique_ptr<Expr> value = expression();
-        return std::make_unique<Register>(std::move(value));
+        return std::make_unique<Register>(key, std::move(value));
     }
 
     std::unique_ptr<KeyValue> Parser::keyValue()

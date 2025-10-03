@@ -428,6 +428,66 @@ namespace Yini
             return dict;
         }
 
+        public List<T>? GetList<T>(string section, string key)
+        {
+            using (var yiniValue = GetValue(section, key))
+            {
+                if (yiniValue == null || yiniValue.Type != YiniValueType.Array)
+                {
+                    return null;
+                }
+
+                var list = new List<T>();
+                var elementType = typeof(T);
+
+                for (int i = 0; i < yiniValue.ArraySize; i++)
+                {
+                    using (var element = yiniValue.GetArrayElement(i))
+                    {
+                        if (element != null)
+                        {
+                            var converted = ConvertYiniValue(element, elementType);
+                            if (converted != null)
+                            {
+                                list.Add((T)converted);
+                            }
+                        }
+                    }
+                }
+                return list;
+            }
+        }
+
+        public Dictionary<string, T>? GetDictionary<T>(string section, string key)
+        {
+            using (var yiniValue = GetValue(section, key))
+            {
+                if (yiniValue == null || yiniValue.Type != YiniValueType.Map)
+                {
+                    return null;
+                }
+
+                var dict = new Dictionary<string, T>();
+                var valueType = typeof(T);
+
+                foreach (var kvp in yiniValue.AsMap())
+                {
+                    using (var element = kvp.Value)
+                    {
+                        if (element != null)
+                        {
+                            var converted = ConvertYiniValue(element, valueType);
+                            if (converted != null)
+                            {
+                                dict[kvp.Key] = (T)converted;
+                            }
+                        }
+                    }
+                }
+                return dict;
+            }
+        }
+
         #region IDisposable Implementation
         public void Dispose()
         {
