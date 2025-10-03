@@ -1,0 +1,7 @@
+{
+  "name": "yini",
+  "version-string": "1.1.0",
+  "description": "A modern, feature-rich configuration file format based on the INI syntax, designed for game development.",
+  "homepage": "https://github.com/your-repo/YINI",
+  "license": "MIT"
+}

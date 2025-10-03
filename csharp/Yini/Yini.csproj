@@ -1,9 +1,19 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+
+    <!-- NuGet Package Properties -->
+    <PackageId>Yini</PackageId>
+    <Version>1.1.0</Version>
+    <Authors>YINI-Project</Authors>
+    <Description>A modern, feature-rich configuration file format based on the INI syntax, designed for game development. This package provides the .NET bindings for the YINI library.</Description>
+    <PackageTags>ini, yini, configuration, gamedev, cpp, csharp</PackageTags>
+    <RepositoryUrl>https://github.com/your-repo/YINI</RepositoryUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
   <ItemGroup>
@@ -11,5 +21,23 @@
                       OutputItemType="Analyzer"
                       ReferenceOutputAssembly="false" />
   </ItemGroup>
+
+  <ItemGroup>
+      <!-- Include the README in the package -->
+      <None Include="..\..\README.md" Pack="true" PackagePath="\"/>
+      <!-- Define the native assets for different runtimes -->
+      <Content Include="runtimes\**\*" Pack="true" PackagePath="runtimes" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <!-- This target copies the native library from the C++ build output -->
+  <Target Name="CopyNativeLibraries" BeforeTargets="Build">
+    <PropertyGroup>
+      <NativeLibPathLinux>../../build/src/libYini.so</NativeLibPathLinux>
+      <!-- Add a placeholder path for the Windows DLL -->
+      <!-- <NativeLibPathWin>../../build/src/Release/Yini.dll</NativeLibPathWin> -->
+    </PropertyGroup>
+    <Copy SourceFiles="$(NativeLibPathLinux)" DestinationFolder="runtimes/linux-x64/native" SkipUnchangedFiles="true" Condition="Exists('$(NativeLibPathLinux)')" />
+    <!-- <Copy SourceFiles="$(NativeLibPathWin)" DestinationFolder="runtimes/win-x64/native" SkipUnchangedFiles="true" Condition="Exists('$(NativeLibPathWin)')" /> -->
+  </Target>
 
 </Project>
