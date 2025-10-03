@@ -44,8 +44,8 @@ namespace YINI
 
     YiniValue YiniManager::get_value(const std::string& section, const std::string& key)
     {
-        if (m_interpreter.resolved_sections.count(section) && m_interpreter.resolved_sections[section].count(key)) {
-            YiniValue& value = m_interpreter.resolved_sections[section][key];
+        if (m_interpreter.resolved_sections.count(section) && m_interpreter.resolved_sections.at(section).count(key)) {
+            YiniValue& value = m_interpreter.resolved_sections.at(section).at(key);
             if (auto* dyna_val_ptr = std::get_if<std::unique_ptr<DynaValue>>(&value.m_value)) {
                 return (*dyna_val_ptr)->get();
             }
@@ -56,8 +56,8 @@ namespace YINI
 
     void YiniManager::set_value(const std::string& section, const std::string& key, YiniValue new_value)
     {
-        if (m_interpreter.resolved_sections.count(section) && m_interpreter.resolved_sections[section].count(key)) {
-            YiniValue& value = m_interpreter.resolved_sections[section][key];
+        if (m_interpreter.resolved_sections.count(section) && m_interpreter.resolved_sections.at(section).count(key)) {
+            YiniValue& value = m_interpreter.resolved_sections.at(section).at(key);
             if (auto* dyna_val_ptr = std::get_if<std::unique_ptr<DynaValue>>(&value.m_value)) {
                 (*dyna_val_ptr)->set(new_value);
                 const auto& location = m_interpreter.value_locations.at(section).at(key);

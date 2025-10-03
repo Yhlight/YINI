@@ -4,15 +4,12 @@
 #include <fstream>
 #include <variant>
 
-// Helper from InterpreterTest
-YINI::Interpreter create_and_load_manager_for_complex(const std::string& filename, const std::string& source) {
+// Helper to create a file and load it with a YiniManager
+static void load_manager_from_source(YINI::YiniManager& manager, const std::string& filename, const std::string& source) {
     std::ofstream outfile(filename);
     outfile << source;
     outfile.close();
-
-    YINI::YiniManager manager;
     manager.load(filename);
-    return manager.get_interpreter();
 }
 
 TEST(ComplexInterpreterTest, HandlesDiamondInheritanceCorrectly)
@@ -31,8 +28,10 @@ TEST(ComplexInterpreterTest, HandlesDiamondInheritanceCorrectly)
         [Child] : DerivedA, DerivedB
     )";
 
-    auto interpreter = create_and_load_manager_for_complex("test_diamond.yini", source);
-    const auto& child_section = interpreter.resolved_sections["Child"];
+    YINI::YiniManager manager;
+    load_manager_from_source(manager, "test_diamond.yini", source);
+    const auto& interpreter = manager.get_interpreter();
+    const auto& child_section = interpreter.resolved_sections.at("Child");
 
     ASSERT_EQ(child_section.count("value"), 1);
     EXPECT_EQ(std::get<std::string>(child_section.at("value").m_value), "from derived B");
