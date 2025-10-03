@@ -2,7 +2,26 @@
 #include "Core/YiniManager.h"
 #include "Core/YiniException.h"
 #include <fstream>
-#include <cstdlib> // For setenv and unsetenv
+#include <cstdlib>
+
+// Platform-independent way to set/unset environment variables for testing
+#ifdef _WIN32
+#include <stdlib.h>
+void set_test_env(const char* name, const char* value) {
+    _putenv_s(name, value);
+}
+void unset_test_env(const char* name) {
+    _putenv_s(name, "");
+}
+#else
+#include <stdlib.h>
+void set_test_env(const char* name, const char* value) {
+    setenv(name, value, 1);
+}
+void unset_test_env(const char* name) {
+    unsetenv(name);
+}
+#endif
 
 // Helper to create a file and load it with a YiniManager
 void load_from_source(YINI::YiniManager& manager, const std::string& source) {
@@ -14,7 +33,7 @@ void load_from_source(YINI::YiniManager& manager, const std::string& source) {
 
 TEST(EnvVarTest, SubstitutesExistingEnvVar) {
     // Set an environment variable for the test
-    setenv("YINI_TEST_HOST", "testhost.com", 1);
+    set_test_env("YINI_TEST_HOST", "testhost.com");
 
     YINI::YiniManager manager;
     std::string source = "[Database]\nhost = ${YINI_TEST_HOST}";
@@ -25,12 +44,12 @@ TEST(EnvVarTest, SubstitutesExistingEnvVar) {
     EXPECT_EQ(std::get<std::string>(value.m_value), "testhost.com");
 
     // Clean up the environment variable
-    unsetenv("YINI_TEST_HOST");
+    unset_test_env("YINI_TEST_HOST");
 }
 
 TEST(EnvVarTest, UsesDefaultValueWhenVarIsUnset) {
     // Ensure the variable is not set
-    unsetenv("YINI_TEST_PORT");
+    unset_test_env("YINI_TEST_PORT");
 
     YINI::YiniManager manager;
     std::string source = "[Database]\nport = ${YINI_TEST_PORT:8080}";
@@ -43,7 +62,7 @@ TEST(EnvVarTest, UsesDefaultValueWhenVarIsUnset) {
 
 TEST(EnvVarTest, ThrowsWhenRequiredVarIsUnset) {
     // Ensure the variable is not set
-    unsetenv("YINI_REQUIRED_VAR");
+    unset_test_env("YINI_REQUIRED_VAR");
 
     YINI::YiniManager manager;
     std::string source = "[Config]\nkey = ${YINI_REQUIRED_VAR}";
@@ -60,7 +79,7 @@ TEST(EnvVarTest, ThrowsWhenRequiredVarIsUnset) {
 
 TEST(EnvVarTest, HandlesComplexDefaultValue) {
     // Ensure the variable is not set
-    unsetenv("YINI_COMPLEX_DEFAULT");
+    unset_test_env("YINI_COMPLEX_DEFAULT");
 
     YINI::YiniManager manager;
     std::string source = "[Config]\nvalue = ${YINI_COMPLEX_DEFAULT:10 * (2 + 3)}";

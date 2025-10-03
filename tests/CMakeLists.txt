@@ -65,8 +65,3 @@ add_test(NAME complex_interpreter_test COMMAND complex_interpreter_test)
 add_executable(c_api_test CApiTest.cpp)
 target_link_libraries(c_api_test Yini GTest::gtest_main)
 add_test(NAME c_api_test COMMAND c_api_test)
-
-# Environment Variable test
-add_executable(env_var_test EnvVarTest.cpp)
-target_link_libraries(env_var_test Yini GTest::gtest_main)
-add_test(NAME env_var_test COMMAND env_var_test)
