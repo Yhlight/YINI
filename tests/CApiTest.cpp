@@ -48,7 +48,7 @@ TEST(CApiTest, GetValues) {
     double d_val;
     Yini_ValueHandle d_handle = yini_manager_get_value(manager, "MySection", "my_double");
     ASSERT_NE(d_handle, nullptr);
-    EXPECT_EQ(yini_value_get_type(d_handle), YINI_TYPE_DOUBLE);
+    EXPECT_EQ(yini_value_get_type(d_handle), YiniValueType_Double);
     EXPECT_TRUE(yini_value_get_double(d_handle, &d_val));
     EXPECT_DOUBLE_EQ(d_val, 123.45);
     yini_value_destroy(d_handle);
@@ -56,7 +56,7 @@ TEST(CApiTest, GetValues) {
     // Test get string
     Yini_ValueHandle s_handle = yini_manager_get_value(manager, "MySection", "my_string");
     ASSERT_NE(s_handle, nullptr);
-    EXPECT_EQ(yini_value_get_type(s_handle), YINI_TYPE_STRING);
+    EXPECT_EQ(yini_value_get_type(s_handle), YiniValueType_String);
     int required_size = yini_value_get_string(s_handle, nullptr, 0);
     ASSERT_GT(required_size, 0);
     std::vector<char> buffer(required_size);

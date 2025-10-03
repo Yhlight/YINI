@@ -34,13 +34,18 @@ namespace YINI
             }
         }
 
-        interpreter.interpret(final_ast);
+        m_interpreter.interpret(final_ast);
+    }
+
+    const Interpreter& YiniManager::get_interpreter() const
+    {
+        return m_interpreter;
     }
 
     YiniValue YiniManager::get_value(const std::string& section, const std::string& key)
     {
-        if (interpreter.resolved_sections.count(section) && interpreter.resolved_sections[section].count(key)) {
-            YiniValue& value = interpreter.resolved_sections[section][key];
+        if (m_interpreter.resolved_sections.count(section) && m_interpreter.resolved_sections[section].count(key)) {
+            YiniValue& value = m_interpreter.resolved_sections[section][key];
             if (auto* dyna_val_ptr = std::get_if<std::unique_ptr<DynaValue>>(&value.m_value)) {
                 return (*dyna_val_ptr)->get();
             }
@@ -51,11 +56,11 @@ namespace YINI
 
     void YiniManager::set_value(const std::string& section, const std::string& key, YiniValue new_value)
     {
-        if (interpreter.resolved_sections.count(section) && interpreter.resolved_sections[section].count(key)) {
-            YiniValue& value = interpreter.resolved_sections[section][key];
+        if (m_interpreter.resolved_sections.count(section) && m_interpreter.resolved_sections[section].count(key)) {
+            YiniValue& value = m_interpreter.resolved_sections[section][key];
             if (auto* dyna_val_ptr = std::get_if<std::unique_ptr<DynaValue>>(&value.m_value)) {
                 (*dyna_val_ptr)->set(new_value);
-                const auto& location = interpreter.value_locations.at(section).at(key);
+                const auto& location = m_interpreter.value_locations.at(section).at(key);
                 m_dirty_values[section][key] = {new_value, location.line, location.column};
                 return;
             } else {
@@ -63,8 +68,8 @@ namespace YINI
             }
         }
 
-        if (interpreter.resolved_sections.count(section)) {
-            interpreter.resolved_sections[section][key] = DynaValue(new_value);
+        if (m_interpreter.resolved_sections.count(section)) {
+            m_interpreter.resolved_sections[section][key] = DynaValue(new_value);
             m_dirty_values[section][key] = {new_value, 0, 0};
             return;
         }
@@ -145,13 +150,13 @@ namespace YINI
                         comment_part = line.substr(comment_pos);
                     }
 
-                    line = key_part + " " + interpreter.stringify(dirty_value.value) + (comment_part.empty() ? "" : " " + comment_part);
+                    line = key_part + " " + m_interpreter.stringify(dirty_value.value) + (comment_part.empty() ? "" : " " + comment_part);
                 } else {
                     if (!new_sections_written[section]) {
                         lines.push_back("[" + section + "]");
                         new_sections_written[section] = true;
                     }
-                    lines.push_back(key + " = " + interpreter.stringify(dirty_value.value));
+                    lines.push_back(key + " = " + m_interpreter.stringify(dirty_value.value));
                 }
             }
         }

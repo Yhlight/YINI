@@ -24,7 +24,7 @@ TEST(DynaTest, InterpreterCreatesDynaValue) {
     YINI::YiniManager manager;
     manager.load("dyna_interpreter_test.yini");
 
-    const auto& section = manager.interpreter.resolved_sections["MySection"];
+    const auto& section = manager.get_interpreter().resolved_sections.at("MySection");
     ASSERT_EQ(section.count("my_dynamic_val"), 1);
 
     const auto& value = section.at("my_dynamic_val");

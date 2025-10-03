@@ -94,7 +94,7 @@ int main(int argc, char* argv[])
                 return 1;
             }
             YINI::Validator validator;
-            std::vector<YINI::ValidationError> errors = validator.validate(*schema, manager.interpreter);
+            std::vector<YINI::ValidationError> errors = validator.validate(*schema, manager.get_interpreter());
             if (errors.empty()) {
                 std::cout << "File '" << argv[2] << "' successfully validated against its schema." << std::endl;
             } else {
@@ -108,7 +108,7 @@ int main(int argc, char* argv[])
             YINI::YiniManager manager;
             manager.load(argv[2]);
             YINI::Serialization::Serializer serializer;
-            serializer.serialize(manager.interpreter.resolved_sections, argv[3]);
+            serializer.serialize(manager.get_interpreter().resolved_sections, argv[3]);
             std::cout << "Compiled '" << argv[2] << "' to '" << argv[3] << "'." << std::endl;
         } else if (command == "decompile" && argc == 3) {
             YINI::Serialization::Deserializer deserializer;

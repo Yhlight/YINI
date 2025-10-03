@@ -13,7 +13,7 @@ YINI::Interpreter create_and_load_manager(const std::string& filename, const std
 
     YINI::YiniManager manager;
     manager.load(filename);
-    return manager.interpreter;
+    return manager.get_interpreter();
 }
 
 TEST(InterpreterTest, HandlesMacroDefinitionAndResolution)

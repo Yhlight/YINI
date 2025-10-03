@@ -89,7 +89,7 @@ namespace YINI
          * This is public to allow for advanced inspection of the parsed data, but
          * typical use cases should rely on get_value() and set_value().
          */
-        Interpreter interpreter;
+        const Interpreter& get_interpreter() const;
 
         /**
          * @brief Gets the parsed schema, if one was present in the loaded files.
@@ -102,6 +102,7 @@ namespace YINI
         void merge_asts(std::vector<std::unique_ptr<Stmt>>& base_ast, std::vector<std::unique_ptr<Stmt>>& new_ast);
 
         std::string m_filepath;
+        Interpreter m_interpreter;
         std::map<std::string, std::map<std::string, DirtyValue>> m_dirty_values;
         std::unique_ptr<Schema> m_schema;
     };

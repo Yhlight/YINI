@@ -45,7 +45,7 @@ TEST(IncludeTest, HandlesFileInclusionAndMerging)
     YINI::YiniManager manager;
     manager.load("include_root.yini");
 
-    const auto& resolved = manager.interpreter.resolved_sections;
+    const auto& resolved = manager.get_interpreter().resolved_sections;
 
     // Test merged [Shared] section
     ASSERT_EQ(resolved.count("Shared"), 1);

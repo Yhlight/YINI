@@ -75,6 +75,7 @@ namespace Yini
             {
                 throw new InvalidCastException("Value is not a dynamic value.");
             }
+            // The C-API returns a new handle that we own.
             return new YiniValue(dynaHandle);
         }
 
@@ -88,11 +89,13 @@ namespace Yini
             {
                 throw new IndexOutOfRangeException();
             }
+            // The C-API returns a new handle that we own.
             return new YiniValue(elementHandle);
         }
 
         public void AddArrayElement(YiniValue element)
         {
+            // The C-API copies the value, we still own our 'element' handle.
             YiniManager.YiniArray_AddElement(Handle, element.Handle);
         }
 
@@ -106,14 +109,25 @@ namespace Yini
 
             for (int i = 0; i < size; i++)
             {
-                string key = Marshal.PtrToStringAnsi(YiniManager.YiniMap_GetKeyAt(Handle, i))!;
+                // Get key using the safe two-call pattern
+                int keySize = YiniManager.YiniMap_GetKeyAt(Handle, i, null, 0);
+                if (keySize <= 0) continue;
+
+                var keyBuffer = new StringBuilder(keySize);
+                YiniManager.YiniMap_GetKeyAt(Handle, i, keyBuffer, keySize);
+                string key = keyBuffer.ToString();
+
+                // Get value handle. The C-API returns a new handle that we own.
                 IntPtr valueHandle = YiniManager.YiniMap_GetValueAt(Handle, i);
+                if (valueHandle == IntPtr.Zero) continue;
+
                 yield return new KeyValuePair<string, YiniValue>(key, new YiniValue(valueHandle));
             }
         }
 
         public void SetMapValue(string key, YiniValue value)
         {
+            // The C-API copies the value, we still own our 'value' handle.
             YiniManager.YiniMap_SetValue(Handle, key, value.Handle);
         }
 
@@ -155,60 +169,78 @@ namespace Yini
         // Manager
         [DllImport(LibName, EntryPoint = "yini_manager_create")]
         internal static extern IntPtr YiniManager_Create();
+
         [DllImport(LibName, EntryPoint = "yini_manager_destroy")]
         internal static extern void YiniManager_Destroy(IntPtr manager);
+
         [DllImport(LibName, EntryPoint = "yini_manager_load")]
         internal static extern bool YiniManager_Load(IntPtr manager, string filepath);
+
         [DllImport(LibName, EntryPoint = "yini_manager_save_changes")]
         internal static extern void YiniManager_SaveChanges(IntPtr manager);
+
         [DllImport(LibName, EntryPoint = "yini_manager_get_value")]
         internal static extern IntPtr YiniManager_GetValue(IntPtr manager, string section, string key);
+
         [DllImport(LibName, EntryPoint = "yini_manager_set_value")]
         internal static extern void YiniManager_SetValue(IntPtr manager, string section, string key, IntPtr valueHandle);
 
         // Value Handles
         [DllImport(LibName, EntryPoint = "yini_value_destroy")]
         internal static extern void YiniValue_Destroy(IntPtr handle);
+
         [DllImport(LibName, EntryPoint = "yini_value_get_type")]
         internal static extern YiniValueType YiniValue_GetType(IntPtr handle);
 
         // Create Value Handles
         [DllImport(LibName, EntryPoint = "yini_value_create_double")]
         internal static extern IntPtr YiniValue_CreateDouble(double value);
+
         [DllImport(LibName, EntryPoint = "yini_value_create_string")]
         internal static extern IntPtr YiniValue_CreateString(string value);
+
         [DllImport(LibName, EntryPoint = "yini_value_create_bool")]
         internal static extern IntPtr YiniValue_CreateBool(bool value);
+
         [DllImport(LibName, EntryPoint = "yini_value_create_array")]
         internal static extern IntPtr YiniValue_CreateArray();
+
         [DllImport(LibName, EntryPoint = "yini_value_create_map")]
         internal static extern IntPtr YiniValue_CreateMap();
 
         // Get Data from Value Handles
         [DllImport(LibName, EntryPoint = "yini_value_get_double")]
         internal static extern bool YiniValue_GetDouble(IntPtr handle, out double outValue);
+
         [DllImport(LibName, EntryPoint = "yini_value_get_string")]
         internal static extern int YiniValue_GetString(IntPtr handle, StringBuilder? outBuffer, int bufferSize);
+
         [DllImport(LibName, EntryPoint = "yini_value_get_bool")]
         internal static extern bool YiniValue_GetBool(IntPtr handle, out bool outValue);
+
         [DllImport(LibName, EntryPoint = "yini_value_get_dyna_value")]
         internal static extern IntPtr YiniValue_GetDynaValue(IntPtr handle);
 
         // Array Manipulation
         [DllImport(LibName, EntryPoint = "yini_array_get_size")]
         internal static extern int YiniArray_GetSize(IntPtr handle);
+
         [DllImport(LibName, EntryPoint = "yini_array_get_element")]
         internal static extern IntPtr YiniArray_GetElement(IntPtr handle, int index);
+
         [DllImport(LibName, EntryPoint = "yini_array_add_element")]
         internal static extern void YiniArray_AddElement(IntPtr arrayHandle, IntPtr elementHandle);
 
         // Map Manipulation
         [DllImport(LibName, EntryPoint = "yini_map_get_size")]
         internal static extern int YiniMap_GetSize(IntPtr handle);
+
         [DllImport(LibName, EntryPoint = "yini_map_get_value_at")]
         internal static extern IntPtr YiniMap_GetValueAt(IntPtr handle, int index);
+
         [DllImport(LibName, EntryPoint = "yini_map_get_key_at")]
-        internal static extern IntPtr YiniMap_GetKeyAt(IntPtr handle, int index);
+        internal static extern int YiniMap_GetKeyAt(IntPtr handle, int index, StringBuilder? outBuffer, int bufferSize);
+
         [DllImport(LibName, EntryPoint = "yini_map_set_value")]
         internal static extern void YiniMap_SetValue(IntPtr mapHandle, string key, IntPtr valueHandle);
         #endregion
@@ -227,12 +259,14 @@ namespace Yini
 
         public YiniValue? GetValue(string section, string key)
         {
+            // The C-API returns a new handle that we own.
             var valueHandle = YiniManager_GetValue(_managerPtr, section, key);
             return valueHandle == IntPtr.Zero ? null : new YiniValue(valueHandle);
         }
 
         public void SetValue(string section, string key, YiniValue value)
         {
+            // The C-API copies the value, we still own our 'value' handle.
             YiniManager_SetValue(_managerPtr, section, key, value.Handle);
         }
 

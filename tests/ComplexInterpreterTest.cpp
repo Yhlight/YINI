@@ -12,7 +12,7 @@ YINI::Interpreter create_and_load_manager_for_complex(const std::string& filenam
 
     YINI::YiniManager manager;
     manager.load(filename);
-    return manager.interpreter;
+    return manager.get_interpreter();
 }
 
 TEST(ComplexInterpreterTest, HandlesDiamondInheritanceCorrectly)
@@ -49,7 +49,7 @@ TEST(ComplexInterpreterTest, HandlesDeeplyNestedIncludes)
     YINI::YiniManager manager;
     manager.load("nested_root.yini");
 
-    const auto& resolved = manager.interpreter.resolved_sections;
+    const auto& resolved = manager.get_interpreter().resolved_sections;
 
     // Check that all sections from all files have been loaded correctly.
     ASSERT_EQ(resolved.count("Root"), 1);

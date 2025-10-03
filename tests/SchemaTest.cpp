@@ -39,7 +39,7 @@ TEST(SchemaTest, ValidFilePassesValidation) {
     ASSERT_NE(schema, nullptr);
 
     YINI::Validator validator;
-    std::vector<YINI::ValidationError> errors = validator.validate(*schema, manager.interpreter);
+    std::vector<YINI::ValidationError> errors = validator.validate(*schema, manager.get_interpreter());
 
     // Expect no errors for a valid file
     ASSERT_TRUE(errors.empty());
@@ -61,7 +61,7 @@ TEST(SchemaTest, CatchesMissingRequiredKey) {
     const YINI::Schema* schema = manager.get_schema();
     ASSERT_NE(schema, nullptr);
     YINI::Validator validator;
-    std::vector<YINI::ValidationError> errors = validator.validate(*schema, manager.interpreter);
+    std::vector<YINI::ValidationError> errors = validator.validate(*schema, manager.get_interpreter());
 
     ASSERT_EQ(errors.size(), 1);
     EXPECT_EQ(errors[0].message, "Required key 'Database.port' is missing.");
@@ -82,7 +82,7 @@ TEST(SchemaTest, CatchesTypeMismatch) {
     const YINI::Schema* schema = manager.get_schema();
     ASSERT_NE(schema, nullptr);
     YINI::Validator validator;
-    std::vector<YINI::ValidationError> errors = validator.validate(*schema, manager.interpreter);
+    std::vector<YINI::ValidationError> errors = validator.validate(*schema, manager.get_interpreter());
 
     ASSERT_EQ(errors.size(), 1);
     EXPECT_EQ(errors[0].message, "Type mismatch for 'Database.port': expected number.");
@@ -103,7 +103,7 @@ TEST(SchemaTest, CatchesArraySubTypeMismatch) {
     const YINI::Schema* schema = manager.get_schema();
     ASSERT_NE(schema, nullptr);
     YINI::Validator validator;
-    std::vector<YINI::ValidationError> errors = validator.validate(*schema, manager.interpreter);
+    std::vector<YINI::ValidationError> errors = validator.validate(*schema, manager.get_interpreter());
 
     ASSERT_EQ(errors.size(), 1);
     EXPECT_EQ(errors[0].message, "Type mismatch for 'Player.inventory[]': expected string.");
@@ -124,7 +124,7 @@ TEST(SchemaTest, CatchesMissingRequiredSection) {
     const YINI::Schema* schema = manager.get_schema();
     ASSERT_NE(schema, nullptr);
     YINI::Validator validator;
-    std::vector<YINI::ValidationError> errors = validator.validate(*schema, manager.interpreter);
+    std::vector<YINI::ValidationError> errors = validator.validate(*schema, manager.get_interpreter());
 
     ASSERT_EQ(errors.size(), 1);
     EXPECT_EQ(errors[0].message, "Required section 'Database' is missing.");
