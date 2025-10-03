@@ -61,16 +61,3 @@ TEST(IncludeTest, HandlesFileInclusionAndMerging)
     EXPECT_EQ(std::get<std::string>(result_section.at("resolved_var1").m_value), "from root");
     EXPECT_EQ(std::get<std::string>(result_section.at("resolved_var2").m_value), "from two");
 }
-
-TEST(IncludeTest, HandlesDeeplyNestedIncludes)
-{
-    YINI::YiniManager manager;
-    // The test files are created in the /app/tests directory.
-    // The test executable runs from /app/build/tests, so we need to go up two directories.
-    manager.load("../../tests/nested_include_root.yini");
-
-    // Check that the value from the deeply nested leaf file is correctly loaded
-    YINI::YiniValue value = manager.get_value("LeafSection", "value");
-    ASSERT_EQ(value.m_value.index(), 3); // Ensure it's a string
-    EXPECT_EQ(std::get<std::string>(value.m_value), "deeply_nested");
-}

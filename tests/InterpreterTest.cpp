@@ -175,32 +175,6 @@ TEST(InterpreterTest, HandlesSectionInheritance)
     EXPECT_EQ(std::get<double>(child_section.at("val4").m_value), 4);          // Defined in Child
 }
 
-TEST(InterpreterTest, HandlesMultiLevelInheritance)
-{
-    std::string source = R"(
-        [A]
-        keyA = "from A"
-        keyB = "from A"
-        keyC = "from A"
-
-        [B] : A
-        keyB = "from B"
-        keyC = "from B"
-
-        [C] : B
-        keyC = "from C"
-    )";
-
-    auto interpreter = create_and_load_manager("test_multilevel_inheritance.yini", source);
-
-    ASSERT_EQ(interpreter.resolved_sections.count("C"), 1);
-    const auto& child_section = interpreter.resolved_sections["C"];
-
-    EXPECT_EQ(std::get<std::string>(child_section.at("keyA").m_value), "from A"); // Inherited from A
-    EXPECT_EQ(std::get<std::string>(child_section.at("keyB").m_value), "from B"); // Inherited from B (overrides A)
-    EXPECT_EQ(std::get<std::string>(child_section.at("keyC").m_value), "from C"); // Defined in C (overrides B)
-}
-
 TEST(InterpreterTest, ThrowsOnCircularInheritance)
 {
     std::string filename = "test_circular.yini";

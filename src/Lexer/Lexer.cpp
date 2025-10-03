@@ -61,6 +61,13 @@ namespace YINI
                     addToken(TokenType::SLASH);
                 }
                 break;
+            case '$':
+                if (match('{')) {
+                    addToken(TokenType::DOLLAR_LEFT_BRACE);
+                } else {
+                    throw ParsingError("Unexpected character.", m_line, m_start_column, m_filepath);
+                }
+                break;
             case '"': string(); break;
             case ' ':
             case '\r':

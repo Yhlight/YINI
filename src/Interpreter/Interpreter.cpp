@@ -7,6 +7,7 @@
 #include <vector>
 #include <map>
 #include <variant>
+#include <cstdlib> // For getenv
 
 namespace YINI
 {
@@ -238,5 +239,21 @@ namespace YINI
             return YiniValue(DynaValue(evaluate(*expr.arguments[0])));
         }
         return {}; // Placeholder for other functions
+    }
+
+    YiniValue Interpreter::visit(const EnvVariable& expr)
+    {
+        const char* value = std::getenv(expr.name.lexeme.c_str());
+        if (value != nullptr)
+        {
+            return std::string(value);
+        }
+
+        if (expr.default_value != nullptr)
+        {
+            return evaluate(*expr.default_value);
+        }
+
+        throw RuntimeError("Required environment variable '" + expr.name.lexeme + "' is not set and no default value is provided.", expr.name.line, expr.name.column, expr.name.filepath);
     }
 }

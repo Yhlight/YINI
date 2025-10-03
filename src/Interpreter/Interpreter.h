@@ -42,6 +42,7 @@ namespace YINI
         YiniValue visit(const Map& expr) override;
         YiniValue visit(const Call& expr) override;
         YiniValue visit(const Variable& expr) override;
+        YiniValue visit(const EnvVariable& expr) override;
 
     private:
         YiniValue evaluate(const Expr& expr);

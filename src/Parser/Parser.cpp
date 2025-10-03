@@ -186,6 +186,18 @@ namespace YINI
             return std::make_unique<Literal>(previous().literal);
         }
 
+        if (match({TokenType::DOLLAR_LEFT_BRACE}))
+        {
+            Token name = consume(TokenType::IDENTIFIER, "Expect environment variable name.");
+            std::unique_ptr<Expr> defaultValue = nullptr;
+            if (match({TokenType::COLON}))
+            {
+                defaultValue = expression();
+            }
+            consume(TokenType::RIGHT_BRACE, "Expect '}' after environment variable.");
+            return std::make_unique<EnvVariable>(name, std::move(defaultValue));
+        }
+
         if (match({TokenType::AT}))
         {
             Token name = consume(TokenType::IDENTIFIER, "Expect variable name after '@'.");
