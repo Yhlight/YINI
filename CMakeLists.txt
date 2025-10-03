@@ -21,6 +21,22 @@ else()
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
+# Code coverage option (for GCC/Clang)
+option(YINI_ENABLE_COVERAGE "Enable code coverage reporting" OFF)
+if(YINI_ENABLE_COVERAGE)
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+        if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+            message(STATUS "Code coverage enabled for ${CMAKE_CXX_COMPILER_ID}. Compiler flags added.")
+            add_compile_options(--coverage)
+            add_link_options(--coverage)
+        else()
+            message(WARNING "Code coverage is only available for Debug builds. Please use -DCMAKE_BUILD_TYPE=Debug.")
+        endif()
+    else()
+        message(WARNING "Code coverage is only available for GCC and Clang.")
+    endif()
+endif()
+
 # Enable testing
 enable_testing()
 
@@ -79,4 +95,40 @@ if(DOXYGEN_FOUND)
     COMMENT "Generating API documentation with Doxygen"
     VERBATIM
   )
+endif()
+
+# Code coverage target
+if(YINI_ENABLE_COVERAGE AND (CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang") AND CMAKE_BUILD_TYPE STREQUAL "Debug")
+    find_program(LCOV_EXECUTABLE lcov)
+    find_program(GENHTML_EXECUTABLE genhtml)
+    if(LCOV_EXECUTABLE AND GENHTML_EXECUTABLE)
+        add_custom_target(coverage
+            # Step 1: Zero out coverage counters
+            COMMAND ${LCOV_EXECUTABLE} --zerocounters --directory .
+            # Step 2: Run tests to generate coverage data
+            COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure
+            # Step 3: Capture coverage data, ignoring certain errors that can occur with C++ templates
+            COMMAND ${LCOV_EXECUTABLE} --capture --directory . --output-file coverage.info --ignore-errors mismatch
+            # Step 4: Remove external/test coverage data
+            COMMAND ${LCOV_EXECUTABLE} --remove coverage.info /usr/* ${CMAKE_BINARY_DIR}/* */tests/* --output-file coverage.info
+            # Step 5: Generate HTML report
+            COMMAND ${GENHTML_EXECUTABLE} coverage.info --output-directory coverage_html
+            WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+            COMMENT "Generating code coverage report..."
+            DEPENDS
+                lexer_test
+                parser_test
+                expression_test
+                interpreter_test
+                include_test
+                dyna_test
+                serialization_test
+                cli_test
+                syntax_error_test
+                complex_interpreter_test
+            VERBATIM
+        )
+    else()
+        message(WARNING "lcov/genhtml not found. Coverage target will not be available.")
+    endif()
 endif()

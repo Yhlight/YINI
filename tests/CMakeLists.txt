@@ -44,8 +44,19 @@ add_test(NAME serialization_test COMMAND serialization_test)
 # CLI test
 add_executable(cli_test CliTest.cpp)
 target_link_libraries(cli_test Yini GTest::gtest_main)
+add_dependencies(cli_test yini-cli)
 
 # Pass the path to the yini-cli executable to the test
 target_compile_definitions(cli_test PRIVATE YINI_CLI_PATH="$<TARGET_FILE:yini-cli>")
 
 add_test(NAME cli_test COMMAND cli_test)
+
+# Syntax Error test
+add_executable(syntax_error_test SyntaxErrorTest.cpp)
+target_link_libraries(syntax_error_test Yini GTest::gtest_main)
+add_test(NAME syntax_error_test COMMAND syntax_error_test)
+
+# Complex Interpreter test
+add_executable(complex_interpreter_test ComplexInterpreterTest.cpp)
+target_link_libraries(complex_interpreter_test Yini GTest::gtest_main)
+add_test(NAME complex_interpreter_test COMMAND complex_interpreter_test)
