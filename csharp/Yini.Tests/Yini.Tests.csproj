@@ -18,6 +18,9 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Yini\Yini.csproj" />
+    <ProjectReference Include="..\Yini.SourceGenerator\Yini.SourceGenerator.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false" />
   </ItemGroup>
 
   <Target Name="CopyNativeLibrary" AfterTargets="Build">
