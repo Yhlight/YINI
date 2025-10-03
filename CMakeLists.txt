@@ -126,6 +126,7 @@ if(YINI_ENABLE_COVERAGE AND (CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_C
                 cli_test
                 syntax_error_test
                 complex_interpreter_test
+                c_api_test
             VERBATIM
         )
     else()

@@ -60,3 +60,8 @@ add_test(NAME syntax_error_test COMMAND syntax_error_test)
 add_executable(complex_interpreter_test ComplexInterpreterTest.cpp)
 target_link_libraries(complex_interpreter_test Yini GTest::gtest_main)
 add_test(NAME complex_interpreter_test COMMAND complex_interpreter_test)
+
+# C-API test
+add_executable(c_api_test CApiTest.cpp)
+target_link_libraries(c_api_test Yini GTest::gtest_main)
+add_test(NAME c_api_test COMMAND c_api_test)
