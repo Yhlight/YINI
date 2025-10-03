@@ -175,6 +175,7 @@ namespace YINI
     void Interpreter::visit(const Section& stmt) {}
     void Interpreter::visit(const Register& stmt) {}
     void Interpreter::visit(const Include& stmt) {}
+    void Interpreter::visit(const Schema& stmt) {}
 
     void Interpreter::visit(const Define& stmt)
     {

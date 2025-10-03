@@ -31,6 +31,7 @@ namespace YINI
         void visit(const Register& stmt) override;
         void visit(const Define& stmt) override;
         void visit(const Include& stmt) override;
+        void visit(const Schema& stmt) override;
 
         // Expression visitor methods
         YiniValue visit(const Literal& expr) override;

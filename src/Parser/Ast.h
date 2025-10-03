@@ -157,6 +157,7 @@ namespace YINI
     struct Register;
     struct Define;
     struct Include;
+    struct Schema;
 
     // Visitor for statements
     class StmtVisitor
@@ -167,6 +168,7 @@ namespace YINI
         virtual void visit(const Register& stmt) = 0;
         virtual void visit(const Define& stmt) = 0;
         virtual void visit(const Include& stmt) = 0;
+        virtual void visit(const Schema& stmt) = 0;
         virtual ~StmtVisitor() = default;
     };
 
@@ -217,5 +219,14 @@ namespace YINI
         Include(std::vector<std::unique_ptr<Expr>> files) : files(std::move(files)) {}
         void accept(StmtVisitor& visitor) const override { visitor.visit(*this); }
         std::vector<std::unique_ptr<Expr>> files;
+    };
+
+    // Schema statement node, representing a [#schema] block
+    struct Schema : public Stmt
+    {
+        Schema(std::vector<std::unique_ptr<Section>> sections)
+            : sections(std::move(sections)) {}
+        void accept(StmtVisitor& visitor) const override { visitor.visit(*this); }
+        std::vector<std::unique_ptr<Section>> sections;
     };
 }

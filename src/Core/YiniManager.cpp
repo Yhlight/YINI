@@ -15,8 +15,25 @@ namespace YINI
     void YiniManager::load(const std::string& filepath)
     {
         m_filepath = filepath;
+        m_schema = nullptr; // Reset schema on new load
         std::set<std::string> loaded_files;
         auto final_ast = load_file(filepath, loaded_files);
+
+        // Find and extract the schema node from the AST
+        for (auto it = final_ast.begin(); it != final_ast.end(); ) {
+            if (auto* schema_node = dynamic_cast<Schema*>(it->get())) {
+                if (m_schema) {
+                    // In a more advanced implementation, we might merge schemas.
+                    // For now, we'll just take the first one found.
+                } else {
+                    m_schema.reset(static_cast<Schema*>(it->release()));
+                }
+                it = final_ast.erase(it);
+            } else {
+                ++it;
+            }
+        }
+
         interpreter.interpret(final_ast);
     }
 
@@ -156,6 +173,11 @@ namespace YINI
         }
 
         m_dirty_values.clear();
+    }
+
+    const Schema* YiniManager::get_schema() const
+    {
+        return m_schema.get();
     }
 
     void YiniManager::merge_asts(std::vector<std::unique_ptr<Stmt>>& base_ast, std::vector<std::unique_ptr<Stmt>>& new_ast)

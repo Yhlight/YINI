@@ -28,7 +28,7 @@ TEST(CliTest, CheckValidFile)
     std::ofstream("valid_cli_test.yini") << "[Section]\nkey = value";
     std::string cmd = cli_path + " check valid_cli_test.yini";
     std::string output = exec(cmd.c_str());
-    EXPECT_NE(output.find("File 'valid_cli_test.yini' is valid."), std::string::npos);
+    EXPECT_NE(output.find("File 'valid_cli_test.yini' is syntactically valid."), std::string::npos);
 }
 
 TEST(CliTest, CheckInvalidFile)

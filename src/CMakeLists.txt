@@ -9,6 +9,7 @@ add_library(Yini
     Core/DynaValue.cpp
     Core/Serialization/Serializer.cpp
     Core/Serialization/Deserializer.cpp
+    Core/Validator.cpp
     Interop/YiniCApi.cpp
 )
 

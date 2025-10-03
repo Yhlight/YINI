@@ -25,6 +25,9 @@ namespace YINI
             if (m_tokens[m_current + 1].lexeme == "#include") {
                 return includeSection();
             }
+            if (m_tokens[m_current + 1].lexeme == "#schema") {
+                return schemaSection();
+            }
         }
         return section();
     }
@@ -64,6 +67,30 @@ namespace YINI
         }
 
         return std::make_unique<Define>(std::move(values));
+    }
+
+    std::unique_ptr<Stmt> Parser::schemaSection()
+    {
+        consume(TokenType::LEFT_BRACKET, "Expect '[' before #schema.");
+        consume(TokenType::IDENTIFIER, "Expect #schema keyword.");
+        consume(TokenType::RIGHT_BRACKET, "Expect ']' after #schema.");
+
+        std::vector<std::unique_ptr<Section>> sections;
+        while (!isAtEnd() && peek().type == TokenType::LEFT_BRACKET)
+        {
+            // Stop parsing schema sections if we find the #end_schema block
+            if (m_tokens.size() > m_current + 1 && m_tokens[m_current + 1].type == TokenType::IDENTIFIER && m_tokens[m_current + 1].lexeme == "#end_schema") {
+                break;
+            }
+            sections.push_back(section());
+        }
+
+        // Consume the closing [#end_schema] block
+        consume(TokenType::LEFT_BRACKET, "Expect '[' before #end_schema.");
+        consume(TokenType::IDENTIFIER, "Expect #end_schema keyword.");
+        consume(TokenType::RIGHT_BRACKET, "Expect ']' after #end_schema.");
+
+        return std::make_unique<Schema>(std::move(sections));
     }
 
     std::unique_ptr<Section> Parser::section()

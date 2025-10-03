@@ -91,11 +91,18 @@ namespace YINI
          */
         Interpreter interpreter;
 
+        /**
+         * @brief Gets the parsed schema, if one was present in the loaded files.
+         * @return A const pointer to the Schema AST node, or nullptr if no schema was found.
+         */
+        const Schema* get_schema() const;
+
     private:
         std::vector<std::unique_ptr<Stmt>> load_file(const std::string& filepath, std::set<std::string>& loaded_files);
         void merge_asts(std::vector<std::unique_ptr<Stmt>>& base_ast, std::vector<std::unique_ptr<Stmt>>& new_ast);
 
         std::string m_filepath;
         std::map<std::string, std::map<std::string, DirtyValue>> m_dirty_values;
+        std::unique_ptr<Schema> m_schema;
     };
 }

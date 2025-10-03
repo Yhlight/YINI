@@ -4,6 +4,7 @@
 #include "Core/YiniException.h"
 #include "Core/YiniValue.h"
 #include "Core/DynaValue.h"
+#include "Core/Validator.h"
 #include <iostream>
 #include <string>
 #include <vector>
@@ -12,7 +13,8 @@
 void print_usage() {
     std::cerr << "Usage: yini-cli <command> [args...]\n"
               << "Commands:\n"
-              << "  check <filepath>        Validate a .yini file.\n"
+              << "  check <filepath>        Check the syntax of a .yini file.\n"
+              << "  validate <filepath>     Validate a .yini file against its embedded schema.\n"
               << "  compile <in> <out>      Compile a .yini file to .ymeta.\n"
               << "  decompile <filepath>    Decompile and print a .ymeta file.\n";
 }
@@ -82,7 +84,26 @@ int main(int argc, char* argv[])
         if (command == "check" && argc == 3) {
             YINI::YiniManager manager;
             manager.load(argv[2]);
-            std::cout << "File '" << argv[2] << "' is valid." << std::endl;
+            std::cout << "File '" << argv[2] << "' is syntactically valid." << std::endl;
+        } else if (command == "validate" && argc == 3) {
+            YINI::YiniManager manager;
+            manager.load(argv[2]);
+            const YINI::Schema* schema = manager.get_schema();
+            if (!schema) {
+                std::cerr << "Error: No [#schema] block found in '" << argv[2] << "'." << std::endl;
+                return 1;
+            }
+            YINI::Validator validator;
+            std::vector<YINI::ValidationError> errors = validator.validate(*schema, manager.interpreter);
+            if (errors.empty()) {
+                std::cout << "File '" << argv[2] << "' successfully validated against its schema." << std::endl;
+            } else {
+                std::cerr << "Validation failed with " << errors.size() << " error(s):" << std::endl;
+                for (const auto& error : errors) {
+                    std::cerr << "- " << error.message << std::endl;
+                }
+                return 1;
+            }
         } else if (command == "compile" && argc == 4) {
             YINI::YiniManager manager;
             manager.load(argv[2]);
