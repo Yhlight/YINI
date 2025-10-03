@@ -48,9 +48,29 @@ namespace YINI
          */
         const std::string& filepath() const { return m_filepath; }
 
-    private:
+    protected:
         int m_line;
         int m_column;
         std::string m_filepath;
+    };
+
+    /**
+     * @class ParsingError
+     * @brief Exception for errors that occur during the parsing phase.
+     */
+    class ParsingError : public YiniException
+    {
+    public:
+        using YiniException::YiniException;
+    };
+
+    /**
+     * @class RuntimeError
+     * @brief Exception for errors that occur during the runtime/interpretation phase.
+     */
+    class RuntimeError : public YiniException
+    {
+    public:
+        using YiniException::YiniException;
     };
 }

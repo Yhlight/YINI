@@ -40,8 +40,8 @@ key = @undefined_macro
 )";
     try {
         create_and_load_manager(filename, source);
-        FAIL() << "Expected YiniException";
-    } catch (const YINI::YiniException& e) {
+        FAIL() << "Expected RuntimeError";
+    } catch (const YINI::RuntimeError& e) {
         EXPECT_EQ(e.line(), 3);
         EXPECT_EQ(e.column(), 8);
         EXPECT_EQ(e.filepath(), filename);
@@ -77,8 +77,8 @@ val = 10 + "hello"
 )";
     try {
         create_and_load_manager(filename, source);
-        FAIL() << "Expected YiniException";
-    } catch (const YINI::YiniException& e) {
+        FAIL() << "Expected RuntimeError";
+    } catch (const YINI::RuntimeError& e) {
         EXPECT_EQ(e.line(), 3);
         EXPECT_EQ(e.column(), 10);
         EXPECT_EQ(e.filepath(), filename);
@@ -95,8 +95,8 @@ val = 10 / 0
 )";
     try {
         create_and_load_manager(filename, source);
-        FAIL() << "Expected YiniException";
-    } catch (const YINI::YiniException& e) {
+        FAIL() << "Expected RuntimeError";
+    } catch (const YINI::RuntimeError& e) {
         EXPECT_EQ(e.line(), 3);
         EXPECT_EQ(e.column(), 10);
         EXPECT_EQ(e.filepath(), filename);
@@ -184,8 +184,8 @@ TEST(InterpreterTest, ThrowsOnCircularInheritance)
 )";
     try {
         create_and_load_manager(filename, source);
-        FAIL() << "Expected YiniException";
-    } catch (const YINI::YiniException& e) {
+        FAIL() << "Expected RuntimeError";
+    } catch (const YINI::RuntimeError& e) {
         EXPECT_EQ(e.line(), 2);
         EXPECT_EQ(e.filepath(), filename);
         EXPECT_STREQ(e.what(), "Circular inheritance detected involving section 'A'.");
@@ -200,8 +200,8 @@ TEST(InterpreterTest, ThrowsOnUndefinedParent)
 )";
     try {
         create_and_load_manager(filename, source);
-        FAIL() << "Expected YiniException";
-    } catch (const YINI::YiniException& e) {
+        FAIL() << "Expected RuntimeError";
+    } catch (const YINI::RuntimeError& e) {
         EXPECT_EQ(e.line(), 2);
         EXPECT_EQ(e.column(), 7);
         EXPECT_EQ(e.filepath(), filename);

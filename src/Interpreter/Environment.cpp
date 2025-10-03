@@ -16,6 +16,6 @@ namespace YINI
             return m_values.at(name.lexeme);
         }
 
-        throw YiniException("Undefined variable '" + name.lexeme + "'.", name.line, name.column, name.filepath);
+        throw RuntimeError("Undefined variable '" + name.lexeme + "'.", name.line, name.column, name.filepath);
     }
 }

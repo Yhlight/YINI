@@ -82,7 +82,7 @@ namespace YINI
                 }
                 else
                 {
-                    throw YiniException("Unexpected character.", m_line, m_start_column, m_filepath);
+                    throw ParsingError("Unexpected character.", m_line, m_start_column, m_filepath);
                 }
                 break;
         }
@@ -141,7 +141,7 @@ namespace YINI
 
         if (isAtEnd())
         {
-            throw YiniException("Unterminated block comment.", m_line, m_column, m_filepath);
+            throw ParsingError("Unterminated block comment.", m_line, m_column, m_filepath);
         }
 
         // Consume the */
@@ -159,7 +159,7 @@ namespace YINI
 
         if (isAtEnd())
         {
-            throw YiniException("Unterminated string.", m_line, m_column, m_filepath);
+            throw ParsingError("Unterminated string.", m_line, m_column, m_filepath);
         }
 
         advance(); // The closing ".

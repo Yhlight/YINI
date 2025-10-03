@@ -44,7 +44,7 @@ namespace YINI
                  files.push_back(std::move(reg->value));
             } else {
                 const Token& token = peek();
-                throw YiniException("Expected '+=' statement inside [#include] block.", token.line, token.column, token.filepath);
+                throw ParsingError("Expected '+=' statement inside [#include] block.", token.line, token.column, token.filepath);
             }
         }
 
@@ -255,7 +255,7 @@ namespace YINI
         }
 
         const Token& token = peek();
-        throw YiniException("Expect expression.", token.line, token.column, token.filepath);
+        throw ParsingError("Expect expression.", token.line, token.column, token.filepath);
     }
 
     bool Parser::match(const std::vector<TokenType>& types)
@@ -275,7 +275,7 @@ namespace YINI
     {
         if (check(type)) return advance();
         const Token& token = peek();
-        throw YiniException(message, token.line, token.column, token.filepath);
+        throw ParsingError(message, token.line, token.column, token.filepath);
     }
 
     bool Parser::check(TokenType type)
