@@ -17,7 +17,7 @@ namespace Yini.Tests
     public class ErrorHandlingTests
     {
         private const string TestFileName = "error_test.yini";
-        private YiniManager _manager;
+        private YiniManager _manager = null!;
 
         [TestInitialize]
         public void Setup()

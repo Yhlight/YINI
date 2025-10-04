@@ -90,8 +90,20 @@ namespace {namespaceName}
                 string bindingMethod = GetBindingMethod(propType, yiniKey);
                 if (bindingMethod != null)
                 {
-                    // Use the null-coalescing operator to keep the existing property value if binding returns null.
-                    sb.AppendLine($"            this.{prop.Name} = {bindingMethod} ?? this.{prop.Name};");
+                    // Check if the property is a non-nullable value type
+                    bool isNonNullableValueType = propType.IsValueType && !(propType.OriginalDefinition.SpecialType == SpecialType.System_Nullable_T);
+
+                    if (isNonNullableValueType)
+                    {
+                        // For non-nullable value types, assign directly. The Get... method handles the default.
+                        sb.AppendLine($"            this.{prop.Name} = {bindingMethod};");
+                    }
+                    else
+                    {
+                        // For reference types and nullable value types, use the null-coalescing operator
+                        // to keep the existing property value if the binding method returns null.
+                        sb.AppendLine($"            this.{prop.Name} = {bindingMethod} ?? this.{prop.Name};");
+                    }
                 }
             }
 
