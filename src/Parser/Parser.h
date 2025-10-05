@@ -22,6 +22,14 @@ namespace YINI
         std::unique_ptr<Expr> call();
         std::unique_ptr<Expr> primary();
 
+        // Primary expression helpers
+        std::unique_ptr<Expr> parse_env_variable();
+        std::unique_ptr<Expr> parse_cross_reference();
+        std::unique_ptr<Expr> parse_variable();
+        std::unique_ptr<Expr> parse_grouping_or_set();
+        std::unique_ptr<Expr> parse_array();
+        std::unique_ptr<Expr> parse_map();
+
         std::unique_ptr<Stmt> declaration();
         std::unique_ptr<Stmt> statement();
         std::unique_ptr<Stmt> registration();

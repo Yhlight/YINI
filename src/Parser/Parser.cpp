@@ -222,98 +222,103 @@ namespace YINI
         {
             return std::make_unique<Literal>(previous().literal);
         }
-
-        if (match({TokenType::DOLLAR_LEFT_BRACE}))
-        {
-            Token name = consume(TokenType::IDENTIFIER, "Expect environment variable name.");
-            std::unique_ptr<Expr> defaultValue = nullptr;
-            if (match({TokenType::COLON}))
-            {
-                defaultValue = expression();
-            }
-            consume(TokenType::RIGHT_BRACE, "Expect '}' after environment variable.");
-            return std::make_unique<EnvVariable>(name, std::move(defaultValue));
-        }
-
-        if (match({TokenType::AT_LEFT_BRACE}))
-        {
-            Token section = consume(TokenType::IDENTIFIER, "Expect section name in cross-reference.");
-            consume(TokenType::DOT, "Expect '.' between section and key.");
-            Token key = consume(TokenType::IDENTIFIER, "Expect key name in cross-reference.");
-            consume(TokenType::RIGHT_BRACE, "Expect '}' after cross-reference.");
-            return std::make_unique<XRef>(section, key);
-        }
-
-        if (match({TokenType::AT}))
-        {
-            Token name = consume(TokenType::IDENTIFIER, "Expect variable name after '@'.");
-            return std::make_unique<Variable>(name);
-        }
-
+        if (match({TokenType::DOLLAR_LEFT_BRACE})) return parse_env_variable();
+        if (match({TokenType::AT_LEFT_BRACE})) return parse_cross_reference();
+        if (match({TokenType::AT})) return parse_variable();
         if (match({TokenType::IDENTIFIER}))
         {
             return std::make_unique<Literal>(previous().literal);
         }
-
-        if (match({TokenType::LEFT_PAREN}))
-        {
-            if (match({TokenType::RIGHT_PAREN})) { // Empty set: ()
-                return std::make_unique<Set>(std::vector<std::unique_ptr<Expr>>{});
-            }
-
-            auto firstExpr = expression();
-
-            if (match({TokenType::COMMA})) { // It's a set
-                std::vector<std::unique_ptr<Expr>> elements;
-                elements.push_back(std::move(firstExpr));
-
-                if (!check(TokenType::RIGHT_PAREN)) { // Handles trailing comma for single-element set
-                    do {
-                        elements.push_back(expression());
-                    } while (match({TokenType::COMMA}));
-                }
-                consume(TokenType::RIGHT_PAREN, "Expect ')' after set elements.");
-                return std::make_unique<Set>(std::move(elements));
-            }
-
-            consume(TokenType::RIGHT_PAREN, "Expect ')' after expression.");
-            return std::make_unique<Grouping>(std::move(firstExpr));
-        }
-
-        if (match({TokenType::LEFT_BRACKET}))
-        {
-            std::vector<std::unique_ptr<Expr>> elements;
-            if (!check(TokenType::RIGHT_BRACKET))
-            {
-                do
-                {
-                    elements.push_back(expression());
-                } while (match({TokenType::COMMA}));
-            }
-            consume(TokenType::RIGHT_BRACKET, "Expect ']' after array elements.");
-            return std::make_unique<Array>(std::move(elements));
-        }
-
-        if (match({TokenType::LEFT_BRACE}))
-        {
-            Token brace = previous();
-            std::vector<std::pair<std::unique_ptr<Expr>, std::unique_ptr<Expr>>> pairs;
-            if (!check(TokenType::RIGHT_BRACE))
-            {
-                do
-                {
-                    std::unique_ptr<Expr> key = expression();
-                    consume(TokenType::COLON, "Expect ':' after map key.");
-                    std::unique_ptr<Expr> value = expression();
-                    pairs.push_back(std::make_pair(std::move(key), std::move(value)));
-                } while (match({TokenType::COMMA}));
-            }
-            consume(TokenType::RIGHT_BRACE, "Expect '}' after map pairs.");
-            return std::make_unique<Map>(brace, std::move(pairs));
-        }
+        if (match({TokenType::LEFT_PAREN})) return parse_grouping_or_set();
+        if (match({TokenType::LEFT_BRACKET})) return parse_array();
+        if (match({TokenType::LEFT_BRACE})) return parse_map();
 
         const Token& token = peek();
         throw ParsingError("Expect expression.", token.line, token.column, token.filepath);
+    }
+
+    std::unique_ptr<Expr> Parser::parse_env_variable()
+    {
+        Token name = consume(TokenType::IDENTIFIER, "Expect environment variable name.");
+        std::unique_ptr<Expr> defaultValue = nullptr;
+        if (match({TokenType::COLON}))
+        {
+            defaultValue = expression();
+        }
+        consume(TokenType::RIGHT_BRACE, "Expect '}' after environment variable.");
+        return std::make_unique<EnvVariable>(name, std::move(defaultValue));
+    }
+
+    std::unique_ptr<Expr> Parser::parse_cross_reference()
+    {
+        Token section = consume(TokenType::IDENTIFIER, "Expect section name in cross-reference.");
+        consume(TokenType::DOT, "Expect '.' between section and key.");
+        Token key = consume(TokenType::IDENTIFIER, "Expect key name in cross-reference.");
+        consume(TokenType::RIGHT_BRACE, "Expect '}' after cross-reference.");
+        return std::make_unique<XRef>(section, key);
+    }
+
+    std::unique_ptr<Expr> Parser::parse_variable()
+    {
+        Token name = consume(TokenType::IDENTIFIER, "Expect variable name after '@'.");
+        return std::make_unique<Variable>(name);
+    }
+
+    std::unique_ptr<Expr> Parser::parse_grouping_or_set()
+    {
+        if (match({TokenType::RIGHT_PAREN})) { // Empty set: ()
+            return std::make_unique<Set>(std::vector<std::unique_ptr<Expr>>{});
+        }
+
+        auto firstExpr = expression();
+
+        if (match({TokenType::COMMA})) { // It's a set
+            std::vector<std::unique_ptr<Expr>> elements;
+            elements.push_back(std::move(firstExpr));
+
+            if (!check(TokenType::RIGHT_PAREN)) { // Handles trailing comma for single-element set
+                do {
+                    elements.push_back(expression());
+                } while (match({TokenType::COMMA}));
+            }
+            consume(TokenType::RIGHT_PAREN, "Expect ')' after set elements.");
+            return std::make_unique<Set>(std::move(elements));
+        }
+
+        consume(TokenType::RIGHT_PAREN, "Expect ')' after expression.");
+        return std::make_unique<Grouping>(std::move(firstExpr));
+    }
+
+    std::unique_ptr<Expr> Parser::parse_array()
+    {
+        std::vector<std::unique_ptr<Expr>> elements;
+        if (!check(TokenType::RIGHT_BRACKET))
+        {
+            do
+            {
+                elements.push_back(expression());
+            } while (match({TokenType::COMMA}));
+        }
+        consume(TokenType::RIGHT_BRACKET, "Expect ']' after array elements.");
+        return std::make_unique<Array>(std::move(elements));
+    }
+
+    std::unique_ptr<Expr> Parser::parse_map()
+    {
+        Token brace = previous();
+        std::vector<std::pair<std::unique_ptr<Expr>, std::unique_ptr<Expr>>> pairs;
+        if (!check(TokenType::RIGHT_BRACE))
+        {
+            do
+            {
+                std::unique_ptr<Expr> key = expression();
+                consume(TokenType::COLON, "Expect ':' after map key.");
+                std::unique_ptr<Expr> value = expression();
+                pairs.push_back(std::make_pair(std::move(key), std::move(value)));
+            } while (match({TokenType::COMMA}));
+        }
+        consume(TokenType::RIGHT_BRACE, "Expect '}' after map pairs.");
+        return std::make_unique<Map>(brace, std::move(pairs));
     }
 
     bool Parser::match(const std::vector<TokenType>& types)
