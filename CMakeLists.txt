@@ -1,70 +1,167 @@
 cmake_minimum_required(VERSION 3.10)
-project(YINI)
+project(YINI VERSION 1.0.0 LANGUAGES CXX)
 
+# Vcpkg integration
+# If VCPKG_ROOT is defined, use the vcpkg toolchain file.
+if(DEFINED ENV{VCPKG_ROOT} AND IS_DIRECTORY "$ENV{VCPKG_ROOT}")
+    set(CMAKE_TOOLCHAIN_FILE "$ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
+        CACHE STRING "Vcpkg toolchain file")
+endif()
+
+# Add cmake module path
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake")
+
+# Set default build type to Release if not specified
+if(NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE Release)
+endif()
+
+# Option to build shared libraries (ON by default)
+option(BUILD_SHARED_LIBS "Build shared libraries" ON)
+
+# Set C++ standard
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF) # Disable GNU extensions
 
-# Set output directories
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+# Compiler warnings
+if(MSVC)
+  add_compile_options(/W4)
+else()
+  add_compile_options(-Wall -Wextra -Wpedantic)
+endif()
 
-include(FetchContent)
-FetchContent_Declare(
-    nlohmann_json
-    GIT_REPOSITORY https://github.com/nlohmann/json.git
-    GIT_TAG v3.11.2
-)
-FetchContent_MakeAvailable(nlohmann_json)
+# Code coverage option (for GCC/Clang)
+option(YINI_ENABLE_COVERAGE "Enable code coverage reporting" OFF)
+if(YINI_ENABLE_COVERAGE)
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+        if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+            message(STATUS "Code coverage enabled for ${CMAKE_CXX_COMPILER_ID}. Compiler flags added.")
+            add_compile_options(--coverage)
+            add_link_options(--coverage)
+        else()
+            message(WARNING "Code coverage is only available for Debug builds. Please use -DCMAKE_BUILD_TYPE=Debug.")
+        endif()
+    else()
+        message(WARNING "Code coverage is only available for GCC and Clang.")
+    endif()
+endif()
 
-FetchContent_Declare(
-    benchmark
-    GIT_REPOSITORY https://github.com/google/benchmark.git
-    GIT_TAG v1.8.0
-)
-set(BENCHMARK_ENABLE_TESTING OFF) # Disable building of benchmark's own tests
-FetchContent_MakeAvailable(benchmark)
-
-add_subdirectory(src)
-
+# Enable testing
 enable_testing()
+
+# Add subdirectories
+add_subdirectory(src)
 add_subdirectory(tests)
 
-if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-    add_subdirectory(fuzz)
+# Install rules
+include(GNUInstallDirs)
+install(
+  TARGETS Yini
+  EXPORT YiniTargets
+  ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+  FILE_SET HEADERS DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/Yini
+)
+
+# Generate and install CMake package configuration files
+include(CMakePackageConfigHelpers)
+configure_package_config_file(
+  cmake/YiniConfig.cmake.in
+  ${CMAKE_CURRENT_BINARY_DIR}/YiniConfig.cmake
+  INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/Yini
+  NO_SET_AND_CHECK_MACRO
+  NO_CHECK_REQUIRED_COMPONENTS_MACRO
+)
+write_basic_package_version_file(
+  ${CMAKE_CURRENT_BINARY_DIR}/YiniConfigVersion.cmake
+  VERSION ${PROJECT_VERSION}
+  COMPATIBILITY AnyNewerVersion
+)
+install(
+  FILES
+    ${CMAKE_CURRENT_BINARY_DIR}/YiniConfig.cmake
+    ${CMAKE_CURRENT_BINARY_DIR}/YiniConfigVersion.cmake
+  DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/Yini
+)
+install(
+  EXPORT YiniTargets
+  FILE YiniTargets.cmake
+  NAMESPACE Yini::
+  DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/Yini
+)
+
+# Doxygen integration
+find_package(Doxygen)
+if(DOXYGEN_FOUND)
+  add_custom_target(doc
+    COMMAND ${DOXYGEN_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/Doxyfile
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    COMMENT "Generating API documentation with Doxygen"
+    VERBATIM
+  )
 endif()
 
-if(CMAKE_BUILD_TYPE STREQUAL "Release")
-    add_subdirectory(benchmarks)
+# C# build integration
+find_package(dotnet)
+add_subdirectory(ide)
+if(dotnet_FOUND)
+    # Get the path to the native library
+    if(WIN32)
+        set(NATIVE_LIB_PATH "$<TARGET_FILE_DIR:Yini>/Yini.dll")
+    else()
+        set(NATIVE_LIB_PATH "$<TARGET_FILE_DIR:Yini>/libYini.so")
+    endif()
+
+    # Define a custom target to build the C# project
+    add_custom_target(csharp_build ALL
+        # Build the projects individually to ensure correct configuration and dependency flow
+        COMMAND ${dotnet_EXECUTABLE} build ${CMAKE_CURRENT_SOURCE_DIR}/csharp/Yini.SourceGenerator/Yini.SourceGenerator.csproj --configuration ${CMAKE_BUILD_TYPE}
+        COMMAND ${dotnet_EXECUTABLE} build ${CMAKE_CURRENT_SOURCE_DIR}/csharp/Yini/Yini.csproj --configuration ${CMAKE_BUILD_TYPE}
+        COMMAND ${dotnet_EXECUTABLE} build ${CMAKE_CURRENT_SOURCE_DIR}/csharp/Yini.Tests/Yini.Tests.csproj --configuration ${CMAKE_BUILD_TYPE} -p:NativeLibPath=${NATIVE_LIB_PATH}
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        COMMENT "Building C# projects"
+        DEPENDS Yini
+        VERBATIM
+    )
+else()
+    message(WARNING "dotnet not found. C# project will not be built.")
 endif()
 
-add_executable(yini-cli
-    src/CLI/main.cpp
-)
-target_include_directories(yini-cli PRIVATE src)
-target_link_libraries(yini-cli PRIVATE yini)
-install(TARGETS yini-cli DESTINATION bin)
-
-add_executable(yini-lsp
-    src/LSP/main.cpp
-)
-target_include_directories(yini-lsp PRIVATE src)
-target_link_libraries(yini-lsp PRIVATE yini nlohmann_json::nlohmann_json)
-install(TARGETS yini-lsp DESTINATION bin)
-
-# Add a post-build command to copy the LSP server to the VS Code extension directory
-add_custom_command(
-    TARGET yini-lsp POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy
-            $<TARGET_FILE:yini-lsp>
-            ${CMAKE_SOURCE_DIR}/vscode-yini/server/yini-lsp
-    COMMENT "Copying yini-lsp to VS Code extension directory"
-)
-
-# --- CPack Configuration ---
-include(CPack)
-set(CPACK_GENERATOR "TGZ")
-set(CPACK_PACKAGE_NAME ${PROJECT_NAME})
-set(CPACK_PACKAGE_VERSION "1.0.0")
-set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "YINI Configuration File Library and Tools")
-set(CPACK_SOURCE_GENERATOR "TGZ")
+# Code coverage target
+if(YINI_ENABLE_COVERAGE AND (CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang") AND CMAKE_BUILD_TYPE STREQUAL "Debug")
+    find_program(LCOV_EXECUTABLE lcov)
+    find_program(GENHTML_EXECUTABLE genhtml)
+    if(LCOV_EXECUTABLE AND GENHTML_EXECUTABLE)
+        add_custom_target(coverage
+            # Step 1: Zero out coverage counters
+            COMMAND ${LCOV_EXECUTABLE} --zerocounters --directory .
+            # Step 2: Run tests to generate coverage data
+            COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure
+            # Step 3: Capture coverage data, ignoring certain errors that can occur with C++ templates
+            COMMAND ${LCOV_EXECUTABLE} --capture --directory . --output-file coverage.info --ignore-errors mismatch
+            # Step 4: Remove external/test coverage data
+            COMMAND ${LCOV_EXECUTABLE} --remove coverage.info /usr/* ${CMAKE_BINARY_DIR}/* */tests/* --output-file coverage.info
+            # Step 5: Generate HTML report
+            COMMAND ${GENHTML_EXECUTABLE} coverage.info --output-directory coverage_html
+            WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+            COMMENT "Generating code coverage report..."
+            DEPENDS
+                lexer_test
+                parser_test
+                expression_test
+                interpreter_test
+                include_test
+                dyna_test
+                serialization_test
+                cli_test
+                syntax_error_test
+                complex_interpreter_test
+                c_api_test
+            VERBATIM
+        )
+    else()
+        message(WARNING "lcov/genhtml not found. Coverage target will not be available.")
+    endif()
+endif()

@@ -1,9 +1,45 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+
+    <!-- NuGet Package Properties -->
+    <PackageId>Yini</PackageId>
+    <Version>1.1.0</Version>
+    <Authors>YINI-Project</Authors>
+    <Description>A modern, feature-rich configuration file format based on the INI syntax, designed for game development. This package provides the .NET bindings for the YINI library.</Description>
+    <PackageTags>ini, yini, configuration, gamedev, cpp, csharp</PackageTags>
+    <RepositoryUrl>https://github.com/your-repo/YINI</RepositoryUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Yini.SourceGenerator\Yini.SourceGenerator.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+  <ItemGroup>
+      <!-- Include the README in the package -->
+      <None Include="..\..\README.md" Pack="true" PackagePath="\"/>
+      <!-- Include the XML documentation file in the package -->
+      <None Include="$(OutputPath)\$(AssemblyName).xml" Pack="true" PackagePath="lib\$(TargetFramework)\" />
+      <!-- Define the native assets for different runtimes -->
+      <Content Include="runtimes\**\*" Pack="true" PackagePath="runtimes" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <!-- This target copies the native library passed from the build script -->
+  <Target Name="CopyNativeLibraries" BeforeTargets="Build">
+    <PropertyGroup>
+      <!-- Define the destination folder based on the runtime identifier -->
+      <DestinationFolder>runtimes/$(NETCoreSdkRuntimeIdentifier)/native</DestinationFolder>
+    </PropertyGroup>
+    <Copy SourceFiles="$(NativeLibPath)" DestinationFolder="$(DestinationFolder)" SkipUnchangedFiles="true" Condition=" '$(NativeLibPath)' != '' AND Exists('$(NativeLibPath)') " />
+  </Target>
 
 </Project>

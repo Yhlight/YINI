@@ -11,20 +11,16 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.6.0" />
-    <PackageReference Include="NUnit" Version="3.13.3" />
-    <PackageReference Include="NUnit3TestAdapter" Version="4.2.1" />
-    <PackageReference Include="NUnit.Analyzers" Version="3.6.1" />
+    <PackageReference Include="MSTest.TestAdapter" Version="3.0.4" />
+    <PackageReference Include="MSTest.TestFramework" Version="3.0.4" />
     <PackageReference Include="coverlet.collector" Version="6.0.0" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Yini\Yini.csproj" />
+    <ProjectReference Include="..\Yini.SourceGenerator\Yini.SourceGenerator.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false" />
   </ItemGroup>
-
-  <Target Name="CopyNativeLib" AfterTargets="Build">
-    <Message Text="Copying native library to output directory..." Importance="high" />
-    <Exec Command="cp ../../build/lib/libyini.so $(OutDir)" Condition="!$([MSBuild]::IsOSPlatform('Windows'))" />
-    <Exec Command="copy ..\..\build\lib\yini.dll $(OutDir)" Condition="$([MSBuild]::IsOSPlatform('Windows'))" />
-  </Target>
 
 </Project>

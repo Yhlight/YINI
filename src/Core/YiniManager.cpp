@@ -1,0 +1,388 @@
+#include "YiniManager.h"
+
+#include <cstdio>
+#include <fstream>
+#include <iostream>
+#include <regex>
+#include <sstream>
+#include <variant>
+
+#include "Lexer/Lexer.h"
+#include "Parser/Parser.h"
+
+namespace YINI {
+thread_local std::string YiniManager::m_last_error;
+
+YiniManager::YiniManager() = default;
+
+void YiniManager::load(std::string_view filepath) {
+    m_filepath = filepath;
+    m_interpreter.clear();
+    m_schema = nullptr;
+    m_last_error.clear();
+    m_last_validation_errors.clear();
+
+    std::set<std::string> loaded_files;
+    auto final_ast = load_file(filepath, loaded_files);
+
+    // Find and extract the schema node from the AST
+    for (auto it = final_ast.begin(); it != final_ast.end();) {
+        if (auto* schema = dynamic_cast<Schema*>(it->get())) {
+            if (m_schema) {
+                // In a more advanced implementation, we might merge schemas.
+                // For now, we'll just take the first one found.
+            } else {
+                it->release();           // release from AST unique_ptr
+                m_schema.reset(schema);  // m_schema takes ownership
+            }
+            it = final_ast.erase(it);
+        } else {
+            ++it;
+        }
+    }
+
+    m_interpreter.interpret(final_ast);
+}
+
+const Interpreter& YiniManager::get_interpreter() const { return m_interpreter; }
+
+void YiniManager::load_from_string(std::string_view content, std::string_view virtual_filepath) {
+    m_filepath = virtual_filepath;
+    m_interpreter.clear();
+    m_schema = nullptr;
+    m_last_error.clear();
+    m_last_validation_errors.clear();
+
+    Lexer lexer(content, virtual_filepath);
+    std::vector<Token> tokens = lexer.scanTokens();
+    Parser parser(tokens);
+    std::vector<std::unique_ptr<Stmt>> string_ast = parser.parse();
+
+    std::set<std::string> loaded_files;
+    loaded_files.insert(std::string(virtual_filepath));
+
+    std::vector<std::unique_ptr<Stmt>> combined_ast;
+
+    for (auto& stmt : string_ast) {
+        if (auto* include_node = dynamic_cast<Include*>(stmt.get())) {
+            for (const auto& file_expr : include_node->files) {
+                if (auto* literal_node = dynamic_cast<Literal*>(file_expr.get())) {
+                    if (std::holds_alternative<std::string>(literal_node->value.m_value)) {
+                        std::string include_path = std::get<std::string>(literal_node->value.m_value);
+                        auto included_ast = load_file(include_path, loaded_files);
+                        merge_asts(combined_ast, included_ast);
+                    }
+                }
+            }
+        }
+    }
+
+    merge_asts(combined_ast, string_ast);
+
+    for (auto it = combined_ast.begin(); it != combined_ast.end();) {
+        if (auto* schema = dynamic_cast<Schema*>(it->get())) {
+            if (!m_schema) {
+                it->release();
+                m_schema.reset(schema);
+            }
+            it = combined_ast.erase(it);
+        } else {
+            ++it;
+        }
+    }
+
+    m_interpreter.interpret(combined_ast);
+}
+
+YiniValue YiniManager::get_value(std::string_view section, std::string_view key) {
+    auto section_it = m_interpreter.resolved_sections.find(section);
+    if (section_it != m_interpreter.resolved_sections.end()) {
+        auto key_it = section_it->second.find(key);
+        if (key_it != section_it->second.end()) {
+            YiniValue& value = key_it->second;
+            if (auto* dyna_val_ptr = std::get_if<std::unique_ptr<DynaValue>>(&value.m_value)) {
+                return (*dyna_val_ptr)->get();
+            }
+            return value;
+        }
+    }
+    throw std::runtime_error("Value not found for section '" + std::string(section) + "' and key '" + std::string(key) +
+                             "'.");
+}
+
+void YiniManager::set_value(std::string_view section, std::string_view key, YiniValue new_value) {
+    auto section_it = m_interpreter.resolved_sections.find(section);
+    if (section_it != m_interpreter.resolved_sections.end()) {
+        auto key_it = section_it->second.find(key);
+        if (key_it != section_it->second.end()) {
+            YiniValue& value = key_it->second;
+            if (auto* dyna_val_ptr = std::get_if<std::unique_ptr<DynaValue>>(&value.m_value)) {
+                (*dyna_val_ptr)->set(new_value);
+                const auto& location = m_interpreter.value_locations.at(std::string(section)).at(std::string(key));
+                m_dirty_values[std::string(section)][std::string(key)] = {new_value, location.line, location.column};
+                return;
+            } else {
+                throw std::runtime_error("Cannot set value: key '" + std::string(key) + "' in section '" +
+                                         std::string(section) + "' is not dynamic.");
+            }
+        }
+    }
+
+    if (m_interpreter.resolved_sections.count(section)) {
+        m_interpreter.resolved_sections[std::string(section)][std::string(key)] = DynaValue(new_value);
+        m_dirty_values[std::string(section)][std::string(key)] = {new_value, 0, 0};
+        return;
+    }
+
+    throw std::runtime_error("Cannot set value: section '" + std::string(section) + "' does not exist.");
+}
+
+std::vector<std::unique_ptr<Stmt>> YiniManager::load_file(std::string_view filepath,
+                                                          std::set<std::string>& loaded_files) {
+    std::string filepath_str(filepath);
+    if (loaded_files.count(filepath_str)) {
+        return {};
+    }
+    loaded_files.insert(filepath_str);
+
+    std::ifstream file(filepath_str);
+    if (!file.is_open()) {
+        throw std::runtime_error("Could not open file: " + filepath_str);
+    }
+    std::stringstream buffer;
+    buffer << file.rdbuf();
+    std::string source = buffer.str();
+
+    Lexer lexer(source, filepath_str);
+    std::vector<Token> tokens = lexer.scanTokens();
+    Parser parser(tokens);
+    std::vector<std::unique_ptr<Stmt>> current_ast = parser.parse();
+
+    std::vector<std::unique_ptr<Stmt>> combined_ast;
+
+    for (auto& stmt : current_ast) {
+        if (auto* include_node = dynamic_cast<Include*>(stmt.get())) {
+            for (const auto& file_expr : include_node->files) {
+                auto* literal_node = dynamic_cast<Literal*>(file_expr.get());
+                if (literal_node && std::holds_alternative<std::string>(literal_node->value.m_value)) {
+                    std::string include_path = std::get<std::string>(literal_node->value.m_value);
+                    auto included_ast = load_file(include_path, loaded_files);
+                    merge_asts(combined_ast, included_ast);
+                }
+            }
+        }
+    }
+
+    merge_asts(combined_ast, current_ast);
+
+    return combined_ast;
+}
+
+void YiniManager::save_changes() {
+    if (m_dirty_values.empty()) {
+        return;
+    }
+
+    std::string temp_filepath = m_filepath + ".tmp";
+    std::ifstream infile(m_filepath);
+    std::ofstream outfile(temp_filepath, std::ios::trunc);
+
+    if (!infile) {
+        throw std::runtime_error("Could not open original file for reading: " + m_filepath);
+    }
+    if (!outfile) {
+        throw std::runtime_error("Could not open temporary file for writing: " + temp_filepath);
+    }
+
+    // Create a mutable copy of dirty values to track what we've processed.
+    auto pending_dirty_values = m_dirty_values;
+
+    std::string current_line;
+    std::string current_section_name;
+    int line_num = 0;
+
+    while (std::getline(infile, current_line)) {
+        line_num++;
+        std::string parsed_section_name;
+        bool is_section_header = false;
+
+        // Simple parsing to detect section headers
+        if (current_line.length() > 2 && current_line.front() == '[' && current_line.back() == ']') {
+            std::string header_content = current_line.substr(1, current_line.length() - 2);
+            size_t colon_pos = header_content.find(':');
+            parsed_section_name = (colon_pos == std::string::npos) ? header_content : header_content.substr(0, colon_pos);
+
+            // Trim whitespace
+            size_t start = parsed_section_name.find_first_not_of(" \t");
+            if(start != std::string::npos) parsed_section_name = parsed_section_name.substr(start);
+            size_t end = parsed_section_name.find_last_not_of(" \t");
+            if(end != std::string::npos) parsed_section_name = parsed_section_name.substr(0, end + 1);
+
+            is_section_header = true;
+        }
+
+        if (is_section_header) {
+            // We are leaving the previous section. Check if it had any new keys to append.
+            if (!current_section_name.empty() && pending_dirty_values.count(current_section_name)) {
+                for (const auto& [key, dirty_val] : pending_dirty_values.at(current_section_name)) {
+                    if (dirty_val.line == 0) { // It's a new key
+                        outfile << key << " = " << m_interpreter.stringify(dirty_val.value) << "\n";
+                    }
+                }
+                pending_dirty_values.erase(current_section_name);
+            }
+
+            // Now write the new section header and update state
+            outfile << current_line << "\n";
+            current_section_name = parsed_section_name;
+        } else { // Not a section header
+            bool written = false;
+            // Check if this line needs an update
+            if (!current_section_name.empty() && pending_dirty_values.count(current_section_name)) {
+                auto& section_updates = pending_dirty_values.at(current_section_name);
+                for (auto it = section_updates.begin(); it != section_updates.end();) {
+                    if (it->second.line == line_num) {
+                        const auto& dirty_value = it->second;
+
+                        size_t eq_pos = current_line.find('=');
+                        std::string key_part = current_line.substr(0, eq_pos + 1);
+
+                        std::string comment_part = "";
+                        size_t comment_pos = current_line.find("//");
+                        if (comment_pos != std::string::npos && comment_pos > eq_pos) {
+                            comment_part = current_line.substr(comment_pos);
+                        }
+
+                        outfile << key_part << " " << m_interpreter.stringify(dirty_value.value)
+                                << (comment_part.empty() ? "" : " " + comment_part) << "\n";
+
+                        it = section_updates.erase(it);
+                        written = true;
+                        break;
+                    } else {
+                        ++it;
+                    }
+                }
+                if(section_updates.empty()){
+                    pending_dirty_values.erase(current_section_name);
+                }
+            }
+
+            if (!written) {
+                outfile << current_line << "\n";
+            }
+        }
+    }
+
+    // After the last line, append any new keys for the *last* section in the file.
+    if (!current_section_name.empty() && pending_dirty_values.count(current_section_name)) {
+        for (const auto& [key, dirty_val] : pending_dirty_values.at(current_section_name)) {
+            if (dirty_val.line == 0) {
+                outfile << key << " = " << m_interpreter.stringify(dirty_val.value) << "\n";
+            }
+        }
+        pending_dirty_values.erase(current_section_name);
+    }
+
+    // Finally, any sections remaining in pending_dirty_values are entirely new sections.
+    for (const auto& [section, keys] : pending_dirty_values) {
+        outfile << "\n[" << section << "]\n";
+        for (const auto& [key, dirty_val] : keys) {
+            outfile << key << " = " << m_interpreter.stringify(dirty_val.value) << "\n";
+        }
+    }
+
+    infile.close();
+    outfile.close();
+
+    if (std::rename(temp_filepath.c_str(), m_filepath.c_str()) != 0) {
+        std::remove(temp_filepath.c_str());
+        throw std::runtime_error("Failed to rename temporary file.");
+    }
+
+    m_dirty_values.clear();
+}
+
+const Schema* YiniManager::get_schema() const { return m_schema.get(); }
+
+void YiniManager::merge_asts(std::vector<std::unique_ptr<Stmt>>& base_ast,
+                             std::vector<std::unique_ptr<Stmt>>& new_ast) {
+    Define* base_define = nullptr;
+    std::map<std::string, Section*> base_sections;
+
+    for (auto& stmt : base_ast) {
+        if (auto* define = dynamic_cast<Define*>(stmt.get())) {
+            base_define = define;
+        } else if (auto* section = dynamic_cast<Section*>(stmt.get())) {
+            base_sections[section->name.lexeme] = section;
+        }
+    }
+
+    for (auto& new_stmt_ptr : new_ast) {
+        if (!new_stmt_ptr) continue;
+
+        if (auto* new_define = dynamic_cast<Define*>(new_stmt_ptr.get())) {
+            if (!base_define) {
+                // If base has no define block, create one and add it to the front.
+                auto created_define = std::make_unique<Define>(std::vector<std::unique_ptr<KeyValue>>{});
+                base_define = created_define.get();
+                base_ast.insert(base_ast.begin(), std::move(created_define));
+            }
+
+            // Index existing macros for efficient lookup
+            std::map<std::string, KeyValue*> existing_macros;
+            for (auto& kv : base_define->values) {
+                existing_macros[kv->key.lexeme] = kv.get();
+            }
+
+            // Merge new macros, overriding existing ones
+            for (auto& new_macro_ptr : new_define->values) {
+                auto* new_macro = new_macro_ptr.get();
+                if (existing_macros.count(new_macro->key.lexeme)) {
+                    existing_macros[new_macro->key.lexeme]->value = std::move(new_macro->value);
+                } else {
+                    existing_macros[new_macro->key.lexeme] = new_macro;
+                    base_define->values.push_back(std::move(new_macro_ptr));
+                }
+            }
+        } else if (auto* new_section = dynamic_cast<Section*>(new_stmt_ptr.get())) {
+            if (base_sections.count(new_section->name.lexeme)) {
+                // Section exists, merge statements
+                auto* existing_section = base_sections[new_section->name.lexeme];
+
+                // Index existing keys for efficient lookup
+                std::map<std::string, KeyValue*> existing_kvs;
+                for (auto& stmt : existing_section->statements) {
+                    if (auto* kv = dynamic_cast<KeyValue*>(stmt.get())) {
+                        existing_kvs[kv->key.lexeme] = kv;
+                    }
+                }
+
+                // Merge new statements, overriding existing key-values
+                for (auto& new_section_stmt_ptr : new_section->statements) {
+                    if (auto* new_kv = dynamic_cast<KeyValue*>(new_section_stmt_ptr.get())) {
+                        if (existing_kvs.count(new_kv->key.lexeme)) {
+                            existing_kvs[new_kv->key.lexeme]->value = std::move(new_kv->value);
+                        } else {
+                            existing_kvs[new_kv->key.lexeme] = new_kv;
+                            existing_section->statements.push_back(std::move(new_section_stmt_ptr));
+                        }
+                    } else {
+                        // For other statements like Register (`+=`), just append them
+                        existing_section->statements.push_back(std::move(new_section_stmt_ptr));
+                    }
+                }
+            } else {
+                // Section is new, just move the whole thing
+                base_ast.push_back(std::move(new_stmt_ptr));
+                // And add it to our index for subsequent merges in the same load operation
+                base_sections[new_section->name.lexeme] = new_section;
+            }
+        } else if (!dynamic_cast<Include*>(new_stmt_ptr.get())) {
+            // For other top-level statements (if any), just append them.
+            // We specifically ignore Include nodes as they've already been processed.
+            base_ast.push_back(std::move(new_stmt_ptr));
+        }
+    }
+}
+}  // namespace YINI

@@ -1,140 +1,123 @@
-## YINI配置文件
-常规的INI必然无法支持我们的游戏的开发  
-为此，我进行了语法的扩展  
-我们使用.yini或.YINI作为配置文件的后缀  
+# YINI Language Manual
 
-## 注释
-在YINI中，使用//和/* */进行注释  
+YINI is a modern configuration file format designed for game development. It extends the traditional INI syntax with a variety of features that make it more powerful and flexible. This document provides a comprehensive guide to the YINI language and its features.
 
-## 继承
-现在你可以在配置块头部处使用:继承其他的配置块  
+## 1. Comments
 
-```YINI
-[Config]
-key1 = value1
-key2 = value2
+YINI supports both single-line and multi-line comments.
 
-[Config2]
-key3 = value3
-key4 = value4
+-   **Single-line comments:** Start with `//` and continue to the end of the line.
+-   **Multi-line comments:** Start with `/*` and end with `*/`.
 
-[Config3] : Config, Config2
-```
-按照顺序，继承其中的键值对，后继承的配置块覆盖前继承或已经存在的键值对  
+```yini
+// This is a single-line comment.
 
-## 快捷注册
-在游戏开发中，配置文件往往管理着游戏中某一个物件的注册表  
-这些注册表通常需要使用使用明确的序号表示索引，这极其影响开发效率  
-现在你可以使用`+=`来快捷注册  
-
-```YINI
-[Reg]
-+= value1
-+= value2
-+= value3
+/*
+  This is a
+  multi-line comment.
+*/
 ```
 
-### 值
-YINI并不将所有的配置值作为字符串  
-而是根据游戏所需要的值类型，直接将其转换为对应的值类型  
-YINI支持多种值类型  
-分别为  
-- 整数  ->  123  
-- 浮点数  ->  3.14  
-- 布尔值  ->  true/false  
-- 字符串  ->  "value"  
-- 数组  ->  [1, 2, 3]  
-    - 二维数组使用  ->  [[1, 2], [3, 4]]  
-- 集合 -> (value, value, value3)  
-- 对组  ->  {key: value}  // 我不觉得使用一个Map来存储一个对组是一件好事，数量太少了，浪费性能  
-- Map(对组的集合)  ->  {key1: value1, key2: value2}  
-- 颜色  ->  #RRGGBB / color(255, 192, 203) / Color(255, 192, 203)  
-- 坐标  ->  Coord(x, y) / Coord(x, y, z) / coord(x, y) / coord(x, y, z)  
-- 路径  ->  path() / Path()  
-- 链表  ->  List(1, 2, 3) / list(1, 2, 3)  // 默认情况下，[] 表示数组，为了解决不能使用链表的问题，这里引入了显性的表示  
-- 数组  ->  Array(1, 2, 3) / array(1, 2, 3)  
-(更多类型正在添加中)  
+## 2. Sections and Keys
 
-#### 动态
-原生INI中，键值对只能是静态的，不变的  
-YINI中，你可以使用Dyna() / dyna()封装键值  
-这个键会在随游戏动态更新，Dyna()具有实时更新以及缓存更新两种更新方式  
-两者配合使用，不可选  
-当键值被修改时，键值会被写进YMETA文件之中  
-在游戏退出时，或游戏重新启动时，会从YMETA文件中提取键值，然后更新YINI文件  
-Dyna()需要包装值进行使用  
+YINI files are organized into sections, which are defined by a name enclosed in square brackets (`[]`). Each section contains a set of key-value pairs.
 
-```YINI
-[Config]
-key = Dyna(1)  // 这个键会随游戏而动态更新
+```yini
+[Player]
+name = "Jules"
+level = 10
 ```
 
-##### backup
-为了防止Dyna()错误覆写了键值，YMETA(YINI元数据，详细见下文)文件会缓存Dyna()的键的键值，缓存次数不超过五次  
+## 3. Data Types
 
-### 算术运算
-YINI支持常见的算术运算  
-包括 + - * / %  
-可以使用括号进行优先级的控制  
-仅限于基本数据类型  
-算术运算仅支持宏与基本数据类型的运算  
+YINI supports a variety of data types, including:
 
-### 宏定义和变量引用
+-   **Integer:** `123`
+-   **Float:** `3.14`
+-   **Boolean:** `true` or `false`
+-   **String:** `"Hello, World!"`
+-   **Array:** `[1, 2, 3]`
+-   **Set:** `(1, 2, 3)`
+-   **Map:** `{ "key1": "value1", "key2": "value2" }`
+-   **Color:** `#FFC0CB` or `Color(255, 192, 203)`
+-   **Coordinate:** `Coord(1, 2, 3)`
+-   **Path:** `Path("/path/to/file")`
+-   **List:** `List(1, 2, 3)`
+
+## 4. Inheritance
+
+YINI supports section inheritance, which allows you to create a new section that inherits the key-value pairs from one or more parent sections.
+
+```yini
+[BaseCharacter]
+health = 100
+mana = 50
+
+[Player] : BaseCharacter
+name = "Jules"
+```
+
+In this example, the `Player` section inherits the `health` and `mana` keys from the `BaseCharacter` section.
+
+## 5. Value Registration
+
+YINI provides a shortcut for registering values in a list-like fashion using the `+=` operator. This is useful for creating registries of items, such as a list of available weapons in a game.
+
+```yini
+[Weapons]
++= "Sword"
++= "Axe"
++= "Bow"
+```
+
+## 6. Dynamic Values and Non-Destructive Saving
+
+YINI supports dynamic values, which can be updated in real-time during gameplay. Dynamic values are created using the `Dyna()` function.
+
+```yini
+[Player]
+// This value can be changed at runtime.
+health = Dyna(100)
+```
+
+When a dynamic value is modified and saved, YINI performs a **non-destructive write-back**. It carefully updates the original `.yini` file, preserving all comments and existing formatting. This makes it safe to use dynamic values in configuration files that are also managed by humans.
+
+## 7. Macros and Variables
+
+YINI allows you to define macros in a `[#define]` section and reference them using the `@` symbol.
+
+```yini
 [#define]
-你可以在[#define]之中定义宏  
-然后在代码中使用@name引用  
-
-```YINI
-[#define]
-name = value
+player_name = "Jules"
 
 [UI]
-UIName = @name
+playerNameLabel = @player_name
 ```
 
-### 文件关联
-现在，你可以使用[#include]关联其他文件  
-这些文件将根据顺序决定覆写顺序  
-[#include]无需使用path，直接写路径即可  
+## 8. File Includes
 
-```YINI
+YINI supports file includes, which allow you to split your configuration into multiple files.
+
+```yini
 [#include]
-+= file1.yini
-+= file2.yini
-+= file3.yini
++= "player.yini"
++= "monsters.yini"
 ```
 
-按照顺序，合并同名的配置块(不存在的添加，存在的覆写)，[#define]块也遵守这样的行为  
+The included files are merged in the order they are specified, with later files overriding earlier ones.
 
-### YMETA
-在程序加载YINI文件之后，会为每一个YINI文件生成一个YMETA文件  
-YMETA缓存着YINI文件中所有的信息，避免重复加载  
-YMETA使用.ymeta，.YMETA作为后缀  
+## 9. Arithmetic Operations
 
-### CLI
-虽然YINI是一门简单的编程语言，但也具有相关的CLI工具  
-CLI工具需要采用阻塞式运行，意思是，CLI需要存在事件主进程事件循环，持续交互  
-CLI工具主要用来编译与反编译YMETA文件，以及检查是否语法错误  
+YINI supports basic arithmetic operations, including `+`, `-`, `*`, `/`, and `%`.
 
-### 项目开发建议
-#### 架构设计
-状态机 + 策略模式  
+```yini
+[#define]
+base_damage = 10
 
-#### 项目命名规范
-基本数据类型，常规函数  ->  蛇形命名法  
-类的成员变量(基本数据类型)  ->  蛇形命名法  
-类的成员变量(非基本数据类型)  ->  小驼峰命名法  
-类的成员函数  ->  小驼峰命名法  
-与类有关的变量  ->  小驼峰命名法  
-数据结构  ->  大驼峰命名法  
+[Player]
+attack_damage = @base_damage * 1.5
+```
 
-#### 代码风格
-括号风格  ->  Allman  
+## 11. CLI
 
-#### 目录结构
-YINI
-    |- src
-        |- Lexer
-        |- Parser
-        |- CLI
-    |- docs
+YINI includes a command-line interface (CLI) tool for compiling, decompiling, and validating YINI files.

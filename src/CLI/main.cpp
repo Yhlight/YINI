@@ -1,266 +1,135 @@
-#include "YINI/JsonDeserializer.hpp"
-#include "YINI/Parser.hpp"
-#include "YINI/YiniException.hpp"
-#include "YINI/YiniManager.hpp"
-#include "YiniValueToString.hpp"
-#include <fstream>
 #include <iostream>
-#include <sstream>
-#include <streambuf>
 #include <string>
+#include <variant>
 #include <vector>
 
-void printHelp()
-{
-  std::cout << "YINI CLI - A tool for working with YINI files.\n\n";
-  std::cout << "Usage:\n";
-  std::cout << "  yini-cli <command> <filepath>  (Non-interactive mode)\n";
-  std::cout << "  yini-cli                       (Interactive mode)\n\n";
-  std::cout << "Available commands:\n";
-  std::cout << "  check <filepath>     - Checks the syntax of a .yini file.\n";
-  std::cout
-      << "  compile <filepath>   - Compiles a .yini file to .ymeta.\n";
-  std::cout << "  decompile <filepath> - Decompiles a .ymeta file to a readable "
-               "format.\n";
-  std::cout << "  help                 - Shows this help message.\n";
-  std::cout << "  exit                 - Exits the interactive CLI.\n";
+#include "Core/DynaValue.h"
+#include "Core/Serialization/Deserializer.h"
+#include "Core/Serialization/Serializer.h"
+#include "Core/Validator.h"
+#include "Core/YiniException.h"
+#include "Core/YiniManager.h"
+#include "Core/YiniValue.h"
+
+void print_usage() {
+    std::cerr << "Usage: yini-cli <command> [args...]\n"
+              << "Commands:\n"
+              << "  check <filepath>        Check the syntax of a .yini file.\n"
+              << "  validate <filepath>     Validate a .yini file against its embedded schema.\n"
+              << "  compile <in> <out>      Compile a .yini file to .ymeta.\n"
+              << "  decompile <filepath>    Decompile and print a .ymeta file.\n";
 }
 
-bool handleCheck(const std::string &filePath)
-{
-  std::ifstream file(filePath);
-  if (!file.is_open())
-  {
-    std::cerr << "Error: Could not open file: " << filePath << std::endl;
-    return false;
-  }
-  std::string content((std::istreambuf_iterator<char>(file)),
-                      std::istreambuf_iterator<char>());
+// Forward declarations for recursive printing
+void print_value(const YINI::YiniValue& value, int indent);
+void print_map(const YINI::YiniMap& map, int indent);
 
-  try
-  {
-    YINI::YiniDocument doc;
-    std::string basePath = ".";
-    size_t last_slash_idx = filePath.rfind('/');
-    if (std::string::npos != last_slash_idx)
-    {
-      basePath = filePath.substr(0, last_slash_idx);
-    }
-    YINI::Parser parser(content, doc, basePath);
-    parser.parse();
-    std::cout << "Syntax OK: " << filePath << std::endl;
-    return true;
-  }
-  catch (const YINI::YiniException &e)
-  {
-    std::cerr << "Syntax Error in " << filePath << " [" << e.getLine() << ":"
-              << e.getColumn() << "]: " << e.what() << std::endl;
-    return false;
-  }
-  catch (const std::exception &e)
-  {
-    std::cerr << "An unexpected error occurred: " << e.what() << std::endl;
-    return false;
-  }
-}
+// Visitor for printing a YiniValue
+struct PrintVisitor {
+    int indent;
 
-bool handleCompile(const std::string &filePath)
-{
-  YINI::YiniManager manager(filePath);
-  if (manager.isLoaded())
-  {
-    std::cout << "Successfully compiled " << filePath << " to .ymeta"
-              << std::endl;
-    return true;
-  }
-  else
-  {
-    std::cerr << "Error: Failed to load or compile " << filePath
-              << ". Check for syntax errors or file access issues."
-              << std::endl;
-    return false;
-  }
-}
+    void operator()(std::monostate) const { std::cout << "nil"; }
+    void operator()(bool value) const { std::cout << (value ? "true" : "false"); }
+    void operator()(double value) const { std::cout << value; }
+    void operator()(const std::string& value) const { std::cout << "\"" << value << "\""; }
 
-bool handleDecompile(const std::string &filePath)
-{
-  std::ifstream file(filePath);
-  if (!file.is_open())
-  {
-    std::cerr << "Error: Could not open file: " << filePath << std::endl;
-    return false;
-  }
-  std::string content((std::istreambuf_iterator<char>(file)),
-                      std::istreambuf_iterator<char>());
-
-  YINI::YiniDocument doc;
-  if (YINI::JsonDeserializer::deserialize(content, doc))
-  {
-    std::cout << "--- Decompilation of " << filePath << " ---\n\n";
-
-    const auto &defines = doc.getDefines();
-    if (!defines.empty())
-    {
-      std::cout << "[#define]\n";
-      for (const auto &define_pair : defines)
-      {
-        std::cout << "  " << define_pair.first << " = "
-                  << YINI::valueToString(define_pair.second) << "\n";
-      }
-      std::cout << "\n";
-    }
-
-    for (const auto &section : doc.getSections())
-    {
-      std::cout << "[" << section.name << "]";
-      if (!section.inheritedSections.empty())
-      {
-        std::cout << " : ";
-        for (size_t i = 0; i < section.inheritedSections.size(); ++i)
-        {
-          std::cout << section.inheritedSections[i]
-                    << (i < section.inheritedSections.size() - 1 ? ", " : "");
+    void operator()(const std::unique_ptr<YINI::YiniArray>& value) const {
+        std::cout << "[ ";
+        for (const auto& item : *value) {
+            print_value(item, indent);
+            std::cout << " ";
         }
-      }
-      std::cout << "\n";
-
-      for (const auto &pair : section.pairs)
-      {
-        std::cout << "  " << pair.key << " = " << YINI::valueToString(pair.value)
-                  << "\n";
-      }
-      for (const auto &val : section.registrationList)
-      {
-        std::cout << "  += " << YINI::valueToString(val) << "\n";
-      }
-      std::cout << "\n";
+        std::cout << "]";
     }
-    std::cout << "--- End of Decompilation ---\n";
-    return true;
-  }
-  else
-  {
-    std::cerr << "Error: Failed to decompile " << filePath
-              << ". It may be corrupted or not a valid .ymeta file."
-              << std::endl;
-    return false;
-  }
+
+    void operator()(const std::unique_ptr<YINI::YiniMap>& value) const {
+        std::cout << "{\n";
+        print_map(*value, indent + 2);
+        std::cout << std::string(indent, ' ') << "}";
+    }
+
+    void operator()(const std::unique_ptr<YINI::DynaValue>& value) const {
+        std::cout << "Dyna(";
+        if (value && value->m_value) {
+            print_value(*(value->m_value), indent);
+        } else {
+            std::cout << "nil";
+        }
+        std::cout << ")";
+    }
+};
+
+void print_value(const YINI::YiniValue& value, int indent = 0) { std::visit(PrintVisitor{indent}, value.m_value); }
+
+void print_map(const YINI::YiniMap& map, int indent = 0) {
+    for (const auto& pair : map) {
+        std::cout << std::string(indent, ' ') << pair.first << ": ";
+        print_value(pair.second, indent);
+        std::cout << "\n";
+    }
 }
 
-void runInteractiveMode()
-{
-  std::string line;
-  printHelp();
+int main(int argc, char* argv[]) {
+    if (argc < 2) {
+        print_usage();
+        return 1;
+    }
 
-  while (true)
-  {
-    std::cout << "> ";
-    std::getline(std::cin, line);
-
-    std::stringstream ss(line);
-    std::string command;
-    ss >> command;
-
-    if (command == "exit")
-    {
-      break;
-    }
-    else if (command == "help")
-    {
-      printHelp();
-    }
-    else if (command == "check")
-    {
-      std::string filePath;
-      ss >> filePath;
-      if (filePath.empty())
-      {
-        std::cerr << "Usage: check <filepath>" << std::endl;
-      }
-      else
-      {
-        handleCheck(filePath);
-      }
-    }
-    else if (command == "compile")
-    {
-      std::string filePath;
-      ss >> filePath;
-      if (filePath.empty())
-      {
-        std::cerr << "Usage: compile <filepath>" << std::endl;
-      }
-      else
-      {
-        handleCompile(filePath);
-      }
-    }
-    else if (command == "decompile")
-    {
-      std::string filePath;
-      ss >> filePath;
-      if (filePath.empty())
-      {
-        std::cerr << "Usage: decompile <filepath>" << std::endl;
-      }
-      else
-      {
-        handleDecompile(filePath);
-      }
-    }
-    else if (!command.empty())
-    {
-      std::cerr << "Unknown command: " << command
-                << ". Type 'help' for a list of commands." << std::endl;
-    }
-  }
-}
-
-int main(int argc, char *argv[])
-{
-  if (argc > 1)
-  {
     std::string command = argv[1];
-    if (command == "help" || command == "--help" || command == "-h")
-    {
-      printHelp();
-      return 0;
+
+    try {
+        if (command == "check" && argc == 3) {
+            YINI::YiniManager manager;
+            manager.load(argv[2]);
+            std::cout << "File '" << argv[2] << "' is syntactically valid." << std::endl;
+        } else if (command == "validate" && argc == 3) {
+            YINI::YiniManager manager;
+            manager.load(argv[2]);
+            const YINI::Schema* schema = manager.get_schema();
+            if (!schema) {
+                std::cerr << "Error: No [#schema] block found in '" << argv[2] << "'." << std::endl;
+                return 1;
+            }
+            YINI::Validator validator;
+            std::vector<YINI::ValidationError> errors = validator.validate(*schema, manager.get_interpreter());
+            if (errors.empty()) {
+                std::cout << "File '" << argv[2] << "' successfully validated against its schema." << std::endl;
+            } else {
+                std::cerr << "Validation failed with " << errors.size() << " error(s):" << std::endl;
+                for (const auto& error : errors) {
+                    std::cerr << "- " << error.message << std::endl;
+                }
+                return 1;
+            }
+        } else if (command == "compile" && argc == 4) {
+            YINI::YiniManager manager;
+            manager.load(argv[2]);
+            YINI::Serialization::Serializer serializer;
+            serializer.serialize(manager.get_interpreter().resolved_sections, argv[3]);
+            std::cout << "Compiled '" << argv[2] << "' to '" << argv[3] << "'." << std::endl;
+        } else if (command == "decompile" && argc == 3) {
+            YINI::Serialization::Deserializer deserializer;
+            auto data = deserializer.deserialize(argv[2]);
+            for (const auto& section : data) {
+                std::cout << "[" << section.first << "]\n";
+                print_map(section.second, 2);
+            }
+        } else {
+            print_usage();
+            return 1;
+        }
+    } catch (const YINI::YiniException& e) {
+        if (!e.filepath().empty()) {
+            std::cerr << "[" << e.filepath() << ":" << e.line() << ":" << e.column() << "] Error: " << e.what()
+                      << std::endl;
+        } else {
+            std::cerr << "[line " << e.line() << "] Error: " << e.what() << std::endl;
+        }
+        return 1;
+    } catch (const std::exception& e) {
+        std::cerr << "Error: " << e.what() << std::endl;
+        return 1;
     }
 
-    if (argc < 3)
-    {
-      std::cerr << "Error: Missing file path for command '" << command
-                << "'.\n";
-      std::cerr << "Usage: yini-cli <command> <filepath>\n";
-      return 1;
-    }
-    std::string filePath = argv[2];
-
-    bool success = false;
-    if (command == "check")
-    {
-      success = handleCheck(filePath);
-    }
-    else if (command == "compile")
-    {
-      success = handleCompile(filePath);
-    }
-    else if (command == "decompile")
-    {
-      success = handleDecompile(filePath);
-    }
-    else
-    {
-      std::cerr << "Unknown command: " << command << std::endl;
-      printHelp();
-      return 1;
-    }
-    return success ? 0 : 1;
-  }
-  else
-  {
-    runInteractiveMode();
-  }
-
-  return 0;
+    return 0;
 }

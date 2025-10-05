@@ -1,67 +1,41 @@
 # Contributing to YINI
 
-First off, thank you for considering contributing to YINI! It's people like you that make open source such a great community.
+We welcome contributions to the YINI project! If you're interested in contributing, please read the following guidelines.
 
-## How Can I Contribute?
+## How to Contribute
 
-### Reporting Bugs
-If you find a bug, please open an issue on our GitHub repository. Be sure to include a clear title, a description of the issue, and steps to reproduce it.
+1.  **Fork the repository:** Start by forking the YINI repository to your own GitHub account.
+2.  **Create a new branch:** Create a new branch for your changes.
+3.  **Make your changes:** Make your changes to the codebase, following the coding style guidelines below.
+4.  **Submit a pull request:** When you're ready, submit a pull request to the main YINI repository.
 
-### Suggesting Enhancements
-If you have an idea for a new feature or an improvement to an existing one, please open an issue to discuss it. This allows us to coordinate our efforts and prevent duplicated work.
+## Coding Style
 
-### Pull Requests
-We welcome pull requests for bug fixes, new features, and improvements.
+To maintain consistency throughout the codebase, please adhere to the following style guidelines.
 
-## Development Setup
+### C++
 
-To get started with the YINI codebase, you will need:
-- A C++17 compliant compiler (e.g., GCC, Clang, MSVC)
-- CMake (version 3.10 or higher)
-- Git
+The C++ code follows a style similar to the Google C++ Style Guide.
 
-### Build Instructions
+*   **Naming:**
+    *   Types (classes, structs, enums, etc.) should be in `PascalCase`.
+    *   Functions and methods should be in `snake_case`.
+    *   Private and protected member variables should be in `snake_case` with a leading `m_` prefix (e.g., `m_my_variable`).
+*   **Formatting:**
+    *   Use 4 spaces for indentation.
+    *   Braces should follow the Allman style (i.e., braces on their own line).
 
-1.  **Clone the repository:**
-    ```sh
-    git clone https://github.com/your-repo/yini.git
-    cd yini
-    ```
+### C#
 
-2.  **Configure CMake:**
-    ```sh
-    cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
-    ```
-    *Use `Debug` for development and `Release` for benchmarking.*
+The C# code follows the standard Microsoft .NET naming conventions.
 
-3.  **Build the project:**
-    ```sh
-    cmake --build build
-    ```
+*   **Naming:**
+    *   All public members (classes, methods, properties, enums, etc.) should be in `PascalCase`.
+    *   Private fields should be in `camelCase` with a leading underscore (e.g., `_myField`).
+*   **Formatting:**
+    *   Use 4 spaces for indentation.
+    *   Braces should follow the Allman style.
 
-### Running Tests
+## Questions
 
-All tests are built into the `yini_tests` executable and can be run via CTest.
-
-```sh
-cd build
-ctest --output-on-failure
-```
-
-### Running Benchmarks
-
-The performance benchmarks are only built in `Release` mode.
-
-```sh
-# First, configure and build in Release mode
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build
-
-# Run the benchmark executable
-./build/bin/yini_benchmark
-```
-
-## Coding Conventions
-Please follow the coding conventions outlined in the `YINI.md` document. This includes our naming conventions and brace style to ensure the codebase remains consistent and readable.
-
-We look forward to your contributions!
+If you have any questions, please feel free to open an issue on the YINI GitHub repository.

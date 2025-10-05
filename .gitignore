@@ -1,27 +1,12 @@
 # Build artifacts
-[Bb]uild/
+/build/
+*.tmp
+*.ymeta
+*.yini
+
+# Doxygen output
+/docs/api/
+
+# .NET build artifacts
 [Bb]in/
 [Oo]bj/
-
-# Visual Studio and Rider
-.vs/
-*.suo
-*.user
-*.sln.docstates
-
-# CMake
-CMakeCache.txt
-CMakeFiles/
-cmake_install.cmake
-install_manifest.txt
-compile_commands.json
-
-# Test artifacts
-*.ymeta
-*.ymeta.*
-
-# IDE specific
-.idea/
-
-# macOS
-.DS_Store

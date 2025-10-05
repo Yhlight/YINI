@@ -1,302 +1,197 @@
-#include "YINI/Lexer.hpp"
-#include <cctype>
+#include "Lexer.h"
 
-namespace YINI
-{
-Lexer::Lexer(const std::string &input)
-    : inputStr(input), position(0), line_num(1), column_num(1)
-{
-}
+#include <stdexcept>
 
-Token Lexer::getNextToken()
-{
-  skipWhitespace();
+#include "Core/YiniException.h"
 
-  if (position >= inputStr.length())
-  {
-    return {TokenType::Eof, "", line_num, column_num};
-  }
+namespace YINI {
+Lexer::Lexer(std::string_view source, std::string_view filepath) : m_source(source), m_filepath(filepath) {}
 
-  char current_char = inputStr[position];
-
-  if (current_char == '/')
-  {
-    if (position + 1 < inputStr.length())
-    {
-      if (inputStr[position + 1] == '/')
-      {
-        skipComment();
-        return getNextToken();
-      }
-      else if (inputStr[position + 1] == '*')
-      {
-        skipBlockComment();
-        return getNextToken();
-      }
-    }
-  }
-
-  if (current_char == '[')
-  {
-    position++;
-    column_num++;
-    return {TokenType::LeftBracket, "[", line_num, column_num - 1};
-  }
-
-  if (current_char == ']')
-  {
-    position++;
-    column_num++;
-    return {TokenType::RightBracket, "]", line_num, column_num - 1};
-  }
-
-  if (current_char == ',')
-  {
-    position++;
-    column_num++;
-    return {TokenType::Comma, ",", line_num, column_num - 1};
-  }
-
-  if (current_char == ':')
-  {
-    position++;
-    column_num++;
-    return {TokenType::Colon, ":", line_num, column_num - 1};
-  }
-
-  if (current_char == '=')
-  {
-    position++;
-    column_num++;
-    return {TokenType::Equals, "=", line_num, column_num - 1};
-  }
-
-  if (current_char == '+' && position + 1 < inputStr.length() &&
-      inputStr[position + 1] == '=')
-  {
-    position += 2;
-    column_num += 2;
-    return {TokenType::PlusEquals, "+=", line_num, column_num - 2};
-  }
-
-  if (current_char == '@')
-  {
-    position++;
-    column_num++;
-    return {TokenType::At, "@", line_num, column_num - 1};
-  }
-
-  switch (current_char)
-  {
-  case '+':
-    position++;
-    column_num++;
-    return {TokenType::Plus, "+", line_num, column_num - 1};
-  case '-':
-    position++;
-    column_num++;
-    return {TokenType::Minus, "-", line_num, column_num - 1};
-  case '*':
-    position++;
-    column_num++;
-    return {TokenType::Star, "*", line_num, column_num - 1};
-  case '/':
-    position++;
-    column_num++;
-    return {TokenType::Slash, "/", line_num, column_num - 1};
-  case '%':
-    position++;
-    column_num++;
-    return {TokenType::Percent, "%", line_num, column_num - 1};
-  case '(':
-    position++;
-    column_num++;
-    return {TokenType::LeftParen, "(", line_num, column_num - 1};
-  case ')':
-    position++;
-    column_num++;
-    return {TokenType::RightParen, ")", line_num, column_num - 1};
-  case '{':
-    position++;
-    column_num++;
-    return {TokenType::LeftBrace, "{", line_num, column_num - 1};
-  case '}':
-    position++;
-    column_num++;
-    return {TokenType::RightBrace, "}", line_num, column_num - 1};
-  }
-
-  if (current_char == '#')
-  {
-    // Check for hex color like #RRGGBB
-    if (position + 7 <= inputStr.length())
-    {
-      bool is_hex = true;
-      for (int i = 1; i <= 6; ++i)
-      {
-        if (!isxdigit(inputStr[position + i]))
-        {
-          is_hex = false;
-          break;
-        }
-      }
-      if (is_hex)
-      {
-        std::string hex_value;
-        hex_value.reserve(6);
-        for(int i = 1; i <= 6; ++i) {
-            hex_value += inputStr[position + i];
-        }
-        position += 7;
-        column_num += 7;
-        return {TokenType::HexColor, hex_value, line_num, column_num - 7};
-      }
-    }
-    // Otherwise, it's a directive hash
-    position++;
-    column_num++;
-    return {TokenType::Hash, "#", line_num, column_num - 1};
-  }
-
-  if (current_char == '"')
-  {
-    return parseString();
-  }
-
-  if (isdigit(current_char) ||
-      (current_char == '-' && position + 1 < inputStr.length() &&
-       isdigit(inputStr[position + 1])))
-  {
-    return parseNumber();
-  }
-
-  if (isalpha(current_char) || current_char == '_')
-  {
-    return parseIdentifier();
-  }
-
-  position++;
-  column_num++;
-  return {TokenType::Unknown, std::string(1, current_char), line_num,
-          column_num - 1};
-}
-
-void Lexer::skipWhitespace()
-{
-  while (position < inputStr.length() && isspace(inputStr[position]))
-  {
-    if (inputStr[position] == '\n')
-    {
-      line_num++;
-      column_num = 1;
-    }
-    else
-    {
-      column_num++;
-    }
-    position++;
-  }
-}
-
-void Lexer::skipComment()
-{
-  while (position < inputStr.length() && inputStr[position] != '\n')
-  {
-    position++;
-    column_num++;
-  }
-}
-
-void Lexer::skipBlockComment()
-{
-  position += 2; // Skip "/*"
-  column_num += 2;
-
-  while (position + 1 < inputStr.length())
-  {
-    if (inputStr[position] == '*' && inputStr[position + 1] == '/')
-    {
-      position += 2; // Skip "*/"
-      column_num += 2;
-      return;
+std::vector<Token> Lexer::scanTokens() {
+    while (!isAtEnd()) {
+        m_start = m_current;
+        m_start_column = m_column;
+        scanToken();
     }
 
-    if (inputStr[position] == '\n')
-    {
-      line_num++;
-      column_num = 1;
+    m_tokens.push_back({TokenType::END_OF_FILE, "", YiniValue{}, m_line, m_column, m_filepath});
+    return m_tokens;
+}
+
+void Lexer::scanToken() {
+    char c = advance();
+    switch (c) {
+        case '(':
+            addToken(TokenType::LEFT_PAREN);
+            break;
+        case ')':
+            addToken(TokenType::RIGHT_PAREN);
+            break;
+        case '@':
+            addToken(match('{') ? TokenType::AT_LEFT_BRACE : TokenType::AT);
+            break;
+        case '{':
+            addToken(TokenType::LEFT_BRACE);
+            break;
+        case '}':
+            addToken(TokenType::RIGHT_BRACE);
+            break;
+        case '[':
+            addToken(TokenType::LEFT_BRACKET);
+            break;
+        case ']':
+            addToken(TokenType::RIGHT_BRACKET);
+            break;
+        case '=':
+            addToken(TokenType::EQUAL);
+            break;
+        case '+':
+            addToken(match('=') ? TokenType::PLUS_EQUAL : TokenType::PLUS);
+            break;
+        case '-':
+            addToken(TokenType::MINUS);
+            break;
+        case '*':
+            addToken(TokenType::STAR);
+            break;
+        case '%':
+            addToken(TokenType::PERCENT);
+            break;
+        case ',':
+            addToken(TokenType::COMMA);
+            break;
+        case ':':
+            addToken(TokenType::COLON);
+            break;
+        case '.':
+            addToken(TokenType::DOT);
+            break;
+        case '/':
+            if (match('/')) {
+                // A comment goes until the end of the line.
+                while (peek() != '\n' && !isAtEnd()) advance();
+            } else if (match('*')) {
+                blockComment();
+            } else {
+                addToken(TokenType::SLASH);
+            }
+            break;
+        case '$':
+            if (match('{')) {
+                addToken(TokenType::DOLLAR_LEFT_BRACE);
+            } else {
+                throw ParsingError("Unexpected character.", m_line, m_start_column, m_filepath);
+            }
+            break;
+        case '"':
+            string();
+            break;
+        case ' ':
+        case '\r':
+        case '\t':
+            // Ignore whitespace.
+            break;
+        case '\n':
+            m_line++;
+            m_column = 1;
+            break;
+        default:
+            if (isdigit(c)) {
+                number();
+            } else if (isalpha(c) || c == '_' || c == '#') {
+                identifier();
+            } else {
+                throw ParsingError("Unexpected character.", m_line, m_start_column, m_filepath);
+            }
+            break;
     }
-    else
-    {
-      column_num++;
+}
+
+bool Lexer::match(char expected) {
+    if (isAtEnd()) return false;
+    if (m_source[m_current] != expected) return false;
+
+    m_current++;
+    return true;
+}
+
+char Lexer::peek() {
+    if (isAtEnd()) return '\0';
+    return m_source[static_cast<size_t>(m_current)];
+}
+
+char Lexer::peekNext() {
+    if (static_cast<size_t>(m_current + 1) >= m_source.length()) return '\0';
+    return m_source[static_cast<size_t>(m_current + 1)];
+}
+
+char Lexer::advance() {
+    m_column++;
+    return m_source[m_current++];
+}
+
+bool Lexer::isAtEnd() { return static_cast<size_t>(m_current) >= m_source.length(); }
+
+void Lexer::addToken(TokenType type) { addToken(type, YiniValue{}); }
+
+void Lexer::addToken(TokenType type, const YiniValue& literal) {
+    std::string text(m_source.substr(m_start, m_current - m_start));
+    m_tokens.push_back({type, text, literal, m_line, m_start_column, m_filepath});
+}
+
+void Lexer::blockComment() {
+    while (!(peek() == '*' && peekNext() == '/') && !isAtEnd()) {
+        if (peek() == '\n') m_line++;
+        advance();
     }
-    position++;
-  }
+
+    if (isAtEnd()) {
+        throw ParsingError("Unterminated block comment.", m_line, m_column, m_filepath);
+    }
+
+    // Consume the */
+    advance();
+    advance();
 }
 
-Token Lexer::parseString()
-{
-  int start_col = column_num;
-  position++; // Skip opening quote
-  column_num++;
-  size_t start_pos = position;
+void Lexer::string() {
+    while (peek() != '"' && !isAtEnd()) {
+        if (peek() == '\n') m_line++;
+        advance();
+    }
 
-  while (position < inputStr.length() && inputStr[position] != '"')
-  {
-    position++;
-    column_num++;
-  }
+    if (isAtEnd()) {
+        throw ParsingError("Unterminated string.", m_line, m_column, m_filepath);
+    }
 
-  std::string value = inputStr.substr(start_pos, position - start_pos);
+    advance();  // The closing ".
 
-  if (position < inputStr.length())
-  {
-    position++; // Skip closing quote
-    column_num++;
-  }
-
-  return {TokenType::String, value, line_num, start_col};
+    std::string value(m_source.substr(m_start + 1, m_current - m_start - 2));
+    addToken(TokenType::STRING, value);
 }
 
-Token Lexer::parseNumber()
-{
-  int start_col = column_num;
-  size_t start_pos = position;
+void Lexer::number() {
+    while (isdigit(peek())) advance();
 
-  if (inputStr[position] == '-')
-  {
-    position++;
-    column_num++;
-  }
+    if (peek() == '.' && isdigit(peekNext())) {
+        advance();  // Consume the "."
+        while (isdigit(peek())) advance();
+    }
 
-  while (position < inputStr.length() &&
-         (isdigit(inputStr[position]) || inputStr[position] == '.'))
-  {
-    position++;
-    column_num++;
-  }
-  std::string value = inputStr.substr(start_pos, position - start_pos);
-  return {TokenType::Number, value, line_num, start_col};
+    addToken(TokenType::NUMBER, std::stod(std::string(m_source.substr(m_start, m_current - m_start))));
 }
 
-Token Lexer::parseIdentifier()
-{
-  int start_col = column_num;
-  size_t start_pos = position;
-  while (position < inputStr.length() &&
-         (isalnum(inputStr[position]) || inputStr[position] == '_' ||
-          inputStr[position] == '.'))
-  {
-    position++;
-    column_num++;
-  }
-  std::string value = inputStr.substr(start_pos, position - start_pos);
+void Lexer::identifier() {
+    while (isalnum(peek()) || peek() == '_' || peek() == '#') advance();
 
-  if (value == "true" || value == "false")
-  {
-    return {TokenType::Boolean, value, line_num, start_col};
-  }
+    std::string_view text = m_source.substr(m_start, m_current - m_start);
 
-  return {TokenType::Identifier, value, line_num, start_col};
+    if (text == "true") {
+        addToken(TokenType::TRUE, true);
+    } else if (text == "false") {
+        addToken(TokenType::FALSE, false);
+    } else {
+        addToken(TokenType::IDENTIFIER, std::string(text));
+    }
 }
-} // namespace YINI
+}  // namespace YINI

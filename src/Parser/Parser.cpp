@@ -1,796 +1,315 @@
-#include "YINI/Parser.hpp"
-#include "YINI/YiniException.hpp"
-#include "YINI/fs_compat.hpp"
-#include <algorithm>
-#include <cctype>
-#include <fstream>
+#include "Parser.h"
+
 #include <stdexcept>
-#include <streambuf>
-#include <variant>
 
-static std::string read_file_content_internal(const std::string &path)
-{
-  std::ifstream t(path);
-  if (!t.is_open())
-  {
-    return "";
-  }
-  return std::string((std::istreambuf_iterator<char>(t)),
-                     std::istreambuf_iterator<char>());
+#include "Core/YiniException.h"
+
+namespace YINI {
+Parser::Parser(std::vector<Token> tokens) : m_tokens(std::move(tokens)) {}
+
+std::vector<std::unique_ptr<Stmt>> Parser::parse() {
+    std::vector<std::unique_ptr<Stmt>> statements;
+    while (!isAtEnd()) {
+        statements.push_back(declaration());
+    }
+    return statements;
 }
 
-namespace
-{ // Anonymous namespace for helpers
-
-bool is_numeric(const YINI::YiniValue &val)
-{
-  return std::holds_alternative<int>(val.data) ||
-         std::holds_alternative<double>(val.data);
-}
-
-YINI::YiniValue apply_op(const YINI::YiniValue &left,
-                         const YINI::YiniValue &right, YINI::TokenType op)
-{
-  if (!is_numeric(left) || !is_numeric(right))
-    return {};
-
-  YINI::YiniValue result;
-  bool use_double = std::holds_alternative<double>(left.data) ||
-                    std::holds_alternative<double>(right.data);
-
-  double left_d = std::holds_alternative<int>(left.data)
-                      ? static_cast<double>(std::get<int>(left.data))
-                      : std::get<double>(left.data);
-  double right_d = std::holds_alternative<int>(right.data)
-                       ? static_cast<double>(std::get<int>(right.data))
-                       : std::get<double>(right.data);
-
-  if (use_double)
-  {
-    switch (op)
-    {
-    case YINI::TokenType::Plus:
-      result.data = left_d + right_d;
-      break;
-    case YINI::TokenType::Minus:
-      result.data = left_d - right_d;
-      break;
-    case YINI::TokenType::Star:
-      result.data = left_d * right_d;
-      break;
-    case YINI::TokenType::Slash:
-      result.data = right_d != 0 ? left_d / right_d : 0.0;
-      break;
-    default:
-      break;
-    }
-  }
-  else
-  {
-    int left_i = std::get<int>(left.data);
-    int right_i = std::get<int>(right.data);
-    switch (op)
-    {
-    case YINI::TokenType::Plus:
-      result.data = left_i + right_i;
-      break;
-    case YINI::TokenType::Minus:
-      result.data = left_i - right_i;
-      break;
-    case YINI::TokenType::Star:
-      result.data = left_i * right_i;
-      break;
-    case YINI::TokenType::Slash:
-      result.data = right_i != 0 ? left_i / right_i : 0;
-      break;
-    case YINI::TokenType::Percent:
-      result.data = right_i != 0 ? left_i % right_i : 0;
-      break;
-    default:
-      break;
-    }
-  }
-  return result;
-}
-
-} // end anonymous namespace
-
-namespace YINI
-{
-Parser::Parser(const std::string &content, YiniDocument &document,
-               const std::string &basePath)
-    : lexer(content), document(document), basePath(basePath)
-{
-  nextToken();
-}
-
-void Parser::nextToken() { currentToken = lexer.getNextToken(); }
-
-void Parser::parse()
-{
-  while (currentToken.type != TokenType::Eof)
-  {
-    if (currentToken.type == TokenType::LeftBracket)
-    {
-      parseSection();
-    }
-    else
-    {
-      if (currentToken.type != TokenType::Eof)
-      {
-        throw YiniException("Unexpected token at root level.",
-                            currentToken.line, currentToken.column);
-      }
-      nextToken();
-    }
-  }
-}
-
-void Parser::parseSection()
-{
-  nextToken();
-
-  bool is_define_section = false;
-  bool is_include_section = false;
-
-  if (currentToken.type == TokenType::Hash)
-  {
-    nextToken();
-    if (currentToken.type == TokenType::Identifier &&
-        currentToken.value == "define")
-    {
-      is_define_section = true;
-      nextToken();
-    }
-    else if (currentToken.type == TokenType::Identifier &&
-             currentToken.value == "include")
-    {
-      is_include_section = true;
-      nextToken();
-    }
-  }
-
-  if (is_define_section)
-  {
-    if (currentToken.type != TokenType::RightBracket)
-    {
-      throw YiniException("Expected ']' to close #define directive.",
-                          currentToken.line, currentToken.column);
-    }
-    nextToken();
-    while (currentToken.type != TokenType::LeftBracket &&
-           currentToken.type != TokenType::Eof)
-    {
-      if (currentToken.type == TokenType::Identifier)
-      {
-        std::string key = currentToken.value;
-        nextToken();
-        if (currentToken.type == TokenType::Equals)
-        {
-          nextToken();
-          document.addDefine(key, parseValue());
+std::unique_ptr<Stmt> Parser::declaration() {
+    if (check(TokenType::LEFT_BRACKET) && m_tokens[m_current + 1].type == TokenType::IDENTIFIER) {
+        if (m_tokens[m_current + 1].lexeme == "#define") {
+            return defineSection();
         }
-        else
-        {
-          nextToken();
+        if (m_tokens[m_current + 1].lexeme == "#include") {
+            return includeSection();
         }
-      }
-      else
-      {
-        nextToken();
-      }
-    }
-  }
-  else if (is_include_section)
-  {
-    if (currentToken.type != TokenType::RightBracket)
-    {
-      throw YiniException("Expected ']' to close #include directive.",
-                          currentToken.line, currentToken.column);
-    }
-    nextToken();
-    while (currentToken.type != TokenType::LeftBracket &&
-           currentToken.type != TokenType::Eof)
-    {
-      if (currentToken.type == TokenType::PlusEquals)
-      {
-        nextToken();
-        if (currentToken.type == TokenType::Identifier)
-        {
-          std::string file_to_include = currentToken.value;
-
-          fs::path path_base(basePath);
-          fs::path combined_path = path_base / file_to_include;
-          fs::path path_full = combined_path.lexically_normal();
-
-          std::string included_content =
-              read_file_content_internal(path_full.string());
-          if (!included_content.empty())
-          {
-            fs::path new_base = path_full.parent_path();
-            Parser sub_parser(included_content, document, new_base.string());
-            sub_parser.parse();
-          }
-          nextToken();
+        if (m_tokens[m_current + 1].lexeme == "#schema") {
+            return schemaSection();
         }
-        else
-        {
-          nextToken();
+    }
+    return section();
+}
+
+std::unique_ptr<Stmt> Parser::includeSection() {
+    consume(TokenType::LEFT_BRACKET, "Expect '[' before #include.");
+    consume(TokenType::IDENTIFIER, "Expect #include keyword.");
+    consume(TokenType::RIGHT_BRACKET, "Expect ']' after #include.");
+
+    std::vector<std::unique_ptr<Expr>> files;
+    while (match({TokenType::PLUS_EQUAL})) {
+        files.push_back(expression());
+    }
+
+    if (!check(TokenType::LEFT_BRACKET) && !isAtEnd()) {
+        const Token& token = peek();
+        throw ParsingError("Only '+=' statements are allowed inside an [#include] block.", token.line, token.column,
+                           token.filepath);
+    }
+
+    return std::make_unique<Include>(std::move(files));
+}
+
+std::unique_ptr<Stmt> Parser::defineSection() {
+    consume(TokenType::LEFT_BRACKET, "Expect '[' before #define.");
+    consume(TokenType::IDENTIFIER, "Expect #define keyword.");
+    consume(TokenType::RIGHT_BRACKET, "Expect ']' after #define.");
+
+    std::vector<std::unique_ptr<KeyValue>> values;
+    while (!check(TokenType::LEFT_BRACKET) && !isAtEnd()) {
+        values.push_back(keyValue());
+    }
+
+    return std::make_unique<Define>(std::move(values));
+}
+
+std::unique_ptr<Stmt> Parser::schemaSection() {
+    consume(TokenType::LEFT_BRACKET, "Expect '[' before #schema.");
+    consume(TokenType::IDENTIFIER, "Expect #schema keyword.");
+    consume(TokenType::RIGHT_BRACKET, "Expect ']' after #schema.");
+
+    std::vector<std::unique_ptr<Section>> sections;
+    while (!isAtEnd() && peek().type == TokenType::LEFT_BRACKET) {
+        // Stop parsing schema sections if we find the #end_schema block
+        if (static_cast<size_t>(m_current + 1) < m_tokens.size() &&
+            m_tokens[static_cast<size_t>(m_current + 1)].type == TokenType::IDENTIFIER &&
+            m_tokens[static_cast<size_t>(m_current + 1)].lexeme == "#end_schema") {
+            break;
         }
-      }
-      else
-      {
-        nextToken();
-      }
-    }
-  }
-  else
-  {
-    std::string section_name_val;
-    if (currentToken.type == TokenType::Identifier)
-    {
-      section_name_val = currentToken.value;
-      nextToken();
-    }
-    else
-    {
-      throw YiniException("Invalid section name.", currentToken.line,
-                          currentToken.column);
+        sections.push_back(section());
     }
 
-    YiniSection *section = document.getOrCreateSection(section_name_val);
+    // Consume the closing [#end_schema] block
+    consume(TokenType::LEFT_BRACKET, "Expect '[' before #end_schema.");
+    consume(TokenType::IDENTIFIER, "Expect #end_schema keyword.");
+    consume(TokenType::RIGHT_BRACKET, "Expect ']' after #end_schema.");
 
-    if (currentToken.type == TokenType::Colon)
-    {
-      nextToken();
-      while (currentToken.type == TokenType::Identifier)
-      {
-        section->inheritedSections.push_back(currentToken.value);
-        nextToken();
-        if (currentToken.type == TokenType::Comma)
-        {
-          nextToken();
+    return std::make_unique<Schema>(std::move(sections));
+}
+
+std::unique_ptr<Section> Parser::section() {
+    consume(TokenType::LEFT_BRACKET, "Expect '[' before section name.");
+    Token name = consume(TokenType::IDENTIFIER, "Expect section name.");
+    consume(TokenType::RIGHT_BRACKET, "Expect ']' after section name.");
+
+    std::vector<Token> parents;
+    if (match({TokenType::COLON})) {
+        do {
+            parents.push_back(consume(TokenType::IDENTIFIER, "Expect parent section name."));
+        } while (match({TokenType::COMMA}));
+    }
+
+    std::vector<std::unique_ptr<Stmt>> statements;
+    while (!check(TokenType::LEFT_BRACKET) && !isAtEnd()) {
+        statements.push_back(statement());
+    }
+
+    return std::make_unique<Section>(name, std::move(parents), std::move(statements));
+}
+
+std::unique_ptr<Stmt> Parser::statement() {
+    // Look ahead to distinguish between `key = value` and `key += value`
+    if (check(TokenType::IDENTIFIER) && static_cast<size_t>(m_current + 1) < m_tokens.size() &&
+        m_tokens[static_cast<size_t>(m_current + 1)].type == TokenType::PLUS_EQUAL) {
+        return registration();
+    }
+    // Key-less registration for include blocks
+    if (peek().type == TokenType::PLUS_EQUAL) {
+        consume(TokenType::PLUS_EQUAL, "Expect '+=' for registration.");
+        std::unique_ptr<Expr> value = expression();
+        // This is a special case for includes, it doesn't have a key token.
+        // We pass an empty token, which should be handled by the interpreter.
+        return std::make_unique<Register>(Token{}, std::move(value));
+    }
+    return keyValue();
+}
+
+std::unique_ptr<Stmt> Parser::registration() {
+    Token key = consume(TokenType::IDENTIFIER, "Expect key for registration.");
+    consume(TokenType::PLUS_EQUAL, "Expect '+=' for registration.");
+    std::unique_ptr<Expr> value = expression();
+    return std::make_unique<Register>(key, std::move(value));
+}
+
+std::unique_ptr<KeyValue> Parser::keyValue() {
+    Token key = consume(TokenType::IDENTIFIER, "Expect key.");
+    consume(TokenType::EQUAL, "Expect '=' after key.");
+    Token valueStartToken = peek();
+    std::unique_ptr<Expr> value = expression();
+    auto kv = std::make_unique<KeyValue>(key, std::move(value));
+    kv->value_line = valueStartToken.line;
+    kv->value_column = valueStartToken.column;
+    return kv;
+}
+
+std::unique_ptr<Expr> Parser::expression() { return term(); }
+
+std::unique_ptr<Expr> Parser::term() {
+    std::unique_ptr<Expr> expr = factor();
+    while (match({TokenType::MINUS, TokenType::PLUS})) {
+        Token op = previous();
+        std::unique_ptr<Expr> right = factor();
+        expr = std::make_unique<Binary>(std::move(expr), op, std::move(right));
+    }
+    return expr;
+}
+
+std::unique_ptr<Expr> Parser::factor() {
+    std::unique_ptr<Expr> expr = unary();
+    while (match({TokenType::SLASH, TokenType::STAR, TokenType::PERCENT})) {
+        Token op = previous();
+        std::unique_ptr<Expr> right = unary();
+        expr = std::make_unique<Binary>(std::move(expr), op, std::move(right));
+    }
+    return expr;
+}
+
+std::unique_ptr<Expr> Parser::unary() {
+    if (match({TokenType::MINUS})) {
+        Token op = previous();
+        std::unique_ptr<Expr> right = unary();
+        return std::make_unique<Unary>(op, std::move(right));
+    }
+    return call();
+}
+
+std::unique_ptr<Expr> Parser::call() {
+    std::unique_ptr<Expr> expr = primary();
+
+    while (match({TokenType::LEFT_PAREN})) {
+        std::vector<std::unique_ptr<Expr>> arguments;
+        if (!check(TokenType::RIGHT_PAREN)) {
+            do {
+                arguments.push_back(expression());
+            } while (match({TokenType::COMMA}));
         }
-        else
-        {
-          break;
+        Token paren = consume(TokenType::RIGHT_PAREN, "Expect ')' after arguments.");
+        expr = std::make_unique<Call>(std::move(expr), paren, std::move(arguments));
+    }
+
+    return expr;
+}
+
+std::unique_ptr<Expr> Parser::primary() {
+    if (match({TokenType::TRUE, TokenType::FALSE, TokenType::NUMBER, TokenType::STRING})) {
+        return std::make_unique<Literal>(previous().literal);
+    }
+    if (match({TokenType::DOLLAR_LEFT_BRACE})) return parse_env_variable();
+    if (match({TokenType::AT_LEFT_BRACE})) return parse_cross_reference();
+    if (match({TokenType::AT})) return parse_variable();
+    if (match({TokenType::IDENTIFIER})) {
+        return std::make_unique<Literal>(previous().literal);
+    }
+    if (match({TokenType::LEFT_PAREN})) return parse_grouping_or_set();
+    if (match({TokenType::LEFT_BRACKET})) return parse_array();
+    if (match({TokenType::LEFT_BRACE})) return parse_map();
+
+    const Token& token = peek();
+    throw ParsingError("Expect expression.", token.line, token.column, token.filepath);
+}
+
+std::unique_ptr<Expr> Parser::parse_env_variable() {
+    Token name = consume(TokenType::IDENTIFIER, "Expect environment variable name.");
+    std::unique_ptr<Expr> defaultValue = nullptr;
+    if (match({TokenType::COLON})) {
+        defaultValue = expression();
+    }
+    consume(TokenType::RIGHT_BRACE, "Expect '}' after environment variable.");
+    return std::make_unique<EnvVariable>(name, std::move(defaultValue));
+}
+
+std::unique_ptr<Expr> Parser::parse_cross_reference() {
+    Token section = consume(TokenType::IDENTIFIER, "Expect section name in cross-reference.");
+    consume(TokenType::DOT, "Expect '.' between section and key.");
+    Token key = consume(TokenType::IDENTIFIER, "Expect key name in cross-reference.");
+    consume(TokenType::RIGHT_BRACE, "Expect '}' after cross-reference.");
+    return std::make_unique<XRef>(section, key);
+}
+
+std::unique_ptr<Expr> Parser::parse_variable() {
+    Token name = consume(TokenType::IDENTIFIER, "Expect variable name after '@'.");
+    return std::make_unique<Variable>(name);
+}
+
+std::unique_ptr<Expr> Parser::parse_grouping_or_set() {
+    if (match({TokenType::RIGHT_PAREN})) {  // Empty set: ()
+        return std::make_unique<Set>(std::vector<std::unique_ptr<Expr>>{});
+    }
+
+    auto firstExpr = expression();
+
+    if (match({TokenType::COMMA})) {  // It's a set
+        std::vector<std::unique_ptr<Expr>> elements;
+        elements.push_back(std::move(firstExpr));
+
+        if (!check(TokenType::RIGHT_PAREN)) {  // Handles trailing comma for single-element set
+            do {
+                elements.push_back(expression());
+            } while (match({TokenType::COMMA}));
         }
-      }
+        consume(TokenType::RIGHT_PAREN, "Expect ')' after set elements.");
+        return std::make_unique<Set>(std::move(elements));
     }
 
-    if (currentToken.type != TokenType::RightBracket)
-    {
-      throw YiniException("Expected ']' to close section header.",
-                          currentToken.line, currentToken.column);
-    }
-    nextToken();
-
-    while (currentToken.type != TokenType::LeftBracket &&
-           currentToken.type != TokenType::Eof)
-    {
-      if (currentToken.type == TokenType::Identifier)
-      {
-        parseKeyValuePair(*section);
-      }
-      else if (currentToken.type == TokenType::PlusEquals)
-      {
-        parseQuickRegistration(*section);
-      }
-      else
-      {
-        nextToken();
-      }
-    }
-  }
+    consume(TokenType::RIGHT_PAREN, "Expect ')' after expression.");
+    return std::make_unique<Grouping>(std::move(firstExpr));
 }
 
-void Parser::parseKeyValuePair(YiniSection &section)
-{
-  YiniKeyValuePair pair;
-  pair.key = currentToken.value;
-  nextToken();
-
-  if (currentToken.type == TokenType::Equals)
-  {
-    nextToken();
-    pair.value = parseValue();
-
-    auto it = std::find_if(section.pairs.begin(), section.pairs.end(),
-                           [&](const YiniKeyValuePair &p)
-                           { return p.key == pair.key; });
-
-    if (it != section.pairs.end())
-    {
-      it->value = pair.value;
+std::unique_ptr<Expr> Parser::parse_array() {
+    std::vector<std::unique_ptr<Expr>> elements;
+    if (!check(TokenType::RIGHT_BRACKET)) {
+        do {
+            elements.push_back(expression());
+        } while (match({TokenType::COMMA}));
     }
-    else
-    {
-      section.pairs.push_back(std::move(pair));
-    }
-  }
+    consume(TokenType::RIGHT_BRACKET, "Expect ']' after array elements.");
+    return std::make_unique<Array>(std::move(elements));
 }
 
-void Parser::parseQuickRegistration(YiniSection &section)
-{
-  nextToken();
-  section.registrationList.push_back(parseValue());
+std::unique_ptr<Expr> Parser::parse_map() {
+    Token brace = previous();
+    std::vector<std::pair<std::unique_ptr<Expr>, std::unique_ptr<Expr>>> pairs;
+    if (!check(TokenType::RIGHT_BRACE)) {
+        do {
+            std::unique_ptr<Expr> key = expression();
+            consume(TokenType::COLON, "Expect ':' after map key.");
+            std::unique_ptr<Expr> value = expression();
+            pairs.push_back(std::make_pair(std::move(key), std::move(value)));
+        } while (match({TokenType::COMMA}));
+    }
+    consume(TokenType::RIGHT_BRACE, "Expect '}' after map pairs.");
+    return std::make_unique<Map>(brace, std::move(pairs));
 }
 
-YiniValue Parser::parseValue()
-{
-  YiniValue val;
-  switch (currentToken.type)
-  {
-  case TokenType::String:
-    val.data = currentToken.value;
-    nextToken();
-    return val;
-  case TokenType::Boolean:
-    val.data = (currentToken.value == "true");
-    nextToken();
-    return val;
-  case TokenType::LeftBracket:
-    val.data = parseArray();
-    return val;
-  case TokenType::LeftBrace:
-    val.data = parseMap();
-    return val;
-  case TokenType::HexColor:
-    val.data = parseColor();
-    return val;
-  case TokenType::Identifier:
-  {
-    std::string id_val = currentToken.value;
-    std::transform(id_val.begin(), id_val.end(), id_val.begin(),
-                   [](unsigned char c) { return std::tolower(c); });
-
-    if (id_val == "dyna")
-    {
-      nextToken();
-      if (currentToken.type != TokenType::LeftParen)
-        throw YiniException("Expected '(' after Dyna.", currentToken.line,
-                            currentToken.column);
-      nextToken();
-      auto dyna_val = std::make_unique<YiniDynaValue>();
-      dyna_val->value = parseValue();
-      if (currentToken.type != TokenType::RightParen)
-        throw YiniException("Expected ')' to close Dyna expression.",
-                            currentToken.line, currentToken.column);
-      nextToken();
-      val.data = std::move(dyna_val);
-      return val;
+bool Parser::match(const std::vector<TokenType>& types) {
+    for (TokenType type : types) {
+        if (check(type)) {
+            advance();
+            return true;
+        }
     }
-    if (id_val == "array")
-    {
-      val.data = parseArrayFromFunction();
-      return val;
-    }
-    if (id_val == "coord")
-    {
-      val.data = parseCoord();
-      return val;
-    }
-    if (id_val == "list")
-    {
-      val.data = parseList();
-      return val;
-    }
-    if (id_val == "set")
-    {
-      val.data = parseSet();
-      return val;
-    }
-    if (id_val == "color")
-    {
-      val.data = parseColor();
-      return val;
-    }
-    if (id_val == "path")
-    {
-      val.data = parsePath();
-      return val;
-    }
-  }
-  case TokenType::Number:
-  case TokenType::At:
-  case TokenType::LeftParen:
-  case TokenType::Minus:
-    return parseExpression();
-  default:
-    throw YiniException("Unexpected token when parsing value.",
-                        currentToken.line, currentToken.column);
-  }
+    return false;
 }
 
-YiniValue Parser::parseFactor()
-{
-  YiniValue result;
-  switch (currentToken.type)
-  {
-  case TokenType::Number:
-    if (currentToken.value.find('.') != std::string::npos)
-      result.data = std::stod(currentToken.value);
-    else
-      result.data = std::stoi(currentToken.value);
-    nextToken();
-    break;
-  case TokenType::LeftParen:
-    nextToken();
-    result = parseExpression();
-    if (currentToken.type != TokenType::RightParen)
-      throw YiniException("Expected ')' to close expression.",
-                          currentToken.line, currentToken.column);
-    nextToken();
-    break;
-  case TokenType::At:
-    nextToken();
-    if (currentToken.type == TokenType::Identifier)
-    {
-      if (!document.getDefine(currentToken.value, result))
-      {
-        throw YiniException("Undefined macro: " + currentToken.value,
-                            currentToken.line, currentToken.column);
-      }
-      nextToken();
-    }
-    break;
-  case TokenType::Minus:
-    nextToken();
-    result = parseFactor();
-    if (is_numeric(result))
-    {
-      if (std::holds_alternative<double>(result.data))
-        result.data = -std::get<double>(result.data);
-      else
-        result.data = -std::get<int>(result.data);
-    }
-    break;
-  default:
-    nextToken();
-    break;
-  }
-  return result;
+Token Parser::consume(TokenType type, const std::string& message) {
+    if (check(type)) return advance();
+    const Token& token = peek();
+    std::string error_message = message + " But got '" + token.lexeme + "' instead.";
+    throw ParsingError(error_message, token.line, token.column, token.filepath);
 }
 
-YiniValue Parser::parseTerm()
-{
-  YiniValue result = parseFactor();
-  while (currentToken.type == TokenType::Star ||
-         currentToken.type == TokenType::Slash ||
-         currentToken.type == TokenType::Percent)
-  {
-    Token op = currentToken;
-    nextToken();
-    YiniValue right = parseFactor();
-    result = apply_op(result, right, op.type);
-  }
-  return result;
+bool Parser::check(TokenType type) {
+    if (isAtEnd()) return false;
+    return peek().type == type;
 }
 
-YiniValue Parser::parseExpression()
-{
-  YiniValue result = parseTerm();
-  while (currentToken.type == TokenType::Plus ||
-         currentToken.type == TokenType::Minus)
-  {
-    Token op = currentToken;
-    nextToken();
-    YiniValue right = parseTerm();
-    result = apply_op(result, right, op.type);
-  }
-  return result;
+Token Parser::advance() {
+    if (!isAtEnd()) m_current++;
+    return previous();
 }
 
-std::unique_ptr<YiniArray> Parser::parseArray()
-{
-  auto arr = std::make_unique<YiniArray>();
-  nextToken();
+bool Parser::isAtEnd() { return peek().type == TokenType::END_OF_FILE; }
 
-  while (currentToken.type != TokenType::RightBracket &&
-         currentToken.type != TokenType::Eof)
-  {
-    arr->elements.push_back(parseValue());
+Token Parser::peek() { return m_tokens[m_current]; }
 
-    if (currentToken.type == TokenType::Comma)
-    {
-      nextToken();
-    }
-  }
-
-  if (currentToken.type != TokenType::RightBracket)
-  {
-    throw YiniException("Expected ']' to close array.", currentToken.line,
-                        currentToken.column);
-  }
-  nextToken();
-  return arr;
-}
-
-std::unique_ptr<YiniList> Parser::parseList()
-{
-  nextToken(); // consume 'List'
-  if (currentToken.type != TokenType::LeftParen)
-    throw YiniException("Expected '(' after List.", currentToken.line,
-                        currentToken.column);
-  nextToken(); // consume '('
-
-  auto list = std::make_unique<YiniList>();
-
-  while (currentToken.type != TokenType::RightParen &&
-         currentToken.type != TokenType::Eof)
-  {
-    list->elements.push_back(parseValue());
-
-    if (currentToken.type == TokenType::Comma)
-    {
-      nextToken();
-    }
-  }
-
-  if (currentToken.type != TokenType::RightParen)
-  {
-    throw YiniException("Expected ')' to close list.", currentToken.line,
-                        currentToken.column);
-  }
-  nextToken(); // consume ')'
-  return list;
-}
-
-std::unique_ptr<YiniArray> Parser::parseArrayFromFunction()
-{
-  nextToken(); // consume 'Array'
-  if (currentToken.type != TokenType::LeftParen)
-    throw YiniException("Expected '(' after Array.", currentToken.line,
-                        currentToken.column);
-  nextToken(); // consume '('
-
-  auto arr = std::make_unique<YiniArray>();
-
-  while (currentToken.type != TokenType::RightParen &&
-         currentToken.type != TokenType::Eof)
-  {
-    arr->elements.push_back(parseValue());
-
-    if (currentToken.type == TokenType::Comma)
-    {
-      nextToken();
-    }
-  }
-
-  if (currentToken.type != TokenType::RightParen)
-  {
-    throw YiniException("Expected ')' to close Array expression.", currentToken.line,
-                        currentToken.column);
-  }
-  nextToken(); // consume ')'
-  return arr;
-}
-
-std::unique_ptr<YiniSet> Parser::parseSet()
-{
-  nextToken(); // consume 'Set'
-  if (currentToken.type != TokenType::LeftParen)
-    throw YiniException("Expected '(' after Set.", currentToken.line,
-                        currentToken.column);
-  nextToken(); // consume '('
-
-  auto set = std::make_unique<YiniSet>();
-
-  while (currentToken.type != TokenType::RightParen &&
-         currentToken.type != TokenType::Eof)
-  {
-    YiniValue val = parseValue();
-
-    // Check for duplicates using the comprehensive operator==
-    auto it = std::find_if(set->elements.begin(), set->elements.end(),
-                           [&](const YiniValue &elem) { return elem == val; });
-
-    if (it == set->elements.end())
-    {
-      set->elements.push_back(std::move(val));
-    }
-
-    if (currentToken.type == TokenType::Comma)
-    {
-      nextToken();
-    }
-  }
-
-  if (currentToken.type != TokenType::RightParen)
-  {
-    throw YiniException("Expected ')' to close Set expression.",
-                        currentToken.line, currentToken.column);
-  }
-  nextToken(); // consume ')'
-  return set;
-}
-
-std::unique_ptr<YiniMap> Parser::parseMap()
-{
-  auto map = std::make_unique<YiniMap>();
-  nextToken(); // consume '{'
-
-  while (currentToken.type != TokenType::RightBrace &&
-         currentToken.type != TokenType::Eof)
-  {
-    // Key (must be a string or identifier)
-    if (currentToken.type != TokenType::String &&
-        currentToken.type != TokenType::Identifier)
-    {
-      throw YiniException("Expected a string or identifier as a map key.",
-                          currentToken.line, currentToken.column);
-    }
-    std::string key = currentToken.value;
-    nextToken();
-
-    // Colon
-    if (currentToken.type != TokenType::Colon)
-    {
-      throw YiniException("Expected ':' after map key.", currentToken.line,
-                          currentToken.column);
-    }
-    nextToken();
-
-    // Value
-    map->elements[key] = parseValue();
-
-    // Comma or closing brace
-    if (currentToken.type == TokenType::Comma)
-    {
-      nextToken();
-    }
-    else if (currentToken.type != TokenType::RightBrace)
-    {
-      throw YiniException("Expected ',' or '}' in map.", currentToken.line,
-                          currentToken.column);
-    }
-  }
-
-  if (currentToken.type != TokenType::RightBrace)
-  {
-    throw YiniException("Expected '}' to close map.", currentToken.line,
-                        currentToken.column);
-  }
-  nextToken(); // consume '}'
-  return map;
-}
-
-std::unique_ptr<YiniCoord> Parser::parseCoord()
-{
-  nextToken(); // consume 'Coord'
-  if (currentToken.type != TokenType::LeftParen)
-    throw YiniException("Expected '(' after Coord.", currentToken.line,
-                        currentToken.column);
-  nextToken(); // consume '('
-
-  auto coord = std::make_unique<YiniCoord>();
-
-  YiniValue x_val = parseExpression();
-  if (std::holds_alternative<int>(x_val.data))
-    coord->x = std::get<int>(x_val.data);
-  else if (std::holds_alternative<double>(x_val.data))
-    coord->x = std::get<double>(x_val.data);
-  else
-    throw YiniException("Coord parameters must be numeric.",
-                        currentToken.line, currentToken.column);
-
-  if (currentToken.type != TokenType::Comma)
-    throw YiniException("Expected ',' in Coord.", currentToken.line,
-                        currentToken.column);
-  nextToken();
-  YiniValue y_val = parseExpression();
-  if (std::holds_alternative<int>(y_val.data))
-    coord->y = std::get<int>(y_val.data);
-  else if (std::holds_alternative<double>(y_val.data))
-    coord->y = std::get<double>(y_val.data);
-  else
-    throw YiniException("Coord parameters must be numeric.",
-                        currentToken.line, currentToken.column);
-
-  if (currentToken.type == TokenType::Comma)
-  {
-    nextToken();
-    YiniValue z_val = parseExpression();
-    if (std::holds_alternative<int>(z_val.data))
-      coord->z = std::get<int>(z_val.data);
-    else if (std::holds_alternative<double>(z_val.data))
-      coord->z = std::get<double>(z_val.data);
-    else
-      throw YiniException("Coord parameters must be numeric.",
-                          currentToken.line, currentToken.column);
-    coord->is_3d = true;
-  }
-  else
-  {
-    coord->z = 0;
-    coord->is_3d = false;
-  }
-
-  if (currentToken.type != TokenType::RightParen)
-    throw YiniException("Expected ')' to close Coord expression.",
-                        currentToken.line, currentToken.column);
-  nextToken();
-  return coord;
-}
-
-std::unique_ptr<YiniColor> Parser::parseColor()
-{
-  if (currentToken.type == TokenType::HexColor)
-  {
-    auto color = std::make_unique<YiniColor>();
-    unsigned int r, g, b;
-    sscanf(currentToken.value.c_str(), "%2x%2x%2x", &r, &g, &b);
-    color->r = r;
-    color->g = g;
-    color->b = b;
-    nextToken();
-    return color;
-  }
-
-  nextToken(); // consume 'Color'
-  if (currentToken.type != TokenType::LeftParen)
-    throw YiniException("Expected '(' after Color.", currentToken.line,
-                        currentToken.column);
-  nextToken(); // consume '('
-
-  auto color = std::make_unique<YiniColor>();
-
-  YiniValue r_val = parseExpression();
-  if (!std::holds_alternative<int>(r_val.data))
-    throw YiniException("Color parameters must be integers.",
-                        currentToken.line, currentToken.column);
-  color->r = std::get<int>(r_val.data);
-
-  if (currentToken.type != TokenType::Comma)
-    throw YiniException("Expected ',' in Color.", currentToken.line,
-                        currentToken.column);
-  nextToken();
-  YiniValue g_val = parseExpression();
-  if (!std::holds_alternative<int>(g_val.data))
-    throw YiniException("Color parameters must be integers.",
-                        currentToken.line, currentToken.column);
-  color->g = std::get<int>(g_val.data);
-
-  if (currentToken.type != TokenType::Comma)
-    throw YiniException("Expected ',' in Color.", currentToken.line,
-                        currentToken.column);
-  nextToken();
-  YiniValue b_val = parseExpression();
-  if (!std::holds_alternative<int>(b_val.data))
-    throw YiniException("Color parameters must be integers.",
-                        currentToken.line, currentToken.column);
-  color->b = std::get<int>(b_val.data);
-
-  if (currentToken.type != TokenType::RightParen)
-    throw YiniException("Expected ')' to close Color expression.",
-                        currentToken.line, currentToken.column);
-  nextToken();
-  return color;
-}
-
-std::unique_ptr<YiniPath> Parser::parsePath()
-{
-  nextToken(); // consume 'Path'
-  if (currentToken.type != TokenType::LeftParen)
-    throw YiniException("Expected '(' after Path.", currentToken.line,
-                        currentToken.column);
-  nextToken(); // consume '('
-
-  auto path = std::make_unique<YiniPath>();
-
-  std::string path_str;
-  while (currentToken.type != TokenType::RightParen &&
-         currentToken.type != TokenType::Eof)
-  {
-    path_str += currentToken.value;
-    nextToken();
-  }
-  path->pathValue = path_str;
-
-  if (currentToken.type != TokenType::RightParen)
-    throw YiniException("Expected ')' to close Path expression.",
-                        currentToken.line, currentToken.column);
-  nextToken();
-  return path;
-}
-} // namespace YINI
+Token Parser::previous() { return m_tokens[m_current - 1]; }
+}  // namespace YINI

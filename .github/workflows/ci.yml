@@ -1,57 +1,84 @@
-name: C++ CI
+name: YINI CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [ "main", "master" ]
   pull_request:
-    branches: [ main ]
+    branches: [ "main", "master" ]
 
 jobs:
-  build-and-test:
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+  format-check:
+    name: Format Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    runs-on: ${{ matrix.os }}
+      - name: Install clang-format
+        run: sudo apt-get update && sudo apt-get install -y clang-format
+
+      - name: Check C++ Formatting
+        run: |
+          find src tests -iname *.h -o -iname *.cpp | xargs clang-format --dry-run -Werror
+
+      - name: Set up .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Check C# Formatting
+        run: dotnet format --verify-no-changes
+
+  build-and-test:
+    runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    - name: Install lcov (Linux only)
-      if: runner.os == 'Linux'
-      run: sudo apt-get update && sudo apt-get install -y lcov
+      - name: Set up .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
 
-    - name: Configure CMake
-      # We configure in Debug mode on Linux to enable coverage flags.
-      # Release mode is fine for other platforms.
-      run: |
-        if [ "${{ runner.os }}" == "Linux" ]; then
-          cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
-        else
-          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-        fi
+      - name: Make build script executable
+        run: chmod +x build.py
 
-    - name: Build project
-      run: cmake --build build
+      - name: Build and Test (Debug)
+        run: ./build.py test --config Debug
 
-    - name: Run tests
-      run: |
-        cd build
-        ctest --output-on-failure
+      - name: Clean build directory
+        run: ./build.py clean
 
-    - name: Generate coverage report (Linux only)
-      if: runner.os == 'Linux'
-      run: |
-        cd build
-        lcov --capture --directory . --output-file coverage.info
-        lcov --remove coverage.info '/usr/*' '*/_deps/*' '*/tests/*' --output-file coverage.info
-        lcov --list coverage.info
-        genhtml coverage.info --output-directory coverage_report
+      - name: Build and Test (Release)
+        run: ./build.py test --config Release
 
-    - name: Upload coverage report (Linux only)
-      if: runner.os == 'Linux'
-      uses: actions/upload-artifact@v3
-      with:
-        name: coverage-report-linux
-        path: build/coverage_report
+  coverage:
+    name: Code Coverage
+    runs-on: ubuntu-latest
+    needs: build-and-test
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Install coverage tools
+        run: sudo apt-get update && sudo apt-get install -y lcov
+
+      - name: Make build script executable
+        run: chmod +x build.py
+
+      - name: Run coverage analysis
+        run: ./build.py coverage
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }} # Set in repository secrets
+          directory: ./build/
+          fail_ci_if_error: true

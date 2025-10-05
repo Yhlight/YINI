@@ -1,0 +1,6 @@
+[#define]
+var2 = "from two"
+
+[Shared]
+key2 = 2
+key3 = "two"

@@ -1,83 +1,156 @@
-# YINI
-现代化的INI，使用于游戏开发
+# YINI - A Modern INI for Game Development
 
-## Getting Started
+YINI is a modern, feature-rich configuration file format based on the INI syntax, designed specifically for game development. It extends the traditional INI format with a variety of features, including section inheritance, dynamic values, and a rich set of data types, making it a powerful and flexible tool for managing complex game configurations.
 
-YINI is a modern, feature-rich configuration file format designed for game development. This repository contains the source code for the YINI C++ library and its command-line interface (CLI).
+YINI is built with C++17 for high performance and provides a seamless C# wrapper for use in .NET environments like Unity.
 
-For a detailed description of the YINI language features, please see `YINI.md`.
+## Features
 
-## Building the Project
+*   **High-Performance:** The core library is written in modern C++ for maximum performance, with a source-generated C# wrapper that avoids reflection overhead.
+*   **Rich Data Types:** Supports integers, floats, booleans, strings, arrays, maps, and more.
+*   **Dynamic Values & Non-Destructive Saving:** Define values that can be updated at runtime. Changes are saved back to the original file without destroying comments or formatting.
+*   **Section Inheritance:** Create complex configurations by inheriting and overriding values from other sections.
+*   **Macros and Variables:** Define and reuse values throughout your configuration files.
+*   **File Includes:** Split your configuration into multiple, manageable files.
+*   **Full IDE Support:** A dedicated VSCode extension provides syntax highlighting, real-time error diagnostics, and code completion.
 
-The project uses CMake for building. You will need a C++ compiler that supports C++17 (like GCC, Clang, or MSVC) and CMake (version 3.10 or higher).
+## Installation
 
-### Dependencies
+### C# / .NET (Recommended)
 
-The project has one external dependency for its test suite:
-- **Google Test**: CMake will automatically download and configure this dependency if it is not found on your system.
+The easiest way to use YINI in your .NET project is to install the official NuGet package.
 
-### Build Steps
+```bash
+dotnet add package Yini
+```
 
-1.  **Clone the repository:**
-    ```sh
-    git clone https://github.com/your-username/yini.git
-    cd yini
-    ```
+This package includes the native C++ library and the C# wrapper, with all dependencies automatically handled.
 
-2.  **Create and navigate to a build directory:**
-    ```sh
+### C++
+
+For C++ projects, it is recommended to use a package manager like `vcpkg`.
+
+```bash
+vcpkg install yini
+```
+
+You can then link to the library in your `CMakeLists.txt` file:
+```cmake
+find_package(Yini REQUIRED)
+target_link_libraries(your_target PRIVATE Yini::Yini)
+```
+
+## Building from Source
+
+If you wish to build the project from source, you will need the following dependencies:
+
+*   **CMake** (version 3.10 or higher)
+*   **.NET SDK** (version 8.0 or higher)
+*   A C++17 compatible compiler (e.g., GCC, Clang, MSVC)
+
+To run the C++ test suite, you will also need to have **Google Test** installed. On Debian-based systems, this can be installed via:
+```bash
+sudo apt-get install libgtest-dev
+```
+
+Once the dependencies are installed, you can use the provided build script:
+```bash
+# Build the project (Debug or Release)
+./build.py build --config Release
+
+# Run all tests
+./build.py test
+```
+
+## IDE Support (VSCode)
+
+YINI provides a full-featured Language Server and VSCode extension to enhance the development experience.
+
+### Features
+*   **Syntax Highlighting:** Full-color syntax highlighting for all `.yini` files.
+*   **Real-time Diagnostics:** Get instant feedback on syntax errors as you type.
+*   **Code Completion:** Get intelligent suggestions for macros.
+
+### Building and Installing the Extension
+
+1.  **Build the Project:** First, build the entire YINI project using the unified CMake build system. This will also compile the Language Server.
+    ```bash
     mkdir build
     cd build
-    ```
-
-3.  **Run CMake to configure the project:**
-    ```sh
     cmake ..
-    ```
-
-4.  **Compile the source code:**
-    ```sh
     cmake --build .
     ```
 
-This process will generate the following artifacts in the `build` directory:
-- `libYINI.a`: The static library.
-- `yini-cli`: The command-line interface executable.
-- `yini_tests`: The test suite runner.
+2.  **Install VSCode Extension Dependencies:**
+    ```bash
+    cd ../ide/VSIX
+    npm install
+    ```
 
-## Using the CLI
+3.  **Package the Extension:**
+    ```bash
+    # From the ide/VSIX directory
+    npx vsce package
+    ```
+    This will create a `yini-vscode-*.vsix` file.
 
-The `yini-cli` tool provides an interactive shell for working with `.yini` and `.ymeta` files.
+4.  **Install the Extension in VSCode:**
+    *   Open VSCode.
+    *   Go to the Extensions view (`Ctrl+Shift+X`).
+    *   Click the "..." menu in the top-right corner and select "Install from VSIX...".
+    *   Choose the `.vsix` file you just created.
 
-You can run it from the `build` directory:
-```sh
-./yini-cli
+## High-Performance Binding with Source Generation
+
+For C# projects, YINI provides a powerful source generator that creates high-performance, reflection-free binding code at compile time. To use it, simply annotate your class with the `[YiniBindable]` attribute.
+
+**YINI File (`player.yini`):**
+```yini
+[playerstats]
+name = Jules
+level = 99
+health = 125.5
+is_active = true
 ```
 
-### CLI Commands
+**C# Code:**
+```csharp
+// Add this attribute to enable source generation
+[YiniBindable]
+public partial class PlayerStats
+{
+    // Use the YiniKey attribute to map to snake_case keys
+    [YiniKey("name")]
+    public string Name { get; set; }
 
-The CLI supports the following commands:
+    [YiniKey("level")]
+    public int Level { get; set; }
 
--   `check <filepath>`: Checks the syntax of a `.yini` file and reports any errors.
-    ```
-    > check path/to/your/config.yini
-    Syntax OK: path/to/your/config.yini
-    ```
+    [YiniKey("health")]
+    public double Health { get; set; }
 
--   `compile <filepath>`: Compiles a `.yini` file into its binary `.ymeta` representation for faster loading in an application.
-    ```
-    > compile path/to/your/config.yini
-    Successfully compiled path/to/your/config.yini to .ymeta
-    ```
+    [YiniKey("is_active")]
+    public bool IsActive { get; set; }
+}
 
--   `decompile <filepath>`: Decompiles a `.ymeta` file back into a human-readable text format, printing the result to the console.
-    ```
-    > decompile path/to/your/config.ymeta
-    --- Decompilation of path/to/your/config.ymeta ---
-    ...
-    --- End of Decompilation ---
-    ```
+// ...
 
--   `help`: Shows the list of available commands.
+var manager = new YiniManager();
+manager.Load("player.yini");
 
--   `exit`: Exits the interactive CLI.
+var stats = new PlayerStats();
+// This method is generated at compile time and is extremely fast!
+stats.BindFromYini(manager, "playerstats");
+
+// The 'stats' object is now populated with the values from the file.
+```
+
+## Getting Started
+
+*   **[YINI Language Manual](YINI.md):** A comprehensive guide to the YINI language and its features.
+*   **[Building and Integrating YINI](docs/Building.md):** Instructions on how to build and integrate YINI from source.
+*   **[C# API Reference](docs/CSharpAPI.md):** Detailed documentation for the YINI C# API.
+
+## Contributing
+
+We welcome contributions to the YINI project! If you're interested in contributing, please check out our [contribution guidelines](CONTRIBUTING.md).

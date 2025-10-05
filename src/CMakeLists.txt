@@ -1,29 +1,47 @@
-add_library(yini SHARED
-    YiniData.cpp
+add_library(Yini
     Lexer/Lexer.cpp
     Parser/Parser.cpp
-    Yini.cpp
-    JsonSerializer.cpp
-    YiniManager.cpp
-    JsonDeserializer.cpp
-    YiniValueToString.cpp
+    Parser/AstPrinter.cpp
+    Interpreter/Environment.cpp
+    Interpreter/Interpreter.cpp
+    Core/YiniManager.cpp
+    Core/YiniValue.cpp
+    Core/DynaValue.cpp
+    Core/Serialization/Serializer.cpp
+    Core/Serialization/Deserializer.cpp
+    Core/Validator.cpp
+    Interop/YiniCApi.cpp
 )
 
-target_include_directories(yini PUBLIC ../include)
+target_include_directories(Yini
+    PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+        $<INSTALL_INTERFACE:include>
+)
 
-# Define YINI_EXPORTS when building the shared library
-target_compile_definitions(yini PRIVATE YINI_EXPORTS)
+target_sources(Yini
+    PUBLIC FILE_SET HEADERS
+    BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}
+    FILES
+        Core/DynaValue.h
+        Core/YiniException.h
+        Core/YiniManager.h
+        Core/YiniValue.h
+        Core/Validator.h
+        Interop/YiniCApi.h
+)
 
-target_link_libraries(yini PRIVATE nlohmann_json::nlohmann_json stdc++fs)
+target_compile_features(Yini PUBLIC cxx_std_17)
 
-# Add coverage flags for Debug builds on GCC/Clang
-if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-        target_compile_options(yini PRIVATE --coverage)
-        target_link_libraries(yini PRIVATE --coverage)
-    endif()
+set_target_properties(Yini PROPERTIES FOLDER "Libraries")
+
+option(YINI_BUILD_CLI "Build the YINI command-line interface" ON)
+
+if(YINI_BUILD_CLI)
+    add_executable(yini-cli CLI/main.cpp)
+    set_target_properties(yini-cli PROPERTIES FOLDER "Executables")
+    target_link_libraries(yini-cli PRIVATE Yini)
+    target_compile_features(yini-cli PRIVATE cxx_std_17)
+
+    install(TARGETS yini-cli DESTINATION ${CMAKE_INSTALL_BINDIR})
 endif()
-
-# Install the library and its public headers
-install(TARGETS yini DESTINATION lib)
-install(DIRECTORY ../include/YINI DESTINATION include)
