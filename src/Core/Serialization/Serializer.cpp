@@ -64,7 +64,7 @@ namespace YINI
             }
         };
 
-        void Serializer::serialize(const std::map<std::string, std::map<std::string, YiniValue>>& data, const std::string& filepath)
+        void Serializer::serialize(const std::map<std::string, std::map<std::string, YiniValue, std::less<>>, std::less<>>& data, const std::string& filepath)
         {
             std::ofstream out(filepath, std::ios::binary);
             if (!out) {

@@ -20,7 +20,7 @@ namespace YINI
             friend struct SerializeVisitor;
 
         public:
-            void serialize(const std::map<std::string, std::map<std::string, YiniValue>>& data, const std::string& filepath);
+            void serialize(const std::map<std::string, std::map<std::string, YiniValue, std::less<>>, std::less<>>& data, const std::string& filepath);
 
         private:
             void write_value(std::ofstream& out, const YiniValue& value);

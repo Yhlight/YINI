@@ -6,6 +6,7 @@
 #include <map>
 #include <set>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace YINI
@@ -24,8 +25,8 @@ namespace YINI
         std::string stringify(const YiniValue& value);
         std::vector<std::string> get_macro_names() const;
 
-        std::map<std::string, std::map<std::string, YiniValue>> resolved_sections;
-        std::map<std::string, std::map<std::string, ValueLocation>> value_locations;
+        std::map<std::string, std::map<std::string, YiniValue, std::less<>>, std::less<>> resolved_sections;
+        std::map<std::string, std::map<std::string, ValueLocation, std::less<>>, std::less<>> value_locations;
 
         // Statement visitor methods
         void visit(const KeyValue& stmt) override;
@@ -48,8 +49,8 @@ namespace YINI
         YiniValue visit(const EnvVariable& expr) override;
         YiniValue visit(const XRef& expr) override;
 
-        const std::map<std::string, std::map<std::string, const KeyValue*>>& get_kv_map() const { return m_kv_map; }
-        std::optional<Token> get_macro_definition_token(const std::string& name) const;
+        const auto& get_kv_map() const { return m_kv_map; }
+        std::optional<Token> get_macro_definition_token(std::string_view name) const;
 
     private:
         YiniValue evaluate(const Expr& expr);
@@ -57,13 +58,13 @@ namespace YINI
         void build_expression_map(const Section* section);
 
         Environment m_globals;
-        std::map<std::string, const Section*> m_sections;
+        std::map<std::string, const Section*, std::less<>> m_sections;
         std::set<std::string> m_resolved;
         std::set<std::string> m_resolving; // For cycle detection
 
         // New members for on-demand resolution
-        std::map<std::string, std::map<std::string, const Expr*>> m_expression_map;
-        std::map<std::string, std::map<std::string, const KeyValue*>> m_kv_map; // For error reporting
+        std::map<std::string, std::map<std::string, const Expr*, std::less<>>, std::less<>> m_expression_map;
+        std::map<std::string, std::map<std::string, const KeyValue*, std::less<>>, std::less<>> m_kv_map; // For error reporting
         std::set<std::string> m_currently_resolving_values; // For cycle detection
         std::string m_current_section_name;
     };

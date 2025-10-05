@@ -7,21 +7,21 @@ namespace YINI
 {
     namespace Serialization
     {
-        std::map<std::string, std::map<std::string, YiniValue>> Deserializer::deserialize(const std::string& filepath)
+        std::map<std::string, std::map<std::string, YiniValue, std::less<>>, std::less<>> Deserializer::deserialize(const std::string& filepath)
         {
             std::ifstream in(filepath, std::ios::binary);
             if (!in) {
                 throw std::runtime_error("Cannot open file for reading: " + filepath);
             }
 
-            std::map<std::string, std::map<std::string, YiniValue>> data;
+            std::map<std::string, std::map<std::string, YiniValue, std::less<>>, std::less<>> data;
 
             size_t section_count;
             in.read(reinterpret_cast<char*>(&section_count), sizeof(section_count));
 
             for (size_t i = 0; i < section_count; ++i) {
                 std::string section_name = read_string(in);
-                std::map<std::string, YiniValue> section_data;
+                std::map<std::string, YiniValue, std::less<>> section_data;
 
                 size_t kv_count;
                 in.read(reinterpret_cast<char*>(&kv_count), sizeof(kv_count));

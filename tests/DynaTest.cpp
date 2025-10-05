@@ -24,10 +24,10 @@ TEST(DynaTest, InterpreterCreatesDynaValue) {
     YINI::YiniManager manager;
     manager.load("dyna_interpreter_test.yini");
 
-    const auto& section = manager.get_interpreter().resolved_sections.at("MySection");
-    ASSERT_EQ(section.count("my_dynamic_val"), 1);
+    const auto& section = manager.get_interpreter().resolved_sections.find("MySection")->second;
+    ASSERT_NE(section.find("my_dynamic_val"), section.end());
 
-    const auto& value = section.at("my_dynamic_val");
+    const auto& value = section.find("my_dynamic_val")->second;
     auto* dyna_val_ptr = std::get_if<std::unique_ptr<YINI::DynaValue>>(&value.m_value);
     ASSERT_NE(dyna_val_ptr, nullptr);
 

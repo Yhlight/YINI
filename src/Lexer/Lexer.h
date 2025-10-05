@@ -2,6 +2,7 @@
 
 #include "Token.h"
 #include <string>
+#include <string_view>
 #include <vector>
 #include <map>
 
@@ -10,7 +11,7 @@ namespace YINI
     class Lexer
     {
     public:
-        Lexer(const std::string& source, const std::string& filepath = "");
+        Lexer(std::string_view source, std::string_view filepath = "");
         std::vector<Token> scanTokens();
 
     private:
@@ -28,7 +29,7 @@ namespace YINI
         void number();
         void identifier();
 
-        std::string m_source;
+        std::string_view m_source;
         std::string m_filepath;
         std::vector<Token> m_tokens;
         int m_start = 0;

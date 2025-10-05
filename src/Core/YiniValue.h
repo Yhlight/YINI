@@ -26,7 +26,7 @@ namespace YINI
      * @typedef YiniMap
      * @brief A type alias for a map with string keys and YiniValue values, representing a map in YINI.
      */
-    using YiniMap = std::map<std::string, YiniValue>;
+    using YiniMap = std::map<std::string, YiniValue, std::less<>>;
 
     /**
      * @typedef YiniValueBase

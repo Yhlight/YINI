@@ -9,7 +9,7 @@ namespace YINI
         {"false", TokenType::FALSE},
     };
 
-    Lexer::Lexer(const std::string& source, const std::string& filepath)
+    Lexer::Lexer(std::string_view source, std::string_view filepath)
         : m_source(source), m_filepath(filepath) {}
 
     std::vector<Token> Lexer::scanTokens()
@@ -137,7 +137,7 @@ namespace YINI
 
     void Lexer::addToken(TokenType type, const YiniValue& literal)
     {
-        std::string text = m_source.substr(m_start, m_current - m_start);
+        std::string text(m_source.substr(m_start, m_current - m_start));
         m_tokens.push_back({type, text, literal, m_line, m_start_column, m_filepath});
     }
 
@@ -174,7 +174,7 @@ namespace YINI
 
         advance(); // The closing ".
 
-        std::string value = m_source.substr(m_start + 1, m_current - m_start - 2);
+        std::string value(m_source.substr(m_start + 1, m_current - m_start - 2));
         addToken(TokenType::STRING, value);
     }
 
@@ -188,14 +188,14 @@ namespace YINI
             while (isdigit(peek())) advance();
         }
 
-        addToken(TokenType::NUMBER, std::stod(m_source.substr(m_start, m_current - m_start)));
+        addToken(TokenType::NUMBER, std::stod(std::string(m_source.substr(m_start, m_current - m_start))));
     }
 
     void Lexer::identifier()
     {
         while (isalnum(peek()) || peek() == '_' || peek() == '#') advance();
 
-        std::string text = m_source.substr(m_start, m_current - m_start);
+        std::string text(m_source.substr(m_start, m_current - m_start));
         TokenType type = TokenType::IDENTIFIER;
         auto it = m_keywords.find(text);
         if (it != m_keywords.end())

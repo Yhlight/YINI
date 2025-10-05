@@ -4,6 +4,7 @@
 #include "Core/YiniValue.h"
 #include <map>
 #include <string>
+#include <string_view>
 #include <optional>
 
 namespace YINI
@@ -23,11 +24,11 @@ namespace YINI
     public:
         void define(const Token& name_token, YiniValue value);
         YiniValue get(const Token& name) const;
-        std::optional<Token> get_definition_token(const std::string& name) const;
+        std::optional<Token> get_definition_token(std::string_view name) const;
         void clear();
         std::vector<std::string> get_all_keys() const;
 
     private:
-        std::map<std::string, MacroDefinition> m_values;
+        std::map<std::string, MacroDefinition, std::less<>> m_values;
     };
 }

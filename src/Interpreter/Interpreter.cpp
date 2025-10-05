@@ -146,23 +146,29 @@ namespace YINI
         // Recursively build maps for parent sections first
         for (const auto& parent_token : section->parents)
         {
-            if (!m_sections.count(parent_token.lexeme)) {
+            auto it = m_sections.find(parent_token.lexeme);
+            if (it == m_sections.end()) {
                 throw RuntimeError("Parent section '" + parent_token.lexeme + "' not found.", parent_token.line, parent_token.column, parent_token.filepath);
             }
-            build_expression_map(m_sections.at(parent_token.lexeme));
+            build_expression_map(it->second);
         }
 
         // Inherit expressions from parents
-        if (!m_expression_map.count(section->name.lexeme)) {
+        if (m_expression_map.find(section->name.lexeme) == m_expression_map.end()) {
             m_expression_map[section->name.lexeme] = {};
             m_kv_map[section->name.lexeme] = {};
         }
         for (const auto& parent_token : section->parents)
         {
-            const auto& parent_exprs = m_expression_map.at(parent_token.lexeme);
-            for (const auto& pair : parent_exprs) {
+            const auto& parent_expr_map_it = m_expression_map.find(parent_token.lexeme);
+            const auto& parent_kv_map_it = m_kv_map.find(parent_token.lexeme);
+            if (parent_expr_map_it == m_expression_map.end()) continue;
+
+            for (const auto& pair : parent_expr_map_it->second) {
                 m_expression_map[section->name.lexeme][pair.first] = pair.second;
-                m_kv_map[section->name.lexeme][pair.first] = m_kv_map.at(parent_token.lexeme).at(pair.first);
+                auto parent_kv_it = parent_kv_map_it->second.find(pair.first);
+                if (parent_kv_it != parent_kv_map_it->second.end())
+                    m_kv_map[section->name.lexeme][pair.first] = parent_kv_it->second;
             }
         }
 
@@ -196,7 +202,7 @@ void Interpreter::visit([[maybe_unused]] const Schema& stmt) {}
         }
     }
 
-    std::optional<Token> Interpreter::get_macro_definition_token(const std::string& name) const
+    std::optional<Token> Interpreter::get_macro_definition_token(std::string_view name) const
     {
         return m_globals.get_definition_token(name);
     }
@@ -227,8 +233,12 @@ void Interpreter::visit([[maybe_unused]] const Schema& stmt) {}
         std::string full_ref = section_name + "." + key_name;
 
         // If value is already resolved, return it from the cache
-        if (resolved_sections.count(section_name) && resolved_sections.at(section_name).count(key_name)) {
-            return resolved_sections.at(section_name).at(key_name);
+        auto resolved_section_it = resolved_sections.find(section_name);
+        if (resolved_section_it != resolved_sections.end()) {
+            auto resolved_key_it = resolved_section_it->second.find(key_name);
+            if (resolved_key_it != resolved_section_it->second.end()) {
+                return resolved_key_it->second;
+            }
         }
 
         // Check for circular references
@@ -237,7 +247,8 @@ void Interpreter::visit([[maybe_unused]] const Schema& stmt) {}
         }
 
         // Check if the expression to be resolved exists in our map
-        if (!m_expression_map.count(section_name))
+        auto expr_section_it = m_expression_map.find(section_name);
+        if (expr_section_it == m_expression_map.end())
         {
             // For cross-references, the section must exist. Let's find the most similar section name.
             std::vector<std::string> candidates;
@@ -254,11 +265,12 @@ void Interpreter::visit([[maybe_unused]] const Schema& stmt) {}
             throw RuntimeError(error_message, expr.section.line, expr.section.column, expr.section.filepath);
         }
 
-        if (!m_expression_map.at(section_name).count(key_name))
+        auto expr_key_it = expr_section_it->second.find(key_name);
+        if (expr_key_it == expr_section_it->second.end())
         {
             // Key not found, let's try to suggest a similar key.
             std::vector<std::string> candidates;
-            for (const auto& pair : m_expression_map.at(section_name))
+            for (const auto& pair : expr_section_it->second)
             {
                 candidates.push_back(pair.first);
             }
@@ -277,12 +289,20 @@ void Interpreter::visit([[maybe_unused]] const Schema& stmt) {}
         m_currently_resolving_values.insert(full_ref);
 
         // Recursively evaluate the expression
-        const Expr* expr_to_eval = m_expression_map.at(section_name).at(key_name);
+        const Expr* expr_to_eval = expr_key_it->second;
         YiniValue result = evaluate(*expr_to_eval);
 
         // Cache the result and its location
         resolved_sections[section_name][key_name] = result;
-        const auto* kv_stmt = m_kv_map.at(section_name).at(key_name);
+        const auto kv_section_it = m_kv_map.find(section_name);
+        if (kv_section_it == m_kv_map.end()) {
+            throw std::logic_error("Internal error: kv_map missing section " + section_name);
+        }
+        const auto kv_key_it = kv_section_it->second.find(key_name);
+        if (kv_key_it == kv_section_it->second.end()) {
+            throw std::logic_error("Internal error: kv_map missing key " + key_name);
+        }
+        const auto* kv_stmt = kv_key_it->second;
         value_locations[section_name][key_name] = {kv_stmt->value_line, kv_stmt->value_column};
 
         m_currently_resolving_values.erase(full_ref);

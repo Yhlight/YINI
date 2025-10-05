@@ -12,7 +12,7 @@ namespace YINI
 {
     YiniManager::YiniManager() = default;
 
-    void YiniManager::load(const std::string& filepath)
+    void YiniManager::load(std::string_view filepath)
     {
         m_filepath = filepath;
         m_interpreter.clear();
@@ -47,7 +47,7 @@ namespace YINI
         return m_interpreter;
     }
 
-    void YiniManager::load_from_string(const std::string& content, const std::string& virtual_filepath)
+    void YiniManager::load_from_string(std::string_view content, std::string_view virtual_filepath)
     {
         m_filepath = virtual_filepath;
         m_interpreter.clear();
@@ -61,7 +61,7 @@ namespace YINI
         std::vector<std::unique_ptr<Stmt>> string_ast = parser.parse();
 
         std::set<std::string> loaded_files;
-        loaded_files.insert(virtual_filepath);
+        loaded_files.insert(std::string(virtual_filepath));
 
         std::vector<std::unique_ptr<Stmt>> combined_ast;
 
@@ -96,57 +96,66 @@ namespace YINI
         m_interpreter.interpret(combined_ast);
     }
 
-    YiniValue YiniManager::get_value(const std::string& section, const std::string& key)
+    YiniValue YiniManager::get_value(std::string_view section, std::string_view key)
     {
-        if (m_interpreter.resolved_sections.count(section) && m_interpreter.resolved_sections.at(section).count(key)) {
-            YiniValue& value = m_interpreter.resolved_sections.at(section).at(key);
-            if (auto* dyna_val_ptr = std::get_if<std::unique_ptr<DynaValue>>(&value.m_value)) {
-                return (*dyna_val_ptr)->get();
+        auto section_it = m_interpreter.resolved_sections.find(section);
+        if (section_it != m_interpreter.resolved_sections.end()) {
+            auto key_it = section_it->second.find(key);
+            if (key_it != section_it->second.end()) {
+                YiniValue& value = key_it->second;
+                if (auto* dyna_val_ptr = std::get_if<std::unique_ptr<DynaValue>>(&value.m_value)) {
+                    return (*dyna_val_ptr)->get();
+                }
+                return value;
             }
-            return value;
         }
-        throw std::runtime_error("Value not found for section '" + section + "' and key '" + key + "'.");
+        throw std::runtime_error("Value not found for section '" + std::string(section) + "' and key '" + std::string(key) + "'.");
     }
 
-    void YiniManager::set_value(const std::string& section, const std::string& key, YiniValue new_value)
+    void YiniManager::set_value(std::string_view section, std::string_view key, YiniValue new_value)
     {
-        if (m_interpreter.resolved_sections.count(section) && m_interpreter.resolved_sections.at(section).count(key)) {
-            YiniValue& value = m_interpreter.resolved_sections.at(section).at(key);
-            if (auto* dyna_val_ptr = std::get_if<std::unique_ptr<DynaValue>>(&value.m_value)) {
-                (*dyna_val_ptr)->set(new_value);
-                const auto& location = m_interpreter.value_locations.at(section).at(key);
-                m_dirty_values[section][key] = {new_value, location.line, location.column};
-                return;
-            } else {
-                throw std::runtime_error("Cannot set value: key '" + key + "' in section '" + section + "' is not dynamic.");
+        auto section_it = m_interpreter.resolved_sections.find(section);
+        if (section_it != m_interpreter.resolved_sections.end()) {
+            auto key_it = section_it->second.find(key);
+            if (key_it != section_it->second.end()) {
+                YiniValue& value = key_it->second;
+                if (auto* dyna_val_ptr = std::get_if<std::unique_ptr<DynaValue>>(&value.m_value)) {
+                    (*dyna_val_ptr)->set(new_value);
+                    const auto& location = m_interpreter.value_locations.at(std::string(section)).at(std::string(key));
+                    m_dirty_values[std::string(section)][std::string(key)] = {new_value, location.line, location.column};
+                    return;
+                } else {
+                    throw std::runtime_error("Cannot set value: key '" + std::string(key) + "' in section '" + std::string(section) + "' is not dynamic.");
+                }
             }
         }
 
         if (m_interpreter.resolved_sections.count(section)) {
-            m_interpreter.resolved_sections[section][key] = DynaValue(new_value);
-            m_dirty_values[section][key] = {new_value, 0, 0};
+            m_interpreter.resolved_sections[std::string(section)][std::string(key)] = DynaValue(new_value);
+            m_dirty_values[std::string(section)][std::string(key)] = {new_value, 0, 0};
             return;
         }
 
-        throw std::runtime_error("Cannot set value: section '" + section + "' does not exist.");
+        throw std::runtime_error("Cannot set value: section '" + std::string(section) + "' does not exist.");
     }
 
-    std::vector<std::unique_ptr<Stmt>> YiniManager::load_file(const std::string& filepath, std::set<std::string>& loaded_files)
+    std::vector<std::unique_ptr<Stmt>> YiniManager::load_file(std::string_view filepath, std::set<std::string>& loaded_files)
     {
-        if (loaded_files.count(filepath)) {
+        std::string filepath_str(filepath);
+        if (loaded_files.count(filepath_str)) {
             return {};
         }
-        loaded_files.insert(filepath);
+        loaded_files.insert(filepath_str);
 
-        std::ifstream file(filepath);
+        std::ifstream file(filepath_str);
         if (!file.is_open()) {
-            throw std::runtime_error("Could not open file: " + filepath);
+            throw std::runtime_error("Could not open file: " + filepath_str);
         }
         std::stringstream buffer;
         buffer << file.rdbuf();
         std::string source = buffer.str();
 
-        Lexer lexer(source, filepath);
+        Lexer lexer(source, filepath_str);
         std::vector<Token> tokens = lexer.scanTokens();
         Parser parser(tokens);
         std::vector<std::unique_ptr<Stmt>> current_ast = parser.parse();

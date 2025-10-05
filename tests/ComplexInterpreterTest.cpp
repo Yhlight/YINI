@@ -31,10 +31,10 @@ TEST(ComplexInterpreterTest, HandlesDiamondInheritanceCorrectly)
     YINI::YiniManager manager;
     load_manager_from_source(manager, "test_diamond.yini", source);
     const auto& interpreter = manager.get_interpreter();
-    const auto& child_section = interpreter.resolved_sections.at("Child");
+    const auto& child_section = interpreter.resolved_sections.find("Child")->second;
 
-    ASSERT_EQ(child_section.count("value"), 1);
-    EXPECT_EQ(std::get<std::string>(child_section.at("value").m_value), "from derived B");
+    ASSERT_NE(child_section.find("value"), child_section.end());
+    EXPECT_EQ(std::get<std::string>(child_section.find("value")->second.m_value), "from derived B");
 }
 
 TEST(ComplexInterpreterTest, HandlesDeeplyNestedIncludes)
@@ -51,13 +51,13 @@ TEST(ComplexInterpreterTest, HandlesDeeplyNestedIncludes)
     const auto& resolved = manager.get_interpreter().resolved_sections;
 
     // Check that all sections from all files have been loaded correctly.
-    ASSERT_EQ(resolved.count("Root"), 1);
-    ASSERT_EQ(resolved.count("Level1"), 1);
-    ASSERT_EQ(resolved.count("Level2"), 1);
-    ASSERT_EQ(resolved.count("Deep"), 1);
+    ASSERT_NE(resolved.find("Root"), resolved.end());
+    ASSERT_NE(resolved.find("Level1"), resolved.end());
+    ASSERT_NE(resolved.find("Level2"), resolved.end());
+    ASSERT_NE(resolved.find("Deep"), resolved.end());
 
-    EXPECT_EQ(std::get<std::string>(resolved.at("Root").at("key").m_value), "root");
-    EXPECT_EQ(std::get<std::string>(resolved.at("Level1").at("key").m_value), "one");
-    EXPECT_EQ(std::get<std::string>(resolved.at("Level2").at("key").m_value), "two");
-    EXPECT_EQ(std::get<std::string>(resolved.at("Deep").at("key").m_value), "deepest");
+    EXPECT_EQ(std::get<std::string>(resolved.find("Root")->second.find("key")->second.m_value), "root");
+    EXPECT_EQ(std::get<std::string>(resolved.find("Level1")->second.find("key")->second.m_value), "one");
+    EXPECT_EQ(std::get<std::string>(resolved.find("Level2")->second.find("key")->second.m_value), "two");
+    EXPECT_EQ(std::get<std::string>(resolved.find("Deep")->second.find("key")->second.m_value), "deepest");
 }

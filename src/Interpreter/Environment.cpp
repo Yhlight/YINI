@@ -10,18 +10,18 @@ namespace YINI
 
     YiniValue Environment::get(const Token& name) const
     {
-        if (m_values.count(name.lexeme))
-        {
-            return m_values.at(name.lexeme).value;
+        auto it = m_values.find(name.lexeme);
+        if (it != m_values.end()) {
+            return it->second.value;
         }
         throw RuntimeError("Undefined variable '" + name.lexeme + "'.", name.line, name.column, name.filepath);
     }
 
-    std::optional<Token> Environment::get_definition_token(const std::string& name) const
+    std::optional<Token> Environment::get_definition_token(std::string_view name) const
     {
-        if (m_values.count(name))
-        {
-            return m_values.at(name).definition_token;
+        auto it = m_values.find(name);
+        if (it != m_values.end()) {
+            return it->second.definition_token;
         }
         return std::nullopt;
     }

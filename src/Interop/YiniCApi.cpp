@@ -71,7 +71,7 @@ YINI_API bool yini_manager_load(Yini_ManagerHandle manager, const char* filepath
         return false;
     }
     try {
-        mgr->load(filepath);
+        mgr->load(std::string_view(filepath));
         return true;
     } catch (const std::exception& e) {
         set_last_error(manager, e);
@@ -93,7 +93,7 @@ YINI_API bool yini_manager_load_from_string(Yini_ManagerHandle manager, const ch
         return false;
     }
     try {
-        mgr->load_from_string(content, virtual_filepath);
+        mgr->load_from_string(std::string_view(content), std::string_view(virtual_filepath));
         return true;
     } catch (const std::exception& e) {
         set_last_error(manager, e);
@@ -127,7 +127,7 @@ YINI_API Yini_ValueHandle yini_manager_get_value(Yini_ManagerHandle manager, con
         return nullptr;
     }
     try {
-        YINI::YiniValue value = mgr->get_value(section, key);
+        YINI::YiniValue value = mgr->get_value(std::string_view(section), std::string_view(key));
         return reinterpret_cast<Yini_ValueHandle>(new YINI::YiniValue(std::move(value)));
     } catch (const std::exception& e) {
         set_last_error(manager, e);
@@ -144,9 +144,9 @@ YINI_API bool yini_manager_has_key(Yini_ManagerHandle manager, const char* secti
         return false;
     }
     const auto& interpreter = mgr->get_interpreter();
-    auto sec_it = interpreter.resolved_sections.find(section);
+    auto sec_it = interpreter.resolved_sections.find(std::string_view(section));
     if (sec_it != interpreter.resolved_sections.end()) {
-        return sec_it->second.count(key) > 0;
+        return sec_it->second.find(std::string_view(key)) != sec_it->second.end();
     }
     return false;
 }
@@ -193,7 +193,7 @@ YINI_API void yini_manager_set_value(Yini_ManagerHandle manager, const char* sec
         return;
     }
     try {
-        mgr->set_value(section, key, *as_value(value_handle));
+        mgr->set_value(std::string_view(section), std::string_view(key), *as_value(value_handle));
     } catch (const std::exception& e) {
         set_last_error(manager, e);
     } catch (...) {
@@ -283,7 +283,7 @@ YINI_API bool yini_manager_get_definition_location(Yini_ManagerHandle manager, c
     else
     {
         // It's a macro
-        token = interpreter.get_macro_definition_token(symbol_name);
+        token = interpreter.get_macro_definition_token(std::string_view(symbol_name));
     }
 
     if (token.has_value())

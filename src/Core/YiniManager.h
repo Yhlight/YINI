@@ -10,6 +10,7 @@
 #include "Core/YiniValue.h"
 #include "Core/Validator.h" // Include Validator header
 #include <string>
+#include <string_view>
 #include <vector>
 #include <memory>
 #include <set>
@@ -49,7 +50,7 @@ namespace YINI
          * @throws std::runtime_error if the file cannot be opened.
          * @throws YiniException on parsing or interpretation errors.
          */
-        void load(const std::string& filepath);
+        void load(std::string_view filepath);
 
         /**
          * @brief Loads and parses a YINI configuration from a string.
@@ -57,7 +58,7 @@ namespace YINI
          * @param virtual_filepath A virtual path to use for error reporting.
          * @throws YiniException on parsing or interpretation errors.
          */
-        void load_from_string(const std::string& content, const std::string& virtual_filepath = "string");
+        void load_from_string(std::string_view content, std::string_view virtual_filepath = "string");
 
         /**
          * @brief Saves any modified dynamic values back to the original file.
@@ -76,7 +77,7 @@ namespace YINI
          * @return The requested YiniValue. If the value is dynamic, this returns the underlying value.
          * @throws std::runtime_error if the section or key is not found.
          */
-        YiniValue get_value(const std::string& section, const std::string& key);
+        YiniValue get_value(std::string_view section, std::string_view key);
 
         /**
          * @brief Sets the value for a given section and key.
@@ -90,7 +91,7 @@ namespace YINI
          * @throws std::runtime_error if the section does not exist or if the key
          *         exists but is not a dynamic value.
          */
-        void set_value(const std::string& section, const std::string& key, YiniValue value);
+        void set_value(std::string_view section, std::string_view key, YiniValue value);
 
         /**
          * @brief The interpreter instance that holds the resolved state of the YINI file.
@@ -118,12 +119,12 @@ namespace YINI
         std::string m_last_error;
 
     private:
-        std::vector<std::unique_ptr<Stmt>> load_file(const std::string& filepath, std::set<std::string>& loaded_files);
+        std::vector<std::unique_ptr<Stmt>> load_file(std::string_view filepath, std::set<std::string>& loaded_files);
         void merge_asts(std::vector<std::unique_ptr<Stmt>>& base_ast, std::vector<std::unique_ptr<Stmt>>& new_ast);
 
         std::string m_filepath;
         Interpreter m_interpreter;
-        std::map<std::string, std::map<std::string, DirtyValue>> m_dirty_values;
+        std::map<std::string, std::map<std::string, DirtyValue, std::less<>>, std::less<>> m_dirty_values;
         std::unique_ptr<Schema> m_schema;
     };
 }

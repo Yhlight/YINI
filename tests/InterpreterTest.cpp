@@ -26,8 +26,9 @@ TEST(InterpreterTest, HandlesMacroDefinitionAndResolution)
     YINI::YiniManager manager;
     load_manager_from_source(manager, "test_macro.yini", source);
     const auto& interpreter = manager.get_interpreter();
-    ASSERT_EQ(interpreter.resolved_sections.at("MySection").count("key"), 1);
-    EXPECT_EQ(std::get<double>(interpreter.resolved_sections.at("MySection").at("key").m_value), 123);
+    const auto& section = interpreter.resolved_sections.find("MySection")->second;
+    ASSERT_NE(section.find("key"), section.end());
+    EXPECT_EQ(std::get<double>(section.find("key")->second.m_value), 123);
 }
 
 TEST(InterpreterTest, ThrowsOnUndefinedVariable)
@@ -64,10 +65,11 @@ TEST(InterpreterTest, EvaluatesArithmeticExpressions)
     YINI::YiniManager manager;
     load_manager_from_source(manager, "test_arithmetic.yini", source);
     const auto& interpreter = manager.get_interpreter();
-    EXPECT_EQ(std::get<double>(interpreter.resolved_sections.at("MySection").at("val1").m_value), 16);
-    EXPECT_EQ(std::get<double>(interpreter.resolved_sections.at("MySection").at("val2").m_value), 36);
-    EXPECT_EQ(std::get<double>(interpreter.resolved_sections.at("MySection").at("val3").m_value), -11);
-    EXPECT_EQ(std::get<double>(interpreter.resolved_sections.at("MySection").at("val4").m_value), 1);
+    const auto& section = interpreter.resolved_sections.find("MySection")->second;
+    EXPECT_EQ(std::get<double>(section.find("val1")->second.m_value), 16);
+    EXPECT_EQ(std::get<double>(section.find("val2")->second.m_value), 36);
+    EXPECT_EQ(std::get<double>(section.find("val3")->second.m_value), -11);
+    EXPECT_EQ(std::get<double>(section.find("val4")->second.m_value), 1);
 }
 
 TEST(InterpreterTest, ThrowsOnTypeMismatch)
@@ -120,10 +122,11 @@ TEST(InterpreterTest, EvaluatesDataStructures)
     YINI::YiniManager manager;
     load_manager_from_source(manager, "test_datastructures.yini", source);
     const auto& interpreter = manager.get_interpreter();
+    const auto& section = interpreter.resolved_sections.find("MySection")->second;
 
     // Test Array
-    ASSERT_EQ(interpreter.resolved_sections.at("MySection").count("my_array"), 1);
-    const auto& arr_val = interpreter.resolved_sections.at("MySection").at("my_array");
+    ASSERT_NE(section.find("my_array"), section.end());
+    const auto& arr_val = section.find("my_array")->second;
     auto* arr_ptr = std::get_if<std::unique_ptr<YINI::YiniArray>>(&arr_val.m_value);
     ASSERT_NE(arr_ptr, nullptr);
     const auto& arr = **arr_ptr;
@@ -133,8 +136,8 @@ TEST(InterpreterTest, EvaluatesDataStructures)
     EXPECT_EQ(std::get<double>(arr[2].m_value), 3.0);
 
     // Test Set (currently represented as an array)
-    ASSERT_EQ(interpreter.resolved_sections.at("MySection").count("my_set"), 1);
-    const auto& set_val = interpreter.resolved_sections.at("MySection").at("my_set");
+    ASSERT_NE(section.find("my_set"), section.end());
+    const auto& set_val = section.find("my_set")->second;
     auto* set_ptr = std::get_if<std::unique_ptr<YINI::YiniArray>>(&set_val.m_value);
     ASSERT_NE(set_ptr, nullptr);
     const auto& set = **set_ptr;
@@ -144,14 +147,14 @@ TEST(InterpreterTest, EvaluatesDataStructures)
     EXPECT_EQ(std::get<double>(set[2].m_value), 3.0);
 
     // Test Map
-    ASSERT_EQ(interpreter.resolved_sections.at("MySection").count("my_map"), 1);
-    const auto& map_val = interpreter.resolved_sections.at("MySection").at("my_map");
+    ASSERT_NE(section.find("my_map"), section.end());
+    const auto& map_val = section.find("my_map")->second;
     auto* map_ptr = std::get_if<std::unique_ptr<YINI::YiniMap>>(&map_val.m_value);
     ASSERT_NE(map_ptr, nullptr);
     const auto& map = **map_ptr;
     ASSERT_EQ(map.size(), 2);
-    EXPECT_EQ(std::get<double>(map.at("a").m_value), 1);
-    EXPECT_EQ(std::get<std::string>(map.at("b").m_value), "two");
+    EXPECT_EQ(std::get<double>(map.find("a")->second.m_value), 1);
+    EXPECT_EQ(std::get<std::string>(map.find("b")->second.m_value), "two");
 }
 
 TEST(InterpreterTest, HandlesSectionInheritance)
@@ -174,13 +177,13 @@ TEST(InterpreterTest, HandlesSectionInheritance)
     load_manager_from_source(manager, "test_inheritance.yini", source);
     const auto& interpreter = manager.get_interpreter();
 
-    ASSERT_EQ(interpreter.resolved_sections.count("Child"), 1);
-    const auto& child_section = interpreter.resolved_sections.at("Child");
+    ASSERT_NE(interpreter.resolved_sections.find("Child"), interpreter.resolved_sections.end());
+    const auto& child_section = interpreter.resolved_sections.find("Child")->second;
 
-    EXPECT_EQ(std::get<double>(child_section.at("val1").m_value), 100);       // Child overrides ParentA
-    EXPECT_EQ(std::get<std::string>(child_section.at("val2").m_value), "overridden"); // ParentB overrides ParentA
-    EXPECT_EQ(std::get<double>(child_section.at("val3").m_value), 3);          // Inherited from ParentB
-    EXPECT_EQ(std::get<double>(child_section.at("val4").m_value), 4);          // Defined in Child
+    EXPECT_EQ(std::get<double>(child_section.find("val1")->second.m_value), 100);       // Child overrides ParentA
+    EXPECT_EQ(std::get<std::string>(child_section.find("val2")->second.m_value), "overridden"); // ParentB overrides ParentA
+    EXPECT_EQ(std::get<double>(child_section.find("val3")->second.m_value), 3);          // Inherited from ParentB
+    EXPECT_EQ(std::get<double>(child_section.find("val4")->second.m_value), 4);          // Defined in Child
 }
 
 TEST(InterpreterTest, ThrowsOnCircularInheritance)
