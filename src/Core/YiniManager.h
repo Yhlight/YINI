@@ -8,6 +8,7 @@
 #include "Parser/Ast.h"
 #include "Core/DynaValue.h"
 #include "Core/YiniValue.h"
+#include "Core/Validator.h" // Include Validator header
 #include <string>
 #include <vector>
 #include <memory>
@@ -96,6 +97,12 @@ namespace YINI
          * @return A const pointer to the Schema AST node, or nullptr if no schema was found.
          */
         const Schema* get_schema() const;
+
+        /**
+         * @brief A vector of validation errors from the last validation run.
+         * This is public for the C-API to access.
+         */
+        std::vector<ValidationError> m_last_validation_errors;
 
     private:
         std::vector<std::unique_ptr<Stmt>> load_file(const std::string& filepath, std::set<std::string>& loaded_files);

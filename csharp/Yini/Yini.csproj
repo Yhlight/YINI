@@ -26,6 +26,8 @@
   <ItemGroup>
       <!-- Include the README in the package -->
       <None Include="..\..\README.md" Pack="true" PackagePath="\"/>
+      <!-- Include the XML documentation file in the package -->
+      <None Include="$(OutputPath)\$(AssemblyName).xml" Pack="true" PackagePath="lib\$(TargetFramework)\" />
       <!-- Define the native assets for different runtimes -->
       <Content Include="runtimes\**\*" Pack="true" PackagePath="runtimes" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>

@@ -352,6 +352,13 @@ namespace Yini
 
         [DllImport(LibName, EntryPoint = "yini_map_set_value")]
         internal static extern void YiniMap_SetValue(IntPtr mapHandle, string key, IntPtr valueHandle);
+
+        // Schema Validation
+        [DllImport(LibName, EntryPoint = "yini_manager_validate")]
+        internal static extern int YiniManager_Validate(IntPtr manager);
+
+        [DllImport(LibName, EntryPoint = "yini_manager_get_validation_error")]
+        internal static extern int YiniManager_GetValidationError(IntPtr manager, int index, StringBuilder? outBuffer, int bufferSize);
         #endregion
 
         /// <summary>
@@ -695,6 +702,33 @@ namespace Yini
                 }
                 return dict;
             }
+        }
+
+        /// <summary>
+        /// Validates the loaded YINI data against its defined schema.
+        /// </summary>
+        /// <returns>A list of validation error messages. An empty list indicates that validation passed.</returns>
+        public List<string> Validate()
+        {
+            var errors = new List<string>();
+            int errorCount = YiniManager_Validate(_managerPtr);
+
+            if (errorCount <= 0)
+            {
+                return errors; // No errors or an issue with validation itself.
+            }
+
+            for (int i = 0; i < errorCount; i++)
+            {
+                int requiredSize = YiniManager_GetValidationError(_managerPtr, i, null, 0);
+                if (requiredSize <= 0) continue;
+
+                var buffer = new StringBuilder(requiredSize);
+                YiniManager_GetValidationError(_managerPtr, i, buffer, buffer.Capacity);
+                errors.Add(buffer.ToString());
+            }
+
+            return errors;
         }
 
         #region IDisposable Implementation

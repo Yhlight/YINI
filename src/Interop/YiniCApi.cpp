@@ -2,6 +2,7 @@
 #include "Core/YiniManager.h"
 #include "Core/YiniValue.h"
 #include "Core/DynaValue.h"
+#include "Core/Validator.h"
 #include <string>
 #include <cstring>
 #include <variant>
@@ -90,6 +91,39 @@ YINI_API void yini_manager_set_value(Yini_ManagerHandle manager, const char* sec
         // Handle or log error
     }
 }
+
+YINI_API int yini_manager_validate(Yini_ManagerHandle manager) {
+    if (!manager) return -1;
+    auto* mgr = as_manager(manager);
+    mgr->m_last_validation_errors.clear(); // Clear previous errors
+
+    const YINI::Schema* schema = mgr->get_schema();
+    if (!schema) {
+        return 0; // No schema means nothing to validate against, so no errors.
+    }
+
+    try {
+        YINI::Validator validator;
+        mgr->m_last_validation_errors = validator.validate(*schema, mgr->get_interpreter());
+        return static_cast<int>(mgr->m_last_validation_errors.size());
+    } catch (...) {
+        // A critical error occurred during validation itself.
+        return -1;
+    }
+}
+
+YINI_API int yini_manager_get_validation_error(Yini_ManagerHandle manager, int index, char* out_buffer, int buffer_size) {
+    if (!manager || index < 0) return -1;
+    auto* mgr = as_manager(manager);
+
+    if (static_cast<size_t>(index) >= mgr->m_last_validation_errors.size()) {
+        return -1; // Index out of bounds.
+    }
+
+    const std::string& error_message = mgr->m_last_validation_errors[index].message;
+    return safe_string_copy(out_buffer, buffer_size, error_message);
+}
+
 
 // --- Value Handle Functions ---
 YINI_API void yini_value_destroy(Yini_ValueHandle handle) {
