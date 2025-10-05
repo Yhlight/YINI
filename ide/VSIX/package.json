@@ -4,6 +4,11 @@
   "description": "Provides language support for the YINI configuration file format.",
   "version": "0.0.1",
   "publisher": "YiniProject",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-repo/YINI.git"
+  },
   "engines": {
     "vscode": "^1.60.0"
   },

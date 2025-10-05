@@ -1,0 +1,77 @@
+name: Release YINI Packages
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  release:
+    name: Build and Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log version being released
+        run: echo "Triggered release for tag ${{ github.ref_name }}"
+
+      # The rest of the steps (build, pack, publish) will be added in the next step.
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Make build script executable
+        run: chmod +x build.py
+
+      - name: Get the version from the tag
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_ENV
+
+      - name: Update Yini.csproj version
+        run: |
+          sed -i 's|<Version>.*</Version>|<Version>${{ env.VERSION }}</Version>|' csharp/Yini/Yini.csproj
+          echo "Updated Yini.csproj to version ${{ env.VERSION }}"
+
+      - name: Update package.json version
+        run: |
+          npm version --no-git-tag-version --allow-same-version ${{ env.VERSION }}
+          echo "Updated package.json to version ${{ env.VERSION }}"
+        working-directory: ./ide/VSIX
+
+      - name: Build project
+        run: ./build.py build --config Release
+
+      - name: Pack NuGet package
+        run: dotnet pack --configuration Release csharp/Yini/Yini.csproj -o ./artifacts/nuget
+
+      - name: Install vsce
+        run: npm install -g @vscode/vsce
+
+      - name: Package VSIX
+        run: vsce package -o ../../artifacts/vsix/yini-vscode-${{ env.VERSION }}.vsix
+        working-directory: ./ide/VSIX
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: packages
+          path: |
+            ./artifacts/nuget/*.nupkg
+            ./artifacts/vsix/*.vsix
+
+      # --- Publishing Steps (requires secrets) ---
+      # - name: Publish NuGet Package
+      #   run: dotnet nuget push ./artifacts/nuget/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json
+      #
+      # - name: Publish to Visual Studio Marketplace
+      #   run: vsce publish --packagePath ./artifacts/vsix/yini-vscode-${{ env.VERSION }}.vsix
+      #   env:
+      #     VSCE_PAT: ${{ secrets.VSCE_PAT }}
