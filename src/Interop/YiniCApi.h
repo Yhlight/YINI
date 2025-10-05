@@ -75,6 +75,15 @@ YINI_API void yini_manager_destroy(Yini_ManagerHandle manager);
 YINI_API bool yini_manager_load(Yini_ManagerHandle manager, const char* filepath);
 
 /**
+ * @brief Loads and parses a YINI configuration from a string.
+ * @param manager The manager handle.
+ * @param content The string content to parse.
+ * @param virtual_filepath A virtual path to use for error reporting.
+ * @return True on success, false on failure.
+ */
+YINI_API bool yini_manager_load_from_string(Yini_ManagerHandle manager, const char* content, const char* virtual_filepath);
+
+/**
  * @brief Saves any modified dynamic values back to the original file.
  * @param manager The manager handle.
  */
@@ -113,6 +122,30 @@ YINI_API bool yini_manager_has_key(Yini_ManagerHandle manager, const char* secti
  *         (excluding the null terminator). Returns 0 if there is no error.
  */
 YINI_API int yini_manager_get_last_error(Yini_ManagerHandle manager, char* out_buffer, int buffer_size);
+
+/**
+ * @brief Gets the number of defined macros.
+ * @param manager The manager handle.
+ * @return The number of macros.
+ */
+YINI_API int yini_manager_get_macro_count(Yini_ManagerHandle manager);
+
+/**
+ * @brief Gets the name of a macro at a specific index.
+ *
+ * This function should be called twice. First, with `out_buffer` as NULL to get the
+ * required buffer size. Then, after allocating a buffer of that size, call it
+ * again to get the string.
+ *
+ * @param manager The manager handle.
+ * @param index The index of the macro.
+ * @param out_buffer The buffer to write the name into, or NULL.
+ * @param buffer_size The size of the buffer.
+ * @return If `out_buffer` is NULL, returns the required buffer size (including the null terminator).
+ *         If `out_buffer` is not NULL, returns the number of characters written to the buffer
+ *         (excluding the null terminator). Returns a negative value on error.
+ */
+YINI_API int yini_manager_get_macro_name_at(Yini_ManagerHandle manager, int index, char* out_buffer, int buffer_size);
 
 /**
  * @brief Sets the value for a given section and key.

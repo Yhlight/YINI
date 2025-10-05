@@ -33,7 +33,6 @@ static void set_last_error(Yini_ManagerHandle handle, const std::exception& e) {
     }
 }
 
-
 // --- Helper for safe string copying ---
 static int safe_string_copy(char* out_buffer, int buffer_size, const std::string& str) {
     size_t required_size = str.length() + 1;
@@ -64,7 +63,6 @@ YINI_API void yini_manager_destroy(Yini_ManagerHandle manager) {
 YINI_API bool yini_manager_load(Yini_ManagerHandle manager, const char* filepath) {
     auto* mgr = as_manager(manager);
     if (!mgr) {
-        // No valid handle to set an error on.
         return false;
     }
     mgr->m_last_error.clear();
@@ -80,6 +78,28 @@ YINI_API bool yini_manager_load(Yini_ManagerHandle manager, const char* filepath
         return false;
     } catch (...) {
         set_last_error(manager, "An unknown error occurred during file loading.");
+        return false;
+    }
+}
+
+YINI_API bool yini_manager_load_from_string(Yini_ManagerHandle manager, const char* content, const char* virtual_filepath) {
+    auto* mgr = as_manager(manager);
+    if (!mgr) {
+        return false;
+    }
+    mgr->m_last_error.clear();
+    if (!content || !virtual_filepath) {
+        set_last_error(manager, "Content and virtual_filepath cannot be null.");
+        return false;
+    }
+    try {
+        mgr->load_from_string(content, virtual_filepath);
+        return true;
+    } catch (const std::exception& e) {
+        set_last_error(manager, e);
+        return false;
+    } catch (...) {
+        set_last_error(manager, "An unknown error occurred during string loading.");
         return false;
     }
 }
@@ -138,11 +158,28 @@ YINI_API int yini_manager_get_last_error(Yini_ManagerHandle manager, char* out_b
     }
 
     int result = safe_string_copy(out_buffer, buffer_size, mgr->m_last_error);
-    // Clear the error after it has been retrieved, but only if it's not a size check.
     if (out_buffer != nullptr && buffer_size > 0) {
         mgr->m_last_error.clear();
     }
     return result;
+}
+
+YINI_API int yini_manager_get_macro_count(Yini_ManagerHandle manager) {
+    auto* mgr = as_manager(manager);
+    if (!mgr) return 0;
+    return static_cast<int>(mgr->get_interpreter().get_macro_names().size());
+}
+
+YINI_API int yini_manager_get_macro_name_at(Yini_ManagerHandle manager, int index, char* out_buffer, int buffer_size) {
+    auto* mgr = as_manager(manager);
+    if (!mgr || index < 0) return -1;
+
+    const auto macro_names = mgr->get_interpreter().get_macro_names();
+    if (static_cast<size_t>(index) >= macro_names.size()) {
+        return -1;
+    }
+
+    return safe_string_copy(out_buffer, buffer_size, macro_names[index]);
 }
 
 
@@ -167,11 +204,11 @@ YINI_API void yini_manager_set_value(Yini_ManagerHandle manager, const char* sec
 YINI_API int yini_manager_validate(Yini_ManagerHandle manager) {
     if (!manager) return -1;
     auto* mgr = as_manager(manager);
-    mgr->m_last_validation_errors.clear(); // Clear previous errors
+    mgr->m_last_validation_errors.clear();
 
     const YINI::Schema* schema = mgr->get_schema();
     if (!schema) {
-        return 0; // No schema means nothing to validate against, so no errors.
+        return 0;
     }
 
     try {
@@ -179,7 +216,6 @@ YINI_API int yini_manager_validate(Yini_ManagerHandle manager) {
         mgr->m_last_validation_errors = validator.validate(*schema, mgr->get_interpreter());
         return static_cast<int>(mgr->m_last_validation_errors.size());
     } catch (...) {
-        // A critical error occurred during validation itself.
         return -1;
     }
 }
@@ -189,7 +225,7 @@ YINI_API int yini_manager_get_validation_error(Yini_ManagerHandle manager, int i
     auto* mgr = as_manager(manager);
 
     if (static_cast<size_t>(index) >= mgr->m_last_validation_errors.size()) {
-        return -1; // Index out of bounds.
+        return -1;
     }
 
     const std::string& error_message = mgr->m_last_validation_errors[index].message;
@@ -253,7 +289,6 @@ YINI_API bool yini_value_get_bool(Yini_ValueHandle handle, bool* out_value) {
 YINI_API Yini_ValueHandle yini_value_get_dyna_value(Yini_ValueHandle handle) {
     if (!handle) return nullptr;
     if (const auto* val = std::get_if<std::unique_ptr<YINI::DynaValue>>(&as_value(handle)->m_value)) {
-        // Return a new copy of the inner value. Caller takes ownership.
         return reinterpret_cast<Yini_ValueHandle>(new YINI::YiniValue((*val)->get()));
     }
     return nullptr;
@@ -272,7 +307,6 @@ YINI_API Yini_ValueHandle yini_array_get_element(Yini_ValueHandle handle, int in
     if (!handle || index < 0) return nullptr;
     if (const auto* arr_ptr = std::get_if<std::unique_ptr<YINI::YiniArray>>(&as_value(handle)->m_value)) {
         if (static_cast<size_t>(index) < (*arr_ptr)->size()) {
-            // Return a new copy of the element. Caller takes ownership.
             return reinterpret_cast<Yini_ValueHandle>(new YINI::YiniValue((*arr_ptr)->at(index)));
         }
     }
@@ -282,7 +316,6 @@ YINI_API Yini_ValueHandle yini_array_get_element(Yini_ValueHandle handle, int in
 YINI_API void yini_array_add_element(Yini_ValueHandle array_handle, Yini_ValueHandle element_handle) {
     if (!array_handle || !element_handle) return;
     if (auto* arr_ptr = std::get_if<std::unique_ptr<YINI::YiniArray>>(&as_value(array_handle)->m_value)) {
-        // The element is copied into the array.
         (*arr_ptr)->push_back(*as_value(element_handle));
     }
 }
@@ -302,7 +335,6 @@ YINI_API Yini_ValueHandle yini_map_get_value_at(Yini_ValueHandle handle, int ind
         if ((*map_ptr)->size() > static_cast<size_t>(index)) {
             auto it = (*map_ptr)->begin();
             std::advance(it, index);
-            // Return a new copy of the value. Caller takes ownership.
             return reinterpret_cast<Yini_ValueHandle>(new YINI::YiniValue(it->second));
         }
     }
@@ -324,7 +356,6 @@ YINI_API int yini_map_get_key_at(Yini_ValueHandle handle, int index, char* out_b
 YINI_API void yini_map_set_value(Yini_ValueHandle map_handle, const char* key, Yini_ValueHandle value_handle) {
     if (!map_handle || !key || !value_handle) return;
     if (auto* map_ptr = std::get_if<std::unique_ptr<YINI::YiniMap>>(&as_value(map_handle)->m_value)) {
-        // The value is copied into the map.
         (**map_ptr)[key] = *as_value(value_handle);
     }
 }

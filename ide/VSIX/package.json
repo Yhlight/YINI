@@ -1,0 +1,47 @@
+{
+  "name": "yini-vscode",
+  "displayName": "YINI Language Support",
+  "description": "Provides language support for the YINI configuration file format.",
+  "version": "0.0.1",
+  "publisher": "YiniProject",
+  "engines": {
+    "vscode": "^1.60.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "activationEvents": [
+    "onLanguage:yini"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "yini",
+        "aliases": [
+          "YINI",
+          "yini"
+        ],
+        "extensions": [
+          ".yini"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "yini",
+        "scopeName": "source.yini",
+        "path": "./syntaxes/yini.tmLanguage.json"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm install",
+    "compile": "npm run compile",
+    "watch": "npm run watch"
+  },
+  "devDependencies": {
+    "vscode": "^1.1.37"
+  }
+}

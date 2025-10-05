@@ -21,4 +21,14 @@ namespace YINI
     {
         m_values.clear();
     }
+
+    std::vector<std::string> Environment::get_all_keys() const
+    {
+        std::vector<std::string> keys;
+        for (const auto& pair : m_values)
+        {
+            keys.push_back(pair.first);
+        }
+        return keys;
+    }
 }

@@ -63,6 +63,11 @@ namespace YINI
         return std::visit(StringifyVisitor{*this}, value.m_value);
     }
 
+    std::vector<std::string> Interpreter::get_macro_names() const
+    {
+        return m_globals.get_all_keys();
+    }
+
     // Helper functions for type checking
     static bool is_number(const YiniValue& value) {
         return std::holds_alternative<double>(value.m_value);
@@ -80,9 +85,8 @@ namespace YINI
         }
     }
 
-    void Interpreter::interpret(const std::vector<std::unique_ptr<Stmt>>& statements)
+    void Interpreter::clear()
     {
-        // Clear state for potential reuse of the interpreter instance
         m_sections.clear();
         m_globals.clear();
         m_expression_map.clear();
@@ -92,6 +96,12 @@ namespace YINI
         resolved_sections.clear();
         value_locations.clear();
         m_currently_resolving_values.clear();
+    }
+
+    void Interpreter::interpret(const std::vector<std::unique_ptr<Stmt>>& statements)
+    {
+        // Clear state for potential reuse of the interpreter instance
+        clear();
 
         // 1. Discovery Pass: Find all sections and global definitions
         for (const auto& statement : statements)

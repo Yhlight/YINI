@@ -52,6 +52,14 @@ namespace YINI
         void load(const std::string& filepath);
 
         /**
+         * @brief Loads and parses a YINI configuration from a string.
+         * @param content The string content to parse.
+         * @param virtual_filepath A virtual path to use for error reporting.
+         * @throws YiniException on parsing or interpretation errors.
+         */
+        void load_from_string(const std::string& content, const std::string& virtual_filepath = "string");
+
+        /**
          * @brief Saves any modified dynamic values back to the original file.
          *
          * This method performs a non-destructive write-back, preserving comments

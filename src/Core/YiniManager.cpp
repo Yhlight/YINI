@@ -15,7 +15,11 @@ namespace YINI
     void YiniManager::load(const std::string& filepath)
     {
         m_filepath = filepath;
-        m_schema = nullptr; // Reset schema on new load
+        m_interpreter.clear();
+        m_schema = nullptr;
+        m_last_error.clear();
+        m_last_validation_errors.clear();
+
         std::set<std::string> loaded_files;
         auto final_ast = load_file(filepath, loaded_files);
 
@@ -41,6 +45,55 @@ namespace YINI
     const Interpreter& YiniManager::get_interpreter() const
     {
         return m_interpreter;
+    }
+
+    void YiniManager::load_from_string(const std::string& content, const std::string& virtual_filepath)
+    {
+        m_filepath = virtual_filepath;
+        m_interpreter.clear();
+        m_schema = nullptr;
+        m_last_error.clear();
+        m_last_validation_errors.clear();
+
+        Lexer lexer(content, virtual_filepath);
+        std::vector<Token> tokens = lexer.scanTokens();
+        Parser parser(tokens);
+        std::vector<std::unique_ptr<Stmt>> string_ast = parser.parse();
+
+        std::set<std::string> loaded_files;
+        loaded_files.insert(virtual_filepath);
+
+        std::vector<std::unique_ptr<Stmt>> combined_ast;
+
+        for (auto& stmt : string_ast) {
+            if (auto* include_node = dynamic_cast<Include*>(stmt.get())) {
+                for (const auto& file_expr : include_node->files) {
+                    if (auto* literal_node = dynamic_cast<Literal*>(file_expr.get())) {
+                        if (std::holds_alternative<std::string>(literal_node->value.m_value)) {
+                            std::string include_path = std::get<std::string>(literal_node->value.m_value);
+                            auto included_ast = load_file(include_path, loaded_files);
+                            merge_asts(combined_ast, included_ast);
+                        }
+                    }
+                }
+            }
+        }
+
+        merge_asts(combined_ast, string_ast);
+
+        for (auto it = combined_ast.begin(); it != combined_ast.end(); ) {
+            if (auto* schema = dynamic_cast<Schema*>(it->get())) {
+                if (!m_schema) {
+                    it->release();
+                    m_schema.reset(schema);
+                }
+                it = combined_ast.erase(it);
+            } else {
+                ++it;
+            }
+        }
+
+        m_interpreter.interpret(combined_ast);
     }
 
     YiniValue YiniManager::get_value(const std::string& section, const std::string& key)

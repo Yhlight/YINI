@@ -127,7 +127,7 @@ namespace YINI
 
     bool Lexer::isAtEnd()
     {
-        return m_current >= m_source.length();
+        return static_cast<size_t>(m_current) >= m_source.length();
     }
 
     void Lexer::addToken(TokenType type)

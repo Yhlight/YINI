@@ -20,7 +20,9 @@ namespace YINI
     {
     public:
         void interpret(const std::vector<std::unique_ptr<Stmt>>& statements);
+        void clear();
         std::string stringify(const YiniValue& value);
+        std::vector<std::string> get_macro_names() const;
 
         std::map<std::string, std::map<std::string, YiniValue>> resolved_sections;
         std::map<std::string, std::map<std::string, ValueLocation>> value_locations;

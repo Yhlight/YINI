@@ -98,6 +98,7 @@ endif()
 
 # C# build integration
 find_package(dotnet)
+add_subdirectory(ide)
 if(dotnet_FOUND)
     # Get the path to the native library
     if(WIN32)

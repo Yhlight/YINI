@@ -12,6 +12,10 @@ namespace Yini
     /// </summary>
     public class YiniException : Exception
     {
+        /// <summary> The line number where the error occurred. </summary>
+        public int Line { get; }
+        /// <summary> The column number where the error occurred. </summary>
+        public int Column { get; }
         /// <summary>
         /// Initializes a new instance of the <see cref="YiniException"/> class.
         /// </summary>
@@ -22,6 +26,18 @@ namespace Yini
         /// </summary>
         /// <param name="message">The message that describes the error.</param>
         public YiniException(string message) : base(message) { }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="YiniException"/> class with a specified error message and location.
+        /// </summary>
+        /// <param name="message">The message that describes the error.</param>
+        /// <param name="line">The line number where the error occurred.</param>
+        /// <param name="column">The column number where the error occurred.</param>
+        public YiniException(string message, int line, int column) : base(message)
+        {
+            Line = line;
+            Column = column;
+        }
 
         /// <summary>
         /// Initializes a new instance of the <see cref="YiniException"/> class with a specified error message and a reference to the inner exception that is the cause of this exception.
@@ -311,6 +327,10 @@ namespace Yini
         [return: MarshalAs(UnmanagedType.I1)]
         internal static partial bool YiniManager_Load(IntPtr manager, [MarshalAs(UnmanagedType.LPStr)] string filepath);
 
+        [LibraryImport(LibName, EntryPoint = "yini_manager_load_from_string")]
+        [return: MarshalAs(UnmanagedType.I1)]
+        internal static partial bool YiniManager_LoadFromString(IntPtr manager, [MarshalAs(UnmanagedType.LPStr)] string content, [MarshalAs(UnmanagedType.LPStr)] string virtualFilepath);
+
         [LibraryImport(LibName, EntryPoint = "yini_manager_save_changes")]
         internal static partial void YiniManager_SaveChanges(IntPtr manager);
 
@@ -326,6 +346,12 @@ namespace Yini
 
         [LibraryImport(LibName, EntryPoint = "yini_manager_get_last_error")]
         internal static partial int YiniManager_GetLastError(IntPtr manager, byte* outBuffer, int bufferSize);
+
+        [LibraryImport(LibName, EntryPoint = "yini_manager_get_macro_count")]
+        internal static partial int YiniManager_GetMacroCount(IntPtr manager);
+
+        [LibraryImport(LibName, EntryPoint = "yini_manager_get_macro_name_at")]
+        internal static partial int YiniManager_GetMacroNameAt(IntPtr manager, int index, byte* outBuffer, int bufferSize);
 
         // Value Handles
         [LibraryImport(LibName, EntryPoint = "yini_value_destroy")]
@@ -435,6 +461,20 @@ namespace Yini
         }
 
         /// <summary>
+        /// Loads and parses a YINI configuration from a string.
+        /// </summary>
+        /// <param name="content">The string content to parse.</param>
+        /// <param name="virtualFilepath">A virtual path to use for error reporting. Defaults to "string".</param>
+        /// <exception cref="YiniException">Thrown if the string content fails to parse.</exception>
+        public void LoadFromString(string content, string virtualFilepath = "string")
+        {
+            if (!YiniManager_LoadFromString(_managerPtr, content, virtualFilepath))
+            {
+                CheckForError();
+            }
+        }
+
+        /// <summary>
         /// Saves any changes made to dynamic values back to the original file.
         /// </summary>
         /// <exception cref="YiniException">Thrown if the changes fail to save.</exception>
@@ -486,6 +526,27 @@ namespace Yini
             // The C-API copies the value, we still own our 'value' handle.
             YiniManager_SetValue(_managerPtr, section, key, value.Handle);
             CheckForError();
+        }
+
+        /// <summary>
+        /// Gets a list of all defined macro names.
+        /// </summary>
+        /// <returns>A list of macro names.</returns>
+        public List<string> GetMacroNames()
+        {
+            var names = new List<string>();
+            int count = YiniManager_GetMacroCount(_managerPtr);
+            for (int i = 0; i < count; i++)
+            {
+                int nameSize = YiniManager_GetMacroNameAt(_managerPtr, i, null, 0);
+                if (nameSize > 0)
+                {
+                    byte* buffer = stackalloc byte[nameSize];
+                    YiniManager_GetMacroNameAt(_managerPtr, i, buffer, nameSize);
+                    names.Add(Encoding.UTF8.GetString(buffer, nameSize - 1));
+                }
+            }
+            return names;
         }
 
         // --- Convenience methods for primitive types ---
