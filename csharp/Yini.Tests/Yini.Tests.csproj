@@ -23,8 +23,4 @@
                       ReferenceOutputAssembly="false" />
   </ItemGroup>
 
-  <Target Name="CopyNativeLibrary" AfterTargets="Build">
-    <Copy SourceFiles="$(NativeLibPath)" DestinationFolder="$(TargetDir)" Condition=" '$(NativeLibPath)' != '' AND Exists('$(NativeLibPath)') " />
-  </Target>
-
 </Project>

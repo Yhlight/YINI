@@ -25,7 +25,7 @@ def run_command(command, cwd=None, env=None):
 
 def main():
     parser = argparse.ArgumentParser(description="YINI Project Build Script")
-    parser.add_argument("action", choices=["build", "test", "docs", "clean", "all", "coverage"], help="Action to perform")
+    parser.add_argument("action", choices=["build", "test", "docs", "clean", "all", "coverage", "bench"], help="Action to perform")
     parser.add_argument("--config", default="Release", choices=["Release", "Debug"], help="Build configuration")
     args = parser.parse_args()
 
@@ -81,7 +81,7 @@ def main():
         print("Build directory already configured. Skipping CMake configuration.")
 
     # Build step
-    if args.action in ["build", "test", "all"]:
+    if args.action in ["build", "test", "all", "bench"]:
         print(f"Building project (config: {build_config})...")
         run_command(["cmake", "--build", build_dir, "--config", build_config])
         print("Build complete.")
@@ -103,6 +103,37 @@ def main():
             env=test_env
         )
         print("Tests complete.")
+
+    # Benchmark step
+    if args.action == "bench":
+        print("--- Running Benchmarks ---")
+        if build_config != "Release":
+            print("Warning: Benchmarks should be run in Release mode for accurate results. Overriding configuration.")
+            build_config = "Release"
+            # We need to re-build if the config was changed
+            print(f"Re-building project in Release mode...")
+            run_command(["cmake", "--build", build_dir, "--config", build_config])
+            print("Build complete.")
+
+        print("Running C++ benchmarks...")
+        cpp_bench_env = {}
+        if sys.platform == "linux":
+            native_lib_path = os.path.join(build_dir, "src")
+            cpp_bench_env["LD_LIBRARY_PATH"] = native_lib_path
+        run_command([os.path.join(build_dir, "tests/yini_bench")], env=cpp_bench_env)
+
+        print("\nRunning C# benchmarks...")
+        csharp_bench_env = {}
+        if sys.platform == "linux":
+            native_lib_path = os.path.join(build_dir, "src")
+            csharp_bench_env["LD_LIBRARY_PATH"] = native_lib_path
+
+        csharp_bench_project_path = os.path.join(project_root, "csharp/Yini.Tests")
+        run_command(
+            ["dotnet", "run", "--project", csharp_bench_project_path, "-c", "Release", "--", "--filter", "*BindingBenchmarks*"],
+            env=csharp_bench_env
+        )
+        print("Benchmarks complete.")
 
     # Docs step
     if args.action in ["docs", "all"]:
