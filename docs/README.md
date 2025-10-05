@@ -12,3 +12,6 @@ Welcome to the official documentation for the YINI language.
 
 - **[CLI Guide](./cli-guide.md)**
   - A reference for the `yini-cli` command-line tool, including all available commands and their usage.
+
+- **[Cookbook](./cookbook.md)**
+  - Practical, copy-and-paste examples for common tasks and problems in both C# and C++.

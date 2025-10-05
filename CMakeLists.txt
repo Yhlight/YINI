@@ -9,11 +9,6 @@ endif()
 # Option to build shared libraries (ON by default)
 option(BUILD_SHARED_LIBS "Build shared libraries" ON)
 
-# Set C++ standard
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF) # Disable GNU extensions
-
 # Compiler warnings
 if(MSVC)
   add_compile_options(/W4)

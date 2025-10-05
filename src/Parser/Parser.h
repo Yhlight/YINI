@@ -40,6 +40,6 @@ namespace YINI
         Token previous();
 
         std::vector<Token> m_tokens;
-        int m_current = 0;
+        size_t m_current = 0;
     };
 }

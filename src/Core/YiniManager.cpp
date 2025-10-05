@@ -21,7 +21,7 @@ namespace YINI
 
         // Find and extract the schema node from the AST
         for (auto it = final_ast.begin(); it != final_ast.end(); ) {
-            if (auto* schema_node = dynamic_cast<Schema*>(it->get())) {
+            if ([[maybe_unused]] auto* schema_node = dynamic_cast<Schema*>(it->get())) {
                 if (m_schema) {
                     // In a more advanced implementation, we might merge schemas.
                     // For now, we'll just take the first one found.

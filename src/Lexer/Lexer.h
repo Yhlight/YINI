@@ -31,8 +31,8 @@ namespace YINI
         std::string m_source;
         std::string m_filepath;
         std::vector<Token> m_tokens;
-        int m_start = 0;
-        int m_current = 0;
+        size_t m_start = 0;
+        size_t m_current = 0;
         int m_line = 1;
         int m_column = 1;
         int m_start_column = 1;
