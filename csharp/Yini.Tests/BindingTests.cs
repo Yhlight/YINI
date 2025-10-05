@@ -1,6 +1,7 @@
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System.IO;
 using Yini;
+using System.Numerics;
 
 namespace Yini.Tests
 {
@@ -30,6 +31,14 @@ namespace Yini.Tests
     {
         public List<string> Items { get; set; } = new();
         public Dictionary<string, int> Ammo { get; set; } = new();
+    }
+
+    public class AdvancedBindingData
+    {
+        public Color PlayerColor { get; set; }
+        public Vector2 SpawnPoint { get; set; }
+        public Vector3 SpawnRotation { get; set; }
+        public Vector4 CameraFrustum { get; set; }
     }
 
     [TestClass]
@@ -123,6 +132,32 @@ ammo = {""arrows"": 50, ""bolts"": 20}
                 Assert.AreEqual(2, inventory.Ammo.Count);
                 Assert.AreEqual(50, inventory.Ammo["arrows"]);
                 Assert.AreEqual(20, inventory.Ammo["bolts"]);
+            }
+        }
+
+        [TestMethod]
+        public void Bind_HandlesAdvancedStructTypes()
+        {
+            string fileContent = @"
+[advanced]
+playercolor = Color(255, 128, 64)
+spawnpoint = Vec2(10.5, 20.2)
+spawnrotation = Vec3(0, 90, 0)
+camerafrustum = Vec4(0.1, 1000, 45, 1.77)
+";
+            File.WriteAllText(TestFileName, fileContent);
+
+            using (var manager = new YiniManager())
+            {
+                manager.Load(TestFileName);
+
+                AdvancedBindingData advanced = manager.Bind<AdvancedBindingData>("advanced");
+
+                Assert.IsNotNull(advanced);
+                Assert.AreEqual(new Color(255, 128, 64, 255), advanced.PlayerColor);
+                Assert.AreEqual(new Vector2(10.5f, 20.2f), advanced.SpawnPoint);
+                Assert.AreEqual(new Vector3(0, 90, 0), advanced.SpawnRotation);
+                Assert.AreEqual(new Vector4(0.1f, 1000f, 45f, 1.77f), advanced.CameraFrustum);
             }
         }
     }

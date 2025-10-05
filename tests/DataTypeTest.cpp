@@ -81,10 +81,10 @@ TEST(DataTypeTest, ThrowsOnIncorrectArgumentCount)
 
     // Test Color
     try {
-        load_manager_from_source(manager, "test_color_err.yini", "[s]\nk=Color(1,2,3)");
+        load_manager_from_source(manager, "test_color_err.yini", "[s]\nk=Color(1,2)");
         FAIL() << "Expected YiniException for Color";
     } catch(const YINI::YiniException& e) {
-        EXPECT_STREQ(e.what(), "Color() expects exactly 4 arguments (r, g, b, a).");
+        EXPECT_STREQ(e.what(), "Color() expects 3 (r, g, b) or 4 (r, g, b, a) arguments.");
     }
 
     // Test Vec2

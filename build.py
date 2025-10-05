@@ -99,7 +99,7 @@ def main():
             print(f"Setting LD_LIBRARY_PATH to: {native_lib_path}")
 
         run_command(
-            ["dotnet", "test", os.path.join(project_root, "csharp/YiniSolution.sln"), "--configuration", build_config, "--no-build"],
+            ["dotnet", "test", os.path.join(project_root, "csharp/Yini.Tests/Yini.Tests.csproj"), "--configuration", build_config, "--no-build"],
             env=test_env
         )
         print("Tests complete.")

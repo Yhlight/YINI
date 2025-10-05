@@ -5,14 +5,17 @@ using Yini;
 namespace Yini.Tests
 {
     [YiniBindable]
-    public partial class TestBindable
+    public partial class SourceGenPlayer
     {
-        public string Name { get; set; } = "Default";
-        public int Level { get; set; } = 0;
+        // This will use the default snake_case conversion to "player_name"
+        public string PlayerName { get; set; } = "Default";
+
+        // This will also use the default conversion to "is_active"
         public bool IsActive { get; set; } = false;
 
+        // This will use the explicit key from the attribute, overriding the default "player_class"
         [YiniKey("character_class")]
-        public string Class { get; set; } = "Peasant";
+        public string PlayerClass { get; set; } = "Peasant";
     }
 
     [TestClass]
@@ -25,10 +28,14 @@ namespace Yini.Tests
         {
             var content = @"
 [player]
-name = Jules
-level = 99
-isactive = true
-character_class = Warrior
+// This key is snake_case and should map to PlayerName
+player_name = ""Jules""
+
+// This key is also snake_case and should map to IsActive
+is_active = true
+
+// This key is explicitly defined by the YiniKey attribute
+character_class = ""Warrior""
 ";
             File.WriteAllText(TestFileName, content);
         }
@@ -43,21 +50,20 @@ character_class = Warrior
         }
 
         [TestMethod]
-        public void GeneratedBinder_BindsDataCorrectly()
+        public void GeneratedBinder_BindsWithDefaultSnakeCaseAndAttributeOverride()
         {
             // Arrange
             var manager = new YiniManager();
             manager.Load(TestFileName);
-            var player = new TestBindable();
+            var player = new SourceGenPlayer();
 
             // Act
             player.BindFromYini(manager, "player");
 
             // Assert
-            Assert.AreEqual("Jules", player.Name);
-            Assert.AreEqual(99, player.Level);
+            Assert.AreEqual("Jules", player.PlayerName);
             Assert.AreEqual(true, player.IsActive);
-            Assert.AreEqual("Warrior", player.Class);
+            Assert.AreEqual("Warrior", player.PlayerClass);
         }
     }
 }

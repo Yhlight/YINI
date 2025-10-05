@@ -116,9 +116,12 @@ if(dotnet_FOUND)
 
     # Define a custom target to build the C# project
     add_custom_target(csharp_build ALL
-        COMMAND ${dotnet_EXECUTABLE} build ${CMAKE_CURRENT_SOURCE_DIR}/csharp/YiniSolution.sln --configuration ${CMAKE_BUILD_TYPE} -p:NativeLibPath=${NATIVE_LIB_PATH}
-        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/csharp
-        COMMENT "Building C# project"
+        # Build the projects individually to ensure correct configuration and dependency flow
+        COMMAND ${dotnet_EXECUTABLE} build ${CMAKE_CURRENT_SOURCE_DIR}/csharp/Yini.SourceGenerator/Yini.SourceGenerator.csproj --configuration ${CMAKE_BUILD_TYPE}
+        COMMAND ${dotnet_EXECUTABLE} build ${CMAKE_CURRENT_SOURCE_DIR}/csharp/Yini/Yini.csproj --configuration ${CMAKE_BUILD_TYPE}
+        COMMAND ${dotnet_EXECUTABLE} build ${CMAKE_CURRENT_SOURCE_DIR}/csharp/Yini.Tests/Yini.Tests.csproj --configuration ${CMAKE_BUILD_TYPE} -p:NativeLibPath=${NATIVE_LIB_PATH}
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        COMMENT "Building C# projects"
         DEPENDS Yini
         VERBATIM
     )

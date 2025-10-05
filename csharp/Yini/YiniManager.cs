@@ -5,6 +5,7 @@ using System.Text;
 using System.Reflection;
 using System.Collections;
 using System.Collections.Generic;
+using System.Numerics;
 
 namespace Yini
 {
@@ -802,12 +803,20 @@ namespace Yini
                 case YiniValueType.Double:
                     return Convert.ChangeType(yiniValue.AsDouble(), targetType);
                 case YiniValueType.String:
+                    // Special case for Guid
+                    if (targetType == typeof(Guid))
+                        return Guid.Parse(yiniValue.AsString());
                     return yiniValue.AsString();
                 case YiniValueType.Bool:
                     return yiniValue.AsBool();
                 case YiniValueType.Array:
                     return ConvertYiniArray(yiniValue, targetType);
                 case YiniValueType.Map:
+                    // Check for special struct types before treating as a generic dictionary
+                    if (targetType == typeof(Vector2)) return ConvertYiniMapToVector2(yiniValue);
+                    if (targetType == typeof(Vector3)) return ConvertYiniMapToVector3(yiniValue);
+                    if (targetType == typeof(Vector4)) return ConvertYiniMapToVector4(yiniValue);
+                    if (targetType == typeof(Color)) return ConvertYiniMapToColor(yiniValue);
                     return ConvertYiniMap(yiniValue, targetType);
                 case YiniValueType.Dyna:
                     using(var innerValue = yiniValue.AsDynaValue())
@@ -838,6 +847,104 @@ namespace Yini
                 }
             }
             return list;
+        }
+
+        private object? ConvertYiniMapToVector2(YiniValue yiniValue)
+        {
+            var map = yiniValue.AsMap();
+            try
+            {
+                var dict = new Dictionary<string, double>();
+                foreach (var kvp in map)
+                {
+                    if (kvp.Value.Type == YiniValueType.Double)
+                        dict[kvp.Key] = kvp.Value.AsDouble();
+                }
+
+                if (dict.TryGetValue("x", out var x) && dict.TryGetValue("y", out var y))
+                {
+                    return new Vector2((float)x, (float)y);
+                }
+                return null;
+            }
+            finally
+            {
+                foreach (var kvp in map) kvp.Value.Dispose();
+            }
+        }
+
+        private object? ConvertYiniMapToVector3(YiniValue yiniValue)
+        {
+            var map = yiniValue.AsMap();
+            try
+            {
+                var dict = new Dictionary<string, double>();
+                foreach (var kvp in map)
+                {
+                    if (kvp.Value.Type == YiniValueType.Double)
+                        dict[kvp.Key] = kvp.Value.AsDouble();
+                }
+
+                if (dict.TryGetValue("x", out var x) && dict.TryGetValue("y", out var y) && dict.TryGetValue("z", out var z))
+                {
+                    return new Vector3((float)x, (float)y, (float)z);
+                }
+                return null;
+            }
+            finally
+            {
+                foreach (var kvp in map) kvp.Value.Dispose();
+            }
+        }
+
+        private object? ConvertYiniMapToVector4(YiniValue yiniValue)
+        {
+            var map = yiniValue.AsMap();
+            try
+            {
+                var dict = new Dictionary<string, double>();
+                foreach (var kvp in map)
+                {
+                    if (kvp.Value.Type == YiniValueType.Double)
+                        dict[kvp.Key] = kvp.Value.AsDouble();
+                }
+
+                if (dict.TryGetValue("x", out var x) && dict.TryGetValue("y", out var y) && dict.TryGetValue("z", out var z) && dict.TryGetValue("w", out var w))
+                {
+                    return new Vector4((float)x, (float)y, (float)z, (float)w);
+                }
+                return null;
+            }
+            finally
+            {
+                foreach (var kvp in map) kvp.Value.Dispose();
+            }
+        }
+
+        private object? ConvertYiniMapToColor(YiniValue yiniValue)
+        {
+            var map = yiniValue.AsMap();
+            try
+            {
+                var dict = new Dictionary<string, double>();
+                foreach (var kvp in map)
+                {
+                    if (kvp.Value.Type == YiniValueType.Double)
+                        dict[kvp.Key] = kvp.Value.AsDouble();
+                }
+
+                if (dict.TryGetValue("r", out var r) && dict.TryGetValue("g", out var g) && dict.TryGetValue("b", out var b))
+                {
+                    // Alpha is optional, defaults to 255
+                    dict.TryGetValue("a", out var a);
+                    return new Color((byte)r, (byte)g, (byte)b, (byte)(dict.ContainsKey("a") ? a : 255));
+                }
+                return null;
+            }
+            finally
+            {
+                foreach (var kvp in map) kvp.Value.Dispose();
+            }
         }
 
         private object? ConvertYiniMap(YiniValue yiniValue, Type targetType)

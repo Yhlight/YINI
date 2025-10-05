@@ -70,16 +70,17 @@ YINI provides a shortcut for registering values in a list-like fashion using the
 += "Bow"
 ```
 
-## 6. Dynamic Values
+## 6. Dynamic Values and Non-Destructive Saving
 
 YINI supports dynamic values, which can be updated in real-time during gameplay. Dynamic values are created using the `Dyna()` function.
 
 ```yini
 [Player]
+// This value can be changed at runtime.
 health = Dyna(100)
 ```
 
-When a dynamic value is modified, the change is written to a `.ymeta` file, which is a metadata file that stores the dynamic state of the YINI file.
+When a dynamic value is modified and saved, YINI performs a **non-destructive write-back**. It carefully updates the original `.yini` file, preserving all comments and existing formatting. This makes it safe to use dynamic values in configuration files that are also managed by humans.
 
 ## 7. Macros and Variables
 
@@ -116,10 +117,6 @@ base_damage = 10
 [Player]
 attack_damage = @base_damage * 1.5
 ```
-
-## 10. YMETA Files
-
-For each YINI file, a corresponding `.ymeta` file is generated to cache information and store dynamic values. This improves performance by avoiding the need to re-parse the YINI file on every load.
 
 ## 11. CLI
 

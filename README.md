@@ -8,7 +8,7 @@ YINI is built with C++17 for high performance and provides a seamless C# wrapper
 
 *   **High-Performance:** The core library is written in modern C++ for maximum performance, with a source-generated C# wrapper that avoids reflection overhead.
 *   **Rich Data Types:** Supports integers, floats, booleans, strings, arrays, maps, and more.
-*   **Dynamic Values:** Define values that can be updated at runtime without re-parsing the entire file.
+*   **Dynamic Values & Non-Destructive Saving:** Define values that can be updated at runtime. Changes are saved back to the original file without destroying comments or formatting.
 *   **Section Inheritance:** Create complex configurations by inheriting and overriding values from other sections.
 *   **Macros and Variables:** Define and reuse values throughout your configuration files.
 *   **File Includes:** Split your configuration into multiple, manageable files.

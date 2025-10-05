@@ -392,14 +392,18 @@ void Interpreter::visit([[maybe_unused]] const Schema& stmt) {}
 
         // Handle Color and Vector types
         if (callee_name == "Color" || callee_name == "color") {
-            if (expr.arguments.size() != 4) {
-                throw YiniException("Color() expects exactly 4 arguments (r, g, b, a).", expr.paren.line, expr.paren.column, expr.paren.filepath);
+            if (expr.arguments.size() != 3 && expr.arguments.size() != 4) {
+                throw YiniException("Color() expects 3 (r, g, b) or 4 (r, g, b, a) arguments.", expr.paren.line, expr.paren.column, expr.paren.filepath);
             }
             YiniMap color_map;
             color_map["r"] = evaluate(*expr.arguments[0]);
             color_map["g"] = evaluate(*expr.arguments[1]);
             color_map["b"] = evaluate(*expr.arguments[2]);
-            color_map["a"] = evaluate(*expr.arguments[3]);
+            if (expr.arguments.size() == 4) {
+                color_map["a"] = evaluate(*expr.arguments[3]);
+            } else {
+                color_map["a"] = YiniValue(255.0); // Default alpha to opaque
+            }
             return YiniValue(std::move(color_map));
         }
 
