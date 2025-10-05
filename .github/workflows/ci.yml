@@ -41,6 +41,9 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
+      - name: Install Google Test
+        run: sudo apt-get update && sudo apt-get install -y libgtest-dev
+
       - name: Make build script executable
         run: chmod +x build.py
 
@@ -67,8 +70,8 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
-      - name: Install coverage tool
-        run: sudo apt-get update && sudo apt-get install -y lcov
+      - name: Install coverage and test tools
+        run: sudo apt-get update && sudo apt-get install -y lcov libgtest-dev
 
       - name: Make build script executable
         run: chmod +x build.py

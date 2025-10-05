@@ -40,6 +40,28 @@ find_package(Yini REQUIRED)
 target_link_libraries(your_target PRIVATE Yini::Yini)
 ```
 
+## Building from Source
+
+If you wish to build the project from source, you will need the following dependencies:
+
+*   **CMake** (version 3.10 or higher)
+*   **.NET SDK** (version 8.0 or higher)
+*   A C++17 compatible compiler (e.g., GCC, Clang, MSVC)
+
+To run the C++ test suite, you will also need to have **Google Test** installed. On Debian-based systems, this can be installed via:
+```bash
+sudo apt-get install libgtest-dev
+```
+
+Once the dependencies are installed, you can use the provided build script:
+```bash
+# Build the project (Debug or Release)
+./build.py build --config Release
+
+# Run all tests
+./build.py test
+```
+
 ## IDE Support (VSCode)
 
 YINI provides a full-featured Language Server and VSCode extension to enhance the development experience.
