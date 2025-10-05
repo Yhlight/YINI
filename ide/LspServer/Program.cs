@@ -14,7 +14,7 @@ using MediatR;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Server;
-using System.Text; // Required for StringBuilder
+using System.Text;
 
 namespace Yini.Lsp
 {
@@ -60,10 +60,56 @@ namespace Yini.Lsp
                         services.AddSingleton<DocumentManager>();
                     })
                     .WithHandler<TextDocumentHandler>()
-                    .WithHandler<HoverHandler>() // Register the new HoverHandler
+                    .WithHandler<HoverHandler>()
+                    .WithHandler<DefinitionHandler>() // Register the new DefinitionHandler
             );
 
             await server.WaitForExit;
+        }
+    }
+
+    class DefinitionHandler : IDefinitionHandler
+    {
+        private readonly DocumentManager _documentManager;
+
+        public DefinitionHandler(DocumentManager documentManager)
+        {
+            _documentManager = documentManager;
+        }
+
+        public DefinitionRegistrationOptions GetRegistrationOptions(DefinitionCapability capability, ClientCapabilities clientCapabilities)
+        {
+            return new DefinitionRegistrationOptions { DocumentSelector = DocumentSelector.ForLanguage("yini") };
+        }
+
+        public Task<LocationOrLocationLinks> Handle(DefinitionParams request, CancellationToken cancellationToken)
+        {
+            var manager = _documentManager.GetOrAdd(request.TextDocument.Uri);
+
+            // First, try to find a key definition at the cursor position
+            var symbol = manager.FindKeyAtPos(request.Position.Line + 1, request.Position.Character + 1);
+            if (symbol.HasValue)
+            {
+                var (section, key) = symbol.Value;
+                var location = manager.GetDefinitionLocation(section, key);
+                if (location.HasValue)
+                {
+                    var (filePath, line, column) = location.Value;
+                    return Task.FromResult(new LocationOrLocationLinks(new Location
+                    {
+                        Uri = DocumentUri.FromFileSystemPath(location.Value.FilePath),
+                        Range = new OmniSharp.Extensions.LanguageServer.Protocol.Models.Range(
+                            new Position(location.Value.Line - 1, location.Value.Column - 1),
+                            new Position(location.Value.Line - 1, location.Value.Column)
+                        )
+                    }));
+                }
+            }
+
+            // TODO: Add logic to find macro and cross-reference usages to provide "go to definition" for them.
+            // This would require enhancing the C-API to return symbol information at a specific position.
+
+            return Task.FromResult(new LocationOrLocationLinks());
         }
     }
 
@@ -103,7 +149,6 @@ namespace Yini.Lsp
                     sb.AppendLine("---");
                     sb.AppendLine($"*({yiniValue.Type.ToString().ToLower()})*");
 
-                    // For complex types, just show the type name. For simple types, show the value.
                     if (yiniValue.Type != YiniValueType.Array && yiniValue.Type != YiniValueType.Map)
                     {
                          sb.AppendLine($"```\n{yiniValue.AsString()}\n```");
@@ -123,7 +168,6 @@ namespace Yini.Lsp
             return Task.FromResult<Hover?>(null);
         }
     }
-
 
     class TextDocumentHandler : ITextDocumentSyncHandler, ICompletionHandler
     {
@@ -146,12 +190,10 @@ namespace Yini.Lsp
             try
             {
                 yiniManager.LoadFromString(text, uri.ToString());
-                // After successful load, perform schema validation if a schema is present
                 var validationErrors = yiniManager.Validate();
                 var diagnostics = validationErrors.Select(err => new Diagnostic {
                     Message = err,
                     Severity = DiagnosticSeverity.Warning,
-                    // We don't have line/col info for schema errors yet, so we mark the whole doc
                     Range = new OmniSharp.Extensions.LanguageServer.Protocol.Models.Range(0,0,0,0)
                 }).ToList();
 
@@ -169,7 +211,7 @@ namespace Yini.Lsp
                     Severity = DiagnosticSeverity.Error,
                     Range = new OmniSharp.Extensions.LanguageServer.Protocol.Models.Range(
                         new Position(ex.Line > 0 ? ex.Line - 1 : 0, ex.Column > 0 ? ex.Column - 1 : 0),
-                        new Position(ex.Line > 0 ? ex.Line - 1 : 0, ex.Column > 0 ? ex.Column + 10 : 10) // Give a bit of range
+                        new Position(ex.Line > 0 ? ex.Line - 1 : 0, ex.Column > 0 ? ex.Column + 10 : 10)
                     )
                 };
 

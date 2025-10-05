@@ -453,6 +453,10 @@ namespace Yini
 
         [LibraryImport(LibName, EntryPoint = "yini_manager_find_key_at_pos")]
         internal static partial int YiniManager_FindKeyAtPos(IntPtr manager, int line, int column, byte* outSection, ref int sectionSize, byte* outKey, ref int keySize);
+
+        [LibraryImport(LibName, EntryPoint = "yini_manager_get_definition_location")]
+        [return: MarshalAs(UnmanagedType.I1)]
+        internal static partial bool YiniManager_GetDefinitionLocation(IntPtr manager, [MarshalAs(UnmanagedType.LPStr)] string? sectionName, [MarshalAs(UnmanagedType.LPStr)] string symbolName, byte* outFilePath, ref int filePathSize, out int outLine, out int outColumn);
         #endregion
 
         /// <summary>
@@ -1049,6 +1053,38 @@ namespace Yini
             {
                 if (sectionRented != null) ArrayPool<byte>.Shared.Return(sectionRented);
                 if (keyRented != null) ArrayPool<byte>.Shared.Return(keyRented);
+            }
+        }
+
+        public unsafe (string FilePath, int Line, int Column)? GetDefinitionLocation(string? sectionName, string symbolName)
+        {
+            int filePathSize = 0;
+            if (!YiniManager_GetDefinitionLocation(_managerPtr, sectionName, symbolName, null, ref filePathSize, out int line, out int column))
+            {
+                return null;
+            }
+
+            byte[]? rentedBuffer = null;
+            try
+            {
+                rentedBuffer = ArrayPool<byte>.Shared.Rent(filePathSize);
+                string filePath;
+                fixed (byte* buffer = rentedBuffer)
+                {
+                    if (!YiniManager_GetDefinitionLocation(_managerPtr, sectionName, symbolName, buffer, ref filePathSize, out line, out column))
+                    {
+                        return null;
+                    }
+                    filePath = Encoding.UTF8.GetString(buffer, filePathSize - 1);
+                }
+                return (filePath, line, column);
+            }
+            finally
+            {
+                if (rentedBuffer != null)
+                {
+                    ArrayPool<byte>.Shared.Return(rentedBuffer);
+                }
             }
         }
 

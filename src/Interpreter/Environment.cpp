@@ -3,18 +3,27 @@
 
 namespace YINI
 {
-    void Environment::define(const std::string& name, YiniValue value)
+    void Environment::define(const Token& name_token, YiniValue value)
     {
-        m_values[name] = std::move(value);
+        m_values[name_token.lexeme] = { std::move(value), name_token };
     }
 
     YiniValue Environment::get(const Token& name) const
     {
         if (m_values.count(name.lexeme))
         {
-            return m_values.at(name.lexeme);
+            return m_values.at(name.lexeme).value;
         }
         throw RuntimeError("Undefined variable '" + name.lexeme + "'.", name.line, name.column, name.filepath);
+    }
+
+    std::optional<Token> Environment::get_definition_token(const std::string& name) const
+    {
+        if (m_values.count(name))
+        {
+            return m_values.at(name).definition_token;
+        }
+        return std::nullopt;
     }
 
     void Environment::clear()

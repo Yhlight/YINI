@@ -255,6 +255,53 @@ YINI_API int yini_manager_validate(Yini_ManagerHandle manager) {
     }
 }
 
+YINI_API bool yini_manager_get_definition_location(Yini_ManagerHandle manager, const char* section_name, const char* symbol_name, char* out_filepath, int* filepath_size, int* out_line, int* out_column)
+{
+    auto* mgr = as_manager(manager);
+    if (!mgr || !symbol_name || !filepath_size || !out_line || !out_column)
+    {
+        return false;
+    }
+
+    const auto& interpreter = mgr->get_interpreter();
+    std::optional<YINI::Token> token;
+
+    if (section_name != nullptr)
+    {
+        // It's a key in a section
+        const auto& kv_map = interpreter.get_kv_map();
+        auto section_it = kv_map.find(section_name);
+        if (section_it != kv_map.end())
+        {
+            auto key_it = section_it->second.find(symbol_name);
+            if (key_it != section_it->second.end())
+            {
+                token = key_it->second->key;
+            }
+        }
+    }
+    else
+    {
+        // It's a macro
+        token = interpreter.get_macro_definition_token(symbol_name);
+    }
+
+    if (token.has_value())
+    {
+        *filepath_size = static_cast<int>(token->filepath.length() + 1);
+        *out_line = token->line;
+        *out_column = token->column;
+
+        if (out_filepath != nullptr)
+        {
+            safe_string_copy(out_filepath, *filepath_size, token->filepath);
+        }
+        return true;
+    }
+
+    return false;
+}
+
 YINI_API int yini_manager_get_validation_error(Yini_ManagerHandle manager, int index, char* out_buffer, int buffer_size) {
     if (!manager || index < 0) return -1;
     auto* mgr = as_manager(manager);

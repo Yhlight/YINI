@@ -174,6 +174,23 @@ YINI_API void yini_manager_set_value(Yini_ManagerHandle manager, const char* sec
  */
 YINI_API int yini_manager_find_key_at_pos(Yini_ManagerHandle manager, int line, int column, char* out_section, int* section_size, char* out_key, int* key_size);
 
+/**
+ * @brief Gets the definition location of a symbol (a key or a macro).
+ *
+ * For a key, both `section_name` and `symbol_name` must be provided.
+ * For a macro, `section_name` should be NULL, and `symbol_name` is the macro name.
+ *
+ * @param manager A handle to the YiniManager instance.
+ * @param section_name The name of the section containing the key, or NULL for a macro.
+ * @param symbol_name The name of the key or macro.
+ * @param out_filepath Buffer to store the definition file path. Can be null for size query.
+ * @param filepath_size The size of the filepath buffer. On the first call, this returns the required size.
+ * @param out_line Pointer to store the line number.
+ * @param out_column Pointer to store the column number.
+ * @return True if the definition is found, false otherwise.
+ */
+YINI_API bool yini_manager_get_definition_location(Yini_ManagerHandle manager, const char* section_name, const char* symbol_name, char* out_filepath, int* filepath_size, int* out_line, int* out_column);
+
 
 //================================================================================
 // Value Functions

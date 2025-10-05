@@ -49,6 +49,7 @@ namespace YINI
         YiniValue visit(const XRef& expr) override;
 
         const std::map<std::string, std::map<std::string, const KeyValue*>>& get_kv_map() const { return m_kv_map; }
+        std::optional<Token> get_macro_definition_token(const std::string& name) const;
 
     private:
         YiniValue evaluate(const Expr& expr);

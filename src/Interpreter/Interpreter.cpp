@@ -192,8 +192,13 @@ void Interpreter::visit([[maybe_unused]] const Schema& stmt) {}
     {
         for (const auto& value : stmt.values)
         {
-            m_globals.define(value->key.lexeme, evaluate(*value->value));
+            m_globals.define(value->key, evaluate(*value->value));
         }
+    }
+
+    std::optional<Token> Interpreter::get_macro_definition_token(const std::string& name) const
+    {
+        return m_globals.get_definition_token(name);
     }
 
     YiniValue Interpreter::visit(const Literal& expr) { return expr.value; }
