@@ -1,0 +1,32 @@
+name: YINI CI
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Make build script executable
+        run: chmod +x build.py
+
+      - name: Build and Test (Debug)
+        run: ./build.py test --config Debug
+
+      - name: Clean build directory
+        run: ./build.py clean
+
+      - name: Build and Test (Release)
+        run: ./build.py test --config Release
