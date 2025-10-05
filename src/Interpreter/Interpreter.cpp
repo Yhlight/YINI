@@ -389,6 +389,53 @@ void Interpreter::visit([[maybe_unused]] const Schema& stmt) {}
             }
             return YiniValue(DynaValue(evaluate(*expr.arguments[0])));
         }
-        return {}; // Placeholder for other functions
+
+        // Handle Color and Vector types
+        if (callee_name == "Color" || callee_name == "color") {
+            if (expr.arguments.size() != 4) {
+                throw YiniException("Color() expects exactly 4 arguments (r, g, b, a).", expr.paren.line, expr.paren.column, expr.paren.filepath);
+            }
+            YiniMap color_map;
+            color_map["r"] = evaluate(*expr.arguments[0]);
+            color_map["g"] = evaluate(*expr.arguments[1]);
+            color_map["b"] = evaluate(*expr.arguments[2]);
+            color_map["a"] = evaluate(*expr.arguments[3]);
+            return YiniValue(std::move(color_map));
+        }
+
+        if (callee_name == "Vec2" || callee_name == "vec2") {
+            if (expr.arguments.size() != 2) {
+                throw YiniException("Vec2() expects exactly 2 arguments (x, y).", expr.paren.line, expr.paren.column, expr.paren.filepath);
+            }
+            YiniMap vec_map;
+            vec_map["x"] = evaluate(*expr.arguments[0]);
+            vec_map["y"] = evaluate(*expr.arguments[1]);
+            return YiniValue(std::move(vec_map));
+        }
+
+        if (callee_name == "Vec3" || callee_name == "vec3") {
+            if (expr.arguments.size() != 3) {
+                throw YiniException("Vec3() expects exactly 3 arguments (x, y, z).", expr.paren.line, expr.paren.column, expr.paren.filepath);
+            }
+            YiniMap vec_map;
+            vec_map["x"] = evaluate(*expr.arguments[0]);
+            vec_map["y"] = evaluate(*expr.arguments[1]);
+            vec_map["z"] = evaluate(*expr.arguments[2]);
+            return YiniValue(std::move(vec_map));
+        }
+
+        if (callee_name == "Vec4" || callee_name == "vec4") {
+            if (expr.arguments.size() != 4) {
+                throw YiniException("Vec4() expects exactly 4 arguments (x, y, z, w).", expr.paren.line, expr.paren.column, expr.paren.filepath);
+            }
+            YiniMap vec_map;
+            vec_map["x"] = evaluate(*expr.arguments[0]);
+            vec_map["y"] = evaluate(*expr.arguments[1]);
+            vec_map["z"] = evaluate(*expr.arguments[2]);
+            vec_map["w"] = evaluate(*expr.arguments[3]);
+            return YiniValue(std::move(vec_map));
+        }
+
+        throw YiniException("Unknown function call '" + callee_name + "'.", expr.paren.line, expr.paren.column, expr.paren.filepath);
     }
 }

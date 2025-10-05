@@ -68,6 +68,11 @@ target_link_libraries(schema_test Yini GTest::gtest_main)
 add_test(NAME schema_test COMMAND schema_test)
 set_target_properties(schema_test PROPERTIES FOLDER "Tests/Features")
 
+add_executable(data_type_test DataTypeTest.cpp)
+target_link_libraries(data_type_test Yini GTest::gtest_main)
+add_test(NAME data_type_test COMMAND data_type_test)
+set_target_properties(data_type_test PROPERTIES FOLDER "Tests/Features")
+
 # --- CLI Test ---
 add_executable(cli_test CliTest.cpp)
 target_link_libraries(cli_test Yini GTest::gtest_main)
