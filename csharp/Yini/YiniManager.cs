@@ -128,14 +128,14 @@ namespace Yini
         /// Retrieves the value as a <see cref="string"/>.
         /// </summary>
         /// <returns>The string value.</returns>
-        public string AsString()
+        public unsafe string AsString()
         {
             int requiredSize = YiniManager.YiniValue_GetString(Handle, null, 0);
             if (requiredSize <= 0) return "";
 
-            var buffer = new StringBuilder(requiredSize);
-            YiniManager.YiniValue_GetString(Handle, buffer, buffer.Capacity);
-            return buffer.ToString();
+            byte* buffer = stackalloc byte[requiredSize];
+            YiniManager.YiniValue_GetString(Handle, buffer, requiredSize);
+            return Encoding.UTF8.GetString(buffer, requiredSize - 1); // Exclude null terminator
         }
 
         /// <summary>
@@ -212,14 +212,14 @@ namespace Yini
         public int MapSize => YiniManager.YiniMap_GetSize(Handle);
 
         /// <summary>
-        /// Returns an enumerable collection of key-value pairs in the map.
-        /// Each iteration yields a new <see cref="YiniValue"/> that must be disposed by the caller.
+        /// Returns a list of key-value pairs in the map.
         /// </summary>
-        /// <returns>An <see cref="IEnumerable{T}"/> of key-value pairs.</returns>
-        public IEnumerable<KeyValuePair<string, YiniValue>> AsMap()
+        /// <returns>A <see cref="List{T}"/> of key-value pairs.</returns>
+        public unsafe List<KeyValuePair<string, YiniValue>> AsMap()
         {
+            var list = new List<KeyValuePair<string, YiniValue>>();
             int size = MapSize;
-            if (size < 0) yield break;
+            if (size < 0) return list;
 
             for (int i = 0; i < size; i++)
             {
@@ -227,16 +227,17 @@ namespace Yini
                 int keySize = YiniManager.YiniMap_GetKeyAt(Handle, i, null, 0);
                 if (keySize <= 0) continue;
 
-                var keyBuffer = new StringBuilder(keySize);
+                byte* keyBuffer = stackalloc byte[keySize];
                 YiniManager.YiniMap_GetKeyAt(Handle, i, keyBuffer, keySize);
-                string key = keyBuffer.ToString();
+                string key = Encoding.UTF8.GetString(keyBuffer, keySize - 1); // Exclude null terminator
 
                 // Get value handle. The C-API returns a new handle that we own.
                 IntPtr valueHandle = YiniManager.YiniMap_GetValueAt(Handle, i);
                 if (valueHandle == IntPtr.Zero) continue;
 
-                yield return new KeyValuePair<string, YiniValue>(key, new YiniValue(valueHandle));
+                list.Add(new KeyValuePair<string, YiniValue>(key, new YiniValue(valueHandle)));
             }
+            return list;
         }
 
         /// <summary>
@@ -292,7 +293,7 @@ namespace Yini
     /// This class is the primary entry point for using the YINI library in .NET.
     /// It implements <see cref="IDisposable"/> to manage the lifetime of the underlying native manager instance.
     /// </summary>
-    public class YiniManager : IDisposable
+    public unsafe partial class YiniManager : IDisposable
     {
         private const string LibName = "Yini"; // Assumes libYini.so or Yini.dll
         private IntPtr _managerPtr;
@@ -300,95 +301,99 @@ namespace Yini
 
         #region PInvoke Signatures
         // Manager
-        [DllImport(LibName, EntryPoint = "yini_manager_create")]
-        internal static extern IntPtr YiniManager_Create();
+        [LibraryImport(LibName, EntryPoint = "yini_manager_create")]
+        internal static partial IntPtr YiniManager_Create();
 
-        [DllImport(LibName, EntryPoint = "yini_manager_destroy")]
-        internal static extern void YiniManager_Destroy(IntPtr manager);
+        [LibraryImport(LibName, EntryPoint = "yini_manager_destroy")]
+        internal static partial void YiniManager_Destroy(IntPtr manager);
 
-        [DllImport(LibName, EntryPoint = "yini_manager_load")]
-        internal static extern bool YiniManager_Load(IntPtr manager, string filepath);
+        [LibraryImport(LibName, EntryPoint = "yini_manager_load")]
+        [return: MarshalAs(UnmanagedType.I1)]
+        internal static partial bool YiniManager_Load(IntPtr manager, [MarshalAs(UnmanagedType.LPStr)] string filepath);
 
-        [DllImport(LibName, EntryPoint = "yini_manager_save_changes")]
-        internal static extern void YiniManager_SaveChanges(IntPtr manager);
+        [LibraryImport(LibName, EntryPoint = "yini_manager_save_changes")]
+        internal static partial void YiniManager_SaveChanges(IntPtr manager);
 
-        [DllImport(LibName, EntryPoint = "yini_manager_get_value")]
-        internal static extern IntPtr YiniManager_GetValue(IntPtr manager, string section, string key);
+        [LibraryImport(LibName, EntryPoint = "yini_manager_get_value")]
+        internal static partial IntPtr YiniManager_GetValue(IntPtr manager, [MarshalAs(UnmanagedType.LPStr)] string section, [MarshalAs(UnmanagedType.LPStr)] string key);
 
-        [DllImport(LibName, EntryPoint = "yini_manager_set_value")]
-        internal static extern void YiniManager_SetValue(IntPtr manager, string section, string key, IntPtr valueHandle);
+        [LibraryImport(LibName, EntryPoint = "yini_manager_set_value")]
+        internal static partial void YiniManager_SetValue(IntPtr manager, [MarshalAs(UnmanagedType.LPStr)] string section, [MarshalAs(UnmanagedType.LPStr)] string key, IntPtr valueHandle);
 
-        [DllImport(LibName, EntryPoint = "yini_manager_has_key")]
-        internal static extern bool YiniManager_HasKey(IntPtr manager, string section, string key);
+        [LibraryImport(LibName, EntryPoint = "yini_manager_has_key")]
+        [return: MarshalAs(UnmanagedType.I1)]
+        internal static partial bool YiniManager_HasKey(IntPtr manager, [MarshalAs(UnmanagedType.LPStr)] string section, [MarshalAs(UnmanagedType.LPStr)] string key);
 
-        [DllImport(LibName, EntryPoint = "yini_manager_get_last_error")]
-        internal static extern int YiniManager_GetLastError(IntPtr manager, StringBuilder? outBuffer, int bufferSize);
+        [LibraryImport(LibName, EntryPoint = "yini_manager_get_last_error")]
+        internal static partial int YiniManager_GetLastError(IntPtr manager, byte* outBuffer, int bufferSize);
 
         // Value Handles
-        [DllImport(LibName, EntryPoint = "yini_value_destroy")]
-        internal static extern void YiniValue_Destroy(IntPtr handle);
+        [LibraryImport(LibName, EntryPoint = "yini_value_destroy")]
+        internal static partial void YiniValue_Destroy(IntPtr handle);
 
-        [DllImport(LibName, EntryPoint = "yini_value_get_type")]
-        internal static extern YiniValueType YiniValue_GetType(IntPtr handle);
+        [LibraryImport(LibName, EntryPoint = "yini_value_get_type")]
+        internal static partial YiniValueType YiniValue_GetType(IntPtr handle);
 
         // Create Value Handles
-        [DllImport(LibName, EntryPoint = "yini_value_create_double")]
-        internal static extern IntPtr YiniValue_CreateDouble(double value);
+        [LibraryImport(LibName, EntryPoint = "yini_value_create_double")]
+        internal static partial IntPtr YiniValue_CreateDouble(double value);
 
-        [DllImport(LibName, EntryPoint = "yini_value_create_string")]
-        internal static extern IntPtr YiniValue_CreateString(string value);
+        [LibraryImport(LibName, EntryPoint = "yini_value_create_string")]
+        internal static partial IntPtr YiniValue_CreateString([MarshalAs(UnmanagedType.LPStr)] string value);
 
-        [DllImport(LibName, EntryPoint = "yini_value_create_bool")]
-        internal static extern IntPtr YiniValue_CreateBool(bool value);
+        [LibraryImport(LibName, EntryPoint = "yini_value_create_bool")]
+        internal static partial IntPtr YiniValue_CreateBool([MarshalAs(UnmanagedType.I1)] bool value);
 
-        [DllImport(LibName, EntryPoint = "yini_value_create_array")]
-        internal static extern IntPtr YiniValue_CreateArray();
+        [LibraryImport(LibName, EntryPoint = "yini_value_create_array")]
+        internal static partial IntPtr YiniValue_CreateArray();
 
-        [DllImport(LibName, EntryPoint = "yini_value_create_map")]
-        internal static extern IntPtr YiniValue_CreateMap();
+        [LibraryImport(LibName, EntryPoint = "yini_value_create_map")]
+        internal static partial IntPtr YiniValue_CreateMap();
 
         // Get Data from Value Handles
-        [DllImport(LibName, EntryPoint = "yini_value_get_double")]
-        internal static extern bool YiniValue_GetDouble(IntPtr handle, out double outValue);
+        [LibraryImport(LibName, EntryPoint = "yini_value_get_double")]
+        [return: MarshalAs(UnmanagedType.I1)]
+        internal static partial bool YiniValue_GetDouble(IntPtr handle, out double outValue);
 
-        [DllImport(LibName, EntryPoint = "yini_value_get_string")]
-        internal static extern int YiniValue_GetString(IntPtr handle, StringBuilder? outBuffer, int bufferSize);
+        [LibraryImport(LibName, EntryPoint = "yini_value_get_string")]
+        internal static partial int YiniValue_GetString(IntPtr handle, byte* outBuffer, int bufferSize);
 
-        [DllImport(LibName, EntryPoint = "yini_value_get_bool")]
-        internal static extern bool YiniValue_GetBool(IntPtr handle, out bool outValue);
+        [LibraryImport(LibName, EntryPoint = "yini_value_get_bool")]
+        [return: MarshalAs(UnmanagedType.I1)]
+        internal static partial bool YiniValue_GetBool(IntPtr handle, [MarshalAs(UnmanagedType.I1)] out bool outValue);
 
-        [DllImport(LibName, EntryPoint = "yini_value_get_dyna_value")]
-        internal static extern IntPtr YiniValue_GetDynaValue(IntPtr handle);
+        [LibraryImport(LibName, EntryPoint = "yini_value_get_dyna_value")]
+        internal static partial IntPtr YiniValue_GetDynaValue(IntPtr handle);
 
         // Array Manipulation
-        [DllImport(LibName, EntryPoint = "yini_array_get_size")]
-        internal static extern int YiniArray_GetSize(IntPtr handle);
+        [LibraryImport(LibName, EntryPoint = "yini_array_get_size")]
+        internal static partial int YiniArray_GetSize(IntPtr handle);
 
-        [DllImport(LibName, EntryPoint = "yini_array_get_element")]
-        internal static extern IntPtr YiniArray_GetElement(IntPtr handle, int index);
+        [LibraryImport(LibName, EntryPoint = "yini_array_get_element")]
+        internal static partial IntPtr YiniArray_GetElement(IntPtr handle, int index);
 
-        [DllImport(LibName, EntryPoint = "yini_array_add_element")]
-        internal static extern void YiniArray_AddElement(IntPtr arrayHandle, IntPtr elementHandle);
+        [LibraryImport(LibName, EntryPoint = "yini_array_add_element")]
+        internal static partial void YiniArray_AddElement(IntPtr arrayHandle, IntPtr elementHandle);
 
         // Map Manipulation
-        [DllImport(LibName, EntryPoint = "yini_map_get_size")]
-        internal static extern int YiniMap_GetSize(IntPtr handle);
+        [LibraryImport(LibName, EntryPoint = "yini_map_get_size")]
+        internal static partial int YiniMap_GetSize(IntPtr handle);
 
-        [DllImport(LibName, EntryPoint = "yini_map_get_value_at")]
-        internal static extern IntPtr YiniMap_GetValueAt(IntPtr handle, int index);
+        [LibraryImport(LibName, EntryPoint = "yini_map_get_value_at")]
+        internal static partial IntPtr YiniMap_GetValueAt(IntPtr handle, int index);
 
-        [DllImport(LibName, EntryPoint = "yini_map_get_key_at")]
-        internal static extern int YiniMap_GetKeyAt(IntPtr handle, int index, StringBuilder? outBuffer, int bufferSize);
+        [LibraryImport(LibName, EntryPoint = "yini_map_get_key_at")]
+        internal static partial int YiniMap_GetKeyAt(IntPtr handle, int index, byte* outBuffer, int bufferSize);
 
-        [DllImport(LibName, EntryPoint = "yini_map_set_value")]
-        internal static extern void YiniMap_SetValue(IntPtr mapHandle, string key, IntPtr valueHandle);
+        [LibraryImport(LibName, EntryPoint = "yini_map_set_value")]
+        internal static partial void YiniMap_SetValue(IntPtr mapHandle, [MarshalAs(UnmanagedType.LPStr)] string key, IntPtr valueHandle);
 
         // Schema Validation
-        [DllImport(LibName, EntryPoint = "yini_manager_validate")]
-        internal static extern int YiniManager_Validate(IntPtr manager);
+        [LibraryImport(LibName, EntryPoint = "yini_manager_validate")]
+        internal static partial int YiniManager_Validate(IntPtr manager);
 
-        [DllImport(LibName, EntryPoint = "yini_manager_get_validation_error")]
-        internal static extern int YiniManager_GetValidationError(IntPtr manager, int index, StringBuilder? outBuffer, int bufferSize);
+        [LibraryImport(LibName, EntryPoint = "yini_manager_get_validation_error")]
+        internal static partial int YiniManager_GetValidationError(IntPtr manager, int index, byte* outBuffer, int bufferSize);
         #endregion
 
         /// <summary>
@@ -410,9 +415,9 @@ namespace Yini
             int errorSize = YiniManager_GetLastError(_managerPtr, null, 0);
             if (errorSize > 0)
             {
-                var errorBuffer = new StringBuilder(errorSize);
-                YiniManager_GetLastError(_managerPtr, errorBuffer, errorBuffer.Capacity);
-                throw new YiniException(errorBuffer.ToString());
+                byte* errorBuffer = stackalloc byte[errorSize];
+                YiniManager_GetLastError(_managerPtr, errorBuffer, errorSize);
+                throw new YiniException(Encoding.UTF8.GetString(errorBuffer, errorSize - 1));
             }
         }
 
@@ -766,7 +771,7 @@ namespace Yini
         /// Validates the loaded YINI data against its defined schema.
         /// </summary>
         /// <returns>A list of validation error messages. An empty list indicates that validation passed.</returns>
-        public List<string> Validate()
+        public unsafe List<string> Validate()
         {
             var errors = new List<string>();
             int errorCount = YiniManager_Validate(_managerPtr);
@@ -781,9 +786,9 @@ namespace Yini
                 int requiredSize = YiniManager_GetValidationError(_managerPtr, i, null, 0);
                 if (requiredSize <= 0) continue;
 
-                var buffer = new StringBuilder(requiredSize);
-                YiniManager_GetValidationError(_managerPtr, i, buffer, buffer.Capacity);
-                errors.Add(buffer.ToString());
+                byte* buffer = stackalloc byte[requiredSize];
+                YiniManager_GetValidationError(_managerPtr, i, buffer, requiredSize);
+                errors.Add(Encoding.UTF8.GetString(buffer, requiredSize - 1));
             }
 
             return errors;
