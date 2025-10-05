@@ -819,7 +819,7 @@ namespace Yini
                     if (targetType == typeof(Color)) return ConvertYiniMapToColor(yiniValue);
                     return ConvertYiniMap(yiniValue, targetType);
                 case YiniValueType.Dyna:
-                    using(var innerValue = yiniValue.AsDynaValue())
+                    using (var innerValue = yiniValue.AsDynaValue())
                     {
                         return ConvertYiniValue(innerValue, targetType);
                     }
@@ -951,7 +951,7 @@ namespace Yini
         {
             if (!targetType.IsGenericType || (targetType.GetGenericTypeDefinition() != typeof(Dictionary<,>) && targetType.GetGenericTypeDefinition() != typeof(IDictionary<,>)))
             {
-                 return null;
+                return null;
             }
 
             var keyType = targetType.GetGenericArguments()[0];

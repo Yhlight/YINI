@@ -4,129 +4,127 @@
  */
 #pragma once
 
-#include "Interpreter/Interpreter.h"
-#include "Parser/Ast.h"
-#include "Core/DynaValue.h"
-#include "Core/YiniValue.h"
-#include "Core/Validator.h" // Include Validator header
+#include <map>
+#include <memory>
+#include <set>
 #include <string>
 #include <string_view>
 #include <vector>
-#include <memory>
-#include <set>
-#include <map>
 
-namespace YINI
-{
+#include "Core/DynaValue.h"
+#include "Core/Validator.h"  // Include Validator header
+#include "Core/YiniValue.h"
+#include "Interpreter/Interpreter.h"
+#include "Parser/Ast.h"
+
+namespace YINI {
+/**
+ * @struct DirtyValue
+ * @brief Represents a value that has been modified but not yet saved to the file.
+ */
+struct DirtyValue {
+    YiniValue value;  //!< The new value.
+    int line;         //!< The original line number of the value (0 if it's a new value).
+    int column;       //!< The original column number of the value.
+};
+
+/**
+ * @class YiniManager
+ * @brief The main entry point for the YINI library.
+ *
+ * This class manages the loading, parsing, querying, and saving of YINI files.
+ * It provides a high-level API for interacting with configuration data.
+ */
+class YiniManager {
+public:
     /**
-     * @struct DirtyValue
-     * @brief Represents a value that has been modified but not yet saved to the file.
+     * @brief Default constructor.
      */
-    struct DirtyValue
-    {
-        YiniValue value; //!< The new value.
-        int line;        //!< The original line number of the value (0 if it's a new value).
-        int column;      //!< The original column number of the value.
-    };
+    YiniManager();
 
     /**
-     * @class YiniManager
-     * @brief The main entry point for the YINI library.
+     * @brief Loads and parses a YINI file.
+     * @param filepath The path to the .yini file to load.
+     * @throws std::runtime_error if the file cannot be opened.
+     * @throws YiniException on parsing or interpretation errors.
+     */
+    void load(std::string_view filepath);
+
+    /**
+     * @brief Loads and parses a YINI configuration from a string.
+     * @param content The string content to parse.
+     * @param virtual_filepath A virtual path to use for error reporting.
+     * @throws YiniException on parsing or interpretation errors.
+     */
+    void load_from_string(std::string_view content, std::string_view virtual_filepath = "string");
+
+    /**
+     * @brief Saves any modified dynamic values back to the original file.
      *
-     * This class manages the loading, parsing, querying, and saving of YINI files.
-     * It provides a high-level API for interacting with configuration data.
+     * This method performs a non-destructive write-back, preserving comments
+     * and formatting where possible. New values are appended to their respective
+     * sections.
+     * @throws std::runtime_error if the file cannot be written.
      */
-    class YiniManager
-    {
-    public:
-        /**
-         * @brief Default constructor.
-         */
-        YiniManager();
+    void save_changes();
 
-        /**
-         * @brief Loads and parses a YINI file.
-         * @param filepath The path to the .yini file to load.
-         * @throws std::runtime_error if the file cannot be opened.
-         * @throws YiniException on parsing or interpretation errors.
-         */
-        void load(std::string_view filepath);
+    /**
+     * @brief Retrieves a value from a specific section and key.
+     * @param section The name of the section.
+     * @param key The name of the key.
+     * @return The requested YiniValue. If the value is dynamic, this returns the underlying value.
+     * @throws std::runtime_error if the section or key is not found.
+     */
+    YiniValue get_value(std::string_view section, std::string_view key);
 
-        /**
-         * @brief Loads and parses a YINI configuration from a string.
-         * @param content The string content to parse.
-         * @param virtual_filepath A virtual path to use for error reporting.
-         * @throws YiniException on parsing or interpretation errors.
-         */
-        void load_from_string(std::string_view content, std::string_view virtual_filepath = "string");
+    /**
+     * @brief Sets the value for a given section and key.
+     *
+     * This operation is only valid for values that were originally declared as
+     * dynamic with `Dyna()`. If the key does not exist but the section does,
+     * a new dynamic value will be created.
+     * @param section The name of the section.
+     * @param key The name of the key.
+     * @param value The new value to set.
+     * @throws std::runtime_error if the section does not exist or if the key
+     *         exists but is not a dynamic value.
+     */
+    void set_value(std::string_view section, std::string_view key, YiniValue value);
 
-        /**
-         * @brief Saves any modified dynamic values back to the original file.
-         *
-         * This method performs a non-destructive write-back, preserving comments
-         * and formatting where possible. New values are appended to their respective
-         * sections.
-         * @throws std::runtime_error if the file cannot be written.
-         */
-        void save_changes();
+    /**
+     * @brief The interpreter instance that holds the resolved state of the YINI file.
+     *
+     * This is public to allow for advanced inspection of the parsed data, but
+     * typical use cases should rely on get_value() and set_value().
+     */
+    const Interpreter& get_interpreter() const;
 
-        /**
-         * @brief Retrieves a value from a specific section and key.
-         * @param section The name of the section.
-         * @param key The name of the key.
-         * @return The requested YiniValue. If the value is dynamic, this returns the underlying value.
-         * @throws std::runtime_error if the section or key is not found.
-         */
-        YiniValue get_value(std::string_view section, std::string_view key);
+    /**
+     * @brief Gets the parsed schema, if one was present in the loaded files.
+     * @return A const pointer to the Schema AST node, or nullptr if no schema was found.
+     */
+    const Schema* get_schema() const;
 
-        /**
-         * @brief Sets the value for a given section and key.
-         *
-         * This operation is only valid for values that were originally declared as
-         * dynamic with `Dyna()`. If the key does not exist but the section does,
-         * a new dynamic value will be created.
-         * @param section The name of the section.
-         * @param key The name of the key.
-         * @param value The new value to set.
-         * @throws std::runtime_error if the section does not exist or if the key
-         *         exists but is not a dynamic value.
-         */
-        void set_value(std::string_view section, std::string_view key, YiniValue value);
+    /**
+     * @brief A vector of validation errors from the last validation run.
+     * This is public for the C-API to access.
+     */
+    std::vector<ValidationError> m_last_validation_errors;
 
-        /**
-         * @brief The interpreter instance that holds the resolved state of the YINI file.
-         *
-         * This is public to allow for advanced inspection of the parsed data, but
-         * typical use cases should rely on get_value() and set_value().
-         */
-        const Interpreter& get_interpreter() const;
+    /**
+     * @brief Stores the last error message from a C-API call.
+     * This is thread_local to ensure that in a multi-threaded environment,
+     * one thread's error message does not overwrite another's.
+     */
+    thread_local static std::string m_last_error;
 
-        /**
-         * @brief Gets the parsed schema, if one was present in the loaded files.
-         * @return A const pointer to the Schema AST node, or nullptr if no schema was found.
-         */
-        const Schema* get_schema() const;
+private:
+    std::vector<std::unique_ptr<Stmt>> load_file(std::string_view filepath, std::set<std::string>& loaded_files);
+    void merge_asts(std::vector<std::unique_ptr<Stmt>>& base_ast, std::vector<std::unique_ptr<Stmt>>& new_ast);
 
-        /**
-         * @brief A vector of validation errors from the last validation run.
-         * This is public for the C-API to access.
-         */
-        std::vector<ValidationError> m_last_validation_errors;
-
-        /**
-         * @brief Stores the last error message from a C-API call.
-         * This is thread_local to ensure that in a multi-threaded environment,
-         * one thread's error message does not overwrite another's.
-         */
-        thread_local static std::string m_last_error;
-
-    private:
-        std::vector<std::unique_ptr<Stmt>> load_file(std::string_view filepath, std::set<std::string>& loaded_files);
-        void merge_asts(std::vector<std::unique_ptr<Stmt>>& base_ast, std::vector<std::unique_ptr<Stmt>>& new_ast);
-
-        std::string m_filepath;
-        Interpreter m_interpreter;
-        std::map<std::string, std::map<std::string, DirtyValue, std::less<>>, std::less<>> m_dirty_values;
-        std::unique_ptr<Schema> m_schema;
-    };
-}
+    std::string m_filepath;
+    Interpreter m_interpreter;
+    std::map<std::string, std::map<std::string, DirtyValue, std::less<>>, std::less<>> m_dirty_values;
+    std::unique_ptr<Schema> m_schema;
+};
+}  // namespace YINI

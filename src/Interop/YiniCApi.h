@@ -12,13 +12,13 @@
 #include <stddef.h>
 
 #if defined(_WIN32)
-    #ifdef YINI_BUILD_DLL
-        #define YINI_API __declspec(dllexport)
-    #else
-        #define YINI_API __declspec(dllimport)
-    #endif
+#ifdef YINI_BUILD_DLL
+#define YINI_API __declspec(dllexport)
 #else
-    #define YINI_API
+#define YINI_API __declspec(dllimport)
+#endif
+#else
+#define YINI_API
 #endif
 
 #ifdef __cplusplus
@@ -81,7 +81,8 @@ YINI_API bool yini_manager_load(Yini_ManagerHandle manager, const char* filepath
  * @param virtual_filepath A virtual path to use for error reporting.
  * @return True on success, false on failure.
  */
-YINI_API bool yini_manager_load_from_string(Yini_ManagerHandle manager, const char* content, const char* virtual_filepath);
+YINI_API bool yini_manager_load_from_string(Yini_ManagerHandle manager, const char* content,
+                                            const char* virtual_filepath);
 
 /**
  * @brief Saves any modified dynamic values back to the original file.
@@ -154,7 +155,8 @@ YINI_API int yini_manager_get_macro_name_at(Yini_ManagerHandle manager, int inde
  * @param key The name of the key.
  * @param value_handle The handle to the value to set. The value is copied.
  */
-YINI_API void yini_manager_set_value(Yini_ManagerHandle manager, const char* section, const char* key, Yini_ValueHandle value_handle);
+YINI_API void yini_manager_set_value(Yini_ManagerHandle manager, const char* section, const char* key,
+                                     Yini_ValueHandle value_handle);
 
 /**
  * @brief Finds the section and key located at a specific line and column.
@@ -172,7 +174,8 @@ YINI_API void yini_manager_set_value(Yini_ManagerHandle manager, const char* sec
  * @param key_size The size of the key buffer. On the first call, this returns the required size.
  * @return 1 if a key is found at the position, 0 otherwise.
  */
-YINI_API int yini_manager_find_key_at_pos(Yini_ManagerHandle manager, int line, int column, char* out_section, int* section_size, char* out_key, int* key_size);
+YINI_API int yini_manager_find_key_at_pos(Yini_ManagerHandle manager, int line, int column, char* out_section,
+                                          int* section_size, char* out_key, int* key_size);
 
 /**
  * @brief Gets the definition location of a symbol (a key or a macro).
@@ -189,8 +192,9 @@ YINI_API int yini_manager_find_key_at_pos(Yini_ManagerHandle manager, int line, 
  * @param out_column Pointer to store the column number.
  * @return True if the definition is found, false otherwise.
  */
-YINI_API bool yini_manager_get_definition_location(Yini_ManagerHandle manager, const char* section_name, const char* symbol_name, char* out_filepath, int* filepath_size, int* out_line, int* out_column);
-
+YINI_API bool yini_manager_get_definition_location(Yini_ManagerHandle manager, const char* section_name,
+                                                   const char* symbol_name, char* out_filepath, int* filepath_size,
+                                                   int* out_line, int* out_column);
 
 //================================================================================
 // Value Functions
@@ -355,7 +359,6 @@ YINI_API int yini_map_get_key_at(Yini_ValueHandle handle, int index, char* out_b
  *                     The caller retains ownership of value_handle.
  */
 YINI_API void yini_map_set_value(Yini_ValueHandle map_handle, const char* key, Yini_ValueHandle value_handle);
-
 
 #ifdef __cplusplus
 }

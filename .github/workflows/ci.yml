@@ -7,6 +7,28 @@ on:
     branches: [ "main", "master" ]
 
 jobs:
+  format-check:
+    name: Format Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install clang-format
+        run: sudo apt-get update && sudo apt-get install -y clang-format
+
+      - name: Check C++ Formatting
+        run: |
+          find src tests -iname *.h -o -iname *.cpp | xargs clang-format --dry-run -Werror
+
+      - name: Set up .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Check C# Formatting
+        run: dotnet format --verify-no-changes
+
   build-and-test:
     runs-on: ubuntu-latest
 

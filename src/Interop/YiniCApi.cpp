@@ -1,13 +1,15 @@
 #include "YiniCApi.h"
-#include "Core/YiniManager.h"
-#include "Core/YiniValue.h"
-#include "Core/DynaValue.h"
-#include "Core/Validator.h"
-#include <string>
+
 #include <cstring>
+#include <map>
+#include <string>
 #include <variant>
 #include <vector>
-#include <map>
+
+#include "Core/DynaValue.h"
+#include "Core/Validator.h"
+#include "Core/YiniManager.h"
+#include "Core/YiniValue.h"
 
 // --- Helper Functions to cast handles to internal types ---
 static YINI::YiniManager* as_manager(Yini_ManagerHandle handle) {
@@ -42,12 +44,12 @@ static int safe_string_copy(char* out_buffer, int buffer_size, const std::string
     if (buffer_size < 0 || static_cast<size_t>(buffer_size) < required_size) {
         return static_cast<int>(required_size);
     }
-    #ifdef _WIN32
-        strcpy_s(out_buffer, buffer_size, str.c_str());
-    #else
-        strncpy(out_buffer, str.c_str(), buffer_size);
-        out_buffer[buffer_size - 1] = '\0';
-    #endif
+#ifdef _WIN32
+    strcpy_s(out_buffer, buffer_size, str.c_str());
+#else
+    strncpy(out_buffer, str.c_str(), buffer_size);
+    out_buffer[buffer_size - 1] = '\0';
+#endif
     return static_cast<int>(str.length());
 }
 
@@ -56,9 +58,7 @@ YINI_API Yini_ManagerHandle yini_manager_create() {
     return reinterpret_cast<Yini_ManagerHandle>(new YINI::YiniManager());
 }
 
-YINI_API void yini_manager_destroy(Yini_ManagerHandle manager) {
-    delete as_manager(manager);
-}
+YINI_API void yini_manager_destroy(Yini_ManagerHandle manager) { delete as_manager(manager); }
 
 YINI_API bool yini_manager_load(Yini_ManagerHandle manager, const char* filepath) {
     auto* mgr = as_manager(manager);
@@ -82,7 +82,8 @@ YINI_API bool yini_manager_load(Yini_ManagerHandle manager, const char* filepath
     }
 }
 
-YINI_API bool yini_manager_load_from_string(Yini_ManagerHandle manager, const char* content, const char* virtual_filepath) {
+YINI_API bool yini_manager_load_from_string(Yini_ManagerHandle manager, const char* content,
+                                            const char* virtual_filepath) {
     auto* mgr = as_manager(manager);
     if (!mgr) {
         return false;
@@ -182,8 +183,8 @@ YINI_API int yini_manager_get_macro_name_at(Yini_ManagerHandle manager, int inde
     return safe_string_copy(out_buffer, buffer_size, macro_names[index]);
 }
 
-
-YINI_API void yini_manager_set_value(Yini_ManagerHandle manager, const char* section, const char* key, Yini_ValueHandle value_handle) {
+YINI_API void yini_manager_set_value(Yini_ManagerHandle manager, const char* section, const char* key,
+                                     Yini_ValueHandle value_handle) {
     auto* mgr = as_manager(manager);
     if (!mgr) return;
     mgr->m_last_error.clear();
@@ -201,39 +202,34 @@ YINI_API void yini_manager_set_value(Yini_ManagerHandle manager, const char* sec
     }
 }
 
-YINI_API int yini_manager_find_key_at_pos(Yini_ManagerHandle manager, int line, int column, char* out_section, int* section_size, char* out_key, int* key_size)
-{
+YINI_API int yini_manager_find_key_at_pos(Yini_ManagerHandle manager, int line, int column, char* out_section,
+                                          int* section_size, char* out_key, int* key_size) {
     auto* mgr = as_manager(manager);
     if (!mgr) return 0;
 
     const auto& kv_map = mgr->get_interpreter().get_kv_map();
-    for (const auto& section_pair : kv_map)
-    {
-        for (const auto& key_pair : section_pair.second)
-        {
+    for (const auto& section_pair : kv_map) {
+        for (const auto& key_pair : section_pair.second) {
             const auto* kv_node = key_pair.second;
             const auto& key_token = kv_node->key;
 
-            if (key_token.line == line &&
-                column >= key_token.column &&
-                column < (key_token.column + static_cast<int>(key_token.lexeme.length())))
-            {
+            if (key_token.line == line && column >= key_token.column &&
+                column < (key_token.column + static_cast<int>(key_token.lexeme.length()))) {
                 const std::string& section_name = section_pair.first;
                 const std::string& key_name = key_pair.first;
 
                 *section_size = static_cast<int>(section_name.length() + 1);
                 *key_size = static_cast<int>(key_name.length() + 1);
 
-                if (out_section != nullptr && out_key != nullptr)
-                {
+                if (out_section != nullptr && out_key != nullptr) {
                     safe_string_copy(out_section, *section_size, section_name);
                     safe_string_copy(out_key, *key_size, key_name);
                 }
-                return 1; // Found
+                return 1;  // Found
             }
         }
     }
-    return 0; // Not found
+    return 0;  // Not found
 }
 
 YINI_API int yini_manager_validate(Yini_ManagerHandle manager) {
@@ -255,45 +251,38 @@ YINI_API int yini_manager_validate(Yini_ManagerHandle manager) {
     }
 }
 
-YINI_API bool yini_manager_get_definition_location(Yini_ManagerHandle manager, const char* section_name, const char* symbol_name, char* out_filepath, int* filepath_size, int* out_line, int* out_column)
-{
+YINI_API bool yini_manager_get_definition_location(Yini_ManagerHandle manager, const char* section_name,
+                                                   const char* symbol_name, char* out_filepath, int* filepath_size,
+                                                   int* out_line, int* out_column) {
     auto* mgr = as_manager(manager);
-    if (!mgr || !symbol_name || !filepath_size || !out_line || !out_column)
-    {
+    if (!mgr || !symbol_name || !filepath_size || !out_line || !out_column) {
         return false;
     }
 
     const auto& interpreter = mgr->get_interpreter();
     std::optional<YINI::Token> token;
 
-    if (section_name != nullptr)
-    {
+    if (section_name != nullptr) {
         // It's a key in a section
         const auto& kv_map = interpreter.get_kv_map();
         auto section_it = kv_map.find(section_name);
-        if (section_it != kv_map.end())
-        {
+        if (section_it != kv_map.end()) {
             auto key_it = section_it->second.find(symbol_name);
-            if (key_it != section_it->second.end())
-            {
+            if (key_it != section_it->second.end()) {
                 token = key_it->second->key;
             }
         }
-    }
-    else
-    {
+    } else {
         // It's a macro
         token = interpreter.get_macro_definition_token(std::string_view(symbol_name));
     }
 
-    if (token.has_value())
-    {
+    if (token.has_value()) {
         *filepath_size = static_cast<int>(token->filepath.length() + 1);
         *out_line = token->line;
         *out_column = token->column;
 
-        if (out_filepath != nullptr)
-        {
+        if (out_filepath != nullptr) {
             safe_string_copy(out_filepath, *filepath_size, token->filepath);
         }
         return true;
@@ -302,7 +291,8 @@ YINI_API bool yini_manager_get_definition_location(Yini_ManagerHandle manager, c
     return false;
 }
 
-YINI_API int yini_manager_get_validation_error(Yini_ManagerHandle manager, int index, char* out_buffer, int buffer_size) {
+YINI_API int yini_manager_get_validation_error(Yini_ManagerHandle manager, int index, char* out_buffer,
+                                               int buffer_size) {
     if (!manager || index < 0) return -1;
     auto* mgr = as_manager(manager);
 
@@ -314,11 +304,8 @@ YINI_API int yini_manager_get_validation_error(Yini_ManagerHandle manager, int i
     return safe_string_copy(out_buffer, buffer_size, error_message);
 }
 
-
 // --- Value Handle Functions ---
-YINI_API void yini_value_destroy(Yini_ValueHandle handle) {
-    delete as_value(handle);
-}
+YINI_API void yini_value_destroy(Yini_ValueHandle handle) { delete as_value(handle); }
 
 YINI_API YiniValueType yini_value_get_type(Yini_ValueHandle handle) {
     if (!handle) return YiniValueType_Null;
@@ -334,12 +321,21 @@ YINI_API YiniValueType yini_value_get_type(Yini_ValueHandle handle) {
 }
 
 // --- Create Value Handles ---
-YINI_API Yini_ValueHandle yini_value_create_double(double value) { return reinterpret_cast<Yini_ValueHandle>(new YINI::YiniValue(value)); }
-YINI_API Yini_ValueHandle yini_value_create_string(const char* value) { return reinterpret_cast<Yini_ValueHandle>(new YINI::YiniValue(std::string(value ? value : ""))); }
-YINI_API Yini_ValueHandle yini_value_create_bool(bool value) { return reinterpret_cast<Yini_ValueHandle>(new YINI::YiniValue(value)); }
-YINI_API Yini_ValueHandle yini_value_create_array() { return reinterpret_cast<Yini_ValueHandle>(new YINI::YiniValue(YINI::YiniArray{})); }
-YINI_API Yini_ValueHandle yini_value_create_map() { return reinterpret_cast<Yini_ValueHandle>(new YINI::YiniValue(YINI::YiniMap{})); }
-
+YINI_API Yini_ValueHandle yini_value_create_double(double value) {
+    return reinterpret_cast<Yini_ValueHandle>(new YINI::YiniValue(value));
+}
+YINI_API Yini_ValueHandle yini_value_create_string(const char* value) {
+    return reinterpret_cast<Yini_ValueHandle>(new YINI::YiniValue(std::string(value ? value : "")));
+}
+YINI_API Yini_ValueHandle yini_value_create_bool(bool value) {
+    return reinterpret_cast<Yini_ValueHandle>(new YINI::YiniValue(value));
+}
+YINI_API Yini_ValueHandle yini_value_create_array() {
+    return reinterpret_cast<Yini_ValueHandle>(new YINI::YiniValue(YINI::YiniArray{}));
+}
+YINI_API Yini_ValueHandle yini_value_create_map() {
+    return reinterpret_cast<Yini_ValueHandle>(new YINI::YiniValue(YINI::YiniMap{}));
+}
 
 // --- Get Data from Value Handles ---
 YINI_API bool yini_value_get_double(Yini_ValueHandle handle, double* out_value) {

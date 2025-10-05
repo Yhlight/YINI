@@ -1,19 +1,21 @@
 #include <gtest/gtest.h>
-#include "Core/YiniManager.h"
-#include "Core/YiniException.h"
+
 #include <fstream>
 #include <variant>
 
+#include "Core/YiniException.h"
+#include "Core/YiniManager.h"
+
 // Helper to create a file and load it with a YiniManager
-static void load_manager_from_source(YINI::YiniManager& manager, const std::string& filename, const std::string& source) {
+static void load_manager_from_source(YINI::YiniManager& manager, const std::string& filename,
+                                     const std::string& source) {
     std::ofstream outfile(filename);
     outfile << source;
     outfile.close();
     manager.load(filename);
 }
 
-TEST(ComplexInterpreterTest, HandlesDiamondInheritanceCorrectly)
-{
+TEST(ComplexInterpreterTest, HandlesDiamondInheritanceCorrectly) {
     std::string source = R"(
         [Base]
         value = "from base"
@@ -37,8 +39,7 @@ TEST(ComplexInterpreterTest, HandlesDiamondInheritanceCorrectly)
     EXPECT_EQ(std::get<std::string>(child_section.find("value")->second.m_value), "from derived B");
 }
 
-TEST(ComplexInterpreterTest, HandlesDeeplyNestedIncludes)
-{
+TEST(ComplexInterpreterTest, HandlesDeeplyNestedIncludes) {
     // Create the file chain: root -> one -> two -> three
     std::ofstream("nested_three.yini") << "[Deep]\nkey = \"deepest\"";
     std::ofstream("nested_two.yini") << "[#include]\n+= \"nested_three.yini\"\n[Level2]\nkey = \"two\"";

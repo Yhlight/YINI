@@ -1,14 +1,15 @@
-#include "Core/YiniManager.h"
-#include "Core/Serialization/Serializer.h"
-#include "Core/Serialization/Deserializer.h"
-#include "Core/YiniException.h"
-#include "Core/YiniValue.h"
-#include "Core/DynaValue.h"
-#include "Core/Validator.h"
 #include <iostream>
 #include <string>
-#include <vector>
 #include <variant>
+#include <vector>
+
+#include "Core/DynaValue.h"
+#include "Core/Serialization/Deserializer.h"
+#include "Core/Serialization/Serializer.h"
+#include "Core/Validator.h"
+#include "Core/YiniException.h"
+#include "Core/YiniManager.h"
+#include "Core/YiniValue.h"
 
 void print_usage() {
     std::cerr << "Usage: yini-cli <command> [args...]\n"
@@ -58,9 +59,7 @@ struct PrintVisitor {
     }
 };
 
-void print_value(const YINI::YiniValue& value, int indent = 0) {
-    std::visit(PrintVisitor{indent}, value.m_value);
-}
+void print_value(const YINI::YiniValue& value, int indent = 0) { std::visit(PrintVisitor{indent}, value.m_value); }
 
 void print_map(const YINI::YiniMap& map, int indent = 0) {
     for (const auto& pair : map) {
@@ -70,9 +69,7 @@ void print_map(const YINI::YiniMap& map, int indent = 0) {
     }
 }
 
-
-int main(int argc, char* argv[])
-{
+int main(int argc, char* argv[]) {
     if (argc < 2) {
         print_usage();
         return 1;
@@ -123,7 +120,8 @@ int main(int argc, char* argv[])
         }
     } catch (const YINI::YiniException& e) {
         if (!e.filepath().empty()) {
-            std::cerr << "[" << e.filepath() << ":" << e.line() << ":" << e.column() << "] Error: " << e.what() << std::endl;
+            std::cerr << "[" << e.filepath() << ":" << e.line() << ":" << e.column() << "] Error: " << e.what()
+                      << std::endl;
         } else {
             std::cerr << "[line " << e.line() << "] Error: " << e.what() << std::endl;
         }

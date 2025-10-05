@@ -1,11 +1,12 @@
 #include <gtest/gtest.h>
-#include "Core/YiniManager.h"
-#include <fstream>
-#include <vector>
-#include <variant>
 
-TEST(IncludeTest, HandlesFileInclusionAndMerging)
-{
+#include <fstream>
+#include <variant>
+#include <vector>
+
+#include "Core/YiniManager.h"
+
+TEST(IncludeTest, HandlesFileInclusionAndMerging) {
     // Create the test files.
     std::ofstream("include_one.yini") << R"(
         [#define]

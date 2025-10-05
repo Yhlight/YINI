@@ -1,14 +1,15 @@
 #include <gtest/gtest.h>
-#include "Core/Serialization/Serializer.h"
-#include "Core/Serialization/Deserializer.h"
-#include "Core/YiniValue.h"
+
 #include <map>
 #include <string>
-#include <vector>
 #include <variant>
+#include <vector>
 
-TEST(SerializationTest, SerializesAndDeserializesData)
-{
+#include "Core/Serialization/Deserializer.h"
+#include "Core/Serialization/Serializer.h"
+#include "Core/YiniValue.h"
+
+TEST(SerializationTest, SerializesAndDeserializesData) {
     // 1. Create complex data structure
     std::map<std::string, std::map<std::string, YINI::YiniValue, std::less<>>, std::less<>> original_data;
     YINI::YiniArray my_array = {YINI::YiniValue(1.0), YINI::YiniValue(std::string("two")), YINI::YiniValue(true)};
@@ -36,8 +37,10 @@ TEST(SerializationTest, SerializesAndDeserializesData)
     // Check Section1
     const auto& s1_orig = original_data.find("Section1")->second;
     const auto& s1_deser = deserialized_data.find("Section1")->second;
-    EXPECT_EQ(std::get<std::string>(s1_orig.find("key1")->second.m_value), std::get<std::string>(s1_deser.find("key1")->second.m_value));
-    EXPECT_EQ(std::get<double>(s1_orig.find("key2")->second.m_value), std::get<double>(s1_deser.find("key2")->second.m_value));
+    EXPECT_EQ(std::get<std::string>(s1_orig.find("key1")->second.m_value),
+              std::get<std::string>(s1_deser.find("key1")->second.m_value));
+    EXPECT_EQ(std::get<double>(s1_orig.find("key2")->second.m_value),
+              std::get<double>(s1_deser.find("key2")->second.m_value));
 
     // Check Section2 Array
     const auto& arr_orig_val = original_data.find("Section2")->second.find("array")->second;
@@ -57,6 +60,7 @@ TEST(SerializationTest, SerializesAndDeserializesData)
     const auto& map_deser = *std::get<std::unique_ptr<YINI::YiniMap>>(map_deser_val.m_value);
 
     ASSERT_EQ(map_orig.size(), map_deser.size());
-    EXPECT_EQ(std::get<double>(map_orig.find("a")->second.m_value), std::get<double>(map_deser.find("a")->second.m_value));
+    EXPECT_EQ(std::get<double>(map_orig.find("a")->second.m_value),
+              std::get<double>(map_deser.find("a")->second.m_value));
     EXPECT_EQ(std::get<bool>(map_orig.find("b")->second.m_value), std::get<bool>(map_deser.find("b")->second.m_value));
 }

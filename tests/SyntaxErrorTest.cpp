@@ -1,10 +1,13 @@
 #include <gtest/gtest.h>
-#include "Core/YiniManager.h"
-#include "Core/YiniException.h"
+
 #include <fstream>
 
+#include "Core/YiniException.h"
+#include "Core/YiniManager.h"
+
 // Helper function to test for ParsingError during the loading process.
-void expect_parsing_error(const std::string& source, const std::string& test_name, int expected_line, int expected_col, const char* expected_message) {
+void expect_parsing_error(const std::string& source, const std::string& test_name, int expected_line, int expected_col,
+                          const char* expected_message) {
     const std::string filename = "syntax_error_" + test_name + ".yini";
     std::ofstream outfile(filename);
     outfile << source;

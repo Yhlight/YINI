@@ -64,7 +64,7 @@ isactive = not_a_bool
 [player]
 name = Jules
 ";
-            using(var manager = new YiniManager())
+            using (var manager = new YiniManager())
             {
                 File.WriteAllText(TestFileName, content);
                 manager.Load(TestFileName);

@@ -1,26 +1,20 @@
 #include <gtest/gtest.h>
-#include "Core/YiniManager.h"
-#include "Core/YiniException.h"
-#include <fstream>
+
 #include <cstdlib>
+#include <fstream>
+
+#include "Core/YiniException.h"
+#include "Core/YiniManager.h"
 
 // Platform-independent way to set/unset environment variables for testing
 #ifdef _WIN32
 #include <stdlib.h>
-void set_test_env(const char* name, const char* value) {
-    _putenv_s(name, value);
-}
-void unset_test_env(const char* name) {
-    _putenv_s(name, "");
-}
+void set_test_env(const char* name, const char* value) { _putenv_s(name, value); }
+void unset_test_env(const char* name) { _putenv_s(name, ""); }
 #else
 #include <stdlib.h>
-void set_test_env(const char* name, const char* value) {
-    setenv(name, value, 1);
-}
-void unset_test_env(const char* name) {
-    unsetenv(name);
-}
+void set_test_env(const char* name, const char* value) { setenv(name, value, 1); }
+void unset_test_env(const char* name) { unsetenv(name); }
 #endif
 
 // Helper to create a file and load it with a YiniManager
@@ -71,7 +65,8 @@ TEST(EnvVarTest, ThrowsWhenRequiredVarIsUnset) {
         load_from_source(manager, source);
         FAIL() << "Expected a RuntimeError for missing environment variable.";
     } catch (const YINI::RuntimeError& e) {
-        EXPECT_STREQ(e.what(), "Required environment variable 'YINI_REQUIRED_VAR' is not set and no default value is provided.");
+        EXPECT_STREQ(e.what(),
+                     "Required environment variable 'YINI_REQUIRED_VAR' is not set and no default value is provided.");
     } catch (...) {
         FAIL() << "Expected a RuntimeError, but got a different exception.";
     }

@@ -1,9 +1,11 @@
 #include <gtest/gtest.h>
-#include "Lexer/Lexer.h"
-#include "Parser/Parser.h"
-#include "Parser/AstPrinter.h"
-#include <vector>
+
 #include <variant>
+#include <vector>
+
+#include "Lexer/Lexer.h"
+#include "Parser/AstPrinter.h"
+#include "Parser/Parser.h"
 
 std::unique_ptr<YINI::Expr> parseExpression(const std::string& source) {
     YINI::Lexer lexer(source, "test_expr.yini");
@@ -15,7 +17,7 @@ std::unique_ptr<YINI::Expr> parseExpression(const std::string& source) {
     testTokens.push_back({YINI::TokenType::RIGHT_BRACKET, "]", {}, 1, 1, "test_expr.yini"});
     testTokens.push_back({YINI::TokenType::IDENTIFIER, "key", {}, 1, 1, "test_expr.yini"});
     testTokens.push_back({YINI::TokenType::EQUAL, "=", {}, 1, 1, "test_expr.yini"});
-    testTokens.insert(testTokens.end(), tokens.begin(), tokens.end() - 1); // Exclude EOF
+    testTokens.insert(testTokens.end(), tokens.begin(), tokens.end() - 1);  // Exclude EOF
     testTokens.push_back({YINI::TokenType::END_OF_FILE, "", {}, 1, 1, "test_expr.yini"});
 
     YINI::Parser parser(testTokens);
@@ -25,9 +27,7 @@ std::unique_ptr<YINI::Expr> parseExpression(const std::string& source) {
     return std::move(keyValueNode->value);
 }
 
-
-TEST(ExpressionTest, ParsesArithmeticExpressions)
-{
+TEST(ExpressionTest, ParsesArithmeticExpressions) {
     auto expr = parseExpression("-1 + 2 * 3");
     YINI::AstPrinter printer;
     EXPECT_EQ(printer.print(*expr), "(+ (- 1) (* 2 3))");
@@ -36,8 +36,7 @@ TEST(ExpressionTest, ParsesArithmeticExpressions)
     EXPECT_EQ(printer.print(*expr2), "(* (group (+ 1 2)) 3)");
 }
 
-TEST(ExpressionTest, ParsesArrayLiterals)
-{
+TEST(ExpressionTest, ParsesArrayLiterals) {
     YINI::AstPrinter printer;
 
     // Empty array
@@ -53,8 +52,7 @@ TEST(ExpressionTest, ParsesArrayLiterals)
     EXPECT_EQ(printer.print(*expr3), "(array 1 hello true)");
 }
 
-TEST(ExpressionTest, ParsesMapAndSetLiterals)
-{
+TEST(ExpressionTest, ParsesMapAndSetLiterals) {
     YINI::AstPrinter printer;
 
     // Empty set
@@ -82,15 +80,13 @@ TEST(ExpressionTest, ParsesMapAndSetLiterals)
     EXPECT_EQ(printer.print(*expr6), "(map (key1 1) (key2 (array 1 2)))");
 }
 
-TEST(ExpressionTest, ParsesVariableExpression)
-{
+TEST(ExpressionTest, ParsesVariableExpression) {
     YINI::AstPrinter printer;
     auto expr = parseExpression("@my_var");
     EXPECT_EQ(printer.print(*expr), "my_var");
 }
 
-TEST(ExpressionTest, ParsesCallExpressions)
-{
+TEST(ExpressionTest, ParsesCallExpressions) {
     YINI::AstPrinter printer;
 
     // No arguments

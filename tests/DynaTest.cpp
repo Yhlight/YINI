@@ -1,10 +1,12 @@
 #include <gtest/gtest.h>
-#include "Core/YiniManager.h"
-#include "Core/DynaValue.h"
+
 #include <fstream>
 #include <sstream>
 #include <string>
 #include <variant>
+
+#include "Core/DynaValue.h"
+#include "Core/YiniManager.h"
 
 // Helper to read a file's content into a string
 std::string get_file_contents(const std::string& path) {

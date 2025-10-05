@@ -1,7 +1,9 @@
 #include <gtest/gtest.h>
-#include "Core/YiniManager.h"
-#include "Core/YiniException.h"
+
 #include <fstream>
+
+#include "Core/YiniException.h"
+#include "Core/YiniManager.h"
 
 // Helper to create a file and load it with a YiniManager
 static void load_from_source(YINI::YiniManager& manager, const std::string& source) {
@@ -101,7 +103,8 @@ TEST(XRefTest, ThrowsOnNonExistentKeyWithSuggestion) {
         load_from_source(manager, source);
         FAIL() << "Expected a RuntimeError for non-existent key.";
     } catch (const YINI::RuntimeError& e) {
-        EXPECT_STREQ(e.what(), "Referenced key 'actul_key' not found in section 'MySection'. Did you mean 'actual_key'?");
+        EXPECT_STREQ(e.what(),
+                     "Referenced key 'actul_key' not found in section 'MySection'. Did you mean 'actual_key'?");
     } catch (...) {
         FAIL() << "Expected a RuntimeError, but got a different exception.";
     }

@@ -1,9 +1,10 @@
 #include <gtest/gtest.h>
-#include <string>
+
 #include <array>
-#include <memory>
 #include <cstdio>
 #include <fstream>
+#include <memory>
+#include <string>
 
 // Macros to convert the preprocessor definition to a string
 #define STRINGIFY(x) #x
@@ -22,8 +23,7 @@ std::string exec(const char* cmd) {
     return result;
 }
 
-TEST(CliTest, CheckValidFile)
-{
+TEST(CliTest, CheckValidFile) {
     std::string cli_path = TOSTRING(YINI_CLI_PATH);
     std::ofstream("valid_cli_test.yini") << "[Section]\nkey = value";
     std::string cmd = cli_path + " check valid_cli_test.yini";
@@ -31,8 +31,7 @@ TEST(CliTest, CheckValidFile)
     EXPECT_NE(output.find("File 'valid_cli_test.yini' is syntactically valid."), std::string::npos);
 }
 
-TEST(CliTest, CheckInvalidFile)
-{
+TEST(CliTest, CheckInvalidFile) {
     std::string cli_path = TOSTRING(YINI_CLI_PATH);
     const std::string filename = "invalid_cli_test.yini";
     std::ofstream(filename) << "[Section\nkey = value";
@@ -44,16 +43,14 @@ TEST(CliTest, CheckInvalidFile)
     EXPECT_NE(output.find(expected_error), std::string::npos);
 }
 
-TEST(CliTest, HandlesNonExistentFile)
-{
+TEST(CliTest, HandlesNonExistentFile) {
     std::string cli_path = TOSTRING(YINI_CLI_PATH);
     std::string cmd = cli_path + " check non_existent_file.yini 2>&1";
     std::string output = exec(cmd.c_str());
     EXPECT_NE(output.find("Error: Could not open file"), std::string::npos);
 }
 
-TEST(CliTest, CompileAndDecompile)
-{
+TEST(CliTest, CompileAndDecompile) {
     std::string cli_path = TOSTRING(YINI_CLI_PATH);
     const std::string yini_file = "cli_compile_test.yini";
     const std::string ymeta_file = "cli_compile_test.ymeta";

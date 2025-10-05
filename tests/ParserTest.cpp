@@ -1,11 +1,12 @@
 #include <gtest/gtest.h>
+
+#include <variant>
+#include <vector>
+
 #include "Lexer/Lexer.h"
 #include "Parser/Parser.h"
-#include <vector>
-#include <variant>
 
-TEST(ParserTest, ParsesSimpleStringValue)
-{
+TEST(ParserTest, ParsesSimpleStringValue) {
     std::string source = "[Section]\nkey = \"value\"";
     YINI::Lexer lexer(source);
     std::vector<YINI::Token> tokens = lexer.scanTokens();
@@ -30,8 +31,7 @@ TEST(ParserTest, ParsesSimpleStringValue)
     EXPECT_EQ(std::get<std::string>(literalNode->value.m_value), "value");
 }
 
-TEST(ParserTest, ParsesVariousDataTypes)
-{
+TEST(ParserTest, ParsesVariousDataTypes) {
     std::string source = R"(
         [Data]
         key_int = 123
@@ -77,8 +77,7 @@ TEST(ParserTest, ParsesVariousDataTypes)
     EXPECT_EQ(std::get<bool>(literal_false->value.m_value), false);
 }
 
-TEST(ParserTest, ParsesSectionInheritance)
-{
+TEST(ParserTest, ParsesSectionInheritance) {
     // No inheritance
     std::string source1 = "[SectionA]";
     YINI::Lexer lexer1(source1);
@@ -119,8 +118,7 @@ TEST(ParserTest, ParsesSectionInheritance)
     EXPECT_EQ(std::get<std::string>(sectionNode3->parents[1].literal.m_value), "ParentB");
 }
 
-TEST(ParserTest, ParsesRegistrationStatement)
-{
+TEST(ParserTest, ParsesRegistrationStatement) {
     std::string source = R"(
         [MySection]
         += 123
@@ -158,8 +156,7 @@ TEST(ParserTest, ParsesRegistrationStatement)
     EXPECT_EQ(std::get<std::string>(literal2->value.m_value), "another");
 }
 
-TEST(ParserTest, ParsesDefineSection)
-{
+TEST(ParserTest, ParsesDefineSection) {
     std::string source = R"(
         [#define]
         my_var = 123

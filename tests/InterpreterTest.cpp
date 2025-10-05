@@ -1,20 +1,22 @@
 #include <gtest/gtest.h>
-#include "Core/YiniManager.h"
-#include "Core/YiniException.h"
+
 #include <fstream>
-#include <vector>
 #include <variant>
+#include <vector>
+
+#include "Core/YiniException.h"
+#include "Core/YiniManager.h"
 
 // A helper function to create a temporary file and load it with the manager.
-static void load_manager_from_source(YINI::YiniManager& manager, const std::string& filename, const std::string& source) {
+static void load_manager_from_source(YINI::YiniManager& manager, const std::string& filename,
+                                     const std::string& source) {
     std::ofstream outfile(filename);
     outfile << source;
     outfile.close();
     manager.load(filename);
 }
 
-TEST(InterpreterTest, HandlesMacroDefinitionAndResolution)
-{
+TEST(InterpreterTest, HandlesMacroDefinitionAndResolution) {
     std::string source = R"(
         [#define]
         my_macro = 123
@@ -31,8 +33,7 @@ TEST(InterpreterTest, HandlesMacroDefinitionAndResolution)
     EXPECT_EQ(std::get<double>(section.find("key")->second.m_value), 123);
 }
 
-TEST(InterpreterTest, ThrowsOnUndefinedVariable)
-{
+TEST(InterpreterTest, ThrowsOnUndefinedVariable) {
     std::string filename = "test_undef.yini";
     std::string source = R"(
 [MySection]
@@ -50,8 +51,7 @@ key = @undefined_macro
     }
 }
 
-TEST(InterpreterTest, EvaluatesArithmeticExpressions)
-{
+TEST(InterpreterTest, EvaluatesArithmeticExpressions) {
     std::string source = R"(
         [#define]
         var = 16
@@ -72,8 +72,7 @@ TEST(InterpreterTest, EvaluatesArithmeticExpressions)
     EXPECT_EQ(std::get<double>(section.find("val4")->second.m_value), 1);
 }
 
-TEST(InterpreterTest, ThrowsOnTypeMismatch)
-{
+TEST(InterpreterTest, ThrowsOnTypeMismatch) {
     std::string filename = "test_typemismatch.yini";
     std::string source = R"(
 [MySection]
@@ -91,8 +90,7 @@ val = 10 + "hello"
     }
 }
 
-TEST(InterpreterTest, ThrowsOnDivisionByZero)
-{
+TEST(InterpreterTest, ThrowsOnDivisionByZero) {
     std::string filename = "test_divzero.yini";
     std::string source = R"(
 [MySection]
@@ -110,8 +108,7 @@ val = 10 / 0
     }
 }
 
-TEST(InterpreterTest, EvaluatesDataStructures)
-{
+TEST(InterpreterTest, EvaluatesDataStructures) {
     std::string source = R"(
         [MySection]
         my_array = [1, "two", 3.0]
@@ -157,8 +154,7 @@ TEST(InterpreterTest, EvaluatesDataStructures)
     EXPECT_EQ(std::get<std::string>(map.find("b")->second.m_value), "two");
 }
 
-TEST(InterpreterTest, HandlesSectionInheritance)
-{
+TEST(InterpreterTest, HandlesSectionInheritance) {
     std::string source = R"(
         [ParentA]
         val1 = 1
@@ -180,14 +176,14 @@ TEST(InterpreterTest, HandlesSectionInheritance)
     ASSERT_NE(interpreter.resolved_sections.find("Child"), interpreter.resolved_sections.end());
     const auto& child_section = interpreter.resolved_sections.find("Child")->second;
 
-    EXPECT_EQ(std::get<double>(child_section.find("val1")->second.m_value), 100);       // Child overrides ParentA
-    EXPECT_EQ(std::get<std::string>(child_section.find("val2")->second.m_value), "overridden"); // ParentB overrides ParentA
-    EXPECT_EQ(std::get<double>(child_section.find("val3")->second.m_value), 3);          // Inherited from ParentB
-    EXPECT_EQ(std::get<double>(child_section.find("val4")->second.m_value), 4);          // Defined in Child
+    EXPECT_EQ(std::get<double>(child_section.find("val1")->second.m_value), 100);  // Child overrides ParentA
+    EXPECT_EQ(std::get<std::string>(child_section.find("val2")->second.m_value),
+              "overridden");                                                     // ParentB overrides ParentA
+    EXPECT_EQ(std::get<double>(child_section.find("val3")->second.m_value), 3);  // Inherited from ParentB
+    EXPECT_EQ(std::get<double>(child_section.find("val4")->second.m_value), 4);  // Defined in Child
 }
 
-TEST(InterpreterTest, ThrowsOnCircularInheritance)
-{
+TEST(InterpreterTest, ThrowsOnCircularInheritance) {
     std::string filename = "test_circular.yini";
     std::string source = R"(
 [A] : B
@@ -204,8 +200,7 @@ TEST(InterpreterTest, ThrowsOnCircularInheritance)
     }
 }
 
-TEST(InterpreterTest, ThrowsOnUndefinedParent)
-{
+TEST(InterpreterTest, ThrowsOnUndefinedParent) {
     std::string filename = "test_undefparent.yini";
     std::string source = R"(
 [A] : NonExistent

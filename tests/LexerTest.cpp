@@ -1,11 +1,11 @@
 #include <gtest/gtest.h>
-#include "Lexer/Lexer.h"
-#include <gtest/gtest.h>
-#include <vector>
-#include <variant>
 
-TEST(LexerTest, TokenizesSimpleInput)
-{
+#include <variant>
+#include <vector>
+
+#include "Lexer/Lexer.h"
+
+TEST(LexerTest, TokenizesSimpleInput) {
     std::string source = "[Section]\nkey = \"value\"";
     YINI::Lexer lexer(source);
     std::vector<YINI::Token> tokens = lexer.scanTokens();
@@ -21,8 +21,7 @@ TEST(LexerTest, TokenizesSimpleInput)
     EXPECT_EQ(tokens[6].type, YINI::TokenType::END_OF_FILE);
 }
 
-TEST(LexerTest, TokenizesDataTypesAndComments)
-{
+TEST(LexerTest, TokenizesDataTypesAndComments) {
     std::string source = R"(
         // This is a comment.
         key_int = 123

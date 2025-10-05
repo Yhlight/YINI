@@ -1,19 +1,21 @@
 #include <gtest/gtest.h>
-#include "Core/YiniManager.h"
-#include "Core/YiniException.h"
+
 #include <fstream>
 #include <variant>
 
+#include "Core/YiniException.h"
+#include "Core/YiniManager.h"
+
 // Helper to create a file and load it with a YiniManager
-static void load_manager_from_source(YINI::YiniManager& manager, const std::string& filename, const std::string& source) {
+static void load_manager_from_source(YINI::YiniManager& manager, const std::string& filename,
+                                     const std::string& source) {
     std::ofstream outfile(filename);
     outfile << source;
     outfile.close();
     manager.load(filename);
 }
 
-TEST(DataTypeTest, HandlesColorTypeCorrectly)
-{
+TEST(DataTypeTest, HandlesColorTypeCorrectly) {
     std::string source = R"(
         [MySection]
         my_color = Color(255, 128, 64, 255)
@@ -33,8 +35,7 @@ TEST(DataTypeTest, HandlesColorTypeCorrectly)
     EXPECT_EQ(std::get<double>(map.find("a")->second.m_value), 255);
 }
 
-TEST(DataTypeTest, HandlesVectorTypesCorrectly)
-{
+TEST(DataTypeTest, HandlesVectorTypesCorrectly) {
     std::string source = R"(
         [MySection]
         my_vec2 = Vec2(1.0, 2.5)
@@ -74,16 +75,14 @@ TEST(DataTypeTest, HandlesVectorTypesCorrectly)
     EXPECT_EQ(std::get<double>(v4_map.find("w")->second.m_value), 40);
 }
 
-
-TEST(DataTypeTest, ThrowsOnIncorrectArgumentCount)
-{
+TEST(DataTypeTest, ThrowsOnIncorrectArgumentCount) {
     YINI::YiniManager manager;
 
     // Test Color
     try {
         load_manager_from_source(manager, "test_color_err.yini", "[s]\nk=Color(1,2)");
         FAIL() << "Expected YiniException for Color";
-    } catch(const YINI::YiniException& e) {
+    } catch (const YINI::YiniException& e) {
         EXPECT_STREQ(e.what(), "Color() expects 3 (r, g, b) or 4 (r, g, b, a) arguments.");
     }
 
@@ -91,7 +90,7 @@ TEST(DataTypeTest, ThrowsOnIncorrectArgumentCount)
     try {
         load_manager_from_source(manager, "test_vec2_err.yini", "[s]\nk=Vec2(1)");
         FAIL() << "Expected YiniException for Vec2";
-    } catch(const YINI::YiniException& e) {
+    } catch (const YINI::YiniException& e) {
         EXPECT_STREQ(e.what(), "Vec2() expects exactly 2 arguments (x, y).");
     }
 
@@ -99,7 +98,7 @@ TEST(DataTypeTest, ThrowsOnIncorrectArgumentCount)
     try {
         load_manager_from_source(manager, "test_vec3_err.yini", "[s]\nk=Vec3(1,2,3,4)");
         FAIL() << "Expected YiniException for Vec3";
-    } catch(const YINI::YiniException& e) {
+    } catch (const YINI::YiniException& e) {
         EXPECT_STREQ(e.what(), "Vec3() expects exactly 3 arguments (x, y, z).");
     }
 
@@ -107,18 +106,17 @@ TEST(DataTypeTest, ThrowsOnIncorrectArgumentCount)
     try {
         load_manager_from_source(manager, "test_vec4_err.yini", "[s]\nk=Vec4(1,2,3)");
         FAIL() << "Expected YiniException for Vec4";
-    } catch(const YINI::YiniException& e) {
+    } catch (const YINI::YiniException& e) {
         EXPECT_STREQ(e.what(), "Vec4() expects exactly 4 arguments (x, y, z, w).");
     }
 }
 
-TEST(DataTypeTest, ThrowsOnUnknownFunction)
-{
+TEST(DataTypeTest, ThrowsOnUnknownFunction) {
     YINI::YiniManager manager;
     try {
         load_manager_from_source(manager, "test_unknown_func.yini", "[s]\nk=UnknownFunc(1,2,3)");
         FAIL() << "Expected YiniException for UnknownFunc";
-    } catch(const YINI::YiniException& e) {
+    } catch (const YINI::YiniException& e) {
         EXPECT_STREQ(e.what(), "Unknown function call 'UnknownFunc'.");
     }
 }

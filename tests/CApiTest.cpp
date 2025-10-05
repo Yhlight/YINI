@@ -1,9 +1,11 @@
 #include <gtest/gtest.h>
-#include "Interop/YiniCApi.h"
+
 #include <fstream>
-#include <vector>
 #include <string>
 #include <thread>
+#include <vector>
+
+#include "Interop/YiniCApi.h"
 
 // Helper to create a temporary file for testing
 void create_test_file(const std::string& filename, const std::string& content) {

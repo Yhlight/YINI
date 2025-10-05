@@ -1,39 +1,54 @@
 #pragma once
 
-#include "Core/YiniValue.h"
 #include <string>
 #include <vector>
 
-namespace YINI
-{
-    enum class TokenType
-    {
-        // Single-character tokens.
-        LEFT_BRACKET, RIGHT_BRACKET,
-        LEFT_PAREN, RIGHT_PAREN,
-        LEFT_BRACE, RIGHT_BRACE,
-        EQUAL, SLASH, STAR, PLUS, MINUS, PERCENT, COMMA, COLON, AT, DOT,
+#include "Core/YiniValue.h"
 
-        // Two-character tokens.
-        PLUS_EQUAL, DOLLAR_LEFT_BRACE, AT_LEFT_BRACE,
+namespace YINI {
+enum class TokenType {
+    // Single-character tokens.
+    LEFT_BRACKET,
+    RIGHT_BRACKET,
+    LEFT_PAREN,
+    RIGHT_PAREN,
+    LEFT_BRACE,
+    RIGHT_BRACE,
+    EQUAL,
+    SLASH,
+    STAR,
+    PLUS,
+    MINUS,
+    PERCENT,
+    COMMA,
+    COLON,
+    AT,
+    DOT,
 
-        // Literals.
-        IDENTIFIER, STRING, NUMBER,
+    // Two-character tokens.
+    PLUS_EQUAL,
+    DOLLAR_LEFT_BRACE,
+    AT_LEFT_BRACE,
 
-        // Keywords.
-        TRUE, FALSE,
+    // Literals.
+    IDENTIFIER,
+    STRING,
+    NUMBER,
 
-        // End of file.
-        END_OF_FILE
-    };
+    // Keywords.
+    TRUE,
+    FALSE,
 
-    struct Token
-    {
-        TokenType type;
-        std::string lexeme;
-        YiniValue literal;
-        int line;
-        int column;
-        std::string filepath;
-    };
-}
+    // End of file.
+    END_OF_FILE
+};
+
+struct Token {
+    TokenType type;
+    std::string lexeme;
+    YiniValue literal;
+    int line;
+    int column;
+    std::string filepath;
+};
+}  // namespace YINI

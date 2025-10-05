@@ -1,12 +1,15 @@
 #include <gtest/gtest.h>
-#include "Core/YiniManager.h"
-#include "Core/Validator.h"
-#include "Core/YiniException.h"
+
 #include <fstream>
 #include <vector>
 
+#include "Core/Validator.h"
+#include "Core/YiniException.h"
+#include "Core/YiniManager.h"
+
 // Helper to create a file and load it with a YiniManager
-static void load_from_source(YINI::YiniManager& manager, const std::string& source, const std::string& filename = "schema_test.yini") {
+static void load_from_source(YINI::YiniManager& manager, const std::string& source,
+                             const std::string& filename = "schema_test.yini") {
     std::ofstream outfile(filename);
     outfile << source;
     outfile.close();
