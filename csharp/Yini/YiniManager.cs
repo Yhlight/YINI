@@ -624,11 +624,12 @@ namespace Yini
         /// <param name="defaultValue">The value to return if the key is not found or is not a double.</param>
         /// <param name="yiniValue">An optional, pre-fetched YiniValue to use, avoiding a redundant lookup.</param>
         /// <returns>The double value or the default value.</returns>
-        public double GetDouble(string section, string key, double defaultValue = 0.0, YiniValue? yiniValue = null)
+        public double GetDouble(string? section, string? key, double defaultValue = 0.0, YiniValue? yiniValue = null)
         {
             bool valueWasPassed = yiniValue != null;
             if (!valueWasPassed)
             {
+                if (section == null || key == null) return defaultValue;
                 yiniValue = GetValue(section, key);
             }
 
@@ -657,11 +658,12 @@ namespace Yini
         /// <param name="defaultValue">The value to return if the key is not found or is not a string.</param>
         /// <param name="yiniValue">An optional, pre-fetched YiniValue to use, avoiding a redundant lookup.</param>
         /// <returns>The string value or the default value.</returns>
-        public string GetString(string section, string key, string defaultValue = "", YiniValue? yiniValue = null)
+        public string GetString(string? section, string? key, string defaultValue = "", YiniValue? yiniValue = null)
         {
             bool valueWasPassed = yiniValue != null;
             if (!valueWasPassed)
             {
+                if (section == null || key == null) return defaultValue;
                 yiniValue = GetValue(section, key);
             }
 
@@ -690,11 +692,12 @@ namespace Yini
         /// <param name="defaultValue">The value to return if the key is not found or is not a boolean.</param>
         /// <param name="yiniValue">An optional, pre-fetched YiniValue to use, avoiding a redundant lookup.</param>
         /// <returns>The boolean value or the default value.</returns>
-        public bool GetBool(string section, string key, bool defaultValue = false, YiniValue? yiniValue = null)
+        public bool GetBool(string? section, string? key, bool defaultValue = false, YiniValue? yiniValue = null)
         {
             bool valueWasPassed = yiniValue != null;
             if (!valueWasPassed)
             {
+                if (section == null || key == null) return defaultValue;
                 yiniValue = GetValue(section, key);
             }
 
@@ -869,11 +872,12 @@ namespace Yini
         /// <param name="key">The key name.</param>
         /// <param name="yiniValue">An optional, pre-fetched YiniValue to use, avoiding a redundant lookup.</param>
         /// <returns>A new <see cref="List{T}"/> containing the elements from the YINI array, or null if the key is not found or is not an array.</returns>
-        public List<T>? GetList<T>(string section, string key, YiniValue? yiniValue = null)
+        public List<T>? GetList<T>(string? section, string? key, YiniValue? yiniValue = null)
         {
             bool valueWasPassed = yiniValue != null;
             if (!valueWasPassed)
             {
+                if (section == null || key == null) return null;
                 yiniValue = GetValue(section, key);
             }
 
@@ -920,11 +924,12 @@ namespace Yini
         /// <param name="key">The key name.</param>
         /// <param name="yiniValue">An optional, pre-fetched YiniValue to use, avoiding a redundant lookup.</param>
         /// <returns>A new <see cref="Dictionary{TKey, TValue}"/> with string keys, or null if the key is not found or is not a map.</returns>
-        public unsafe Dictionary<string, T>? GetDictionary<T>(string section, string key, YiniValue? yiniValue = null)
+        public unsafe Dictionary<string, T>? GetDictionary<T>(string? section, string? key, YiniValue? yiniValue = null)
         {
             bool valueWasPassed = yiniValue != null;
             if (!valueWasPassed)
             {
+                if (section == null || key == null) return null;
                 yiniValue = GetValue(section, key);
             }
 
