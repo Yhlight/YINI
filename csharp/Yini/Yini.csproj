@@ -33,13 +33,4 @@
       <Content Include="runtimes\**\*" Pack="true" PackagePath="runtimes" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
-  <!-- This target copies the native library passed from the build script -->
-  <Target Name="CopyNativeLibraries" BeforeTargets="Build">
-    <PropertyGroup>
-      <!-- Define the destination folder based on the runtime identifier -->
-      <DestinationFolder>runtimes/$(NETCoreSdkRuntimeIdentifier)/native</DestinationFolder>
-    </PropertyGroup>
-    <Copy SourceFiles="$(NativeLibPath)" DestinationFolder="$(DestinationFolder)" SkipUnchangedFiles="true" Condition=" '$(NativeLibPath)' != '' AND Exists('$(NativeLibPath)') " />
-  </Target>
-
 </Project>

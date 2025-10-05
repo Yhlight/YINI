@@ -6,18 +6,56 @@ on:
       - 'v*.*.*'
 
 jobs:
-  release:
-    name: Build and Release
+  build-native:
+    name: Build Native Library (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            artifact_name: libYini.so
+            build_path: build/src/libYini.so
+            runtime_id: linux-x64
+          - os: windows-latest
+            artifact_name: Yini.dll
+            build_path: build/src/Release/Yini.dll
+            runtime_id: win-x64
+          - os: macos-latest
+            artifact_name: libYini.dylib
+            build_path: build/src/libYini.dylib
+            runtime_id: osx-x64
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Configure CMake
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build Native Library
+        run: cmake --build build --config Release --target Yini
+
+      - name: Upload Native Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: ${{ matrix.build_path }}
+
+  publish:
+    name: Package and Publish
+    needs: build-native
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Log version being released
-        run: echo "Triggered release for tag ${{ github.ref_name }}"
-
-      # The rest of the steps (build, pack, publish) will be added in the next step.
       - name: Setup .NET SDK
         uses: actions/setup-dotnet@v4
         with:
@@ -28,12 +66,32 @@ jobs:
         with:
           node-version: '18'
 
-      - name: Make build script executable
-        run: chmod +x build.py
+      - name: Log version being released
+        run: echo "Triggered release for tag ${{ github.ref_name }}"
 
       - name: Get the version from the tag
         id: get_version
         run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_ENV
+
+      - name: Download all native artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/native
+
+      - name: Display structure of downloaded files
+        run: ls -R artifacts
+
+      - name: Create NuGet runtimes directory
+        run: |
+          mkdir -p csharp/Yini/runtimes/win-x64/native
+          mkdir -p csharp/Yini/runtimes/linux-x64/native
+          mkdir -p csharp/Yini/runtimes/osx-x64/native
+
+      - name: Move native binaries to correct runtime folders
+        run: |
+          mv artifacts/native/Yini.dll/Yini.dll csharp/Yini/runtimes/win-x64/native/
+          mv artifacts/native/libYini.so/libYini.so csharp/Yini/runtimes/linux-x64/native/
+          mv artifacts/native/libYini.dylib/libYini.dylib csharp/Yini/runtimes/osx-x64/native/
 
       - name: Update Yini.csproj version
         run: |
@@ -46,9 +104,6 @@ jobs:
           echo "Updated package.json to version ${{ env.VERSION }}"
         working-directory: ./ide/VSIX
 
-      - name: Build project
-        run: ./build.py build --config Release
-
       - name: Pack NuGet package
         run: dotnet pack --configuration Release csharp/Yini/Yini.csproj -o ./artifacts/nuget
 
@@ -56,22 +111,16 @@ jobs:
         run: npm install -g @vscode/vsce
 
       - name: Package VSIX
-        run: vsce package -o ../../artifacts/vsix/yini-vscode-${{ env.VERSION }}.vsix
-        working-directory: ./ide/VSIX
+        run: |
+          cd ide/VSIX
+          npm install
+          vsce package -o ../../artifacts/vsix/yini-vscode-${{ env.VERSION }}.vsix
+          cd ../..
 
-      - name: Upload Artifacts
+      - name: Upload Release Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: packages
+          name: release-packages
           path: |
             ./artifacts/nuget/*.nupkg
             ./artifacts/vsix/*.vsix
-
-      # --- Publishing Steps (requires secrets) ---
-      # - name: Publish NuGet Package
-      #   run: dotnet nuget push ./artifacts/nuget/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json
-      #
-      # - name: Publish to Visual Studio Marketplace
-      #   run: vsce publish --packagePath ./artifacts/vsix/yini-vscode-${{ env.VERSION }}.vsix
-      #   env:
-      #     VSCE_PAT: ${{ secrets.VSCE_PAT }}
