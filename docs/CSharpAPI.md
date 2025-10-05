@@ -28,15 +28,6 @@ Checks for the existence of a key within a given section. This is the most effic
 
 *   **Returns:** `true` if the key exists, `false` otherwise.
 
-**Example:**
-```csharp
-if (manager.HasKey("Player", "Name"))
-{
-    string name = manager.GetString("Player", "Name");
-    Console.WriteLine($"Player Name: {name}");
-}
-```
-
 **`YiniValue? GetValue(string section, string key)`**
 
 Retrieves a value from the loaded YINI data as a `YiniValue` object. This is the most flexible way to get a value, as it allows you to inspect its type before converting it.
@@ -47,45 +38,53 @@ Retrieves a value from the loaded YINI data as a `YiniValue` object. This is the
 
 Sets the value for a specific key in a section. This is only valid for keys that were declared as dynamic (i.e., with `Dyna()`). Throws a `YiniException` on failure.
 
-### Convenience Getters/Setters
+### High-Performance Data Binding (Source Generation)
 
-The `YiniManager` provides several convenience methods for getting and setting primitive types. These methods are built on top of `GetValue` and `SetValue`.
+For optimal performance, YINI provides a source generator that creates reflection-free binding code at compile time. This is the recommended approach for data binding in performance-critical applications.
 
-*   **`GetDouble(string section, string key, double defaultValue = 0.0)`**
-*   **`GetString(string section, string key, string defaultValue = "")`**
-*   **`GetBool(string section, string key, bool defaultValue = false)`**
-*   **`SetDouble(string section, string key, double value)`**
-*   **`SetString(string section, string key, string value)`**
-*   **`SetBool(string section, string key, bool value)`**
-
-### Data Binding
-
-**`T Bind<T>(string section) where T : new()`**
-
-Binds a YINI section to a new instance of a C# class `T`. This method uses reflection to match the public properties of your class to the keys in the specified section. By convention, property names are converted to lowercase to find the corresponding key in the YINI file. For more advanced binding, you can use the `[YiniKey("custom-key")]` attribute on a property.
-
-*   **`T`**: The type of the object to create and populate. Must have a parameterless constructor.
-*   **`section`**: The name of the section in the YINI file to bind from.
+To use the source generator:
+1.  Add the `[YiniBindable]` attribute to a `partial` class.
+2.  Call the `BindFromYini(YiniManager manager, string section)` extension method on an instance of your class.
 
 **Example:**
 ```csharp
-public class PlayerStats
+// Add this attribute to your partial class
+[YiniBindable]
+public partial class PlayerStats
 {
+    // Use YiniKey to map properties to different key names
+    [YiniKey("name")]
     public string Name { get; set; }
+
+    [YiniKey("level")]
     public int Level { get; set; }
+
+    [YiniKey("health")]
     public double Health { get; set; }
 }
 
 var manager = new YiniManager();
 manager.Load("stats.yini");
 
-// Binds the [playerstats] section to the PlayerStats object.
-PlayerStats stats = manager.Bind<PlayerStats>("playerstats");
+var stats = new PlayerStats();
+// This generated method is extremely fast and allocates no extra memory.
+stats.BindFromYini(manager, "playerstats");
 ```
+
+### Legacy Data Binding (Reflection)
+
+YINI also provides a reflection-based `Bind<T>` method for convenience. While easier to use for simple applications, it is significantly slower and less memory-efficient than the source-generated approach.
+
+**`T Bind<T>(string section) where T : new()`**
+
+Binds a YINI section to a new instance of a C# class `T`.
+
+*   **`T`**: The type of the object to create and populate. Must have a parameterless constructor.
+*   **`section`**: The name of the section in the YINI file to bind from.
 
 ## YiniException Class
 
-The `YiniException` is thrown when an error occurs in the underlying native YINI library. This provides a much more robust error-handling mechanism than returning `bool` or `null`. You should wrap calls to `Load`, `SaveChanges`, and `SetValue` in a `try-catch` block to handle potential errors gracefully.
+The `YiniException` is thrown when an error occurs in the underlying native YINI library. You should wrap calls to `Load`, `SaveChanges`, and `SetValue` in a `try-catch` block to handle potential errors gracefully.
 
 **Example:**
 ```csharp
