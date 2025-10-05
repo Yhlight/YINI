@@ -622,6 +622,7 @@ namespace Yini
         /// <param name="section">The section name.</param>
         /// <param name="key">The key name.</param>
         /// <param name="defaultValue">The value to return if the key is not found or is not a double.</param>
+        /// <param name="yiniValue">An optional, pre-fetched YiniValue to use, avoiding a redundant lookup.</param>
         /// <returns>The double value or the default value.</returns>
         public double GetDouble(string section, string key, double defaultValue = 0.0, YiniValue? yiniValue = null)
         {
@@ -654,6 +655,7 @@ namespace Yini
         /// <param name="section">The section name.</param>
         /// <param name="key">The key name.</param>
         /// <param name="defaultValue">The value to return if the key is not found or is not a string.</param>
+        /// <param name="yiniValue">An optional, pre-fetched YiniValue to use, avoiding a redundant lookup.</param>
         /// <returns>The string value or the default value.</returns>
         public string GetString(string section, string key, string defaultValue = "", YiniValue? yiniValue = null)
         {
@@ -686,6 +688,7 @@ namespace Yini
         /// <param name="section">The section name.</param>
         /// <param name="key">The key name.</param>
         /// <param name="defaultValue">The value to return if the key is not found or is not a boolean.</param>
+        /// <param name="yiniValue">An optional, pre-fetched YiniValue to use, avoiding a redundant lookup.</param>
         /// <returns>The boolean value or the default value.</returns>
         public bool GetBool(string section, string key, bool defaultValue = false, YiniValue? yiniValue = null)
         {
@@ -864,6 +867,7 @@ namespace Yini
         /// <typeparam name="T">The element type of the list.</typeparam>
         /// <param name="section">The section name.</param>
         /// <param name="key">The key name.</param>
+        /// <param name="yiniValue">An optional, pre-fetched YiniValue to use, avoiding a redundant lookup.</param>
         /// <returns>A new <see cref="List{T}"/> containing the elements from the YINI array, or null if the key is not found or is not an array.</returns>
         public List<T>? GetList<T>(string section, string key, YiniValue? yiniValue = null)
         {
@@ -914,6 +918,7 @@ namespace Yini
         /// <typeparam name="T">The value type of the dictionary.</typeparam>
         /// <param name="section">The section name.</param>
         /// <param name="key">The key name.</param>
+        /// <param name="yiniValue">An optional, pre-fetched YiniValue to use, avoiding a redundant lookup.</param>
         /// <returns>A new <see cref="Dictionary{TKey, TValue}"/> with string keys, or null if the key is not found or is not a map.</returns>
         public unsafe Dictionary<string, T>? GetDictionary<T>(string section, string key, YiniValue? yiniValue = null)
         {
@@ -1019,6 +1024,13 @@ namespace Yini
             return errors;
         }
 
+        /// <summary>
+        /// Finds the section and key name for a symbol at a specific line and column in the source file.
+        /// This is primarily used for IDE features like "Go to Definition".
+        /// </summary>
+        /// <param name="line">The line number (1-based).</param>
+        /// <param name="column">The column number (1-based).</param>
+        /// <returns>A tuple containing the section and key name if a symbol is found; otherwise, null.</returns>
         public unsafe (string Section, string Key)? FindKeyAtPos(int line, int column)
         {
             int sectionSize = 0;
@@ -1056,6 +1068,13 @@ namespace Yini
             }
         }
 
+        /// <summary>
+        /// Gets the location (file path, line, and column) of a symbol's definition.
+        /// This is used for IDE features like "Go to Definition" to navigate to where a macro or inherited section is defined.
+        /// </summary>
+        /// <param name="sectionName">The name of the section where the symbol is referenced. Can be null for global symbols like macros.</param>
+        /// <param name="symbolName">The name of the symbol to find (e.g., "@macroName" or "ParentSection").</param>
+        /// <returns>A tuple containing the file path, line, and column of the definition if found; otherwise, null.</returns>
         public unsafe (string FilePath, int Line, int Column)? GetDefinitionLocation(string? sectionName, string symbolName)
         {
             int filePathSize = 0;

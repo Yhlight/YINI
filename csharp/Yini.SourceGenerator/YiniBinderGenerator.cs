@@ -87,14 +87,21 @@ namespace {namespaceName}
                 var keyAttr = prop.GetAttributes().FirstOrDefault(ad => ad.AttributeClass.Name == "YiniKeyAttribute");
                 string yiniKey = keyAttr?.ConstructorArguments.FirstOrDefault().Value?.ToString() ?? prop.Name.ToLower();
 
-                string bindingMethod = GetBindingMethod(prop, yiniKey, $"value_{prop.Name}");
+                // This is the core optimization: Call GetValue once per property, then pass the result
+                // to the helper methods. This avoids repeated dictionary lookups in the native code.
+                sb.AppendLine($"            using (var value_{prop.Name} = manager.GetValue(section, \"{yiniKey}\"))");
+                sb.AppendLine("            {");
+                sb.AppendLine($"                if (value_{prop.Name} != null)");
+                sb.AppendLine("                {");
+
+                string bindingMethod = GetBindingMethod(prop, $"value_{prop.Name}");
                 if (bindingMethod != null)
                 {
-                    sb.AppendLine($"            using (var value_{prop.Name} = manager.GetValue(section, \"{yiniKey}\"))");
-                    sb.AppendLine("            {");
-                    sb.AppendLine($"                this.{prop.Name} = {bindingMethod};");
-                    sb.AppendLine("            }");
+                    sb.AppendLine($"                    this.{prop.Name} = {bindingMethod};");
                 }
+
+                sb.AppendLine("                }");
+                sb.AppendLine("            }");
             }
 
             sb.Append(@"
@@ -105,7 +112,7 @@ namespace {namespaceName}
             return sb.ToString();
         }
 
-        private string GetBindingMethod(IPropertySymbol prop, string yiniKey, string valueVarName)
+        private string GetBindingMethod(IPropertySymbol prop, string valueVarName)
         {
             var propType = prop.Type as INamedTypeSymbol;
             if (propType == null) return null;
@@ -114,32 +121,32 @@ namespace {namespaceName}
             if (propType.IsGenericType && (propType.Name == "List" || propType.Name == "IList") && propType.TypeArguments.Length == 1)
             {
                 var elementType = propType.TypeArguments[0];
-                return $"manager.GetList<{elementType.ToDisplayString()}>(section, \"{yiniKey}\", {valueVarName}) ?? this.{prop.Name}";
+                return $"manager.GetList<{elementType.ToDisplayString()}>(null, null, {valueVarName}) ?? this.{prop.Name}";
             }
 
             if (propType.IsGenericType && (propType.Name == "Dictionary" || propType.Name == "IDictionary") && propType.TypeArguments.Length == 2 && propType.TypeArguments[0].SpecialType == SpecialType.System_String)
             {
                 var valueType = propType.TypeArguments[1];
-                return $"manager.GetDictionary<string, {valueType.ToDisplayString()}>(section, \"{yiniKey}\", {valueVarName}) ?? this.{prop.Name}";
+                return $"manager.GetDictionary<{valueType.ToDisplayString()}>(null, null, {valueVarName}) ?? this.{prop.Name}";
             }
 
             switch (typeName)
             {
                 case "string":
                 case "System.String":
-                    return $"manager.GetString(section, \"{yiniKey}\", this.{prop.Name}, {valueVarName})";
+                    return $"manager.GetString(null, null, this.{prop.Name}, {valueVarName})";
                 case "bool":
                 case "System.Boolean":
-                    return $"manager.GetBool(section, \"{yiniKey}\", this.{prop.Name}, {valueVarName})";
+                    return $"manager.GetBool(null, null, this.{prop.Name}, {valueVarName})";
                 case "int":
                 case "System.Int32":
-                    return $"(int)manager.GetDouble(section, \"{yiniKey}\", this.{prop.Name}, {valueVarName})";
+                    return $"(int)manager.GetDouble(null, null, this.{prop.Name}, {valueVarName})";
                 case "float":
                 case "System.Single":
-                    return $"(float)manager.GetDouble(section, \"{yiniKey}\", this.{prop.Name}, {valueVarName})";
+                    return $"(float)manager.GetDouble(null, null, this.{prop.Name}, {valueVarName})";
                 case "double":
                 case "System.Double":
-                    return $"manager.GetDouble(section, \"{yiniKey}\", this.{prop.Name}, {valueVarName})";
+                    return $"manager.GetDouble(null, null, this.{prop.Name}, {valueVarName})";
                 default:
                     return null;
             }
