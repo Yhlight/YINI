@@ -8,6 +8,30 @@ using System.Collections.Generic;
 namespace Yini
 {
     /// <summary>
+    /// Represents an error that occurs during YINI operations.
+    /// </summary>
+    public class YiniException : Exception
+    {
+        /// <summary>
+        /// Initializes a new instance of the <see cref="YiniException"/> class.
+        /// </summary>
+        public YiniException() { }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="YiniException"/> class with a specified error message.
+        /// </summary>
+        /// <param name="message">The message that describes the error.</param>
+        public YiniException(string message) : base(message) { }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="YiniException"/> class with a specified error message and a reference to the inner exception that is the cause of this exception.
+        /// </summary>
+        /// <param name="message">The error message that explains the reason for the exception.</param>
+        /// <param name="inner">The exception that is the cause of the current exception, or a null reference if no inner exception is specified.</param>
+        public YiniException(string message, Exception inner) : base(message, inner) { }
+    }
+
+    /// <summary>
     /// Specifies the underlying data type of a <see cref="YiniValue"/>.
     /// This enum must be kept in sync with the C-API definition.
     /// </summary>
@@ -294,6 +318,12 @@ namespace Yini
         [DllImport(LibName, EntryPoint = "yini_manager_set_value")]
         internal static extern void YiniManager_SetValue(IntPtr manager, string section, string key, IntPtr valueHandle);
 
+        [DllImport(LibName, EntryPoint = "yini_manager_has_key")]
+        internal static extern bool YiniManager_HasKey(IntPtr manager, string section, string key);
+
+        [DllImport(LibName, EntryPoint = "yini_manager_get_last_error")]
+        internal static extern int YiniManager_GetLastError(IntPtr manager, StringBuilder? outBuffer, int bufferSize);
+
         // Value Handles
         [DllImport(LibName, EntryPoint = "yini_value_destroy")]
         internal static extern void YiniValue_Destroy(IntPtr handle);
@@ -364,13 +394,25 @@ namespace Yini
         /// <summary>
         /// Initializes a new instance of the <see cref="YiniManager"/> class.
         /// </summary>
-        /// <exception cref="InvalidOperationException">Thrown if the native YINI manager cannot be created.</exception>
+        /// <exception cref="YiniException">Thrown if the native YINI manager cannot be created.</exception>
         public YiniManager()
         {
             _managerPtr = YiniManager_Create();
             if (_managerPtr == IntPtr.Zero)
             {
-                throw new InvalidOperationException("Failed to create YiniManager instance.");
+                // This is a catastrophic failure, as we can't even get an error message from the manager.
+                throw new YiniException("Failed to create the native YiniManager instance. The native library may be missing or corrupted.");
+            }
+        }
+
+        private void CheckForError()
+        {
+            int errorSize = YiniManager_GetLastError(_managerPtr, null, 0);
+            if (errorSize > 0)
+            {
+                var errorBuffer = new StringBuilder(errorSize);
+                YiniManager_GetLastError(_managerPtr, errorBuffer, errorBuffer.Capacity);
+                throw new YiniException(errorBuffer.ToString());
             }
         }
 
@@ -378,13 +420,24 @@ namespace Yini
         /// Loads and parses a YINI file from the specified path.
         /// </summary>
         /// <param name="filepath">The path to the YINI file.</param>
-        /// <returns>true if the file was loaded successfully; otherwise, false.</returns>
-        public bool Load(string filepath) => YiniManager_Load(_managerPtr, filepath);
+        /// <exception cref="YiniException">Thrown if the file fails to load for any reason (e.g., not found, parse error).</exception>
+        public void Load(string filepath)
+        {
+            if (!YiniManager_Load(_managerPtr, filepath))
+            {
+                CheckForError();
+            }
+        }
 
         /// <summary>
-        /// Saves any changes made to dynamic values back to the corresponding .ymeta file.
+        /// Saves any changes made to dynamic values back to the original file.
         /// </summary>
-        public void SaveChanges() => YiniManager_SaveChanges(_managerPtr);
+        /// <exception cref="YiniException">Thrown if the changes fail to save.</exception>
+        public void SaveChanges()
+        {
+            YiniManager_SaveChanges(_managerPtr);
+            CheckForError();
+        }
 
         /// <summary>
         /// Retrieves a value from the loaded YINI data.
@@ -396,7 +449,13 @@ namespace Yini
         {
             // The C-API returns a new handle that we own.
             var valueHandle = YiniManager_GetValue(_managerPtr, section, key);
-            return valueHandle == IntPtr.Zero ? null : new YiniValue(valueHandle);
+            if (valueHandle == IntPtr.Zero)
+            {
+                // Clear any potential "key not found" error, as returning null is the expected contract here.
+                YiniManager_GetLastError(_managerPtr, null, 0);
+                return null;
+            }
+            return new YiniValue(valueHandle);
         }
 
         /// <summary>
@@ -407,10 +466,7 @@ namespace Yini
         /// <returns>true if the key exists; otherwise, false.</returns>
         public bool HasKey(string section, string key)
         {
-            using (var value = GetValue(section, key))
-            {
-                return value != null;
-            }
+            return YiniManager_HasKey(_managerPtr, section, key);
         }
 
         /// <summary>
@@ -419,10 +475,12 @@ namespace Yini
         /// <param name="section">The name of the section.</param>
         /// <param name="key">The name of the key.</param>
         /// <param name="value">The <see cref="YiniValue"/> to set. The value is copied, so the caller retains ownership of the passed instance.</param>
+        /// <exception cref="YiniException">Thrown if the value fails to be set.</exception>
         public void SetValue(string section, string key, YiniValue value)
         {
             // The C-API copies the value, we still own our 'value' handle.
             YiniManager_SetValue(_managerPtr, section, key, value.Handle);
+            CheckForError();
         }
 
         // --- Convenience methods for primitive types ---

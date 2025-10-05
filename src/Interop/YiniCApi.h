@@ -91,6 +91,30 @@ YINI_API void yini_manager_save_changes(Yini_ManagerHandle manager);
 YINI_API Yini_ValueHandle yini_manager_get_value(Yini_ManagerHandle manager, const char* section, const char* key);
 
 /**
+ * @brief Checks if a key exists in a given section.
+ * @param manager The manager handle.
+ * @param section The name of the section.
+ * @param key The name of the key.
+ * @return True if the key exists, false otherwise.
+ */
+YINI_API bool yini_manager_has_key(Yini_ManagerHandle manager, const char* section, const char* key);
+
+/**
+ * @brief Gets the last error message that occurred on a manager.
+ *
+ * This function should be called after an API function returns an error status
+ * (e.g., false or NULL). The error string is cleared after this call.
+ *
+ * @param manager The manager handle.
+ * @param out_buffer The buffer to write the error message into, or NULL.
+ * @param buffer_size The size of the buffer.
+ * @return If `out_buffer` is NULL, returns the required buffer size (including the null terminator).
+ *         If `out_buffer` is not NULL, returns the number of characters written to the buffer
+ *         (excluding the null terminator). Returns 0 if there is no error.
+ */
+YINI_API int yini_manager_get_last_error(Yini_ManagerHandle manager, char* out_buffer, int buffer_size);
+
+/**
  * @brief Sets the value for a given section and key.
  * @param manager The manager handle.
  * @param section The name of the section.

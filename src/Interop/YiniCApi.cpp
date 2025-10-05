@@ -11,12 +11,28 @@
 
 // --- Helper Functions to cast handles to internal types ---
 static YINI::YiniManager* as_manager(Yini_ManagerHandle handle) {
+    if (!handle) return nullptr;
     return reinterpret_cast<YINI::YiniManager*>(handle);
 }
 
 static YINI::YiniValue* as_value(Yini_ValueHandle handle) {
+    if (!handle) return nullptr;
     return reinterpret_cast<YINI::YiniValue*>(handle);
 }
+
+// --- Helper to set the last error on the manager ---
+static void set_last_error(Yini_ManagerHandle handle, const std::string& message) {
+    if (auto* mgr = as_manager(handle)) {
+        mgr->m_last_error = message;
+    }
+}
+
+static void set_last_error(Yini_ManagerHandle handle, const std::exception& e) {
+    if (auto* mgr = as_manager(handle)) {
+        mgr->m_last_error = e.what();
+    }
+}
+
 
 // --- Helper for safe string copying ---
 static int safe_string_copy(char* out_buffer, int buffer_size, const std::string& str) {
@@ -46,49 +62,105 @@ YINI_API void yini_manager_destroy(Yini_ManagerHandle manager) {
 }
 
 YINI_API bool yini_manager_load(Yini_ManagerHandle manager, const char* filepath) {
-    if (!manager || !filepath) return false;
+    auto* mgr = as_manager(manager);
+    if (!mgr) {
+        // No valid handle to set an error on.
+        return false;
+    }
+    mgr->m_last_error.clear();
+    if (!filepath) {
+        set_last_error(manager, "Filepath cannot be null.");
+        return false;
+    }
     try {
-        as_manager(manager)->load(filepath);
+        mgr->load(filepath);
         return true;
+    } catch (const std::exception& e) {
+        set_last_error(manager, e);
+        return false;
     } catch (...) {
+        set_last_error(manager, "An unknown error occurred during file loading.");
         return false;
     }
 }
 
 YINI_API void yini_manager_save_changes(Yini_ManagerHandle manager) {
-    if (!manager) return;
+    auto* mgr = as_manager(manager);
+    if (!mgr) return;
+    mgr->m_last_error.clear();
     try {
-        as_manager(manager)->save_changes();
+        mgr->save_changes();
+    } catch (const std::exception& e) {
+        set_last_error(manager, e);
     } catch (...) {
-        // In a real application, you might want to log this error.
+        set_last_error(manager, "An unknown error occurred while saving changes.");
     }
 }
 
 YINI_API Yini_ValueHandle yini_manager_get_value(Yini_ManagerHandle manager, const char* section, const char* key) {
-    if (!manager || !section || !key) return nullptr;
+    auto* mgr = as_manager(manager);
+    if (!mgr) return nullptr;
+    mgr->m_last_error.clear();
+
+    if (!section || !key) {
+        set_last_error(manager, "Section and key cannot be null.");
+        return nullptr;
+    }
     try {
-        YINI::YiniValue value = as_manager(manager)->get_value(section, key);
-
-        // If the retrieved value is dynamic, unwrap it to get the underlying value.
-        if (auto* dyna_ptr = std::get_if<std::unique_ptr<YINI::DynaValue>>(&value.m_value)) {
-            // Return a new copy of the *inner* value. Caller takes ownership.
-            return reinterpret_cast<Yini_ValueHandle>(new YINI::YiniValue((*dyna_ptr)->get()));
-        }
-
-        // It's not a dynamic value, so return a new copy of the original.
-        return reinterpret_cast<Yini_ValueHandle>(new YINI::YiniValue(value));
+        YINI::YiniValue value = mgr->get_value(section, key);
+        return reinterpret_cast<Yini_ValueHandle>(new YINI::YiniValue(std::move(value)));
+    } catch (const std::exception& e) {
+        set_last_error(manager, e);
+        return nullptr;
     } catch (...) {
+        set_last_error(manager, "An unknown error occurred while getting value.");
         return nullptr;
     }
 }
 
+YINI_API bool yini_manager_has_key(Yini_ManagerHandle manager, const char* section, const char* key) {
+    auto* mgr = as_manager(manager);
+    if (!mgr || !section || !key) {
+        return false;
+    }
+    const auto& interpreter = mgr->get_interpreter();
+    auto sec_it = interpreter.resolved_sections.find(section);
+    if (sec_it != interpreter.resolved_sections.end()) {
+        return sec_it->second.count(key) > 0;
+    }
+    return false;
+}
+
+YINI_API int yini_manager_get_last_error(Yini_ManagerHandle manager, char* out_buffer, int buffer_size) {
+    auto* mgr = as_manager(manager);
+    if (!mgr || mgr->m_last_error.empty()) {
+        return 0;
+    }
+
+    int result = safe_string_copy(out_buffer, buffer_size, mgr->m_last_error);
+    // Clear the error after it has been retrieved, but only if it's not a size check.
+    if (out_buffer != nullptr && buffer_size > 0) {
+        mgr->m_last_error.clear();
+    }
+    return result;
+}
+
+
 YINI_API void yini_manager_set_value(Yini_ManagerHandle manager, const char* section, const char* key, Yini_ValueHandle value_handle) {
-    if (!manager || !section || !key || !value_handle) return;
+    auto* mgr = as_manager(manager);
+    if (!mgr) return;
+    mgr->m_last_error.clear();
+
+    if (!section || !key || !value_handle) {
+        set_last_error(manager, "Section, key, and value handle cannot be null.");
+        return;
+    }
     try {
-        // The value is copied into the manager.
-        as_manager(manager)->set_value(section, key, *as_value(value_handle));
+        mgr->set_value(section, key, *as_value(value_handle));
+    } catch (const std::exception& e) {
+        set_last_error(manager, e);
     } catch (...) {
-        // Handle or log error
+        set_last_error(manager, "An unknown error occurred while setting value.");
     }
 }
 
@@ -227,7 +299,7 @@ YINI_API int yini_map_get_size(Yini_ValueHandle handle) {
 YINI_API Yini_ValueHandle yini_map_get_value_at(Yini_ValueHandle handle, int index) {
     if (!handle || index < 0) return nullptr;
     if (const auto* map_ptr = std::get_if<std::unique_ptr<YINI::YiniMap>>(&as_value(handle)->m_value)) {
-        if (static_cast<size_t>(index) < (*map_ptr)->size()) {
+        if ((*map_ptr)->size() > static_cast<size_t>(index)) {
             auto it = (*map_ptr)->begin();
             std::advance(it, index);
             // Return a new copy of the value. Caller takes ownership.

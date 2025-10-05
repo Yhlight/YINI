@@ -21,12 +21,13 @@ namespace YINI
 
         // Find and extract the schema node from the AST
         for (auto it = final_ast.begin(); it != final_ast.end(); ) {
-            if (auto* schema_node = dynamic_cast<Schema*>(it->get())) {
+            if (auto* schema = dynamic_cast<Schema*>(it->get())) {
                 if (m_schema) {
                     // In a more advanced implementation, we might merge schemas.
                     // For now, we'll just take the first one found.
                 } else {
-                    m_schema.reset(static_cast<Schema*>(it->release()));
+                    it->release(); // release from AST unique_ptr
+                    m_schema.reset(schema); // m_schema takes ownership
                 }
                 it = final_ast.erase(it);
             } else {

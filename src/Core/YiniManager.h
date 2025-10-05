@@ -104,6 +104,11 @@ namespace YINI
          */
         std::vector<ValidationError> m_last_validation_errors;
 
+        /**
+         * @brief Stores the last error message from a C-API call.
+         */
+        std::string m_last_error;
+
     private:
         std::vector<std::unique_ptr<Stmt>> load_file(const std::string& filepath, std::set<std::string>& loaded_files);
         void merge_asts(std::vector<std::unique_ptr<Stmt>>& base_ast, std::vector<std::unique_ptr<Stmt>>& new_ast);

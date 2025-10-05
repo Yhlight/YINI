@@ -33,8 +33,7 @@ rate = 1.0
             // 2. Load the file using the manager
             using (var manager = new YiniManager())
             {
-                bool loaded = manager.Load(TestFileName);
-                Assert.IsTrue(loaded, "Failed to load the .yini file.");
+                manager.Load(TestFileName); // This will throw on failure
 
                 // 3. Get values
                 Assert.AreEqual(100, manager.GetDouble("Settings", "volume"));
@@ -87,6 +86,18 @@ long = ""{longString}""
                 Assert.AreEqual(longString, longResult);
                 Assert.AreEqual("default", nonExistentResult);
             }
+        }
+
+        [TestMethod]
+        public void Load_NonExistentFile_ThrowsYiniException()
+        {
+            // Arrange
+            using var manager = new YiniManager();
+            var filePath = "non_existent_file.yini";
+
+            // Act & Assert
+            var ex = Assert.ThrowsException<YiniException>(() => manager.Load(filePath));
+            StringAssert.Contains(ex.Message, "Could not open file");
         }
     }
 }

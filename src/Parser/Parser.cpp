@@ -78,7 +78,7 @@ namespace YINI
         while (!isAtEnd() && peek().type == TokenType::LEFT_BRACKET)
         {
             // Stop parsing schema sections if we find the #end_schema block
-            if (m_tokens.size() > m_current + 1 && m_tokens[m_current + 1].type == TokenType::IDENTIFIER && m_tokens[m_current + 1].lexeme == "#end_schema") {
+            if (static_cast<size_t>(m_current + 1) < m_tokens.size() && m_tokens[static_cast<size_t>(m_current + 1)].type == TokenType::IDENTIFIER && m_tokens[static_cast<size_t>(m_current + 1)].lexeme == "#end_schema") {
                 break;
             }
             sections.push_back(section());
@@ -119,7 +119,7 @@ namespace YINI
     std::unique_ptr<Stmt> Parser::statement()
     {
         // Look ahead to distinguish between `key = value` and `key += value`
-        if (check(TokenType::IDENTIFIER) && m_tokens.size() > m_current + 1 && m_tokens[m_current + 1].type == TokenType::PLUS_EQUAL)
+        if (check(TokenType::IDENTIFIER) && static_cast<size_t>(m_current + 1) < m_tokens.size() && m_tokens[static_cast<size_t>(m_current + 1)].type == TokenType::PLUS_EQUAL)
         {
             return registration();
         }

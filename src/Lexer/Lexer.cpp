@@ -110,13 +110,13 @@ namespace YINI
     char Lexer::peek()
     {
         if (isAtEnd()) return '\0';
-        return m_source[m_current];
+        return m_source[static_cast<size_t>(m_current)];
     }
 
     char Lexer::peekNext()
     {
-        if (m_current + 1 >= m_source.length()) return '\0';
-        return m_source[m_current + 1];
+        if (static_cast<size_t>(m_current + 1) >= m_source.length()) return '\0';
+        return m_source[static_cast<size_t>(m_current + 1)];
     }
 
     char Lexer::advance()

@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.10)
 project(YINI VERSION 1.0.0 LANGUAGES CXX)
 
+# Add cmake module path
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake")
+
 # Set default build type to Release if not specified
 if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
@@ -91,6 +94,28 @@ if(DOXYGEN_FOUND)
     COMMENT "Generating API documentation with Doxygen"
     VERBATIM
   )
+endif()
+
+# C# build integration
+find_package(dotnet)
+if(dotnet_FOUND)
+    # Get the path to the native library
+    if(WIN32)
+        set(NATIVE_LIB_PATH "$<TARGET_FILE_DIR:Yini>/Yini.dll")
+    else()
+        set(NATIVE_LIB_PATH "$<TARGET_FILE_DIR:Yini>/libYini.so")
+    endif()
+
+    # Define a custom target to build the C# project
+    add_custom_target(csharp_build ALL
+        COMMAND ${dotnet_EXECUTABLE} build ${CMAKE_CURRENT_SOURCE_DIR}/csharp/YiniSolution.sln -p:NativeLibPath=${NATIVE_LIB_PATH}
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/csharp
+        COMMENT "Building C# project"
+        DEPENDS Yini
+        VERBATIM
+    )
+else()
+    message(WARNING "dotnet not found. C# project will not be built.")
 endif()
 
 # Code coverage target
