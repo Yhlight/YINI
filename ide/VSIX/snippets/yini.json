@@ -1,0 +1,77 @@
+{
+  "Section": {
+    "prefix": "section",
+    "body": [
+      "[${1:SectionName}]",
+      "$2"
+    ],
+    "description": "Create a new section."
+  },
+  "Key-Value": {
+    "prefix": "kv",
+    "body": [
+      "${1:key} = ${2:value}"
+    ],
+    "description": "Create a new key-value pair."
+  },
+  "Define Block": {
+    "prefix": "#define",
+    "body": [
+      "[#define]",
+      "\t${1:macro_name} = ${2:value}"
+    ],
+    "description": "Create a new define block for macros."
+  },
+  "Include Block": {
+    "prefix": "#include",
+    "body": [
+      "[#include]",
+      "\t+= \"${1:filepath.yini}\""
+    ],
+    "description": "Create a new include block."
+  },
+  "Schema Block": {
+    "prefix": "#schema",
+    "body": [
+      "[#schema]",
+      "[${1:SectionName}]",
+      "${2:key_name} = { required = true, type = ${3|string,integer,float,boolean,array,map|} }"
+    ],
+    "description": "Create a new schema block for validation."
+  },
+  "Dynamic Value": {
+    "prefix": "dyna",
+    "body": [
+      "Dyna(${1:initial_value})"
+    ],
+    "description": "Create a new dynamic value."
+  },
+  "Color Value": {
+    "prefix": "color",
+    "body": [
+      "Color(${1:255}, ${2:255}, ${3:255}, ${4:255})"
+    ],
+    "description": "Create a new Color value."
+  },
+  "Vector2 Value": {
+    "prefix": "vec2",
+    "body": [
+      "Vec2(${1:0.0}, ${2:0.0})"
+    ],
+    "description": "Create a new Vector2 value."
+  },
+  "Vector3 Value": {
+    "prefix": "vec3",
+    "body": [
+      "Vec3(${1:0.0}, ${2:0.0}, ${3:0.0})"
+    ],
+    "description": "Create a new Vector3 value."
+  },
+  "Vector4 Value": {
+    "prefix": "vec4",
+    "body": [
+      "Vec4(${1:0.0}, ${2:0.0}, ${3:0.0}, ${4:0.0})"
+    ],
+    "description": "Create a new Vector4 value."
+  }
+}

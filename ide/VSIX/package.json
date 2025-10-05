@@ -39,6 +39,12 @@
         "scopeName": "source.yini",
         "path": "./syntaxes/yini.tmLanguage.json"
       }
+    ],
+    "snippets": [
+      {
+        "language": "yini",
+        "path": "./snippets/yini.json"
+      }
     ]
   },
   "scripts": {
