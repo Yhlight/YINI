@@ -24,7 +24,7 @@
   </ItemGroup>
 
   <Target Name="CopyNativeLibrary" AfterTargets="Build">
-    <Copy SourceFiles="/app/build/src/libYini.so" DestinationFolder="$(TargetDir)" />
+    <Copy SourceFiles="$(NativeLibPath)" DestinationFolder="$(TargetDir)" Condition=" '$(NativeLibPath)' != '' AND Exists('$(NativeLibPath)') " />
   </Target>
 
 </Project>

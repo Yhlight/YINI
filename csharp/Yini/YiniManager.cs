@@ -1,4 +1,5 @@
 using System;
+using System.Buffers;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Reflection;
@@ -149,9 +150,23 @@ namespace Yini
             int requiredSize = YiniManager.YiniValue_GetString(Handle, null, 0);
             if (requiredSize <= 0) return "";
 
-            byte* buffer = stackalloc byte[requiredSize];
-            YiniManager.YiniValue_GetString(Handle, buffer, requiredSize);
-            return Encoding.UTF8.GetString(buffer, requiredSize - 1); // Exclude null terminator
+            byte[]? rentedBuffer = null;
+            try
+            {
+                rentedBuffer = ArrayPool<byte>.Shared.Rent(requiredSize);
+                fixed (byte* buffer = rentedBuffer)
+                {
+                    YiniManager.YiniValue_GetString(Handle, buffer, requiredSize);
+                    return Encoding.UTF8.GetString(buffer, requiredSize - 1); // Exclude null terminator
+                }
+            }
+            finally
+            {
+                if (rentedBuffer != null)
+                {
+                    ArrayPool<byte>.Shared.Return(rentedBuffer);
+                }
+            }
         }
 
         /// <summary>
@@ -243,15 +258,30 @@ namespace Yini
                 int keySize = YiniManager.YiniMap_GetKeyAt(Handle, i, null, 0);
                 if (keySize <= 0) continue;
 
-                byte* keyBuffer = stackalloc byte[keySize];
-                YiniManager.YiniMap_GetKeyAt(Handle, i, keyBuffer, keySize);
-                string key = Encoding.UTF8.GetString(keyBuffer, keySize - 1); // Exclude null terminator
+                byte[]? rentedBuffer = null;
+                try
+                {
+                    rentedBuffer = ArrayPool<byte>.Shared.Rent(keySize);
+                    string key;
+                    fixed (byte* keyBuffer = rentedBuffer)
+                    {
+                        YiniManager.YiniMap_GetKeyAt(Handle, i, keyBuffer, keySize);
+                        key = Encoding.UTF8.GetString(keyBuffer, keySize - 1); // Exclude null terminator
+                    }
 
-                // Get value handle. The C-API returns a new handle that we own.
-                IntPtr valueHandle = YiniManager.YiniMap_GetValueAt(Handle, i);
-                if (valueHandle == IntPtr.Zero) continue;
+                    // Get value handle. The C-API returns a new handle that we own.
+                    IntPtr valueHandle = YiniManager.YiniMap_GetValueAt(Handle, i);
+                    if (valueHandle == IntPtr.Zero) continue;
 
-                list.Add(new KeyValuePair<string, YiniValue>(key, new YiniValue(valueHandle)));
+                    list.Add(new KeyValuePair<string, YiniValue>(key, new YiniValue(valueHandle)));
+                }
+                finally
+                {
+                    if (rentedBuffer != null)
+                    {
+                        ArrayPool<byte>.Shared.Return(rentedBuffer);
+                    }
+                }
             }
             return list;
         }
@@ -441,9 +471,23 @@ namespace Yini
             int errorSize = YiniManager_GetLastError(_managerPtr, null, 0);
             if (errorSize > 0)
             {
-                byte* errorBuffer = stackalloc byte[errorSize];
-                YiniManager_GetLastError(_managerPtr, errorBuffer, errorSize);
-                throw new YiniException(Encoding.UTF8.GetString(errorBuffer, errorSize - 1));
+                byte[]? rentedBuffer = null;
+                try
+                {
+                    rentedBuffer = ArrayPool<byte>.Shared.Rent(errorSize);
+                    fixed (byte* errorBuffer = rentedBuffer)
+                    {
+                        YiniManager_GetLastError(_managerPtr, errorBuffer, errorSize);
+                        throw new YiniException(Encoding.UTF8.GetString(errorBuffer, errorSize - 1));
+                    }
+                }
+                finally
+                {
+                    if (rentedBuffer != null)
+                    {
+                        ArrayPool<byte>.Shared.Return(rentedBuffer);
+                    }
+                }
             }
         }
 
@@ -541,9 +585,23 @@ namespace Yini
                 int nameSize = YiniManager_GetMacroNameAt(_managerPtr, i, null, 0);
                 if (nameSize > 0)
                 {
-                    byte* buffer = stackalloc byte[nameSize];
-                    YiniManager_GetMacroNameAt(_managerPtr, i, buffer, nameSize);
-                    names.Add(Encoding.UTF8.GetString(buffer, nameSize - 1));
+                    byte[]? rentedBuffer = null;
+                    try
+                    {
+                        rentedBuffer = ArrayPool<byte>.Shared.Rent(nameSize);
+                        fixed (byte* buffer = rentedBuffer)
+                        {
+                            YiniManager_GetMacroNameAt(_managerPtr, i, buffer, nameSize);
+                            names.Add(Encoding.UTF8.GetString(buffer, nameSize - 1));
+                        }
+                    }
+                    finally
+                    {
+                        if (rentedBuffer != null)
+                        {
+                            ArrayPool<byte>.Shared.Return(rentedBuffer);
+                        }
+                    }
                 }
             }
             return names;
@@ -558,16 +616,29 @@ namespace Yini
         /// <param name="key">The key name.</param>
         /// <param name="defaultValue">The value to return if the key is not found or is not a double.</param>
         /// <returns>The double value or the default value.</returns>
-        public double GetDouble(string section, string key, double defaultValue = 0.0)
+        public double GetDouble(string section, string key, double defaultValue = 0.0, YiniValue? yiniValue = null)
         {
-            using (var value = GetValue(section, key))
+            bool valueWasPassed = yiniValue != null;
+            if (!valueWasPassed)
             {
-                if (value != null && value.Type == YiniValueType.Double)
+                yiniValue = GetValue(section, key);
+            }
+
+            try
+            {
+                if (yiniValue != null && yiniValue.Type == YiniValueType.Double)
                 {
-                    return value.AsDouble();
+                    return yiniValue.AsDouble();
+                }
+                return defaultValue;
+            }
+            finally
+            {
+                if (!valueWasPassed && yiniValue != null)
+                {
+                    yiniValue.Dispose();
                 }
             }
-            return defaultValue;
         }
 
         /// <summary>
@@ -577,16 +648,29 @@ namespace Yini
         /// <param name="key">The key name.</param>
         /// <param name="defaultValue">The value to return if the key is not found or is not a string.</param>
         /// <returns>The string value or the default value.</returns>
-        public string GetString(string section, string key, string defaultValue = "")
+        public string GetString(string section, string key, string defaultValue = "", YiniValue? yiniValue = null)
         {
-            using (var value = GetValue(section, key))
+            bool valueWasPassed = yiniValue != null;
+            if (!valueWasPassed)
             {
-                if (value != null && value.Type == YiniValueType.String)
+                yiniValue = GetValue(section, key);
+            }
+
+            try
+            {
+                if (yiniValue != null && yiniValue.Type == YiniValueType.String)
                 {
-                    return value.AsString();
+                    return yiniValue.AsString();
+                }
+                return defaultValue;
+            }
+            finally
+            {
+                if (!valueWasPassed && yiniValue != null)
+                {
+                    yiniValue.Dispose();
                 }
             }
-            return defaultValue;
         }
 
         /// <summary>
@@ -596,16 +680,29 @@ namespace Yini
         /// <param name="key">The key name.</param>
         /// <param name="defaultValue">The value to return if the key is not found or is not a boolean.</param>
         /// <returns>The boolean value or the default value.</returns>
-        public bool GetBool(string section, string key, bool defaultValue = false)
+        public bool GetBool(string section, string key, bool defaultValue = false, YiniValue? yiniValue = null)
         {
-            using (var value = GetValue(section, key))
+            bool valueWasPassed = yiniValue != null;
+            if (!valueWasPassed)
             {
-                if (value != null && value.Type == YiniValueType.Bool)
+                yiniValue = GetValue(section, key);
+            }
+
+            try
+            {
+                if (yiniValue != null && yiniValue.Type == YiniValueType.Bool)
                 {
-                    return value.AsBool();
+                    return yiniValue.AsBool();
+                }
+                return defaultValue;
+            }
+            finally
+            {
+                if (!valueWasPassed && yiniValue != null)
+                {
+                    yiniValue.Dispose();
                 }
             }
-            return defaultValue;
         }
 
         /// <summary>
@@ -761,9 +858,15 @@ namespace Yini
         /// <param name="section">The section name.</param>
         /// <param name="key">The key name.</param>
         /// <returns>A new <see cref="List{T}"/> containing the elements from the YINI array, or null if the key is not found or is not an array.</returns>
-        public List<T>? GetList<T>(string section, string key)
+        public List<T>? GetList<T>(string section, string key, YiniValue? yiniValue = null)
         {
-            using (var yiniValue = GetValue(section, key))
+            bool valueWasPassed = yiniValue != null;
+            if (!valueWasPassed)
+            {
+                yiniValue = GetValue(section, key);
+            }
+
+            try
             {
                 if (yiniValue == null || yiniValue.Type != YiniValueType.Array)
                 {
@@ -789,6 +892,13 @@ namespace Yini
                 }
                 return list;
             }
+            finally
+            {
+                if (!valueWasPassed && yiniValue != null)
+                {
+                    yiniValue.Dispose();
+                }
+            }
         }
 
         /// <summary>
@@ -798,9 +908,15 @@ namespace Yini
         /// <param name="section">The section name.</param>
         /// <param name="key">The key name.</param>
         /// <returns>A new <see cref="Dictionary{TKey, TValue}"/> with string keys, or null if the key is not found or is not a map.</returns>
-        public Dictionary<string, T>? GetDictionary<T>(string section, string key)
+        public unsafe Dictionary<string, T>? GetDictionary<T>(string section, string key, YiniValue? yiniValue = null)
         {
-            using (var yiniValue = GetValue(section, key))
+            bool valueWasPassed = yiniValue != null;
+            if (!valueWasPassed)
+            {
+                yiniValue = GetValue(section, key);
+            }
+
+            try
             {
                 if (yiniValue == null || yiniValue.Type != YiniValueType.Map)
                 {
@@ -809,22 +925,49 @@ namespace Yini
 
                 var dict = new Dictionary<string, T>();
                 var valueType = typeof(T);
+                int size = yiniValue.MapSize;
 
-                foreach (var kvp in yiniValue.AsMap())
+                for (int i = 0; i < size; i++)
                 {
-                    using (var element = kvp.Value)
+                    int keySize = YiniMap_GetKeyAt(yiniValue.Handle, i, null, 0);
+                    if (keySize <= 0) continue;
+
+                    byte[]? keyRented = null;
+                    string mapKey;
+                    try
                     {
-                        if (element != null)
+                        keyRented = ArrayPool<byte>.Shared.Rent(keySize);
+                        fixed (byte* keyBuffer = keyRented)
                         {
-                            var converted = ConvertYiniValue(element, valueType);
-                            if (converted != null)
-                            {
-                                dict[kvp.Key] = (T)converted;
-                            }
+                            YiniMap_GetKeyAt(yiniValue.Handle, i, keyBuffer, keySize);
+                            mapKey = Encoding.UTF8.GetString(keyBuffer, keySize - 1);
+                        }
+                    }
+                    finally
+                    {
+                        if (keyRented != null) ArrayPool<byte>.Shared.Return(keyRented);
+                    }
+
+                    IntPtr valueHandle = YiniMap_GetValueAt(yiniValue.Handle, i);
+                    if (valueHandle == IntPtr.Zero) continue;
+
+                    using (var element = new YiniValue(valueHandle))
+                    {
+                        var converted = ConvertYiniValue(element, valueType);
+                        if (converted != null)
+                        {
+                            dict[mapKey] = (T)converted;
                         }
                     }
                 }
                 return dict;
+            }
+            finally
+            {
+                if (!valueWasPassed && yiniValue != null)
+                {
+                    yiniValue.Dispose();
+                }
             }
         }
 
@@ -847,9 +990,23 @@ namespace Yini
                 int requiredSize = YiniManager_GetValidationError(_managerPtr, i, null, 0);
                 if (requiredSize <= 0) continue;
 
-                byte* buffer = stackalloc byte[requiredSize];
-                YiniManager_GetValidationError(_managerPtr, i, buffer, requiredSize);
-                errors.Add(Encoding.UTF8.GetString(buffer, requiredSize - 1));
+                byte[]? rentedBuffer = null;
+                try
+                {
+                    rentedBuffer = ArrayPool<byte>.Shared.Rent(requiredSize);
+                    fixed (byte* buffer = rentedBuffer)
+                    {
+                        YiniManager_GetValidationError(_managerPtr, i, buffer, requiredSize);
+                        errors.Add(Encoding.UTF8.GetString(buffer, requiredSize - 1));
+                    }
+                }
+                finally
+                {
+                    if (rentedBuffer != null)
+                    {
+                        ArrayPool<byte>.Shared.Return(rentedBuffer);
+                    }
+                }
             }
 
             return errors;

@@ -8,14 +8,42 @@ using System.Linq;
 using OmniSharp.Extensions.LanguageServer.Protocol.Document;
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using Microsoft.Extensions.DependencyInjection;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using MediatR;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server.Capabilities;
-using OmniSharp.Extensions.LanguageServer.Server; // This was the missing using directive
+using OmniSharp.Extensions.LanguageServer.Server;
 
 namespace Yini.Lsp
 {
+    internal class DocumentManager : IDisposable
+    {
+        private readonly ConcurrentDictionary<DocumentUri, YiniManager> _managers = new ConcurrentDictionary<DocumentUri, YiniManager>();
+
+        public YiniManager GetOrAdd(DocumentUri uri)
+        {
+            return _managers.GetOrAdd(uri, _ => new YiniManager());
+        }
+
+        public void Remove(DocumentUri uri)
+        {
+            if (_managers.TryRemove(uri, out var manager))
+            {
+                manager.Dispose();
+            }
+        }
+
+        public void Dispose()
+        {
+            foreach (var manager in _managers.Values)
+            {
+                manager.Dispose();
+            }
+            _managers.Clear();
+        }
+    }
+
     internal class Program
     {
         static async Task Main(string[] args)
@@ -28,7 +56,7 @@ namespace Yini.Lsp
                     .AddDefaultLoggingProvider()
                     .WithServices(services =>
                     {
-                        services.AddSingleton<TextDocumentHandler>();
+                        services.AddSingleton<DocumentManager>();
                     })
                     .WithHandler<TextDocumentHandler>()
             );
@@ -41,22 +69,23 @@ namespace Yini.Lsp
     {
         private readonly ILanguageServerFacade _router;
         private readonly ILogger<TextDocumentHandler> _logger;
-        private readonly YiniManager _yiniManager;
+        private readonly DocumentManager _documentManager;
 
-        public TextDocumentHandler(ILanguageServerFacade router, ILogger<TextDocumentHandler> logger)
+        public TextDocumentHandler(ILanguageServerFacade router, ILogger<TextDocumentHandler> logger, DocumentManager documentManager)
         {
             _router = router;
             _logger = logger;
-            _yiniManager = new YiniManager();
+            _documentManager = documentManager;
         }
 
         public TextDocumentSyncKind Change => TextDocumentSyncKind.Full;
 
         private void ValidateAndPublishDiagnostics(DocumentUri uri, string text)
         {
+            var yiniManager = _documentManager.GetOrAdd(uri);
             try
             {
-                _yiniManager.LoadFromString(text, uri.ToString());
+                yiniManager.LoadFromString(text, uri.ToString());
                 _router.TextDocument.PublishDiagnostics(new PublishDiagnosticsParams
                 {
                     Uri = uri,
@@ -101,6 +130,7 @@ namespace Yini.Lsp
 
         public Task<Unit> Handle(DidCloseTextDocumentParams request, CancellationToken cancellationToken)
         {
+            _documentManager.Remove(request.TextDocument.Uri);
             _router.TextDocument.PublishDiagnostics(new PublishDiagnosticsParams
             {
                 Uri = request.TextDocument.Uri,
@@ -130,9 +160,10 @@ namespace Yini.Lsp
 
         public Task<CompletionList> Handle(CompletionParams request, CancellationToken cancellationToken)
         {
-            if (request.Context.TriggerCharacter == "@")
+            if (request.Context?.TriggerCharacter == "@")
             {
-                var macroNames = _yiniManager.GetMacroNames();
+                var yiniManager = _documentManager.GetOrAdd(request.TextDocument.Uri);
+                var macroNames = yiniManager.GetMacroNames();
                 var items = macroNames.Select(name => new CompletionItem
                 {
                     Label = name,

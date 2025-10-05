@@ -79,7 +79,6 @@ namespace {namespaceName}
         {{
 ");
 
-            // *** 核心修复逻辑在这里：检查 Key 是否存在，确保不覆盖默认值 ***
             foreach (var prop in properties)
             {
                 var propType = prop.Type as INamedTypeSymbol;
@@ -88,33 +87,15 @@ namespace {namespaceName}
                 var keyAttr = prop.GetAttributes().FirstOrDefault(ad => ad.AttributeClass.Name == "YiniKeyAttribute");
                 string yiniKey = keyAttr?.ConstructorArguments.FirstOrDefault().Value?.ToString() ?? prop.Name.ToLower();
 
-                string bindingMethod = GetBindingMethod(propType, yiniKey);
+                string bindingMethod = GetBindingMethod(prop, yiniKey, $"value_{prop.Name}");
                 if (bindingMethod != null)
                 {
-                    // 检查整个 Section 是否存在。如果 Section 不存在，HasKey 应该返回 false。
-                    // 但是，HasKey 通常只检查 Key。为了涵盖 MissingSection 的情况，
-                    // 我们假设 YiniManager.HasKey 在 Section 不存在时也能处理。
-                    
-                    sb.AppendLine($"            if (manager.HasKey(section, \"{yiniKey}\"))");
+                    sb.AppendLine($"            using (var value_{prop.Name} = manager.GetValue(section, \"{yiniKey}\"))");
                     sb.AppendLine("            {");
-
-                    bool isNonNullableValueType = propType.IsValueType && !(propType.OriginalDefinition.SpecialType == SpecialType.System_Nullable_T);
-
-                    if (isNonNullableValueType)
-                    {
-                        // 对于 int/bool 等非可空值类型，直接赋值
-                        sb.AppendLine($"                this.{prop.Name} = {bindingMethod};");
-                    }
-                    else
-                    {
-                        // 对于 string/可空值类型，使用 ?? 运算符来保留现有值，
-                        // 以防 Get... 方法返回 null。
-                        sb.AppendLine($"                this.{prop.Name} = {bindingMethod} ?? this.{prop.Name};");
-                    }
+                    sb.AppendLine($"                this.{prop.Name} = {bindingMethod};");
                     sb.AppendLine("            }");
                 }
             }
-            // *** 核心修复逻辑结束 ***
 
             sb.Append(@"
         }
@@ -124,46 +105,41 @@ namespace {namespaceName}
             return sb.ToString();
         }
 
-        private string GetBindingMethod(INamedTypeSymbol propType, string yiniKey)
+        private string GetBindingMethod(IPropertySymbol prop, string yiniKey, string valueVarName)
         {
+            var propType = prop.Type as INamedTypeSymbol;
+            if (propType == null) return null;
             string typeName = propType.ToDisplayString();
 
             if (propType.IsGenericType && (propType.Name == "List" || propType.Name == "IList") && propType.TypeArguments.Length == 1)
             {
                 var elementType = propType.TypeArguments[0];
-                return $"manager.GetList<{elementType.ToDisplayString()}>(section, \"{yiniKey}\")";
+                return $"manager.GetList<{elementType.ToDisplayString()}>(section, \"{yiniKey}\", {valueVarName}) ?? this.{prop.Name}";
             }
 
             if (propType.IsGenericType && (propType.Name == "Dictionary" || propType.Name == "IDictionary") && propType.TypeArguments.Length == 2 && propType.TypeArguments[0].SpecialType == SpecialType.System_String)
             {
                 var valueType = propType.TypeArguments[1];
-                return $"manager.GetDictionary<string, {valueType.ToDisplayString()}>(section, \"{yiniKey}\")";
+                return $"manager.GetDictionary<string, {valueType.ToDisplayString()}>(section, \"{yiniKey}\", {valueVarName}) ?? this.{prop.Name}";
             }
 
             switch (typeName)
             {
                 case "string":
                 case "System.String":
-                    // 移除默认值参数
-                    return $"manager.GetString(section, \"{yiniKey}\")";
+                    return $"manager.GetString(section, \"{yiniKey}\", this.{prop.Name}, {valueVarName})";
                 case "bool":
                 case "System.Boolean":
-                    // 移除默认值参数
-                    // 注意：这里我们假设 YiniManager 有 GetBool(string, string) 方法
-                    return $"manager.GetBool(section, \"{yiniKey}\")";
+                    return $"manager.GetBool(section, \"{yiniKey}\", this.{prop.Name}, {valueVarName})";
                 case "int":
                 case "System.Int32":
-                    // 移除默认值参数
-                    // 为了与您的原始代码一致，我们保留 GetDouble 并进行转换
-                    return $"(int)manager.GetDouble(section, \"{yiniKey}\")";
+                    return $"(int)manager.GetDouble(section, \"{yiniKey}\", this.{prop.Name}, {valueVarName})";
                 case "float":
                 case "System.Single":
-                    // 移除默认值参数
-                    return $"(float)manager.GetDouble(section, \"{yiniKey}\")";
+                    return $"(float)manager.GetDouble(section, \"{yiniKey}\", this.{prop.Name}, {valueVarName})";
                 case "double":
                 case "System.Double":
-                    // 移除默认值参数
-                    return $"manager.GetDouble(section, \"{yiniKey}\")";
+                    return $"manager.GetDouble(section, \"{yiniKey}\", this.{prop.Name}, {valueVarName})";
                 default:
                     return null;
             }
