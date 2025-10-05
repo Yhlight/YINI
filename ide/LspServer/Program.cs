@@ -132,6 +132,70 @@ namespace Yini.Lsp
             };
         }
 
+        private string StringifyValue(YiniValue value)
+        {
+            switch (value.Type)
+            {
+                case YiniValueType.Double:
+                    return value.AsDouble().ToString();
+                case YiniValueType.Bool:
+                    return value.AsBool().ToString().ToLower();
+                case YiniValueType.String:
+                    return $"\"{value.AsString()}\"";
+                case YiniValueType.Array:
+                {
+                    var items = new List<string>();
+                    for (int i = 0; i < value.ArraySize; i++)
+                    {
+                        using (var element = value.GetArrayElement(i))
+                        {
+                            items.Add(StringifyValue(element));
+                        }
+                    }
+                    return $"[{string.Join(", ", items)}]";
+                }
+                case YiniValueType.Map:
+                {
+                    var mapPairs = value.AsMap();
+                    try
+                    {
+                        var map = mapPairs.ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
+                        var keys = map.Keys.ToHashSet();
+
+                        if (keys.SetEquals(new[] { "r", "g", "b", "a" }))
+                        {
+                            return $"Color(R: {map["r"].AsDouble()}, G: {map["g"].AsDouble()}, B: {map["b"].AsDouble()}, A: {map["a"].AsDouble()})";
+                        }
+                        if (keys.SetEquals(new[] { "x", "y", "z", "w" }))
+                        {
+                            return $"Vec4(X: {map["x"].AsDouble()}, Y: {map["y"].AsDouble()}, Z: {map["z"].AsDouble()}, W: {map["w"].AsDouble()})";
+                        }
+                        if (keys.SetEquals(new[] { "x", "y", "z" }))
+                        {
+                            return $"Vec3(X: {map["x"].AsDouble()}, Y: {map["y"].AsDouble()}, Z: {map["z"].AsDouble()})";
+                        }
+                        if (keys.SetEquals(new[] { "x", "y" }))
+                        {
+                            return $"Vec2(X: {map["x"].AsDouble()}, Y: {map["y"].AsDouble()})";
+                        }
+
+                        var pairStrings = map.Select(kvp => $"\"{kvp.Key}\": {StringifyValue(kvp.Value)}");
+                        return $"{{{string.Join(", ", pairStrings)}}}";
+                    }
+                    finally
+                    {
+                        foreach(var kvp in mapPairs) { kvp.Value.Dispose(); }
+                    }
+                }
+                case YiniValueType.Dyna:
+                    using(var innerValue = value.AsDynaValue()) {
+                        return $"Dyna({StringifyValue(innerValue)})";
+                    }
+                default:
+                    return "null";
+            }
+        }
+
         public Task<Hover?> Handle(HoverParams request, CancellationToken cancellationToken)
         {
             var manager = _documentManager.GetOrAdd(request.TextDocument.Uri);
@@ -145,14 +209,23 @@ namespace Yini.Lsp
                 if (yiniValue != null)
                 {
                     var sb = new StringBuilder();
-                    sb.AppendLine($"**{key}**");
+                    sb.AppendLine($"**{section}.{key}**");
                     sb.AppendLine("---");
-                    sb.AppendLine($"*({yiniValue.Type.ToString().ToLower()})*");
 
-                    if (yiniValue.Type != YiniValueType.Array && yiniValue.Type != YiniValueType.Map)
-                    {
-                         sb.AppendLine($"```\n{yiniValue.AsString()}\n```");
+                    string formattedValue = StringifyValue(yiniValue);
+
+                    var displayType = yiniValue.Type;
+                    if(displayType == YiniValueType.Dyna) {
+                        using(var inner = yiniValue.AsDynaValue()) {
+                            sb.AppendLine($"*(dynamic: {inner.Type.ToString().ToLower()})*");
+                        }
+                    } else {
+                        sb.AppendLine($"*({displayType.ToString().ToLower()})*");
                     }
+
+                    sb.AppendLine("```yini");
+                    sb.AppendLine(formattedValue);
+                    sb.AppendLine("```");
 
                     return Task.FromResult<Hover?>(new Hover
                     {
