@@ -10,6 +10,8 @@
 
 namespace YINI
 {
+    thread_local std::string YiniManager::m_last_error;
+
     YiniManager::YiniManager() = default;
 
     void YiniManager::load(std::string_view filepath)

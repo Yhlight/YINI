@@ -115,8 +115,10 @@ namespace YINI
 
         /**
          * @brief Stores the last error message from a C-API call.
+         * This is thread_local to ensure that in a multi-threaded environment,
+         * one thread's error message does not overwrite another's.
          */
-        std::string m_last_error;
+        thread_local static std::string m_last_error;
 
     private:
         std::vector<std::unique_ptr<Stmt>> load_file(std::string_view filepath, std::set<std::string>& loaded_files);

@@ -3,6 +3,7 @@
 #include <fstream>
 #include <vector>
 #include <string>
+#include <thread>
 
 // Helper to create a temporary file for testing
 void create_test_file(const std::string& filename, const std::string& content) {
@@ -139,4 +140,40 @@ TEST(CApiTest, SetAndSaveChanges) {
     yini_value_destroy(b_handle_verify);
 
     yini_manager_destroy(verify_manager);
+}
+
+TEST(CApiTest, ErrorHandlingIsThreadSafe) {
+    const std::string filename = "c_api_thread_test.yini";
+    create_test_file(filename, "[TestSection]\nreal_key=123");
+
+    Yini_ManagerHandle manager = yini_manager_create();
+    yini_manager_load(manager, filename.c_str());
+
+    auto task = [&](const char* key_name) {
+        // Trigger an error by getting a non-existent key
+        Yini_ValueHandle handle = yini_manager_get_value(manager, "TestSection", key_name);
+        ASSERT_EQ(handle, nullptr);
+
+        // Get the last error
+        char error_buffer[256];
+        int error_size = yini_manager_get_last_error(manager, error_buffer, sizeof(error_buffer));
+        ASSERT_GT(error_size, 0);
+
+        // Verify the error message is the one for this thread
+        std::string error_str(error_buffer);
+        std::string expected_error_part = "key '" + std::string(key_name) + "'";
+        EXPECT_NE(error_str.find(expected_error_part), std::string::npos);
+    };
+
+    std::vector<std::thread> threads;
+    threads.emplace_back(task, "key1");
+    threads.emplace_back(task, "key2");
+    threads.emplace_back(task, "key3");
+    threads.emplace_back(task, "key4");
+
+    for (auto& t : threads) {
+        t.join();
+    }
+
+    yini_manager_destroy(manager);
 }

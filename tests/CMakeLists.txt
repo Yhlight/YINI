@@ -6,6 +6,8 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(googletest)
 
+find_package(Threads REQUIRED)
+
 # --- Core Component Tests ---
 add_executable(lexer_test LexerTest.cpp)
 target_link_libraries(lexer_test Yini GTest::gtest_main)
@@ -28,7 +30,7 @@ add_test(NAME interpreter_test COMMAND interpreter_test)
 set_target_properties(interpreter_test PROPERTIES FOLDER "Tests/Core")
 
 add_executable(c_api_test CApiTest.cpp)
-target_link_libraries(c_api_test Yini GTest::gtest_main)
+target_link_libraries(c_api_test Yini GTest::gtest_main Threads::Threads)
 add_test(NAME c_api_test COMMAND c_api_test)
 set_target_properties(c_api_test PROPERTIES FOLDER "Tests/Core")
 
