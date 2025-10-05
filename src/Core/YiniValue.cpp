@@ -61,4 +61,19 @@ namespace YINI
     // Move assignment
     YiniValue& YiniValue::operator=(YiniValue&& other) noexcept = default;
 
+    std::string YiniValue::get_type_name() const
+    {
+        return std::visit([](const auto& v) -> std::string {
+            using T = std::decay_t<decltype(v)>;
+            if constexpr (std::is_same_v<T, std::monostate>) return "null";
+            else if constexpr (std::is_same_v<T, bool>) return "boolean";
+            else if constexpr (std::is_same_v<T, double>) return "number";
+            else if constexpr (std::is_same_v<T, std::string>) return "string";
+            else if constexpr (std::is_same_v<T, std::unique_ptr<YiniArray>>) return "array";
+            else if constexpr (std::is_same_v<T, std::unique_ptr<YiniMap>>) return "map";
+            else if constexpr (std::is_same_v<T, std::unique_ptr<DynaValue>>) return "dyna";
+            else return "unknown";
+        }, m_value);
+    }
+
 } // namespace YINI

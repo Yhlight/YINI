@@ -201,6 +201,41 @@ YINI_API void yini_manager_set_value(Yini_ManagerHandle manager, const char* sec
     }
 }
 
+YINI_API int yini_manager_find_key_at_pos(Yini_ManagerHandle manager, int line, int column, char* out_section, int* section_size, char* out_key, int* key_size)
+{
+    auto* mgr = as_manager(manager);
+    if (!mgr) return 0;
+
+    const auto& kv_map = mgr->get_interpreter().get_kv_map();
+    for (const auto& section_pair : kv_map)
+    {
+        for (const auto& key_pair : section_pair.second)
+        {
+            const auto* kv_node = key_pair.second;
+            const auto& key_token = kv_node->key;
+
+            if (key_token.line == line &&
+                column >= key_token.column &&
+                column < (key_token.column + static_cast<int>(key_token.lexeme.length())))
+            {
+                const std::string& section_name = section_pair.first;
+                const std::string& key_name = key_pair.first;
+
+                *section_size = static_cast<int>(section_name.length() + 1);
+                *key_size = static_cast<int>(key_name.length() + 1);
+
+                if (out_section != nullptr && out_key != nullptr)
+                {
+                    safe_string_copy(out_section, *section_size, section_name);
+                    safe_string_copy(out_key, *key_size, key_name);
+                }
+                return 1; // Found
+            }
+        }
+    }
+    return 0; // Not found
+}
+
 YINI_API int yini_manager_validate(Yini_ManagerHandle manager) {
     if (!manager) return -1;
     auto* mgr = as_manager(manager);

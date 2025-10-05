@@ -156,6 +156,25 @@ YINI_API int yini_manager_get_macro_name_at(Yini_ManagerHandle manager, int inde
  */
 YINI_API void yini_manager_set_value(Yini_ManagerHandle manager, const char* section, const char* key, Yini_ValueHandle value_handle);
 
+/**
+ * @brief Finds the section and key located at a specific line and column.
+ *
+ * This function is designed for IDE tooling to identify the symbol under the cursor.
+ * It uses a two-call pattern: first call with null buffers to get the required sizes,
+ * second call with allocated buffers to get the data.
+ *
+ * @param manager A handle to the YiniManager instance.
+ * @param line The line number to look at (1-based).
+ * @param column The column number to look at (1-based).
+ * @param out_section Buffer to store the found section name. Can be null.
+ * @param section_size The size of the section buffer. On the first call, this returns the required size.
+ * @param out_key Buffer to store the found key name. Can be null.
+ * @param key_size The size of the key buffer. On the first call, this returns the required size.
+ * @return 1 if a key is found at the position, 0 otherwise.
+ */
+YINI_API int yini_manager_find_key_at_pos(Yini_ManagerHandle manager, int line, int column, char* out_section, int* section_size, char* out_key, int* key_size);
+
+
 //================================================================================
 // Value Functions
 //================================================================================

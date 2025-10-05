@@ -80,5 +80,11 @@ namespace YINI
          * @brief The underlying std::variant holding the actual value.
          */
         YiniValueBase m_value;
+
+        /**
+         * @brief Returns the name of the type currently held by the YiniValue.
+         * @return A string representing the type name (e.g., "string", "number", "array").
+         */
+        std::string get_type_name() const;
     };
 }

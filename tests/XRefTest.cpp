@@ -83,7 +83,44 @@ TEST(XRefTest, ThrowsOnNonExistentReference) {
         load_from_source(manager, source);
         FAIL() << "Expected a RuntimeError for non-existent reference.";
     } catch (const YINI::RuntimeError& e) {
-        EXPECT_STREQ(e.what(), "Referenced key 'ref' not found in section 'Bad'.");
+        EXPECT_STREQ(e.what(), "Referenced section 'Bad' not found.");
+    } catch (...) {
+        FAIL() << "Expected a RuntimeError, but got a different exception.";
+    }
+}
+
+TEST(XRefTest, ThrowsOnNonExistentKeyWithSuggestion) {
+    YINI::YiniManager manager;
+    std::string source = R"(
+        [MySection]
+        actual_key = 123
+        key = @{MySection.actul_key}
+    )";
+
+    try {
+        load_from_source(manager, source);
+        FAIL() << "Expected a RuntimeError for non-existent key.";
+    } catch (const YINI::RuntimeError& e) {
+        EXPECT_STREQ(e.what(), "Referenced key 'actul_key' not found in section 'MySection'. Did you mean 'actual_key'?");
+    } catch (...) {
+        FAIL() << "Expected a RuntimeError, but got a different exception.";
+    }
+}
+
+TEST(XRefTest, ThrowsOnNonExistentSectionWithSuggestion) {
+    YINI::YiniManager manager;
+    std::string source = R"(
+        [MySection]
+        key = 123
+        [Test]
+        key = @{MySectoin.key}
+    )";
+
+    try {
+        load_from_source(manager, source);
+        FAIL() << "Expected a RuntimeError for non-existent section.";
+    } catch (const YINI::RuntimeError& e) {
+        EXPECT_STREQ(e.what(), "Referenced section 'MySectoin' not found. Did you mean 'MySection'?");
     } catch (...) {
         FAIL() << "Expected a RuntimeError, but got a different exception.";
     }

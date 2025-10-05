@@ -450,6 +450,9 @@ namespace Yini
 
         [LibraryImport(LibName, EntryPoint = "yini_manager_get_validation_error")]
         internal static partial int YiniManager_GetValidationError(IntPtr manager, int index, byte* outBuffer, int bufferSize);
+
+        [LibraryImport(LibName, EntryPoint = "yini_manager_find_key_at_pos")]
+        internal static partial int YiniManager_FindKeyAtPos(IntPtr manager, int line, int column, byte* outSection, ref int sectionSize, byte* outKey, ref int keySize);
         #endregion
 
         /// <summary>
@@ -1010,6 +1013,43 @@ namespace Yini
             }
 
             return errors;
+        }
+
+        public unsafe (string Section, string Key)? FindKeyAtPos(int line, int column)
+        {
+            int sectionSize = 0;
+            int keySize = 0;
+
+            if (YiniManager_FindKeyAtPos(_managerPtr, line, column, null, ref sectionSize, null, ref keySize) == 0)
+            {
+                return null;
+            }
+
+            byte[]? sectionRented = null;
+            byte[]? keyRented = null;
+            try
+            {
+                sectionRented = ArrayPool<byte>.Shared.Rent(sectionSize);
+                keyRented = ArrayPool<byte>.Shared.Rent(keySize);
+
+                string section, key;
+                fixed (byte* sectionBuffer = sectionRented)
+                fixed (byte* keyBuffer = keyRented)
+                {
+                    if (YiniManager_FindKeyAtPos(_managerPtr, line, column, sectionBuffer, ref sectionSize, keyBuffer, ref keySize) == 0)
+                    {
+                        return null;
+                    }
+                    section = Encoding.UTF8.GetString(sectionBuffer, sectionSize - 1);
+                    key = Encoding.UTF8.GetString(keyBuffer, keySize - 1);
+                }
+                return (section, key);
+            }
+            finally
+            {
+                if (sectionRented != null) ArrayPool<byte>.Shared.Return(sectionRented);
+                if (keyRented != null) ArrayPool<byte>.Shared.Return(keyRented);
+            }
         }
 
         #region IDisposable Implementation

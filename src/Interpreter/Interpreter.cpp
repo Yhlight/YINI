@@ -1,6 +1,7 @@
 #include "Interpreter.h"
 #include "Core/DynaValue.h"
 #include "Core/YiniException.h"
+#include "Core/StringUtils.h"
 #include <cmath>
 #include <stdexcept>
 #include <sstream>
@@ -231,8 +232,41 @@ void Interpreter::visit([[maybe_unused]] const Schema& stmt) {}
         }
 
         // Check if the expression to be resolved exists in our map
-        if (!m_expression_map.count(section_name) || !m_expression_map.at(section_name).count(key_name)) {
-            throw RuntimeError("Referenced key '" + key_name + "' not found in section '" + section_name + "'.", expr.key.line, expr.key.column, expr.key.filepath);
+        if (!m_expression_map.count(section_name))
+        {
+            // For cross-references, the section must exist. Let's find the most similar section name.
+            std::vector<std::string> candidates;
+            for(const auto& pair : m_expression_map)
+            {
+                candidates.push_back(pair.first);
+            }
+            std::string suggestion = StringUtils::find_most_similar(section_name, candidates);
+            std::string error_message = "Referenced section '" + section_name + "' not found.";
+            if (!suggestion.empty() && StringUtils::levenshtein_distance(section_name, suggestion) <= 3)
+            {
+                error_message += " Did you mean '" + suggestion + "'?";
+            }
+            throw RuntimeError(error_message, expr.section.line, expr.section.column, expr.section.filepath);
+        }
+
+        if (!m_expression_map.at(section_name).count(key_name))
+        {
+            // Key not found, let's try to suggest a similar key.
+            std::vector<std::string> candidates;
+            for (const auto& pair : m_expression_map.at(section_name))
+            {
+                candidates.push_back(pair.first);
+            }
+
+            std::string suggestion = StringUtils::find_most_similar(key_name, candidates);
+            std::string error_message = "Referenced key '" + key_name + "' not found in section '" + section_name + "'.";
+
+            if (!suggestion.empty() && StringUtils::levenshtein_distance(key_name, suggestion) <= 3)
+            {
+                error_message += " Did you mean '" + suggestion + "'?";
+            }
+
+            throw RuntimeError(error_message, expr.key.line, expr.key.column, expr.key.filepath);
         }
 
         m_currently_resolving_values.insert(full_ref);

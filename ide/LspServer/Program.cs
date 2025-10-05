@@ -14,6 +14,7 @@ using MediatR;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Server;
+using System.Text; // Required for StringBuilder
 
 namespace Yini.Lsp
 {
@@ -59,11 +60,70 @@ namespace Yini.Lsp
                         services.AddSingleton<DocumentManager>();
                     })
                     .WithHandler<TextDocumentHandler>()
+                    .WithHandler<HoverHandler>() // Register the new HoverHandler
             );
 
             await server.WaitForExit;
         }
     }
+
+    class HoverHandler : IHoverHandler
+    {
+        private readonly DocumentManager _documentManager;
+        private readonly ILogger<HoverHandler> _logger;
+
+        public HoverHandler(DocumentManager documentManager, ILogger<HoverHandler> logger)
+        {
+            _documentManager = documentManager;
+            _logger = logger;
+        }
+
+        public HoverRegistrationOptions GetRegistrationOptions(HoverCapability capability, ClientCapabilities clientCapabilities)
+        {
+            return new HoverRegistrationOptions
+            {
+                DocumentSelector = DocumentSelector.ForLanguage("yini")
+            };
+        }
+
+        public Task<Hover?> Handle(HoverParams request, CancellationToken cancellationToken)
+        {
+            var manager = _documentManager.GetOrAdd(request.TextDocument.Uri);
+            var result = manager.FindKeyAtPos(request.Position.Line + 1, request.Position.Character + 1);
+
+            if (result.HasValue)
+            {
+                (string section, string key) = result.Value;
+                using var yiniValue = manager.GetValue(section, key);
+
+                if (yiniValue != null)
+                {
+                    var sb = new StringBuilder();
+                    sb.AppendLine($"**{key}**");
+                    sb.AppendLine("---");
+                    sb.AppendLine($"*({yiniValue.Type.ToString().ToLower()})*");
+
+                    // For complex types, just show the type name. For simple types, show the value.
+                    if (yiniValue.Type != YiniValueType.Array && yiniValue.Type != YiniValueType.Map)
+                    {
+                         sb.AppendLine($"```\n{yiniValue.AsString()}\n```");
+                    }
+
+                    return Task.FromResult<Hover?>(new Hover
+                    {
+                        Contents = new MarkedStringsOrMarkupContent(new MarkupContent
+                        {
+                            Kind = MarkupKind.Markdown,
+                            Value = sb.ToString()
+                        })
+                    });
+                }
+            }
+
+            return Task.FromResult<Hover?>(null);
+        }
+    }
+
 
     class TextDocumentHandler : ITextDocumentSyncHandler, ICompletionHandler
     {
@@ -86,10 +146,19 @@ namespace Yini.Lsp
             try
             {
                 yiniManager.LoadFromString(text, uri.ToString());
+                // After successful load, perform schema validation if a schema is present
+                var validationErrors = yiniManager.Validate();
+                var diagnostics = validationErrors.Select(err => new Diagnostic {
+                    Message = err,
+                    Severity = DiagnosticSeverity.Warning,
+                    // We don't have line/col info for schema errors yet, so we mark the whole doc
+                    Range = new OmniSharp.Extensions.LanguageServer.Protocol.Models.Range(0,0,0,0)
+                }).ToList();
+
                 _router.TextDocument.PublishDiagnostics(new PublishDiagnosticsParams
                 {
                     Uri = uri,
-                    Diagnostics = new Container<Diagnostic>()
+                    Diagnostics = new Container<Diagnostic>(diagnostics)
                 });
             }
             catch (YiniException ex)
@@ -100,7 +169,7 @@ namespace Yini.Lsp
                     Severity = DiagnosticSeverity.Error,
                     Range = new OmniSharp.Extensions.LanguageServer.Protocol.Models.Range(
                         new Position(ex.Line > 0 ? ex.Line - 1 : 0, ex.Column > 0 ? ex.Column - 1 : 0),
-                        new Position(ex.Line > 0 ? ex.Line - 1 : 0, ex.Column > 0 ? ex.Column - 1 : 0)
+                        new Position(ex.Line > 0 ? ex.Line - 1 : 0, ex.Column > 0 ? ex.Column + 10 : 10) // Give a bit of range
                     )
                 };
 
