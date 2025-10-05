@@ -30,15 +30,13 @@
       <Content Include="runtimes\**\*" Pack="true" PackagePath="runtimes" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
-  <!-- This target copies the native library from the C++ build output -->
+  <!-- This target copies the native library passed from the build script -->
   <Target Name="CopyNativeLibraries" BeforeTargets="Build">
     <PropertyGroup>
-      <NativeLibPathLinux>../../build/src/libYini.so</NativeLibPathLinux>
-      <!-- Add a placeholder path for the Windows DLL -->
-      <!-- <NativeLibPathWin>../../build/src/Release/Yini.dll</NativeLibPathWin> -->
+      <!-- Define the destination folder based on the runtime identifier -->
+      <DestinationFolder>runtimes/$(NETCoreSdkRuntimeIdentifier)/native</DestinationFolder>
     </PropertyGroup>
-    <Copy SourceFiles="$(NativeLibPathLinux)" DestinationFolder="runtimes/linux-x64/native" SkipUnchangedFiles="true" Condition="Exists('$(NativeLibPathLinux)')" />
-    <!-- <Copy SourceFiles="$(NativeLibPathWin)" DestinationFolder="runtimes/win-x64/native" SkipUnchangedFiles="true" Condition="Exists('$(NativeLibPathWin)')" /> -->
+    <Copy SourceFiles="$(NativeLibPath)" DestinationFolder="$(DestinationFolder)" SkipUnchangedFiles="true" Condition=" '$(NativeLibPath)' != '' AND Exists('$(NativeLibPath)') " />
   </Target>
 
 </Project>

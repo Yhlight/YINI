@@ -393,6 +393,20 @@ namespace Yini
         }
 
         /// <summary>
+        /// Checks if a key exists in a given section.
+        /// </summary>
+        /// <param name="section">The section name.</param>
+        /// <param name="key">The key name.</param>
+        /// <returns>true if the key exists; otherwise, false.</returns>
+        public bool HasKey(string section, string key)
+        {
+            using (var value = GetValue(section, key))
+            {
+                return value != null;
+            }
+        }
+
+        /// <summary>
         /// Sets a value for a specific key in a section.
         /// </summary>
         /// <param name="section">The name of the section.</param>
