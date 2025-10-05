@@ -25,7 +25,7 @@ def run_command(command, cwd=None, env=None):
 
 def main():
     parser = argparse.ArgumentParser(description="YINI Project Build Script")
-    parser.add_argument("action", choices=["build", "test", "docs", "clean", "all"], help="Action to perform")
+    parser.add_argument("action", choices=["build", "test", "docs", "clean", "all", "coverage"], help="Action to perform")
     parser.add_argument("--config", default="Release", choices=["Release", "Debug"], help="Build configuration")
     args = parser.parse_args()
 
@@ -39,12 +39,40 @@ def main():
         print("Clean complete.")
         return
 
-    # Configure step for all actions except 'clean'
+    # Handle coverage action separately as it has special requirements
+    if args.action == "coverage":
+        print("--- Running Coverage ---")
+        if args.config != "Debug":
+            print("Warning: Coverage requires Debug build. Overriding configuration.")
+
+        # Coverage requires a clean configure and build
+        if os.path.exists(build_dir):
+            print("Cleaning build directory for a fresh coverage build...")
+            shutil.rmtree(build_dir)
+
+        os.makedirs(build_dir, exist_ok=True)
+
+        print("Configuring for coverage...")
+        cmake_configure_command = ["cmake", "-S", ".", "-B", build_dir, "-DCMAKE_BUILD_TYPE=Debug", "-DYINI_ENABLE_COVERAGE=ON"]
+        vcpkg_toolchain_file = os.path.join(os.environ.get("VCPKG_ROOT", ""), "scripts/buildsystems/vcpkg.cmake")
+        if os.path.exists(vcpkg_toolchain_file):
+            cmake_configure_command.append(f"-DCMAKE_TOOLCHAIN_FILE={vcpkg_toolchain_file}")
+        run_command(cmake_configure_command)
+
+        print("Building and running coverage target...")
+        # The 'coverage' target in CMakeLists.txt builds, runs tests, and generates the report
+        run_command(["cmake", "--build", build_dir, "--target", "coverage"])
+        print("Coverage report generated in build/coverage_html")
+        return
+
+    # --- Standard Actions ---
+    build_config = args.config
+
+    # Configure step
     if not os.path.exists(os.path.join(build_dir, "CMakeCache.txt")):
         print("Configuring CMake...")
         os.makedirs(build_dir, exist_ok=True)
-        cmake_configure_command = ["cmake", "-S", ".", "-B", build_dir, f"-DCMAKE_BUILD_TYPE={args.config}"]
-        # Check for vcpkg
+        cmake_configure_command = ["cmake", "-S", ".", "-B", build_dir, f"-DCMAKE_BUILD_TYPE={build_config}"]
         vcpkg_toolchain_file = os.path.join(os.environ.get("VCPKG_ROOT", ""), "scripts/buildsystems/vcpkg.cmake")
         if os.path.exists(vcpkg_toolchain_file):
             cmake_configure_command.append(f"-DCMAKE_TOOLCHAIN_FILE={vcpkg_toolchain_file}")
@@ -54,8 +82,8 @@ def main():
 
     # Build step
     if args.action in ["build", "test", "all"]:
-        print(f"Building project (config: {args.config})...")
-        run_command(["cmake", "--build", build_dir, "--config", args.config])
+        print(f"Building project (config: {build_config})...")
+        run_command(["cmake", "--build", build_dir, "--config", build_config])
         print("Build complete.")
 
     # Test step
@@ -64,7 +92,6 @@ def main():
         run_command(["ctest", "--output-on-failure", "--test-dir", build_dir])
 
         print("Running C# tests...")
-        # Set LD_LIBRARY_PATH for Linux to find the native library
         test_env = {}
         if sys.platform == "linux":
             native_lib_path = os.path.join(build_dir, "src")
@@ -72,7 +99,7 @@ def main():
             print(f"Setting LD_LIBRARY_PATH to: {native_lib_path}")
 
         run_command(
-            ["dotnet", "test", os.path.join(project_root, "csharp/YiniSolution.sln"), "--configuration", args.config, "--no-build"],
+            ["dotnet", "test", os.path.join(project_root, "csharp/YiniSolution.sln"), "--configuration", build_config, "--no-build"],
             env=test_env
         )
         print("Tests complete.")
