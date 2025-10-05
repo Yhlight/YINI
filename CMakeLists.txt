@@ -1,6 +1,13 @@
 cmake_minimum_required(VERSION 3.10)
 project(YINI VERSION 1.0.0 LANGUAGES CXX)
 
+# Vcpkg integration
+# If VCPKG_ROOT is defined, use the vcpkg toolchain file.
+if(DEFINED ENV{VCPKG_ROOT} AND IS_DIRECTORY "$ENV{VCPKG_ROOT}")
+    set(CMAKE_TOOLCHAIN_FILE "$ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
+        CACHE STRING "Vcpkg toolchain file")
+endif()
+
 # Add cmake module path
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake")
 
