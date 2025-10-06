@@ -1,0 +1,39 @@
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+CMakeLists.txt.user
+
+# Build artifacts
+build/
+bin/
+lib/
+*.a
+*.so
+*.dll
+*.exe
+*.o
+*.obj
+
+# Editor-specific files
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+*.bak
+*.user
+*.aps
+*.ncb
+*.suo
+*.tlog
+*.vspscc
+*.vssscc
+*.vssettings
+*.csproj.user
+
+# YINI specific
+*.ymeta
+*.YMETA
