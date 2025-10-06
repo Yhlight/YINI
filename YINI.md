@@ -36,17 +36,21 @@ exp = 2550.75
 
 ## 2. Data Types
 
-YINI supports a rich set of built-in data types:
+YINI supports a rich set of built-in data types, including primitive values and special-purpose types recognized by the parser.
 
 | Type | Example | Description |
 | :--- | :--- | :--- |
 | **Integer** | `123`, `-45` | A 64-bit signed integer. |
-| **Long** | `9007199254740991` | A 64-bit signed long integer, for larger values. |
 | **Float** | `3.14`, `-0.01`, `1.2e-5` | A double-precision floating-point number. |
 | **Boolean** | `true`, `false` | A boolean value. |
 | **String** | `"Hello"`, `'World'` | Text enclosed in double or single quotes. |
-| **Array** | `[ 1, "two", 3.0, true ]` | An ordered, mixed-type list. |
-| **Map** | `{ "key1": "value1", "health": 100 }` | A collection of key-value pairs. |
+| **Array** | `[ 1, "two", 3.0, true ]` | An ordered, mixed-type list using `[]`. |
+| **Set** | `( 1, 2, 3 )` | An ordered, unique-element collection using `()`. |
+| **Map** | `{ "key1": "value1", "health": 100 }` | A collection of key-value pairs using `{}`. |
+| **Color** | `#FFC0CB`, `Color(255, 192, 203)` | An RGBA color value. Parsed as a map. |
+| **Coord** | `Coord(1.0, 2.5, -3.0)` | A 3D coordinate or vector. Parsed as a map. |
+| **Path** | `Path("/assets/textures/player.png")` | A file system path. Parsed as a string. |
+| **List** | `List( "item1", "item2" )` | A general-purpose list, functionally equivalent to an Array. |
 
 ## 3. Advanced Features
 
@@ -181,7 +185,8 @@ PlayerStats = {
     name = String | true,
     level = Integer | true,
     exp = Float | false, // 'exp' is optional
-    inventory = Array | false
+    inventory = Array | false,
+    position = Coord | false
 }
 
 Graphics = {
@@ -194,7 +199,7 @@ Graphics = {
 
 ### 6.2. Validation Rules
 
--   **Types:** `String`, `Integer`, `Long`, `Float`, `Boolean`, `Array`, `Map`.
+-   **Types:** `String`, `Integer`, `Float`, `Boolean`, `Array`, `Set`, `Map`, `Color`, `Coord`, `Path`, `List`.
 -   **Dynamic Types:** You can specify a dynamic type with `Dyna(TypeName)`, e.g., `Dyna(Integer)`.
 -   **Required:** `true` means the key must be present in the section. `false` means it is optional.
 
