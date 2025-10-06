@@ -39,7 +39,11 @@ namespace YINI
         Token peek();
         Token previous();
 
+        // Comment handling
+        void consumeComments();
+
         std::vector<Token> m_tokens;
         int m_current = 0;
+        std::string m_doc_comment_buffer;
     };
 }

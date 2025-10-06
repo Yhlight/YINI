@@ -23,6 +23,9 @@ namespace YINI
         // Keywords.
         TRUE, FALSE,
 
+        // Metadata
+        COMMENT,
+
         // End of file.
         END_OF_FILE
     };

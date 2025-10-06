@@ -188,6 +188,8 @@ namespace YINI
         std::unique_ptr<Expr> value;
         int value_line = 0;
         int value_column = 0;
+        std::string doc_comment;
+        std::string inline_comment;
     };
 
     struct Section : public Stmt
@@ -198,6 +200,7 @@ namespace YINI
         Token name;
         std::vector<Token> parents;
         std::vector<std::unique_ptr<Stmt>> statements;
+        std::string doc_comment;
     };
 
     struct Register : public Stmt

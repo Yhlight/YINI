@@ -11,9 +11,24 @@ namespace YINI
         std::vector<std::unique_ptr<Stmt>> statements;
         while (!isAtEnd())
         {
+            consumeComments(); // Consume any comments before a declaration
+            if (isAtEnd()) break; // Consuming comments might lead to EOF
             statements.push_back(declaration());
         }
         return statements;
+    }
+
+    void Parser::consumeComments() {
+        if (peek().type == TokenType::COMMENT) {
+             m_doc_comment_buffer = "";
+            while (peek().type == TokenType::COMMENT) {
+                Token comment_token = advance();
+                if (!m_doc_comment_buffer.empty()) {
+                    m_doc_comment_buffer += "\n";
+                }
+                m_doc_comment_buffer += std::get<std::string>(comment_token.literal.m_value);
+            }
+        }
     }
 
     std::unique_ptr<Stmt> Parser::declaration()
@@ -77,14 +92,12 @@ namespace YINI
         std::vector<std::unique_ptr<Section>> sections;
         while (!isAtEnd() && peek().type == TokenType::LEFT_BRACKET)
         {
-            // Stop parsing schema sections if we find the #end_schema block
             if (m_tokens.size() > m_current + 1 && m_tokens[m_current + 1].type == TokenType::IDENTIFIER && m_tokens[m_current + 1].lexeme == "#end_schema") {
                 break;
             }
             sections.push_back(section());
         }
 
-        // Consume the closing [#end_schema] block
         consume(TokenType::LEFT_BRACKET, "Expect '[' before #end_schema.");
         consume(TokenType::IDENTIFIER, "Expect #end_schema keyword.");
         consume(TokenType::RIGHT_BRACKET, "Expect ']' after #end_schema.");
@@ -113,23 +126,23 @@ namespace YINI
             statements.push_back(statement());
         }
 
-        return std::make_unique<Section>(name, std::move(parents), std::move(statements));
+        auto section_node = std::make_unique<Section>(name, std::move(parents), std::move(statements));
+        section_node->doc_comment = m_doc_comment_buffer;
+        m_doc_comment_buffer.clear();
+        return section_node;
     }
 
     std::unique_ptr<Stmt> Parser::statement()
     {
-        // Look ahead to distinguish between `key = value` and `key += value`
+        consumeComments();
         if (check(TokenType::IDENTIFIER) && m_tokens.size() > m_current + 1 && m_tokens[m_current + 1].type == TokenType::PLUS_EQUAL)
         {
             return registration();
         }
-        // Key-less registration for include blocks
         if (peek().type == TokenType::PLUS_EQUAL)
         {
             consume(TokenType::PLUS_EQUAL, "Expect '+=' for registration.");
             std::unique_ptr<Expr> value = expression();
-            // This is a special case for includes, it doesn't have a key token.
-            // We pass an empty token, which should be handled by the interpreter.
             return std::make_unique<Register>(Token{}, std::move(value));
         }
         return keyValue();
@@ -152,6 +165,15 @@ namespace YINI
         auto kv = std::make_unique<KeyValue>(key, std::move(value));
         kv->value_line = valueStartToken.line;
         kv->value_column = valueStartToken.column;
+
+        kv->doc_comment = m_doc_comment_buffer;
+        m_doc_comment_buffer.clear();
+
+        if (peek().type == TokenType::COMMENT && peek().line == previous().line) {
+            Token comment_token = advance();
+            kv->inline_comment = std::get<std::string>(comment_token.literal.m_value);
+        }
+
         return kv;
     }
 
@@ -257,17 +279,17 @@ namespace YINI
 
         if (match({TokenType::LEFT_PAREN}))
         {
-            if (match({TokenType::RIGHT_PAREN})) { // Empty set: ()
+            if (match({TokenType::RIGHT_PAREN})) {
                 return std::make_unique<Set>(std::vector<std::unique_ptr<Expr>>{});
             }
 
             auto firstExpr = expression();
 
-            if (match({TokenType::COMMA})) { // It's a set
+            if (match({TokenType::COMMA})) {
                 std::vector<std::unique_ptr<Expr>> elements;
                 elements.push_back(std::move(firstExpr));
 
-                if (!check(TokenType::RIGHT_PAREN)) { // Handles trailing comma for single-element set
+                if (!check(TokenType::RIGHT_PAREN)) {
                     do {
                         elements.push_back(expression());
                     } while (match({TokenType::COMMA}));
@@ -318,6 +340,7 @@ namespace YINI
 
     bool Parser::match(const std::vector<TokenType>& types)
     {
+        consumeComments();
         for (TokenType type : types)
         {
             if (check(type))
@@ -331,6 +354,7 @@ namespace YINI
 
     Token Parser::consume(TokenType type, const std::string& message)
     {
+        consumeComments();
         if (check(type)) return advance();
         const Token& token = peek();
         throw ParsingError(message, token.line, token.column, token.filepath);

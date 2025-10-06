@@ -119,6 +119,25 @@ YINI_API int yini_manager_get_validation_error(Yini_ManagerHandle manager, int i
     return safe_string_copy(out_buffer, buffer_size, error_message);
 }
 
+// --- Metadata Functions ---
+YINI_API int yini_manager_get_section_doc_comment(Yini_ManagerHandle manager, const char* section_name, char* out_buffer, int buffer_size) {
+    if (!manager || !section_name) return -1;
+    std::string comment = as_manager(manager)->get_section_doc_comment(section_name);
+    return safe_string_copy(out_buffer, buffer_size, comment);
+}
+
+YINI_API int yini_manager_get_key_doc_comment(Yini_ManagerHandle manager, const char* section_name, const char* key_name, char* out_buffer, int buffer_size) {
+    if (!manager || !section_name || !key_name) return -1;
+    std::string comment = as_manager(manager)->get_key_doc_comment(section_name, key_name);
+    return safe_string_copy(out_buffer, buffer_size, comment);
+}
+
+YINI_API int yini_manager_get_key_inline_comment(Yini_ManagerHandle manager, const char* section_name, const char* key_name, char* out_buffer, int buffer_size) {
+    if (!manager || !section_name || !key_name) return -1;
+    std::string comment = as_manager(manager)->get_key_inline_comment(section_name, key_name);
+    return safe_string_copy(out_buffer, buffer_size, comment);
+}
+
 // --- Iteration Functions ---
 YINI_API int yini_manager_get_section_count(Yini_ManagerHandle manager) {
     if (!manager) return 0;

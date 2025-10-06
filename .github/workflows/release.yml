@@ -1,0 +1,67 @@
+name: Release YINI Package
+
+on:
+  push:
+    tags:
+      - 'v*.*.*' # Trigger on tags like v1.0.0
+
+jobs:
+  build-and-publish:
+    name: Build, Test, and Publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # Required to create a GitHub Release
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Run Build and Test Script
+        run: python3 build.py test
+
+      - name: Create NuGet Package
+        run: dotnet pack ./csharp/Yini/Yini.csproj -c Release -o ./dist
+
+      - name: Get Package Info
+        id: package_info
+        run: |
+          PACKAGE_NAME=$(find ./dist -name "*.nupkg" -exec basename {} .nupkg)
+          VERSION=$(echo $PACKAGE_NAME | sed -n 's/.*\.//p')
+          echo "package_name=$PACKAGE_NAME" >> $GITHUB_ENV
+          echo "version=$VERSION" >> $GITHUB_ENV
+          echo "Package Name: $PACKAGE_NAME"
+          echo "Version: $VERSION"
+
+      - name: Create GitHub Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release v${{ env.version }}
+          body: |
+            Official release of YINI version ${{ env.version }}.
+            The NuGet package is attached below.
+          draft: false
+          prerelease: false
+
+      - name: Upload Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./dist/${{ env.package_name }}.nupkg
+          asset_name: ${{ env.package_name }}.nupkg
+          asset_content_type: application/zip

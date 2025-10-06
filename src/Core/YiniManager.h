@@ -107,6 +107,31 @@ namespace YINI
          */
         bool validate();
 
+        // --- Metadata Access ---
+
+        /**
+         * @brief Gets the documentation comment for a specific section.
+         * @param section The name of the section.
+         * @return The documentation comment string, or an empty string if not found.
+         */
+        std::string get_section_doc_comment(const std::string& section) const;
+
+        /**
+         * @brief Gets the documentation comment for a specific key within a section.
+         * @param section The name of the section.
+         * @param key The name of the key.
+         * @return The documentation comment string, or an empty string if not found.
+         */
+        std::string get_key_doc_comment(const std::string& section, const std::string& key) const;
+
+        /**
+         * @brief Gets the inline comment for a specific key within a section.
+         * @param section The name of the section.
+         * @param key The name of the key.
+         * @return The inline comment string, or an empty string if not found.
+         */
+        std::string get_key_inline_comment(const std::string& section, const std::string& key) const;
+
         /**
          * @brief A vector of validation errors from the last validation run.
          * This is public for the C-API to access.
@@ -119,6 +144,7 @@ namespace YINI
 
         std::string m_filepath;
         Interpreter m_interpreter;
+        std::vector<std::unique_ptr<Stmt>> m_ast; // Store the full AST
         std::map<std::string, std::map<std::string, DirtyValue>> m_dirty_values;
         std::unique_ptr<Schema> m_schema;
     };

@@ -54,6 +54,8 @@ namespace YINI
                 {
                     // A comment goes until the end of the line.
                     while (peek() != '\n' && !isAtEnd()) advance();
+                    // Create a token for the comment content (excluding the //)
+                    addToken(TokenType::COMMENT, m_source.substr(m_start + 2, m_current - (m_start + 2)));
                 }
                 else if (match('*'))
                 {
@@ -143,6 +145,7 @@ namespace YINI
 
     void Lexer::blockComment()
     {
+        int comment_start = m_current;
         while (!(peek() == '*' && peekNext() == '/') && !isAtEnd())
         {
             if (peek() == '\n') m_line++;
@@ -154,9 +157,14 @@ namespace YINI
             throw ParsingError("Unterminated block comment.", m_line, m_column, m_filepath);
         }
 
+        // Extract the comment content (excluding /* and */)
+        std::string comment_content = m_source.substr(comment_start, m_current - comment_start);
+
         // Consume the */
         advance();
         advance();
+
+        addToken(TokenType::COMMENT, comment_content);
     }
 
     void Lexer::string()

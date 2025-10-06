@@ -134,6 +134,42 @@ YINI_API int yini_manager_get_validation_error_count(Yini_ManagerHandle manager)
 YINI_API int yini_manager_get_validation_error(Yini_ManagerHandle manager, int index, char* out_buffer, int buffer_size);
 
 //================================================================================
+// Metadata Functions
+//================================================================================
+
+/**
+ * @brief Gets the documentation comment for a specific section.
+ * @param manager The manager handle.
+ * @param section_name The name of the section.
+ * @param out_buffer The buffer to write the comment into.
+ * @param buffer_size The size of the buffer.
+ * @return The number of characters written, or required buffer size.
+ */
+YINI_API int yini_manager_get_section_doc_comment(Yini_ManagerHandle manager, const char* section_name, char* out_buffer, int buffer_size);
+
+/**
+ * @brief Gets the documentation comment for a specific key.
+ * @param manager The manager handle.
+ * @param section_name The name of the section.
+ * @param key_name The name of the key.
+ * @param out_buffer The buffer to write the comment into.
+ * @param buffer_size The size of the buffer.
+ * @return The number of characters written, or required buffer size.
+ */
+YINI_API int yini_manager_get_key_doc_comment(Yini_ManagerHandle manager, const char* section_name, const char* key_name, char* out_buffer, int buffer_size);
+
+/**
+ * @brief Gets the inline comment for a specific key.
+ * @param manager The manager handle.
+ * @param section_name The name of the section.
+ * @param key_name The name of the key.
+ * @param out_buffer The buffer to write the comment into.
+ * @param buffer_size The size of the buffer.
+ * @return The number of characters written, or required buffer size.
+ */
+YINI_API int yini_manager_get_key_inline_comment(Yini_ManagerHandle manager, const char* section_name, const char* key_name, char* out_buffer, int buffer_size);
+
+//================================================================================
 // Iteration Functions
 //================================================================================
 

@@ -16,11 +16,12 @@ namespace YINI
     {
         m_filepath = filepath;
         m_schema = nullptr; // Reset schema on new load
+        m_ast.clear(); // Clear previous AST
         std::set<std::string> loaded_files;
-        auto final_ast = load_file(filepath, loaded_files);
+        m_ast = load_file(filepath, loaded_files);
 
         // Find and extract the schema node from the AST
-        for (auto it = final_ast.begin(); it != final_ast.end(); ) {
+        for (auto it = m_ast.begin(); it != m_ast.end(); ) {
             if (auto* schema_node = dynamic_cast<Schema*>(it->get())) {
                 if (m_schema) {
                     // In a more advanced implementation, we might merge schemas.
@@ -28,13 +29,13 @@ namespace YINI
                 } else {
                     m_schema.reset(static_cast<Schema*>(it->release()));
                 }
-                it = final_ast.erase(it);
+                it = m_ast.erase(it);
             } else {
                 ++it;
             }
         }
 
-        m_interpreter.interpret(final_ast);
+        m_interpreter.interpret(m_ast);
     }
 
     const Interpreter& YiniManager::get_interpreter() const
@@ -196,6 +197,69 @@ bool YiniManager::validate()
     m_last_validation_errors = validator.validate(*m_schema, m_interpreter);
 
     return m_last_validation_errors.empty();
+}
+
+std::string YiniManager::get_section_doc_comment(const std::string& section) const
+{
+    for (const auto& stmt : m_ast)
+    {
+        if (const auto* section_node = dynamic_cast<const Section*>(stmt.get()))
+        {
+            if (section_node->name.lexeme == section)
+            {
+                return section_node->doc_comment;
+            }
+        }
+    }
+    return "";
+}
+
+std::string YiniManager::get_key_doc_comment(const std::string& section, const std::string& key) const
+{
+    for (const auto& stmt : m_ast)
+    {
+        if (const auto* section_node = dynamic_cast<const Section*>(stmt.get()))
+        {
+            if (section_node->name.lexeme == section)
+            {
+                for (const auto& key_stmt : section_node->statements)
+                {
+                    if (const auto* kv_node = dynamic_cast<const KeyValue*>(key_stmt.get()))
+                    {
+                        if (kv_node->key.lexeme == key)
+                        {
+                            return kv_node->doc_comment;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    return "";
+}
+
+std::string YiniManager::get_key_inline_comment(const std::string& section, const std::string& key) const
+{
+    for (const auto& stmt : m_ast)
+    {
+        if (const auto* section_node = dynamic_cast<const Section*>(stmt.get()))
+        {
+            if (section_node->name.lexeme == section)
+            {
+                for (const auto& key_stmt : section_node->statements)
+                {
+                    if (const auto* kv_node = dynamic_cast<const KeyValue*>(key_stmt.get()))
+                    {
+                        if (kv_node->key.lexeme == key)
+                        {
+                            return kv_node->inline_comment;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    return "";
 }
 
     void YiniManager::merge_asts(std::vector<std::unique_ptr<Stmt>>& base_ast, std::vector<std::unique_ptr<Stmt>>& new_ast)
