@@ -16,14 +16,72 @@ namespace YINI
     struct Statement : public Node {
     };
 
-    // Represents a key-value pair, e.g., key = "value"
-    struct KeyValuePair : public Statement {
-        std::string key;
-        // In the future, this will be a more complex Expression node
+    // Base class for all expressions
+    struct Expression : public Node {
+    };
+
+    // Represents an identifier
+    struct Identifier : public Expression {
         std::string value;
+        std::string String() const override { return value; }
+    };
+
+    // Represents an integer literal
+    struct IntegerLiteral : public Expression {
+        int64_t value;
+        std::string String() const override { return std::to_string(value); }
+    };
+
+    struct FloatLiteral : public Expression {
+        double value;
+        std::string String() const override { return std::to_string(value); }
+    };
+
+    struct BooleanLiteral : public Expression {
+        bool value;
+        std::string String() const override { return value ? "true" : "false"; }
+    };
+
+    struct StringLiteral : public Expression {
+        std::string value;
+        std::string String() const override { return value; }
+    };
+
+    // Represents an array literal, e.g., [1, 2, 3]
+    struct ArrayLiteral : public Expression {
+        std::vector<std::shared_ptr<Expression>> elements;
 
         std::string String() const override {
-            return key + " = " + value;
+            std::string out = "[";
+            for (size_t i = 0; i < elements.size(); ++i) {
+                out += elements[i]->String();
+                if (i < elements.size() - 1) {
+                    out += ", ";
+                }
+            }
+            out += "]";
+            return out;
+        }
+    };
+
+    // Represents an infix operation, e.g., left + right
+    struct InfixExpression : public Expression {
+        std::shared_ptr<Expression> left;
+        std::string op;
+        std::shared_ptr<Expression> right;
+
+        std::string String() const override {
+            return "(" + left->String() + " " + op + " " + right->String() + ")";
+        }
+    };
+
+    // Represents a key-value pair, e.g., key = 123
+    struct KeyValuePair : public Statement {
+        std::shared_ptr<Identifier> key;
+        std::shared_ptr<Expression> value;
+
+        std::string String() const override {
+            return key->String() + " = " + (value ? value->String() : "null");
         }
     };
 
@@ -35,6 +93,21 @@ namespace YINI
         std::string String() const override {
             return "[" + name + "]";
         }
+    };
+
+    // Represents a [#define] block
+    struct DefineStatement : public Statement {
+        std::vector<std::shared_ptr<KeyValuePair>> pairs;
+
+        std::string String() const override {
+            return "[#define]";
+        }
+    };
+
+    // Represents a macro reference, e.g., @name
+    struct MacroReference : public Expression {
+        std::string name;
+        std::string String() const override { return "@" + name; }
     };
 
     // The root node of the entire YINI file

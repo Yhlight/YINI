@@ -37,6 +37,7 @@ namespace YINI
         RightBracket,   // ]
         Comma,          // ,
         Colon,          // :
+        At,             // @
 
         // Keywords & Sections
         Section,        // [SectionName]

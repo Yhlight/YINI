@@ -47,7 +47,7 @@ namespace YINI
     std::string Lexer::readIdentifier()
     {
         int start_pos = m_position;
-        while (isalpha(m_ch) || isdigit(m_ch) || m_ch == '_') {
+        while (isalpha(m_ch) || isdigit(m_ch) || m_ch == '_' || m_ch == '#') {
             readChar();
         }
         return m_input.substr(start_pos, m_position - start_pos);
@@ -101,20 +101,6 @@ namespace YINI
         if (m_ch != 0) readChar(); // consume *
         if (m_ch != 0) readChar(); // consume /
         return m_input.substr(start_pos, m_position - start_pos);
-    }
-
-    std::string Lexer::readSection()
-    {
-        readChar(); // consume '['
-        int start_pos = m_position;
-        while (m_ch != ']' && m_ch != 0) {
-            readChar();
-        }
-        std::string section = m_input.substr(start_pos, m_position - start_pos);
-        if (m_ch == ']') {
-            readChar(); // consume ']'
-        }
-        return section;
     }
 
     Token Lexer::NextToken()
@@ -171,23 +157,11 @@ namespace YINI
             case ')': tok.type = TokenType::RightParen; tok.literal = ")"; break;
             case '{': tok.type = TokenType::LeftBrace; tok.literal = "{"; break;
             case '}': tok.type = TokenType::RightBrace; tok.literal = "}"; break;
-            case '[':
-                {
-                    tok.literal = readSection();
-                    if (tok.literal == "#define") {
-                        tok.type = TokenType::Define;
-                    } else if (tok.literal == "#include") {
-                        tok.type = TokenType::Include;
-                    } else if (tok.literal == "#schema") {
-                        tok.type = TokenType::Schema;
-                    } else {
-                        tok.type = TokenType::Section;
-                    }
-                    return tok;
-                }
-            case ']': tok.type = TokenType::RightBracket; tok.literal = "]"; break; // Should not be reached if sections are parsed correctly
+            case '[': tok.type = TokenType::LeftBracket; tok.literal = "["; break;
+            case ']': tok.type = TokenType::RightBracket; tok.literal = "]"; break;
             case ',': tok.type = TokenType::Comma; tok.literal = ","; break;
             case ':': tok.type = TokenType::Colon; tok.literal = ":"; break;
+            case '@': tok.type = TokenType::At; tok.literal = "@"; break;
             case '"':
                 tok.literal = readString();
                 tok.type = TokenType::String;
@@ -197,7 +171,7 @@ namespace YINI
                 tok.literal = "";
                 break;
             default:
-                if (isalpha(m_ch) || m_ch == '_')
+                if (isalpha(m_ch) || m_ch == '_' || m_ch == '#')
                 {
                     tok.literal = readIdentifier();
                     if (tok.literal == "true" || tok.literal == "false") {

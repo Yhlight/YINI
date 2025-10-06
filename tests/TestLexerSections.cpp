@@ -13,17 +13,33 @@ TEST(LexerSectionsTest, SpecialSections) {
 
     YINI::Lexer lexer(input);
 
-    std::vector<YINI::Token> expected_tokens = {
-        {YINI::TokenType::Section, "Config", 0, 0},
-        {YINI::TokenType::Define, "#define", 0, 0},
-        {YINI::TokenType::Include, "#include", 0, 0},
-        {YINI::TokenType::Schema, "#schema", 0, 0},
-        {YINI::TokenType::Eof, "", 0, 0},
+    std::vector<YINI::TokenType> expected_types = {
+        YINI::TokenType::LeftBracket,
+        YINI::TokenType::Identifier,
+        YINI::TokenType::RightBracket,
+        YINI::TokenType::LeftBracket,
+        YINI::TokenType::Identifier,
+        YINI::TokenType::RightBracket,
+        YINI::TokenType::LeftBracket,
+        YINI::TokenType::Identifier,
+        YINI::TokenType::RightBracket,
+        YINI::TokenType::LeftBracket,
+        YINI::TokenType::Identifier,
+        YINI::TokenType::RightBracket,
+        YINI::TokenType::Eof,
     };
 
-    for (const auto& expected_token : expected_tokens) {
+    std::vector<std::string> expected_literals = {
+        "[", "Config", "]",
+        "[", "#define", "]",
+        "[", "#include", "]",
+        "[", "#schema", "]",
+        "",
+    };
+
+    for (size_t i = 0; i < expected_types.size(); ++i) {
         YINI::Token token = lexer.NextToken();
-        ASSERT_EQ(token.type, expected_token.type);
-        ASSERT_EQ(token.literal, expected_token.literal);
+        ASSERT_EQ(token.type, expected_types[i]);
+        ASSERT_EQ(token.literal, expected_literals[i]);
     }
 }
