@@ -197,6 +197,37 @@ YINI_API bool yini_manager_get_definition_location(Yini_ManagerHandle manager, c
                                                    int* out_line, int* out_column);
 
 //================================================================================
+// Resolved Data Iteration Functions
+//================================================================================
+
+/**
+ * @brief Gets the number of resolved sections.
+ * @param manager The manager handle.
+ * @return The number of sections.
+ */
+YINI_API int yini_manager_get_resolved_section_count(Yini_ManagerHandle manager);
+
+/**
+ * @brief Gets the name of a resolved section at a specific index.
+ * @param manager The manager handle.
+ * @param index The index of the section.
+ * @param out_buffer The buffer to write the name into, or NULL to query size.
+ * @param buffer_size The size of the buffer.
+ * @return The required buffer size, or characters written.
+ */
+YINI_API int yini_manager_get_resolved_section_name_at(Yini_ManagerHandle manager, int index, char* out_buffer,
+                                                       int buffer_size);
+
+/**
+ * @brief Gets all key-value pairs for a given section.
+ * @param manager The manager handle.
+ * @param section_name The name of the section.
+ * @return A new handle to a map-type YiniValue, or NULL if the section is not found.
+ *         The caller takes ownership and must free it with yini_value_destroy().
+ */
+YINI_API Yini_ValueHandle yini_manager_get_section_as_map(Yini_ManagerHandle manager, const char* section_name);
+
+//================================================================================
 // Schema Functions
 //================================================================================
 

@@ -268,3 +268,26 @@ var stats = new PlayerStats();
 // This generated method is extremely fast!
 stats.BindFromYini(manager, "Player");
 ```
+
+### 7.4. ASP.NET Core Configuration Provider
+
+YINI can be used as a configuration provider in ASP.NET Core applications, allowing you to use `.yini` files (e.g., `appsettings.yini`) in place of JSON. This enables you to leverage YINI's features like inheritance and comments for your web application settings.
+
+First, install the extensions package:
+```bash
+dotnet add package Yini.Extensions.Configuration
+```
+
+Next, add the YINI provider in your application's `Program.cs`:
+```csharp
+var builder = WebApplication.CreateBuilder(args);
+
+// Add YINI configuration provider for appsettings.yini
+builder.Configuration.AddYiniFile("appsettings.yini", optional: false, reloadOnChange: true);
+
+// Once added, you can use the standard ASP.NET Core configuration system,
+// including the Options pattern, as you normally would.
+builder.Services.Configure<MyApiSettings>(builder.Configuration.GetSection("ApiSettings"));
+
+var app = builder.Build();
+```

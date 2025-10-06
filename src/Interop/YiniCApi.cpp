@@ -304,6 +304,55 @@ YINI_API int yini_manager_get_validation_error(Yini_ManagerHandle manager, int i
     return safe_string_copy(out_buffer, buffer_size, error_message);
 }
 
+// --- Resolved Data Iteration Functions ---
+YINI_API int yini_manager_get_resolved_section_count(Yini_ManagerHandle manager) {
+    auto* mgr = as_manager(manager);
+    if (!mgr) {
+        return 0;
+    }
+    return static_cast<int>(mgr->get_interpreter().resolved_sections.size());
+}
+
+YINI_API int yini_manager_get_resolved_section_name_at(Yini_ManagerHandle manager, int index, char* out_buffer,
+                                                       int buffer_size) {
+    auto* mgr = as_manager(manager);
+    if (!mgr || index < 0) {
+        return -1;
+    }
+
+    const auto& sections = mgr->get_interpreter().resolved_sections;
+    if (static_cast<size_t>(index) >= sections.size()) {
+        return -1;
+    }
+
+    auto it = sections.begin();
+    std::advance(it, index);
+    return safe_string_copy(out_buffer, buffer_size, it->first);
+}
+
+YINI_API Yini_ValueHandle yini_manager_get_section_as_map(Yini_ManagerHandle manager, const char* section_name) {
+    auto* mgr = as_manager(manager);
+    if (!mgr || !section_name) {
+        return nullptr;
+    }
+
+    const auto& sections = mgr->get_interpreter().resolved_sections;
+    auto it = sections.find(section_name);
+    if (it == sections.end()) {
+        return nullptr;
+    }
+
+    // Create a new YiniValue of type Map and populate it
+    auto map_value = new YINI::YiniValue(YINI::YiniMap{});
+    auto* map_ptr = std::get_if<std::unique_ptr<YINI::YiniMap>>(&map_value->m_value);
+
+    for (const auto& pair : it->second) {
+        (*map_ptr)->emplace(pair.first, pair.second);
+    }
+
+    return reinterpret_cast<Yini_ValueHandle>(map_value);
+}
+
 // --- Schema Functions ---
 YINI_API int yini_manager_get_schema_section_count(Yini_ManagerHandle manager) {
     auto* mgr = as_manager(manager);

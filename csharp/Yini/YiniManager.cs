@@ -6,6 +6,7 @@ using System.Reflection;
 using System.Collections;
 using System.Collections.Generic;
 using System.Numerics;
+using System.Linq;
 
 namespace Yini
 {
@@ -484,6 +485,16 @@ namespace Yini
 
         [LibraryImport(LibName, EntryPoint = "yini_manager_get_schema_key_details_at")]
         internal static partial int YiniManager_GetSchemaKeyDetailsAt(IntPtr manager, [MarshalAs(UnmanagedType.LPStr)] string sectionName, int index, byte* outKeyName, ref int keyNameSize, byte* outTypeName, ref int typeNameSize, [MarshalAs(UnmanagedType.I1)] out bool outIsRequired);
+
+        // Resolved Data Iteration
+        [LibraryImport(LibName, EntryPoint = "yini_manager_get_resolved_section_count")]
+        internal static partial int YiniManager_GetResolvedSectionCount(IntPtr manager);
+
+        [LibraryImport(LibName, EntryPoint = "yini_manager_get_resolved_section_name_at")]
+        internal static partial int YiniManager_GetResolvedSectionNameAt(IntPtr manager, int index, byte* outBuffer, int bufferSize);
+
+        [LibraryImport(LibName, EntryPoint = "yini_manager_get_section_as_map")]
+        internal static partial IntPtr YiniManager_GetSectionAsMap(IntPtr manager, [MarshalAs(UnmanagedType.LPStr)] string sectionName);
         #endregion
 
         /// <summary>
@@ -1273,6 +1284,81 @@ namespace Yini
             }
         }
 
+        #region Iteration
+        /// <summary>
+        /// Gets a list of all section names that have been resolved.
+        /// </summary>
+        /// <returns>A list of section names.</returns>
+        public unsafe List<string> GetResolvedSectionNames()
+        {
+            var names = new List<string>();
+            int count = YiniManager_GetResolvedSectionCount(_managerPtr);
+            if (count <= 0) return names;
+
+            for (int i = 0; i < count; i++)
+            {
+                int nameSize = YiniManager_GetResolvedSectionNameAt(_managerPtr, i, null, 0);
+                if (nameSize > 0)
+                {
+                    byte[]? rentedBuffer = null;
+                    try
+                    {
+                        rentedBuffer = ArrayPool<byte>.Shared.Rent(nameSize);
+                        fixed (byte* buffer = rentedBuffer)
+                        {
+                            YiniManager_GetResolvedSectionNameAt(_managerPtr, i, buffer, nameSize);
+                            names.Add(Encoding.UTF8.GetString(buffer, nameSize - 1));
+                        }
+                    }
+                    finally
+                    {
+                        if (rentedBuffer != null)
+                        {
+                            ArrayPool<byte>.Shared.Return(rentedBuffer);
+                        }
+                    }
+                }
+            }
+            return names;
+        }
+
+        /// <summary>
+        /// Gets all key-value pairs for a given section as a dictionary.
+        /// </summary>
+        /// <param name="sectionName">The name of the section.</param>
+        /// <returns>A dictionary containing all keys and their string representations, or null if the section doesn't exist.</returns>
+        public Dictionary<string, string?>? GetSectionAsDictionary(string sectionName)
+        {
+            var mapHandle = YiniManager_GetSectionAsMap(_managerPtr, sectionName);
+            if (mapHandle == IntPtr.Zero)
+            {
+                return null;
+            }
+
+            using var mapValue = new YiniValue(mapHandle);
+            var dict = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+
+            var mapPairs = mapValue.AsMap();
+            try
+            {
+                foreach (var kvp in mapPairs)
+                {
+                    // For configuration, we need the string representation of the value.
+                    dict[kvp.Key] = StringifyValue(kvp.Value);
+                }
+                return dict;
+            }
+            finally
+            {
+                // Ensure the inner YiniValue handles are disposed
+                foreach (var kvp in mapPairs)
+                {
+                    kvp.Value.Dispose();
+                }
+            }
+        }
+        #endregion
+
         #region Schema
         /// <summary>
         /// Gets a list of all section names defined in the loaded schema.
@@ -1485,6 +1571,37 @@ namespace Yini
                 {
                     ArrayPool<byte>.Shared.Return(rentedBuffer);
                 }
+            }
+        }
+
+        /// <summary>
+        /// Provides a user-friendly string representation of a YiniValue.
+        /// </summary>
+        /// <param name="value">The YiniValue to stringify.</param>
+        /// <returns>A string representation of the value.</returns>
+        public string StringifyValue(YiniValue value)
+        {
+            switch (value.Type)
+            {
+                case YiniValueType.Double: return value.AsDouble().ToString();
+                case YiniValueType.Bool: return value.AsBool().ToString().ToLower();
+                case YiniValueType.String: return $"\"{value.AsString()}\"";
+                case YiniValueType.Array:
+                    var items = new List<string>();
+                    for (int i = 0; i < value.ArraySize; i++) { using (var e = value.GetArrayElement(i)) items.Add(StringifyValue(e)); }
+                    return $"[{string.Join(", ", items)}]";
+                case YiniValueType.Map:
+                    var mapPairs = value.AsMap();
+                    try
+                    {
+                        var map = mapPairs.ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
+                        var pairStrings = map.Select(kvp => $"\"{kvp.Key}\": {StringifyValue(kvp.Value)}");
+                        return $"{{{string.Join(", ", pairStrings)}}}";
+                    }
+                    finally { foreach (var kvp in mapPairs) kvp.Value.Dispose(); }
+                case YiniValueType.Dyna:
+                    using (var inner = value.AsDynaValue()) return $"Dyna({StringifyValue(inner)})";
+                default: return "null";
             }
         }
 

@@ -148,30 +148,6 @@ namespace Yini.Lsp
             return new HoverRegistrationOptions { DocumentSelector = DocumentSelector.ForLanguage("yini") };
         }
 
-        private string StringifyValue(YiniValue value)
-        {
-            switch (value.Type)
-            {
-                case YiniValueType.Double: return value.AsDouble().ToString();
-                case YiniValueType.Bool: return value.AsBool().ToString().ToLower();
-                case YiniValueType.String: return $"\"{value.AsString()}\"";
-                case YiniValueType.Array:
-                    var items = new List<string>();
-                    for (int i = 0; i < value.ArraySize; i++) { using (var e = value.GetArrayElement(i)) items.Add(StringifyValue(e)); }
-                    return $"[{string.Join(", ", items)}]";
-                case YiniValueType.Map:
-                    var mapPairs = value.AsMap();
-                    try {
-                        var map = mapPairs.ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
-                        var pairStrings = map.Select(kvp => $"\"{kvp.Key}\": {StringifyValue(kvp.Value)}");
-                        return $"{{{string.Join(", ", pairStrings)}}}";
-                    } finally { foreach(var kvp in mapPairs) kvp.Value.Dispose(); }
-                case YiniValueType.Dyna:
-                    using(var inner = value.AsDynaValue()) return $"Dyna({StringifyValue(inner)})";
-                default: return "null";
-            }
-        }
-
         public Task<Hover?> Handle(HoverParams request, CancellationToken cancellationToken)
         {
             var state = _documentManager.Get(request.TextDocument.Uri);
@@ -204,7 +180,7 @@ namespace Yini.Lsp
                     }
 
                     sb.AppendLine("```yini");
-                    sb.AppendLine(StringifyValue(yiniValue));
+                    sb.AppendLine(manager.StringifyValue(yiniValue));
                     sb.AppendLine("```");
 
                     return Task.FromResult<Hover?>(new Hover {

@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>WebApiSettingsExample</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Reference the main Yini library -->
+    <ProjectReference Include="../../csharp/Yini/Yini.csproj" />
+    <!-- Reference the new configuration provider library -->
+    <ProjectReference Include="../../csharp/Yini.Extensions.Configuration/Yini.Extensions.Configuration.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Ensure the yini file is copied to the output directory -->
+    <Content Include="appsettings.yini">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+</Project>

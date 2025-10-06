@@ -268,3 +268,26 @@ var stats = new PlayerStats();
 // 这个生成的方法速度极快！
 stats.BindFromYini(manager, "Player");
 ```
+
+### 7.4. ASP.NET Core 配置提供程序
+
+YINI 可以作为 ASP.NET Core 应用程序的配置提供程序，允许你使用 `.yini` 文件（例如 `appsettings.yini`）来代替 JSON。这使你能够利用 YINI 的继承和注释等特性来管理你的 Web 应用程序设置。
+
+首先，安装扩展包：
+```bash
+dotnet add package Yini.Extensions.Configuration
+```
+
+接下来，在你的应用程序的 `Program.cs` 中添加 YINI 提供程序：
+```csharp
+var builder = WebApplication.CreateBuilder(args);
+
+// 添加 YINI 配置提供程序
+builder.Configuration.AddYiniFile("appsettings.yini", optional: false, reloadOnChange: true);
+
+// 添加后，你就可以像往常一样使用标准的 ASP.NET Core 配置系统，
+// 包括选项模式（Options pattern）。
+builder.Services.Configure<MyApiSettings>(builder.Configuration.GetSection("ApiSettings"));
+
+var app = builder.Build();
+```

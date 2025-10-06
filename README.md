@@ -40,6 +40,28 @@ find_package(Yini REQUIRED)
 target_link_libraries(your_target PRIVATE Yini::Yini)
 ```
 
+## ASP.NET Core Integration
+
+YINI can be used as a configuration provider in ASP.NET Core applications, allowing you to use `.yini` files instead of `appsettings.json`.
+
+First, install the extensions package:
+```bash
+dotnet add package Yini.Extensions.Configuration
+```
+
+Then, add the YINI provider in your `Program.cs`:
+```csharp
+var builder = WebApplication.CreateBuilder(args);
+
+// Add YINI configuration provider
+builder.Configuration.AddYiniFile("appsettings.yini", optional: false, reloadOnChange: true);
+
+// You can now use the Options pattern and IConfiguration as usual
+builder.Services.Configure<MySettings>(builder.Configuration.GetSection("MySettings"));
+
+var app = builder.Build();
+```
+
 ## Building from Source
 
 If you wish to build the project from source, you will need the following dependencies:
