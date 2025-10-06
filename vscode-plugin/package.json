@@ -1,8 +1,8 @@
 {
   "name": "yini-language-support",
   "displayName": "YINI Language Support",
-  "description": "Syntax highlighting and language support for YINI configuration files",
-  "version": "1.0.0",
+  "description": "Language support for YINI configuration files with LSP",
+  "version": "2.0.0",
   "publisher": "yini",
   "engines": {
     "vscode": "^1.60.0"
@@ -10,6 +10,10 @@
   "categories": [
     "Programming Languages"
   ],
+  "activationEvents": [
+    "onLanguage:yini"
+  ],
+  "main": "./extension.js",
   "contributes": {
     "languages": [
       {
@@ -31,13 +35,41 @@
         "scopeName": "source.yini",
         "path": "./syntaxes/yini.tmLanguage.json"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "YINI",
+      "properties": {
+        "yini.lsp.path": {
+          "type": "string",
+          "default": "yini_lsp",
+          "description": "Path to YINI LSP server executable"
+        },
+        "yini.trace.server": {
+          "type": "string",
+          "enum": [
+            "off",
+            "messages",
+            "verbose"
+          ],
+          "default": "off",
+          "description": "Traces the communication between VS Code and the language server"
+        }
+      }
+    }
+  },
+  "dependencies": {
+    "vscode-languageclient": "^8.1.0"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.60.0",
+    "@types/node": "^16.x"
   },
   "keywords": [
     "yini",
     "configuration",
     "ini",
-    "game development"
+    "game development",
+    "lsp"
   ],
   "repository": {
     "type": "git",

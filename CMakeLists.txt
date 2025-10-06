@@ -28,6 +28,7 @@ enable_testing()
 add_subdirectory(src/Lexer)
 add_subdirectory(src/Parser)
 add_subdirectory(src/CLI)
+add_subdirectory(src/LSP)
 add_subdirectory(tests)
 
 # Build shared library for C# P/Invoke

@@ -22,6 +22,12 @@ YINI 是一门基于C++17实现的现代化配置语言，专为游戏开发设�
 - **链表**: `List(1, 2, 3)`
 - **动态值**: `Dyna(value)` - 运行时可更新
 
+### IDE支持 (v1.3.0新增)
+- ✅ **C++原生LSP服务器**: 零依赖，高性能
+- ✅ **实时语法检测**: 边输入边检查
+- ✅ **智能自动补全**: 宏引用、横截面引用、类型提示
+- ✅ **VSCode集成**: 完整的IDE体验
+
 ## 项目结构
 
 ```
@@ -29,10 +35,12 @@ YINI/
 ├── src/
 │   ├── Lexer/       # 词法分析器（状态机实现）
 │   ├── Parser/      # 语法分析器（策略模式）
-│   └── CLI/         # 命令行工具
+│   ├── CLI/         # 命令行工具
+│   └── LSP/         # LSP服务器 (v1.3.0新增)
 ├── include/         # 头文件
 ├── tests/           # 单元测试
 ├── examples/        # 示例配置文件
+├── vscode-plugin/   # VSCode扩展
 ├── docs/            # 文档
 └── build/           # 构建目录
 
@@ -46,11 +54,24 @@ YINI/
 # 使用Python构建脚本（推荐）
 ./build.py --clean --test
 
-# 或手动使用CMake
-mkdir build && cd build
-cmake ..
-cmake --build .
-ctest
+# 构建产物:
+# - build/bin/yini_cli  (CLI工具)
+# - build/bin/yini_lsp  (LSP服务器)
+# - build/lib/libyini.so (共享库)
+```
+
+### 使用LSP服务器 (新增)
+
+```bash
+# 1. 安装LSP服务器
+sudo cp build/bin/yini_lsp /usr/local/bin/
+
+# 2. 安装VSCode扩展
+cd vscode-plugin
+npm install
+
+# 3. 在VSCode中打开.yini文件
+# 享受自动补全、错误检测等IDE功能！
 ```
 
 ### 构建选项
