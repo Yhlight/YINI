@@ -42,8 +42,12 @@ std::unique_ptr<Stmt> Parser::includeSection() {
 
     if (!check(TokenType::LEFT_BRACKET) && !isAtEnd()) {
         const Token& token = peek();
-        throw ParsingError("Only '+=' statements are allowed inside an [#include] block.", token.line, token.column,
-                           token.filepath);
+        std::string found = "'" + token.lexeme + "'";
+        if (token.type == TokenType::END_OF_FILE) {
+            found = "EOF";
+        }
+        throw ParsingError("Only '+=' statements are allowed inside an [#include] block, but got " + found + ".",
+                           token.line, token.column, token.filepath);
     }
 
     return std::make_unique<Include>(std::move(files));
@@ -204,7 +208,11 @@ std::unique_ptr<Expr> Parser::primary() {
     if (match({TokenType::LEFT_BRACE})) return parse_map();
 
     const Token& token = peek();
-    throw ParsingError("Expect expression.", token.line, token.column, token.filepath);
+    std::string found = "'" + token.lexeme + "'";
+    if (token.type == TokenType::END_OF_FILE) {
+        found = "EOF";
+    }
+    throw ParsingError("Expected an expression, but got " + found + ".", token.line, token.column, token.filepath);
 }
 
 std::unique_ptr<Expr> Parser::parse_env_variable() {
@@ -293,7 +301,11 @@ bool Parser::match(const std::vector<TokenType>& types) {
 Token Parser::consume(TokenType type, const std::string& message) {
     if (check(type)) return advance();
     const Token& token = peek();
-    std::string error_message = message + " But got '" + token.lexeme + "' instead.";
+    std::string found = "'" + token.lexeme + "'";
+    if (token.type == TokenType::END_OF_FILE) {
+        found = "EOF";
+    }
+    std::string error_message = message + " But got " + found + " instead.";
     throw ParsingError(error_message, token.line, token.column, token.filepath);
 }
 

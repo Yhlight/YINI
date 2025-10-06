@@ -46,20 +46,20 @@ TEST(SyntaxErrorTest, ThrowsOnUnexpectedCharacter) {
 }
 
 TEST(SyntaxErrorTest, ThrowsOnMissingValueAfterEquals) {
-    expect_parsing_error("[Section]\nkey = ", "missing_value", 2, 7, "Expect expression.");
+    expect_parsing_error("[Section]\nkey = ", "missing_value", 2, 7, "Expected an expression, but got EOF.");
 }
 
 TEST(SyntaxErrorTest, ThrowsOnInvalidExpression) {
     // A closing bracket is not a valid start of an expression.
-    expect_parsing_error("[Section]\nkey = ]", "invalid_expr", 2, 7, "Expect expression.");
+    expect_parsing_error("[Section]\nkey = ]", "invalid_expr", 2, 7, "Expected an expression, but got ']'.");
 }
 
 TEST(SyntaxErrorTest, ThrowsOnUnclosedArray) {
-    expect_parsing_error("[Test]\nkey = [1, 2", "unclosed_array", 2, 12, "Expect ']' after array elements. But got '' instead.");
+    expect_parsing_error("[Test]\nkey = [1, 2", "unclosed_array", 2, 12, "Expect ']' after array elements. But got EOF instead.");
 }
 
 TEST(SyntaxErrorTest, ThrowsOnUnclosedMap) {
-    expect_parsing_error("[Test]\nkey = {\"a\": 1", "unclosed_map", 2, 14, "Expect '}' after map pairs. But got '' instead.");
+    expect_parsing_error("[Test]\nkey = {\"a\": 1", "unclosed_map", 2, 14, "Expect '}' after map pairs. But got EOF instead.");
 }
 
 TEST(SyntaxErrorTest, ThrowsOnMissingMapColon) {
