@@ -135,6 +135,11 @@ std::string Value::asString() const
     {
         return std::get<std::string>(data);
     }
+    // Also allow REFERENCE and ENV_VAR to return their string content
+    if (type == ValueType::REFERENCE || type == ValueType::ENV_VAR)
+    {
+        return std::get<std::string>(data);
+    }
     throw std::runtime_error("Value is not a string");
 }
 

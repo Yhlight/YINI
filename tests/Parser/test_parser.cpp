@@ -233,6 +233,16 @@ key1 = @width
     assert(defines.at("width")->asInteger() == 1920);
     assert(defines.at("height")->asInteger() == 1080);
     
+    // Check that macro reference was resolved
+    const auto& sections = parser.getSections();
+    const auto& config = sections.at("Config");
+    assert(config.entries.find("key1") != config.entries.end());
+    
+    // After resolution, @width should be replaced with 1920
+    auto key1_value = config.entries.at("key1");
+    assert(key1_value->isInteger());
+    assert(key1_value->asInteger() == 1920);
+    
     std::cout << "✓ Defines test passed" << std::endl;
 }
 
@@ -353,14 +363,67 @@ screen_height = @{Config.height}
     const auto& sections = parser.getSections();
     const auto& display = sections.at("Display");
     
-    // References should be parsed
+    // References should be resolved to actual values
     assert(display.entries.find("screen_width") != display.entries.end());
-    assert(display.entries.at("screen_width")->isReference());
+    assert(display.entries.at("screen_width")->isInteger());
+    assert(display.entries.at("screen_width")->asInteger() == 1920);
     
     assert(display.entries.find("screen_height") != display.entries.end());
-    assert(display.entries.at("screen_height")->isReference());
+    assert(display.entries.at("screen_height")->isInteger());
+    assert(display.entries.at("screen_height")->asInteger() == 1080);
     
-    std::cout << "✓ Cross-section reference test passed" << std::endl;
+    std::cout << "✓ Cross-section reference test passed (references resolved)" << std::endl;
+}
+
+void test_reference_resolution_comprehensive()
+{
+    std::cout << "Testing comprehensive reference resolution..." << std::endl;
+    
+    std::string source = R"(
+[#define]
+BASE_WIDTH = 1920
+BASE_HEIGHT = 1080
+
+[Graphics]
+width = @BASE_WIDTH
+height = @BASE_HEIGHT
+half_width = 960
+aspect_ratio = 1.777
+
+[UI]
+panel_width = @{Graphics.half_width}
+screen_width = @{Graphics.width}
+screen_height = @{Graphics.height}
+
+[Advanced]
+resolution = [@{Graphics.width}, @{Graphics.height}]
+    )";
+    
+    Parser parser(source);
+    assert(parser.parse());
+    
+    const auto& sections = parser.getSections();
+    
+    // Test macro resolution
+    const auto& graphics = sections.at("Graphics");
+    assert(graphics.entries.at("width")->asInteger() == 1920);
+    assert(graphics.entries.at("height")->asInteger() == 1080);
+    
+    // Test cross-section resolution
+    const auto& ui = sections.at("UI");
+    assert(ui.entries.at("panel_width")->asInteger() == 960);
+    assert(ui.entries.at("screen_width")->asInteger() == 1920);
+    assert(ui.entries.at("screen_height")->asInteger() == 1080);
+    
+    // Test array with resolved references
+    const auto& advanced = sections.at("Advanced");
+    assert(advanced.entries.at("resolution")->isArray());
+    auto res_arr = advanced.entries.at("resolution")->asArray();
+    assert(res_arr.size() == 2);
+    assert(res_arr[0]->asInteger() == 1920);
+    assert(res_arr[1]->asInteger() == 1080);
+    
+    std::cout << "✓ Comprehensive reference resolution test passed" << std::endl;
 }
 
 int main()
@@ -383,6 +446,7 @@ int main()
         test_dynamic();
         test_schema_validation();
         test_cross_section_reference();
+        test_reference_resolution_comprehensive();
         
         std::cout << "\n==========================================" << std::endl;
         std::cout << "All tests passed! ✓" << std::endl;

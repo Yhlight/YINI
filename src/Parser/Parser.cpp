@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <cstdlib>
 #include <iostream>
+#include <set>
 
 namespace yini
 {
@@ -119,6 +120,12 @@ bool Parser::parse()
         {
             return false;
         }
+    }
+    
+    // Resolve references
+    if (!resolveReferences())
+    {
+        return false;
     }
     
     return true;
@@ -1311,6 +1318,163 @@ bool Parser::validateAgainstSchema()
     }
     
     return true;
+}
+
+bool Parser::resolveReferences()
+{
+    // Resolve all references in all sections
+    for (auto& [section_name, section] : sections)
+    {
+        for (auto& [key, value] : section.entries)
+        {
+            std::set<std::string> visiting;
+            std::string ref_path = section_name + "." + key;
+            visiting.insert(ref_path);
+            
+            auto resolved = resolveValue(value, visiting);
+            if (!resolved)
+            {
+                error("Failed to resolve reference in [" + section_name + "]." + key);
+                return false;
+            }
+            
+            section.entries[key] = resolved;
+        }
+    }
+    
+    return true;
+}
+
+std::shared_ptr<Value> Parser::resolveValue(std::shared_ptr<Value> value, std::set<std::string>& visiting)
+{
+    if (!value)
+    {
+        return value;
+    }
+    
+    // Handle reference types
+    if (value->isReference())
+    {
+        std::string ref_name = value->asString();
+        
+        // Check for macro reference first (@name)
+        if (defines.find(ref_name) != defines.end())
+        {
+            // Resolve macro
+            auto macro_value = defines[ref_name];
+            
+            // Recursively resolve the macro value
+            auto resolved = resolveValue(macro_value, visiting);
+            return resolved;
+        }
+        
+        // Check for cross-section reference (@{Section.key})
+        // Format: "Section.key" or "Section.key.subkey"
+        size_t dot_pos = ref_name.find('.');
+        if (dot_pos != std::string::npos)
+        {
+            std::string section_name = ref_name.substr(0, dot_pos);
+            std::string key_name = ref_name.substr(dot_pos + 1);
+            
+            // Check for circular reference
+            std::string ref_path = ref_name;
+            if (visiting.find(ref_path) != visiting.end())
+            {
+                error("Circular reference detected: " + ref_path);
+                return nullptr;
+            }
+            
+            // Find the section
+            auto section_it = sections.find(section_name);
+            if (section_it == sections.end())
+            {
+                error("Reference to unknown section: " + section_name);
+                return nullptr;
+            }
+            
+            // Find the key
+            auto& section = section_it->second;
+            auto entry_it = section.entries.find(key_name);
+            if (entry_it == section.entries.end())
+            {
+                error("Reference to unknown key: " + key_name + " in section [" + section_name + "]");
+                return nullptr;
+            }
+            
+            // Add to visiting set
+            visiting.insert(ref_path);
+            
+            // Recursively resolve
+            auto resolved = resolveValue(entry_it->second, visiting);
+            
+            // Remove from visiting set
+            visiting.erase(ref_path);
+            
+            return resolved;
+        }
+        
+        // Unknown reference
+        error("Unresolved reference: " + ref_name);
+        return nullptr;
+    }
+    
+    // Handle environment variables
+    if (value->isEnvVar())
+    {
+        std::string var_name = value->asString();
+        const char* env_value = std::getenv(var_name.c_str());
+        
+        if (env_value)
+        {
+            return std::make_shared<Value>(std::string(env_value));
+        }
+        else
+        {
+            // Environment variable not set, return empty string
+            return std::make_shared<Value>(std::string(""));
+        }
+    }
+    
+    // Handle arrays (recursively resolve elements)
+    if (value->isArray())
+    {
+        auto arr = value->asArray();
+        Value::ArrayType resolved_arr;
+        
+        for (auto& elem : arr)
+        {
+            auto resolved_elem = resolveValue(elem, visiting);
+            if (!resolved_elem)
+            {
+                return nullptr;
+            }
+            resolved_arr.push_back(resolved_elem);
+        }
+        
+        return std::make_shared<Value>(resolved_arr);
+    }
+    
+    // Handle maps (recursively resolve values)
+    if (value->isMap())
+    {
+        auto map = value->asMap();
+        Value::MapType resolved_map;
+        
+        for (auto& [k, v] : map)
+        {
+            auto resolved_v = resolveValue(v, visiting);
+            if (!resolved_v)
+            {
+                return nullptr;
+            }
+            resolved_map[k] = resolved_v;
+        }
+        
+        return std::make_shared<Value>(resolved_map);
+    }
+    
+    // For all other types, return as-is
+    return value;
 }
 
 // Token management

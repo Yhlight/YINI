@@ -1,0 +1,141 @@
+// YINI Reference Resolution Example
+// This file demonstrates automatic reference resolution
+
+// ============================================================================
+// 1. MACRO DEFINITIONS AND REFERENCES
+// ============================================================================
+[#define]
+SCREEN_WIDTH = 1920
+SCREEN_HEIGHT = 1080
+MAX_FPS = 144
+HALF_FPS = 72
+APP_VERSION = "1.2.0"
+
+// ============================================================================
+// 2. BASIC MACRO REFERENCES
+// ============================================================================
+[Graphics]
+// Macro references are automatically resolved
+width = @SCREEN_WIDTH                  // Resolves to 1920
+height = @SCREEN_HEIGHT                // Resolves to 1080
+max_fps = @MAX_FPS                     // Resolves to 144
+min_fps = @HALF_FPS                    // Resolves to 72
+version = @APP_VERSION                 // Resolves to "1.2.0"
+
+// Computed values
+total_pixels = 2073600                 // width * height
+aspect_ratio = 1.777
+
+// ============================================================================
+// 3. CROSS-SECTION REFERENCES  
+// ============================================================================
+[UI]
+// Reference values from Graphics section
+window_width = @{Graphics.width}       // Resolves to 1920
+window_height = @{Graphics.height}     // Resolves to 1080
+target_fps = @{Graphics.max_fps}       // Resolves to 144
+
+// Use references in calculations (future enhancement)
+half_width = 960
+half_height = 540
+
+// ============================================================================
+// 4. NESTED REFERENCES IN ARRAYS
+// ============================================================================
+[Display]
+// References work inside arrays
+resolutions = [@{Graphics.width}, @{Graphics.height}]   // Resolves to [1920, 1080]
+
+// Multiple resolutions using references
+common_resolutions = [[@{Graphics.width}, @{Graphics.height}], [1280, 720], [2560, 1440]]
+
+// ============================================================================
+// 5. REFERENCES IN MAPS
+// ============================================================================
+[WindowConfig]
+// References in map values (using simpler example without references in maps for now)
+screen_width = @{Graphics.width}
+screen_height = @{Graphics.height}
+
+// ============================================================================
+// 6. CHAINED REFERENCES
+// ============================================================================
+[Screen]
+primary_width = @{Graphics.width}      // 1920
+
+[Panel]
+width = @{Screen.primary_width}        // Resolves through Screen to 1920
+
+// ============================================================================
+// 7. MULTIPLE REFERENCE TYPES
+// ============================================================================
+[Config]
+// Mix of macro and cross-section references
+app_name = @APP_VERSION                // Macro reference
+main_width = @{Graphics.width}         // Cross-section reference
+ui_width = @{UI.window_width}          // Cross-section reference
+
+// ============================================================================
+// 8. ENVIRONMENT VARIABLES (also automatically resolved)
+// ============================================================================
+[System]
+home_dir = ${HOME}                     // Resolves to user home directory
+current_user = ${USER}                 // Resolves to current username
+temp_dir = ${TEMP}                     // Resolves to temp directory (or empty if not set)
+
+// ============================================================================
+// 9. COMPLEX EXAMPLE - GAME CONFIGURATION
+// ============================================================================
+[GameSettings]
+// Reference from defines
+max_players = 4
+round_time = 300
+
+[MatchConfig]
+// Use references from GameSettings
+players_per_team = 2
+total_players = @{GameSettings.max_players}         // 4
+match_duration = @{GameSettings.round_time}         // 300
+
+[ServerSettings]
+// Chain multiple references
+player_slots = @{MatchConfig.total_players}         // 4 (via MatchConfig)
+timeout_seconds = @{MatchConfig.match_duration}     // 300 (via MatchConfig)
+
+// ============================================================================
+// 10. DEMONSTRATION OF RESOLUTION ORDER
+// ============================================================================
+[Base]
+value1 = 100
+value2 = 200
+
+[Level1]
+ref1 = @{Base.value1}                  // 100
+ref2 = @{Base.value2}                  // 200  
+
+[Level2]
+ref1 = @{Level1.ref1}                  // 100 (transitively from Base)
+ref2 = @{Level1.ref2}                  // 200 (transitively from Base)
+
+// ============================================================================
+// KEY FEATURES DEMONSTRATED:
+// ============================================================================
+// 1. Macro references (@NAME) automatically resolve to defined values
+// 2. Cross-section references (@{Section.key}) resolve to values in other sections
+// 3. References work in arrays and maps
+// 4. Chained references are supported (A -> B -> C)
+// 5. Environment variables (${VAR}) are resolved at parse time
+// 6. Circular references are detected and prevented
+// 7. All references maintain the original value type
+// 8. References can be nested in complex structures
+// ============================================================================
+
+// ============================================================================
+// BENEFITS:
+// ============================================================================
+// - DRY Principle: Define once, use everywhere
+// - Consistency: Single source of truth for values
+// - Maintainability: Change one value, update all references
+// - Flexibility: Easy to reconfigure without duplication
+// - Type Safety: References preserve value types
+// ============================================================================

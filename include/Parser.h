@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <set>
 #include <memory>
 #include <optional>
 
@@ -108,6 +109,13 @@ private:
     
     // Schema validation
     bool validateAgainstSchema();
+    
+    // Reference resolution
+    bool resolveReferences();
+    std::shared_ptr<Value> resolveValue(
+        std::shared_ptr<Value> value, 
+        std::set<std::string>& visiting
+    );
     
     // Error handling
     void error(const std::string& message);
