@@ -1,0 +1,50 @@
+# CMake generated files
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+*.cmake
+!CMakeLists.txt
+
+# Build directories
+build/
+out/
+bin/
+lib/
+
+# Compiled binaries
+*.o
+*.a
+*.so
+*.dll
+*.exe
+*.dylib
+
+# YMETA files (except examples)
+*.ymeta
+*.YMETA
+!examples/**/*.ymeta
+!examples/**/*.YMETA
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# C# build files
+obj/
+bin/
+*.user
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Testing
+test_results/
+*.gcda
+*.gcno
+*.gcov

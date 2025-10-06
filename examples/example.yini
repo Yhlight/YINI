@@ -1,0 +1,87 @@
+// YINI Example Configuration File
+// This demonstrates the YINI configuration language features
+
+[#define]
+DEFAULT_WIDTH = 1920
+DEFAULT_HEIGHT = 1080
+MAX_FPS = 144
+
+[#include]
+// Include other configuration files
+// += "common.yini"
+// += "platform_specific.yini"
+
+// Basic configuration section
+[Graphics]
+width = @DEFAULT_WIDTH
+height = @DEFAULT_HEIGHT
+fullscreen = true
+vsync = false
+fps_limit = @MAX_FPS
+
+// Color values
+background_color = #000000
+ui_primary = Color(255, 100, 50)
+ui_secondary = #3498DB
+
+// Coordinate values
+spawn_point = Coord(100, 200)
+camera_pos = Coord(0, 0, 10)
+
+// Arithmetic expressions
+half_width = @DEFAULT_WIDTH / 2
+quarter_height = @DEFAULT_HEIGHT / 4
+total_pixels = @DEFAULT_WIDTH * @DEFAULT_HEIGHT
+
+// Section inheritance
+[GraphicsLow] : Graphics
+width = 1280
+height = 720
+fps_limit = 60
+
+[GraphicsHigh] : Graphics
+width = 3840
+height = 2160
+fps_limit = @MAX_FPS
+
+// Audio configuration
+[Audio]
+master_volume = 1.0
+music_volume = 0.8
+sfx_volume = 0.9
+muted = false
+
+// Dynamic values (updated at runtime)
+[GameState]
+current_level = Dyna(1)
+player_score = Dyna(0)
+achievements_unlocked = Dyna(0)
+
+// Quick register for lists
+[Weapons]
++= "Sword"
++= "Bow"
++= "Staff"
++= "Dagger"
+
+// Arrays and collections
+[Inventory]
+items = ["Potion", "Key", "Map"]
+quantities = [5, 1, 1]
+equipped = (true, false, false)
+
+// Map/dictionary values
+[PlayerStats]
+attributes = {strength: 10, dexterity: 15, intelligence: 12}
+skills = {swordplay: 5, archery: 8, magic: 3}
+
+// Environment variables
+[System]
+user_home = ${HOME}
+temp_dir = ${TEMP}
+
+// Cross-section references
+[UI]
+ui_width = @{Graphics.width}
+ui_height = @{Graphics.height}
+theme_color = @{Graphics.ui_primary}
