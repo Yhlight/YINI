@@ -197,6 +197,55 @@ YINI_API bool yini_manager_get_definition_location(Yini_ManagerHandle manager, c
                                                    int* out_line, int* out_column);
 
 //================================================================================
+// Schema Functions
+//================================================================================
+
+/**
+ * @brief Gets the number of sections defined in the schema.
+ * @param manager The manager handle.
+ * @return The number of sections, or -1 if no schema is loaded.
+ */
+YINI_API int yini_manager_get_schema_section_count(Yini_ManagerHandle manager);
+
+/**
+ * @brief Gets the name of a schema section at a specific index.
+ * @param manager The manager handle.
+ * @param index The index of the section.
+ * @param out_buffer The buffer to write the name into, or NULL to query size.
+ * @param buffer_size The size of the buffer.
+ * @return The required buffer size, or characters written.
+ */
+YINI_API int yini_manager_get_schema_section_name_at(Yini_ManagerHandle manager, int index, char* out_buffer,
+                                                     int buffer_size);
+
+/**
+ * @brief Gets the number of keys for a given section in the schema.
+ * @param manager The manager handle.
+ * @param section_name The name of the section.
+ * @return The number of keys, or -1 if the section is not in the schema.
+ */
+YINI_API int yini_manager_get_schema_key_count(Yini_ManagerHandle manager, const char* section_name);
+
+/**
+ * @brief Gets the details of a schema key at a specific index within a section.
+ *
+ * This function uses the two-call pattern for retrieving the key and type names.
+ *
+ * @param manager The manager handle.
+ * @param section_name The name of the section.
+ * @param index The index of the key within the section.
+ * @param out_key_name Buffer for the key's name. Can be NULL.
+ * @param key_name_size Size of key name buffer. Returns required size if out_key_name is NULL.
+ * @param out_type_name Buffer for the key's type name. Can be NULL.
+ * @param type_name_size Size of type name buffer. Returns required size if out_type_name is NULL.
+ * @param out_is_required Pointer to a bool to store whether the key is required.
+ * @return 1 on success, 0 on failure (e.g., index out of bounds).
+ */
+YINI_API int yini_manager_get_schema_key_details_at(Yini_ManagerHandle manager, const char* section_name, int index,
+                                                    char* out_key_name, int* key_name_size, char* out_type_name,
+                                                    int* type_name_size, bool* out_is_required);
+
+//================================================================================
 // Value Functions
 //================================================================================
 

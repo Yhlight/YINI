@@ -48,10 +48,7 @@ If you wish to build the project from source, you will need the following depend
 *   **.NET SDK** (version 8.0 or higher)
 *   A C++17 compatible compiler (e.g., GCC, Clang, MSVC)
 
-To run the C++ test suite, you will also need to have **Google Test** installed. On Debian-based systems, this can be installed via:
-```bash
-sudo apt-get install libgtest-dev
-```
+The C++ test suite uses Google Test, which is downloaded automatically by CMake during the build process.
 
 Once the dependencies are installed, you can use the provided build script:
 ```bash

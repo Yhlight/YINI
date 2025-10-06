@@ -1,6 +1,8 @@
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System.IO;
 using Yini;
+using System.Collections.Generic;
+using System.Numerics;
 
 namespace Yini.Tests
 {
@@ -85,6 +87,60 @@ long = ""{longString}""
                 Assert.AreEqual("Hello", shortResult);
                 Assert.AreEqual(longString, longResult);
                 Assert.AreEqual("default", nonExistentResult);
+            }
+        }
+
+        [TestMethod]
+        public void Get_Generic_ReturnsCorrectTypes()
+        {
+            // 1. Create a test .yini file with various types
+            string fileContent = @"
+[AllTypes]
+string_val = ""Hello Generic""
+int_val = 123
+double_val = 45.6
+bool_val = true
+list_val = [""one"", ""two"", ""three""]
+map_val = { ""a"": 1, ""b"": 2 }
+vector_val = Vec3(1.1, 2.2, 3.3)
+color_val = Color(255, 128, 64)
+";
+            File.WriteAllText(TestFileName, fileContent);
+
+            // 2. Load the file
+            using (var manager = new YiniManager())
+            {
+                manager.Load(TestFileName);
+
+                // 3. Get values using the generic Get<T> method
+                var stringResult = manager.Get<string>("AllTypes", "string_val");
+                var intResult = manager.Get<int>("AllTypes", "int_val");
+                var doubleResult = manager.Get<double>("AllTypes", "double_val");
+                var boolResult = manager.Get<bool>("AllTypes", "bool_val");
+                var listResult = manager.Get<List<string>>("AllTypes", "list_val");
+                var mapResult = manager.Get<Dictionary<string, int>>("AllTypes", "map_val");
+                var vectorResult = manager.Get<Vector3>("AllTypes", "vector_val");
+                var colorResult = manager.Get<Color>("AllTypes", "color_val");
+                var defaultResult = manager.Get<string>("AllTypes", "nonexistent", "default_val");
+
+                // 4. Assert correctness
+                Assert.AreEqual("Hello Generic", stringResult);
+                Assert.AreEqual(123, intResult);
+                Assert.AreEqual(45.6, doubleResult);
+                Assert.IsTrue(boolResult);
+
+                Assert.IsNotNull(listResult);
+                CollectionAssert.AreEqual(new List<string> { "one", "two", "three" }, listResult);
+
+                Assert.IsNotNull(mapResult);
+                Assert.AreEqual(2, mapResult.Count);
+                Assert.AreEqual(1, mapResult["a"]);
+                Assert.AreEqual(2, mapResult["b"]);
+
+                Assert.AreEqual(new Vector3(1.1f, 2.2f, 3.3f), vectorResult);
+                Assert.AreEqual(new Color(255, 128, 64, 255), colorResult);
+
+                Assert.AreEqual("default_val", defaultResult);
             }
         }
 

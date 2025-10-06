@@ -18,30 +18,55 @@ using System.Text;
 
 namespace Yini.Lsp
 {
+    /// <summary>
+    /// Holds the state for a single document, including its text content and the YiniManager instance.
+    /// </summary>
+    internal class DocumentState : IDisposable
+    {
+        public YiniManager Manager { get; } = new YiniManager();
+        public string Text { get; set; } = "";
+
+        public void Dispose()
+        {
+            Manager.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// Manages the state for all open documents.
+    /// </summary>
     internal class DocumentManager : IDisposable
     {
-        private readonly ConcurrentDictionary<DocumentUri, YiniManager> _managers = new ConcurrentDictionary<DocumentUri, YiniManager>();
+        private readonly ConcurrentDictionary<DocumentUri, DocumentState> _documents = new ConcurrentDictionary<DocumentUri, DocumentState>();
 
-        public YiniManager GetOrAdd(DocumentUri uri)
+        public DocumentState? Get(DocumentUri uri)
         {
-            return _managers.GetOrAdd(uri, _ => new YiniManager());
+            _documents.TryGetValue(uri, out var state);
+            return state;
+        }
+
+        public DocumentState GetOrAdd(DocumentUri uri, string text)
+        {
+            var state = _documents.GetOrAdd(uri, _ => new DocumentState());
+            state.Text = text;
+            return state;
         }
 
         public void Remove(DocumentUri uri)
         {
-            if (_managers.TryRemove(uri, out var manager))
+            if (_documents.TryRemove(uri, out var state))
             {
-                manager.Dispose();
+                state.Dispose();
             }
         }
 
         public void Dispose()
         {
-            foreach (var manager in _managers.Values)
+            foreach (var state in _documents.Values)
             {
-                manager.Dispose();
+                state.Dispose();
             }
-            _managers.Clear();
+            _documents.Clear();
         }
     }
 
@@ -61,7 +86,7 @@ namespace Yini.Lsp
                     })
                     .WithHandler<TextDocumentHandler>()
                     .WithHandler<HoverHandler>()
-                    .WithHandler<DefinitionHandler>() // Register the new DefinitionHandler
+                    .WithHandler<DefinitionHandler>()
             );
 
             await server.WaitForExit;
@@ -84,9 +109,10 @@ namespace Yini.Lsp
 
         public Task<LocationOrLocationLinks> Handle(DefinitionParams request, CancellationToken cancellationToken)
         {
-            var manager = _documentManager.GetOrAdd(request.TextDocument.Uri);
+            var state = _documentManager.Get(request.TextDocument.Uri);
+            if (state == null) return Task.FromResult(new LocationOrLocationLinks());
 
-            // First, try to find a key definition at the cursor position
+            var manager = state.Manager;
             var symbol = manager.FindKeyAtPos(request.Position.Line + 1, request.Position.Character + 1);
             if (symbol.HasValue)
             {
@@ -94,7 +120,6 @@ namespace Yini.Lsp
                 var location = manager.GetDefinitionLocation(section, key);
                 if (location.HasValue)
                 {
-                    var (filePath, line, column) = location.Value;
                     return Task.FromResult(new LocationOrLocationLinks(new Location
                     {
                         Uri = DocumentUri.FromFileSystemPath(location.Value.FilePath),
@@ -105,10 +130,6 @@ namespace Yini.Lsp
                     }));
                 }
             }
-
-            // TODO: Add logic to find macro and cross-reference usages to provide "go to definition" for them.
-            // This would require enhancing the C-API to return symbol information at a specific position.
-
             return Task.FromResult(new LocationOrLocationLinks());
         }
     }
@@ -116,89 +137,47 @@ namespace Yini.Lsp
     class HoverHandler : IHoverHandler
     {
         private readonly DocumentManager _documentManager;
-        private readonly ILogger<HoverHandler> _logger;
 
-        public HoverHandler(DocumentManager documentManager, ILogger<HoverHandler> logger)
+        public HoverHandler(DocumentManager documentManager)
         {
             _documentManager = documentManager;
-            _logger = logger;
         }
 
         public HoverRegistrationOptions GetRegistrationOptions(HoverCapability capability, ClientCapabilities clientCapabilities)
         {
-            return new HoverRegistrationOptions
-            {
-                DocumentSelector = DocumentSelector.ForLanguage("yini")
-            };
+            return new HoverRegistrationOptions { DocumentSelector = DocumentSelector.ForLanguage("yini") };
         }
 
         private string StringifyValue(YiniValue value)
         {
             switch (value.Type)
             {
-                case YiniValueType.Double:
-                    return value.AsDouble().ToString();
-                case YiniValueType.Bool:
-                    return value.AsBool().ToString().ToLower();
-                case YiniValueType.String:
-                    return $"\"{value.AsString()}\"";
+                case YiniValueType.Double: return value.AsDouble().ToString();
+                case YiniValueType.Bool: return value.AsBool().ToString().ToLower();
+                case YiniValueType.String: return $"\"{value.AsString()}\"";
                 case YiniValueType.Array:
-                {
                     var items = new List<string>();
-                    for (int i = 0; i < value.ArraySize; i++)
-                    {
-                        using (var element = value.GetArrayElement(i))
-                        {
-                            items.Add(StringifyValue(element));
-                        }
-                    }
+                    for (int i = 0; i < value.ArraySize; i++) { using (var e = value.GetArrayElement(i)) items.Add(StringifyValue(e)); }
                     return $"[{string.Join(", ", items)}]";
-                }
                 case YiniValueType.Map:
-                {
                     var mapPairs = value.AsMap();
-                    try
-                    {
+                    try {
                         var map = mapPairs.ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
-                        var keys = map.Keys.ToHashSet();
-
-                        if (keys.SetEquals(new[] { "r", "g", "b", "a" }))
-                        {
-                            return $"Color(R: {map["r"].AsDouble()}, G: {map["g"].AsDouble()}, B: {map["b"].AsDouble()}, A: {map["a"].AsDouble()})";
-                        }
-                        if (keys.SetEquals(new[] { "x", "y", "z", "w" }))
-                        {
-                            return $"Vec4(X: {map["x"].AsDouble()}, Y: {map["y"].AsDouble()}, Z: {map["z"].AsDouble()}, W: {map["w"].AsDouble()})";
-                        }
-                        if (keys.SetEquals(new[] { "x", "y", "z" }))
-                        {
-                            return $"Vec3(X: {map["x"].AsDouble()}, Y: {map["y"].AsDouble()}, Z: {map["z"].AsDouble()})";
-                        }
-                        if (keys.SetEquals(new[] { "x", "y" }))
-                        {
-                            return $"Vec2(X: {map["x"].AsDouble()}, Y: {map["y"].AsDouble()})";
-                        }
-
                         var pairStrings = map.Select(kvp => $"\"{kvp.Key}\": {StringifyValue(kvp.Value)}");
                         return $"{{{string.Join(", ", pairStrings)}}}";
-                    }
-                    finally
-                    {
-                        foreach(var kvp in mapPairs) { kvp.Value.Dispose(); }
-                    }
-                }
+                    } finally { foreach(var kvp in mapPairs) kvp.Value.Dispose(); }
                 case YiniValueType.Dyna:
-                    using(var innerValue = value.AsDynaValue()) {
-                        return $"Dyna({StringifyValue(innerValue)})";
-                    }
-                default:
-                    return "null";
+                    using(var inner = value.AsDynaValue()) return $"Dyna({StringifyValue(inner)})";
+                default: return "null";
             }
         }
 
         public Task<Hover?> Handle(HoverParams request, CancellationToken cancellationToken)
         {
-            var manager = _documentManager.GetOrAdd(request.TextDocument.Uri);
+            var state = _documentManager.Get(request.TextDocument.Uri);
+            if (state == null) return Task.FromResult<Hover?>(null);
+
+            var manager = state.Manager;
             var result = manager.FindKeyAtPos(request.Position.Line + 1, request.Position.Character + 1);
 
             if (result.HasValue)
@@ -210,34 +189,29 @@ namespace Yini.Lsp
                 {
                     var sb = new StringBuilder();
                     sb.AppendLine($"**{section}.{key}**");
+
+                    var schemaKeyInfo = manager.GetSchemaKeysForSection(section).FirstOrDefault(k => k.Name == key);
+                    if (schemaKeyInfo != null)
+                        sb.AppendLine($"**Schema:** `{schemaKeyInfo.TypeName}`" + (schemaKeyInfo.IsRequired ? " (required)" : ""));
+
                     sb.AppendLine("---");
 
-                    string formattedValue = StringifyValue(yiniValue);
-
                     var displayType = yiniValue.Type;
-                    if(displayType == YiniValueType.Dyna) {
-                        using(var inner = yiniValue.AsDynaValue()) {
-                            sb.AppendLine($"*(dynamic: {inner.Type.ToString().ToLower()})*");
-                        }
+                    if (displayType == YiniValueType.Dyna) {
+                        using (var inner = yiniValue.AsDynaValue()) sb.AppendLine($"**Value:** *(dynamic: {inner.Type.ToString().ToLower()})*");
                     } else {
-                        sb.AppendLine($"*({displayType.ToString().ToLower()})*");
+                        sb.AppendLine($"**Value:** *({displayType.ToString().ToLower()})*");
                     }
 
                     sb.AppendLine("```yini");
-                    sb.AppendLine(formattedValue);
+                    sb.AppendLine(StringifyValue(yiniValue));
                     sb.AppendLine("```");
 
-                    return Task.FromResult<Hover?>(new Hover
-                    {
-                        Contents = new MarkedStringsOrMarkupContent(new MarkupContent
-                        {
-                            Kind = MarkupKind.Markdown,
-                            Value = sb.ToString()
-                        })
+                    return Task.FromResult<Hover?>(new Hover {
+                        Contents = new MarkedStringsOrMarkupContent(new MarkupContent { Kind = MarkupKind.Markdown, Value = sb.ToString() })
                     });
                 }
             }
-
             return Task.FromResult<Hover?>(null);
         }
     }
@@ -257,41 +231,34 @@ namespace Yini.Lsp
 
         public TextDocumentSyncKind Change => TextDocumentSyncKind.Full;
 
-        private void ValidateAndPublishDiagnostics(DocumentUri uri, string text)
+        private void ValidateAndPublishDiagnostics(DocumentUri uri, DocumentState state)
         {
-            var yiniManager = _documentManager.GetOrAdd(uri);
             try
             {
-                yiniManager.LoadFromString(text, uri.ToString());
-                var validationErrors = yiniManager.Validate();
-                var diagnostics = validationErrors.Select(err => new Diagnostic {
+                state.Manager.LoadFromString(state.Text, uri.ToString());
+                var diagnostics = new List<Diagnostic>();
+
+                var validationErrors = state.Manager.Validate();
+                diagnostics.AddRange(validationErrors.Select(err => new Diagnostic {
                     Message = err,
                     Severity = DiagnosticSeverity.Warning,
-                    Range = new OmniSharp.Extensions.LanguageServer.Protocol.Models.Range(0,0,0,0)
-                }).ToList();
+                    Range = new OmniSharp.Extensions.LanguageServer.Protocol.Models.Range(0,0,0,0) // TODO: Get range from error
+                }));
 
-                _router.TextDocument.PublishDiagnostics(new PublishDiagnosticsParams
-                {
-                    Uri = uri,
-                    Diagnostics = new Container<Diagnostic>(diagnostics)
-                });
+                _router.TextDocument.PublishDiagnostics(new PublishDiagnosticsParams { Uri = uri, Diagnostics = new Container<Diagnostic>(diagnostics) });
             }
             catch (YiniException ex)
             {
-                var diagnostic = new Diagnostic
-                {
-                    Message = ex.Message,
-                    Severity = DiagnosticSeverity.Error,
-                    Range = new OmniSharp.Extensions.LanguageServer.Protocol.Models.Range(
-                        new Position(ex.Line > 0 ? ex.Line - 1 : 0, ex.Column > 0 ? ex.Column - 1 : 0),
-                        new Position(ex.Line > 0 ? ex.Line - 1 : 0, ex.Column > 0 ? ex.Column + 10 : 10)
-                    )
-                };
-
-                _router.TextDocument.PublishDiagnostics(new PublishDiagnosticsParams
-                {
+                _router.TextDocument.PublishDiagnostics(new PublishDiagnosticsParams {
                     Uri = uri,
-                    Diagnostics = new Container<Diagnostic>(diagnostic)
+                    Diagnostics = new Container<Diagnostic>(new Diagnostic {
+                        Message = ex.Message,
+                        Severity = DiagnosticSeverity.Error,
+                        Range = new OmniSharp.Extensions.LanguageServer.Protocol.Models.Range(
+                            new Position(ex.Line > 0 ? ex.Line - 1 : 0, ex.Column > 0 ? ex.Column - 1 : 0),
+                            new Position(ex.Line > 0 ? ex.Line - 1 : 0, ex.Column > 0 ? ex.Column + 5 : 5)
+                        )
+                    })
                 });
             }
             catch (Exception ex)
@@ -302,97 +269,132 @@ namespace Yini.Lsp
 
         public Task<Unit> Handle(DidChangeTextDocumentParams request, CancellationToken cancellationToken)
         {
-            ValidateAndPublishDiagnostics(request.TextDocument.Uri, request.ContentChanges.First().Text);
+            var state = _documentManager.GetOrAdd(request.TextDocument.Uri, request.ContentChanges.First().Text);
+            ValidateAndPublishDiagnostics(request.TextDocument.Uri, state);
             return Unit.Task;
         }
 
         public Task<Unit> Handle(DidOpenTextDocumentParams request, CancellationToken cancellationToken)
         {
-            ValidateAndPublishDiagnostics(request.TextDocument.Uri, request.TextDocument.Text);
+            var state = _documentManager.GetOrAdd(request.TextDocument.Uri, request.TextDocument.Text);
+            ValidateAndPublishDiagnostics(request.TextDocument.Uri, state);
             return Unit.Task;
         }
 
         public Task<Unit> Handle(DidCloseTextDocumentParams request, CancellationToken cancellationToken)
         {
             _documentManager.Remove(request.TextDocument.Uri);
-            _router.TextDocument.PublishDiagnostics(new PublishDiagnosticsParams
-            {
-                Uri = request.TextDocument.Uri,
-                Diagnostics = new Container<Diagnostic>()
-            });
+            _router.TextDocument.PublishDiagnostics(new PublishDiagnosticsParams { Uri = request.TextDocument.Uri, Diagnostics = new Container<Diagnostic>() });
             return Unit.Task;
         }
 
-        public Task<Unit> Handle(DidSaveTextDocumentParams request, CancellationToken cancellationToken)
-        {
-            return Unit.Task;
-        }
-
-        public TextDocumentAttributes GetTextDocumentAttributes(DocumentUri uri)
-        {
-            return new TextDocumentAttributes(uri, "yini");
-        }
+        public Task<Unit> Handle(DidSaveTextDocumentParams request, CancellationToken cancellationToken) => Unit.Task;
+        public TextDocumentAttributes GetTextDocumentAttributes(DocumentUri uri) => new TextDocumentAttributes(uri, "yini");
 
         public CompletionRegistrationOptions GetRegistrationOptions(CompletionCapability capability, ClientCapabilities clientCapabilities)
         {
-            return new CompletionRegistrationOptions
-            {
+            return new CompletionRegistrationOptions {
                 DocumentSelector = DocumentSelector.ForLanguage("yini"),
-                TriggerCharacters = new Container<string>("@")
+                TriggerCharacters = new Container<string>("@", " ", "=")
             };
         }
 
         public Task<CompletionList> Handle(CompletionParams request, CancellationToken cancellationToken)
         {
+            var state = _documentManager.Get(request.TextDocument.Uri);
+            if (state == null) return Task.FromResult(new CompletionList());
+
+            var items = new List<CompletionItem>();
+            var yiniManager = state.Manager;
+
+            // Macro completion
             if (request.Context?.TriggerCharacter == "@")
             {
-                var yiniManager = _documentManager.GetOrAdd(request.TextDocument.Uri);
-                var macroNames = yiniManager.GetMacroNames();
-                var items = macroNames.Select(name => new CompletionItem
-                {
-                    Label = name,
-                    Kind = CompletionItemKind.Variable,
-                    InsertText = name
-                }).ToArray();
-
-                return Task.FromResult(new CompletionList(items));
+                items.AddRange(yiniManager.GetMacroNames().Select(name => new CompletionItem {
+                    Label = name, Kind = CompletionItemKind.Variable, InsertText = name
+                }));
             }
 
-            return Task.FromResult(new CompletionList());
+            // Schema-based key completion
+            var currentSection = GetCurrentSection(state.Text, request.Position.Line);
+            if (currentSection != null)
+            {
+                var schemaKeys = yiniManager.GetSchemaKeysForSection(currentSection);
+                if (schemaKeys.Any())
+                {
+                    var existingKeys = GetExistingKeys(state.Text, currentSection);
+                    var newKeys = schemaKeys.Where(sk => !existingKeys.Contains(sk.Name));
+                    items.AddRange(newKeys.Select(k => new CompletionItem {
+                        Label = k.Name,
+                        Kind = CompletionItemKind.Property,
+                        Detail = $"{k.TypeName}{(k.IsRequired ? " (required)" : "")}",
+                        InsertText = $"{k.Name} = ",
+                        Documentation = new MarkupContent { Kind = MarkupKind.Markdown, Value = $"Type: `{k.TypeName}`\n\nRequired: `{k.IsRequired}`" }
+                    }));
+                }
+            }
+            return Task.FromResult(new CompletionList(items));
+        }
+
+        private string? GetCurrentSection(string text, int line)
+        {
+            var lines = text.Split('\n');
+            for (int i = line; i >= 0 && i < lines.Length; i--)
+            {
+                var trimmedLine = lines[i].Trim();
+                if (trimmedLine.StartsWith("[") && trimmedLine.EndsWith("]"))
+                {
+                    var sectionName = trimmedLine.Substring(1, trimmedLine.Length - 2).Trim();
+                    var colonPos = sectionName.IndexOf(':');
+                    if (colonPos != -1) sectionName = sectionName.Substring(0, colonPos).Trim();
+                    return sectionName;
+                }
+            }
+            return null;
+        }
+
+        private HashSet<string> GetExistingKeys(string text, string sectionName)
+        {
+            var keys = new HashSet<string>();
+            var lines = text.Split('\n');
+            bool inSection = false;
+            foreach (var line in lines)
+            {
+                var trimmedLine = line.Trim();
+                if (trimmedLine.StartsWith("[") && trimmedLine.EndsWith("]"))
+                {
+                    var currentSection = trimmedLine.Substring(1, trimmedLine.Length - 2).Trim();
+                    var colonPos = currentSection.IndexOf(':');
+                    if (colonPos != -1) currentSection = currentSection.Substring(0, colonPos).Trim();
+                    inSection = (currentSection == sectionName);
+                }
+                else if (inSection)
+                {
+                    var eqPos = trimmedLine.IndexOf('=');
+                    if (eqPos > 0) keys.Add(trimmedLine.Substring(0, eqPos).Trim());
+                }
+            }
+            return keys;
         }
 
         TextDocumentChangeRegistrationOptions IRegistration<TextDocumentChangeRegistrationOptions, SynchronizationCapability>.GetRegistrationOptions(SynchronizationCapability capability, ClientCapabilities clientCapabilities)
         {
-             return new TextDocumentChangeRegistrationOptions()
-            {
-                DocumentSelector = DocumentSelector.ForLanguage("yini"),
-                SyncKind = Change
-            };
+             return new TextDocumentChangeRegistrationOptions() { DocumentSelector = DocumentSelector.ForLanguage("yini"), SyncKind = Change };
         }
 
         TextDocumentOpenRegistrationOptions IRegistration<TextDocumentOpenRegistrationOptions, SynchronizationCapability>.GetRegistrationOptions(SynchronizationCapability capability, ClientCapabilities clientCapabilities)
         {
-            return new TextDocumentOpenRegistrationOptions()
-            {
-                DocumentSelector = DocumentSelector.ForLanguage("yini")
-            };
+            return new TextDocumentOpenRegistrationOptions() { DocumentSelector = DocumentSelector.ForLanguage("yini") };
         }
 
         TextDocumentCloseRegistrationOptions IRegistration<TextDocumentCloseRegistrationOptions, SynchronizationCapability>.GetRegistrationOptions(SynchronizationCapability capability, ClientCapabilities clientCapabilities)
         {
-            return new TextDocumentCloseRegistrationOptions()
-            {
-                DocumentSelector = DocumentSelector.ForLanguage("yini")
-            };
+            return new TextDocumentCloseRegistrationOptions() { DocumentSelector = DocumentSelector.ForLanguage("yini") };
         }
 
         TextDocumentSaveRegistrationOptions IRegistration<TextDocumentSaveRegistrationOptions, SynchronizationCapability>.GetRegistrationOptions(SynchronizationCapability capability, ClientCapabilities clientCapabilities)
         {
-            return new TextDocumentSaveRegistrationOptions()
-            {
-                DocumentSelector = DocumentSelector.ForLanguage("yini"),
-                IncludeText = true
-            };
+            return new TextDocumentSaveRegistrationOptions() { DocumentSelector = DocumentSelector.ForLanguage("yini"), IncludeText = true };
         }
     }
 }

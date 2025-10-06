@@ -385,4 +385,35 @@ void YiniManager::merge_asts(std::vector<std::unique_ptr<Stmt>>& base_ast,
         }
     }
 }
+std::vector<std::string> YiniManager::get_schema_section_names() const {
+    std::vector<std::string> names;
+    if (!m_schema) {
+        return names;
+    }
+
+    for (const auto& section : m_schema->sections) {
+        names.push_back(section->name.lexeme);
+    }
+    return names;
+}
+
+std::vector<const KeyValue*> YiniManager::get_schema_keys_for_section(std::string_view section_name) const {
+    std::vector<const KeyValue*> keys;
+    if (!m_schema) {
+        return keys;
+    }
+
+    for (const auto& section : m_schema->sections) {
+        if (section->name.lexeme == section_name) {
+            for (const auto& stmt : section->statements) {
+                if (const auto* kv = dynamic_cast<const KeyValue*>(stmt.get())) {
+                    keys.push_back(kv);
+                }
+            }
+            break; // Found the section, no need to continue
+        }
+    }
+    return keys;
+}
+
 }  // namespace YINI

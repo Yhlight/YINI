@@ -304,6 +304,82 @@ YINI_API int yini_manager_get_validation_error(Yini_ManagerHandle manager, int i
     return safe_string_copy(out_buffer, buffer_size, error_message);
 }
 
+// --- Schema Functions ---
+YINI_API int yini_manager_get_schema_section_count(Yini_ManagerHandle manager) {
+    auto* mgr = as_manager(manager);
+    if (!mgr || !mgr->get_schema()) {
+        return -1;
+    }
+    return static_cast<int>(mgr->get_schema_section_names().size());
+}
+
+YINI_API int yini_manager_get_schema_section_name_at(Yini_ManagerHandle manager, int index, char* out_buffer,
+                                                     int buffer_size) {
+    auto* mgr = as_manager(manager);
+    if (!mgr || !mgr->get_schema() || index < 0) {
+        return -1;
+    }
+    auto names = mgr->get_schema_section_names();
+    if (static_cast<size_t>(index) >= names.size()) {
+        return -1;
+    }
+    return safe_string_copy(out_buffer, buffer_size, names[index]);
+}
+
+YINI_API int yini_manager_get_schema_key_count(Yini_ManagerHandle manager, const char* section_name) {
+    auto* mgr = as_manager(manager);
+    if (!mgr || !mgr->get_schema() || !section_name) {
+        return -1;
+    }
+    auto keys = mgr->get_schema_keys_for_section(section_name);
+    return static_cast<int>(keys.size());
+}
+
+YINI_API int yini_manager_get_schema_key_details_at(Yini_ManagerHandle manager, const char* section_name, int index,
+                                                    char* out_key_name, int* key_name_size, char* out_type_name,
+                                                    int* type_name_size, bool* out_is_required) {
+    auto* mgr = as_manager(manager);
+    if (!mgr || !mgr->get_schema() || !section_name || index < 0 || !key_name_size || !type_name_size ||
+        !out_is_required) {
+        return 0;
+    }
+
+    auto keys = mgr->get_schema_keys_for_section(section_name);
+    if (static_cast<size_t>(index) >= keys.size()) {
+        return 0;
+    }
+
+    const auto* key_node = keys[index];
+    const std::string& key_name = key_node->key.lexeme;
+
+    // The "type" in the schema is stored in the value part of the KeyValue node.
+    // It's a Literal expression holding a string.
+    std::string type_name_str;
+    bool is_required = false;
+    if (auto* literal = dynamic_cast<YINI::Literal*>(key_node->value.get())) {
+        if (auto* str_val = std::get_if<std::string>(&literal->value.m_value)) {
+            type_name_str = *str_val;
+            if (!type_name_str.empty() && type_name_str.back() == '!') {
+                is_required = true;
+                type_name_str.pop_back();
+            }
+        }
+    }
+
+    *key_name_size = static_cast<int>(key_name.length() + 1);
+    *type_name_size = static_cast<int>(type_name_str.length() + 1);
+    *out_is_required = is_required;
+
+    if (out_key_name != nullptr) {
+        safe_string_copy(out_key_name, *key_name_size, key_name);
+    }
+    if (out_type_name != nullptr) {
+        safe_string_copy(out_type_name, *type_name_size, type_name_str);
+    }
+
+    return 1;
+}
+
 // --- Value Handle Functions ---
 YINI_API void yini_value_destroy(Yini_ValueHandle handle) { delete as_value(handle); }
 

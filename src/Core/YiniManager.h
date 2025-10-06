@@ -106,6 +106,19 @@ public:
     const Schema* get_schema() const;
 
     /**
+     * @brief Gets a list of all section names defined in the schema.
+     * @return A vector of strings, where each string is a section name.
+     */
+    std::vector<std::string> get_schema_section_names() const;
+
+    /**
+     * @brief Gets a list of all key definitions for a given section within the schema.
+     * @param section_name The name of the section to query.
+     * @return A vector of KeyValue pointers representing the schema keys, or an empty vector if the section is not in the schema.
+     */
+    std::vector<const KeyValue*> get_schema_keys_for_section(std::string_view section_name) const;
+
+    /**
      * @brief A vector of validation errors from the last validation run.
      * This is public for the C-API to access.
      */

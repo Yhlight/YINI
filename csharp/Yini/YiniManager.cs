@@ -10,6 +10,19 @@ using System.Numerics;
 namespace Yini
 {
     /// <summary>
+    /// Holds information about a key defined in a YINI schema.
+    /// </summary>
+    public class SchemaKeyInfo
+    {
+        /// <summary> The name of the key. </summary>
+        public string Name { get; internal set; } = "";
+        /// <summary> The expected type of the key (e.g., "string", "integer"). </summary>
+        public string TypeName { get; internal set; } = "";
+        /// <summary> Whether the key is required to be present. </summary>
+        public bool IsRequired { get; internal set; }
+    }
+
+    /// <summary>
     /// Represents an error that occurs during YINI operations.
     /// </summary>
     public class YiniException : Exception
@@ -458,6 +471,19 @@ namespace Yini
         [LibraryImport(LibName, EntryPoint = "yini_manager_get_definition_location")]
         [return: MarshalAs(UnmanagedType.I1)]
         internal static partial bool YiniManager_GetDefinitionLocation(IntPtr manager, [MarshalAs(UnmanagedType.LPStr)] string? sectionName, [MarshalAs(UnmanagedType.LPStr)] string symbolName, byte* outFilePath, ref int filePathSize, out int outLine, out int outColumn);
+
+        // Schema Functions
+        [LibraryImport(LibName, EntryPoint = "yini_manager_get_schema_section_count")]
+        internal static partial int YiniManager_GetSchemaSectionCount(IntPtr manager);
+
+        [LibraryImport(LibName, EntryPoint = "yini_manager_get_schema_section_name_at")]
+        internal static partial int YiniManager_GetSchemaSectionNameAt(IntPtr manager, int index, byte* outBuffer, int bufferSize);
+
+        [LibraryImport(LibName, EntryPoint = "yini_manager_get_schema_key_count")]
+        internal static partial int YiniManager_GetSchemaKeyCount(IntPtr manager, [MarshalAs(UnmanagedType.LPStr)] string sectionName);
+
+        [LibraryImport(LibName, EntryPoint = "yini_manager_get_schema_key_details_at")]
+        internal static partial int YiniManager_GetSchemaKeyDetailsAt(IntPtr manager, [MarshalAs(UnmanagedType.LPStr)] string sectionName, int index, byte* outKeyName, ref int keyNameSize, byte* outTypeName, ref int typeNameSize, [MarshalAs(UnmanagedType.I1)] out bool outIsRequired);
         #endregion
 
         /// <summary>
@@ -613,6 +639,42 @@ namespace Yini
                 }
             }
             return names;
+        }
+
+        /// <summary>
+        /// Gets a value converted to a specified type for a given section and key.
+        /// This is the recommended method for retrieving values.
+        /// </summary>
+        /// <typeparam name="T">The type to convert the value to.</typeparam>
+        /// <param name="section">The section name.</param>
+        /// <param name="key">The key name.</param>
+        /// <param name="defaultValue">The value to return if the key is not found or conversion fails.</param>
+        /// <returns>The converted value or the default value.</returns>
+        public T? Get<T>(string section, string key, T? defaultValue = default)
+        {
+            using (var yiniValue = GetValue(section, key))
+            {
+                if (yiniValue == null)
+                {
+                    return defaultValue;
+                }
+
+                try
+                {
+                    object? convertedValue = ConvertYiniValue(yiniValue, typeof(T));
+                    if (convertedValue is T result)
+                    {
+                        return result;
+                    }
+                }
+                catch (Exception ex) when (ex is InvalidCastException || ex is FormatException)
+                {
+                    // Conversion failed, fall through to return default value.
+                    // This is useful if, for example, a string value cannot be parsed into a Guid.
+                }
+
+                return defaultValue;
+            }
         }
 
         // --- Convenience methods for primitive types ---
@@ -1210,6 +1272,97 @@ namespace Yini
                 }
             }
         }
+
+        #region Schema
+        /// <summary>
+        /// Gets a list of all section names defined in the loaded schema.
+        /// </summary>
+        /// <returns>A list of section names, or an empty list if no schema is loaded.</returns>
+        public unsafe List<string> GetSchemaSectionNames()
+        {
+            var names = new List<string>();
+            int count = YiniManager_GetSchemaSectionCount(_managerPtr);
+            if (count <= 0) return names;
+
+            for (int i = 0; i < count; i++)
+            {
+                int nameSize = YiniManager_GetSchemaSectionNameAt(_managerPtr, i, null, 0);
+                if (nameSize > 0)
+                {
+                    byte[]? rentedBuffer = null;
+                    try
+                    {
+                        rentedBuffer = ArrayPool<byte>.Shared.Rent(nameSize);
+                        fixed (byte* buffer = rentedBuffer)
+                        {
+                            YiniManager_GetSchemaSectionNameAt(_managerPtr, i, buffer, nameSize);
+                            names.Add(Encoding.UTF8.GetString(buffer, nameSize - 1));
+                        }
+                    }
+                    finally
+                    {
+                        if (rentedBuffer != null)
+                        {
+                            ArrayPool<byte>.Shared.Return(rentedBuffer);
+                        }
+                    }
+                }
+            }
+            return names;
+        }
+
+        /// <summary>
+        /// Gets a list of all key definitions for a given section within the loaded schema.
+        /// </summary>
+        /// <param name="sectionName">The name of the section to query.</param>
+        /// <returns>A list of <see cref="SchemaKeyInfo"/> objects, or an empty list if the section is not found in the schema.</returns>
+        public unsafe List<SchemaKeyInfo> GetSchemaKeysForSection(string sectionName)
+        {
+            var keys = new List<SchemaKeyInfo>();
+            int count = YiniManager_GetSchemaKeyCount(_managerPtr, sectionName);
+            if (count <= 0) return keys;
+
+            for (int i = 0; i < count; i++)
+            {
+                int keyNameSize = 0;
+                int typeNameSize = 0;
+
+                // First call to get buffer sizes
+                YiniManager_GetSchemaKeyDetailsAt(_managerPtr, sectionName, i, null, ref keyNameSize, null, ref typeNameSize, out _);
+
+                if (keyNameSize > 0 && typeNameSize > 0)
+                {
+                    byte[]? keyRented = null;
+                    byte[]? typeRented = null;
+                    try
+                    {
+                        keyRented = ArrayPool<byte>.Shared.Rent(keyNameSize);
+                        typeRented = ArrayPool<byte>.Shared.Rent(typeNameSize);
+
+                        fixed (byte* keyBuffer = keyRented)
+                        fixed (byte* typeBuffer = typeRented)
+                        {
+                            if (YiniManager_GetSchemaKeyDetailsAt(_managerPtr, sectionName, i, keyBuffer, ref keyNameSize, typeBuffer, ref typeNameSize, out bool isRequired) == 1)
+                            {
+                                keys.Add(new SchemaKeyInfo
+                                {
+                                    Name = Encoding.UTF8.GetString(keyBuffer, keyNameSize - 1),
+                                    TypeName = Encoding.UTF8.GetString(typeBuffer, typeNameSize - 1),
+                                    IsRequired = isRequired
+                                });
+                            }
+                        }
+                    }
+                    finally
+                    {
+                        if (keyRented != null) ArrayPool<byte>.Shared.Return(keyRented);
+                        if (typeRented != null) ArrayPool<byte>.Shared.Return(typeRented);
+                    }
+                }
+            }
+            return keys;
+        }
+        #endregion
 
         /// <summary>
         /// Validates the loaded YINI data against its defined schema.
