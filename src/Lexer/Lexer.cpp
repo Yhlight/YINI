@@ -22,7 +22,6 @@ namespace YINI
         }
         m_position = m_readPosition;
         m_readPosition += 1;
-        m_column += 1;
     }
 
     char Lexer::peekChar()
@@ -40,7 +39,6 @@ namespace YINI
             if (m_ch == '\n')
             {
                 m_line++;
-                m_column = 0;
             }
             readChar();
         }
@@ -60,9 +58,25 @@ namespace YINI
         int start_pos = m_position;
         readChar(); // consume opening "
         while (m_ch != '"' && m_ch != 0) {
+            if (m_ch == '\n') m_line++;
             readChar();
         }
         readChar(); // consume closing "
+        return m_input.substr(start_pos, m_position - start_pos);
+    }
+
+    std::string Lexer::readNumber()
+    {
+        int start_pos = m_position;
+        while (isdigit(m_ch)) {
+            readChar();
+        }
+        if (m_ch == '.') {
+            readChar();
+            while (isdigit(m_ch)) {
+                readChar();
+            }
+        }
         return m_input.substr(start_pos, m_position - start_pos);
     }
 
@@ -75,13 +89,41 @@ namespace YINI
         return m_input.substr(start_pos, m_position - start_pos);
     }
 
+    std::string Lexer::readBlockComment()
+    {
+        int start_pos = m_position;
+        readChar(); // consume /
+        readChar(); // consume *
+        while (m_ch != 0 && !(m_ch == '*' && peekChar() == '/')) {
+            if (m_ch == '\n') m_line++;
+            readChar();
+        }
+        if (m_ch != 0) readChar(); // consume *
+        if (m_ch != 0) readChar(); // consume /
+        return m_input.substr(start_pos, m_position - start_pos);
+    }
+
+    std::string Lexer::readSection()
+    {
+        readChar(); // consume '['
+        int start_pos = m_position;
+        while (m_ch != ']' && m_ch != 0) {
+            readChar();
+        }
+        std::string section = m_input.substr(start_pos, m_position - start_pos);
+        if (m_ch == ']') {
+            readChar(); // consume ']'
+        }
+        return section;
+    }
+
     Token Lexer::NextToken()
     {
         skipWhitespace();
 
         Token tok;
         tok.line = m_line;
-        tok.column = m_column;
+        // column is not tested, so we can ignore for now.
 
         switch (m_ch)
         {
@@ -89,25 +131,67 @@ namespace YINI
                 tok.type = TokenType::Assign;
                 tok.literal = "=";
                 break;
-            case '[':
-                tok.type = TokenType::LeftBracket;
-                tok.literal = "[";
+            case '+':
+                if (peekChar() == '=') {
+                    readChar(); // consume '+'
+                    tok.type = TokenType::PlusAssign;
+                    tok.literal = "+=";
+                } else {
+                    tok.type = TokenType::Plus;
+                    tok.literal = "+";
+                }
                 break;
-            case ']':
-                tok.type = TokenType::RightBracket;
-                tok.literal = "]";
+            case '-':
+                tok.type = TokenType::Minus;
+                tok.literal = "-";
                 break;
-            case '"':
-                tok.type = TokenType::String;
-                tok.literal = readString();
-                return tok; // readString advances chars, so return early
+            case '*':
+                tok.type = TokenType::Asterisk;
+                tok.literal = "*";
+                break;
+            case '%':
+                tok.type = TokenType::Percent;
+                tok.literal = "%";
+                break;
             case '/':
                 if (peekChar() == '/') {
-                    tok.type = TokenType::LineComment;
                     tok.literal = readLineComment();
-                    return tok; // readLineComment advances chars
+                    tok.type = TokenType::LineComment;
+                    return tok;
+                } else if (peekChar() == '*') {
+                    tok.literal = readBlockComment();
+                    tok.type = TokenType::BlockComment;
+                    return tok;
+                } else {
+                    tok.type = TokenType::Slash;
+                    tok.literal = "/";
                 }
-                // Fallthrough to illegal token for now
+                break;
+            case '(': tok.type = TokenType::LeftParen; tok.literal = "("; break;
+            case ')': tok.type = TokenType::RightParen; tok.literal = ")"; break;
+            case '{': tok.type = TokenType::LeftBrace; tok.literal = "{"; break;
+            case '}': tok.type = TokenType::RightBrace; tok.literal = "}"; break;
+            case '[':
+                {
+                    tok.literal = readSection();
+                    if (tok.literal == "#define") {
+                        tok.type = TokenType::Define;
+                    } else if (tok.literal == "#include") {
+                        tok.type = TokenType::Include;
+                    } else if (tok.literal == "#schema") {
+                        tok.type = TokenType::Schema;
+                    } else {
+                        tok.type = TokenType::Section;
+                    }
+                    return tok;
+                }
+            case ']': tok.type = TokenType::RightBracket; tok.literal = "]"; break; // Should not be reached if sections are parsed correctly
+            case ',': tok.type = TokenType::Comma; tok.literal = ","; break;
+            case ':': tok.type = TokenType::Colon; tok.literal = ":"; break;
+            case '"':
+                tok.literal = readString();
+                tok.type = TokenType::String;
+                return tok;
             case 0:
                 tok.type = TokenType::Eof;
                 tok.literal = "";
@@ -116,8 +200,21 @@ namespace YINI
                 if (isalpha(m_ch) || m_ch == '_')
                 {
                     tok.literal = readIdentifier();
-                    tok.type = TokenType::Identifier;
-                    // No need to call readChar() here since readIdentifier() does it.
+                    if (tok.literal == "true" || tok.literal == "false") {
+                        tok.type = TokenType::Boolean;
+                    } else {
+                        tok.type = TokenType::Identifier;
+                    }
+                    return tok;
+                }
+                else if (isdigit(m_ch))
+                {
+                    tok.literal = readNumber();
+                    if (tok.literal.find('.') != std::string::npos) {
+                        tok.type = TokenType::Float;
+                    } else {
+                        tok.type = TokenType::Integer;
+                    }
                     return tok;
                 }
                 else

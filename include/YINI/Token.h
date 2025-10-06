@@ -16,10 +16,17 @@ namespace YINI
         Integer,
         Float,
         String,
+        Boolean,
 
         // Operators
         Assign,         // =
         PlusAssign,     // +=
+        Plus,           // +
+        Minus,          // -
+        Asterisk,       // *
+        Slash,          // /
+        Percent,        // %
+
 
         // Delimiters
         LeftParen,      // (

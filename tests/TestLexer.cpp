@@ -12,9 +12,7 @@ key = "value"
     YINI::Lexer lexer(input);
 
     std::vector<YINI::TokenType> expected_types = {
-        YINI::TokenType::LeftBracket,
-        YINI::TokenType::Identifier,
-        YINI::TokenType::RightBracket,
+        YINI::TokenType::Section,
         YINI::TokenType::LineComment,
         YINI::TokenType::Identifier,
         YINI::TokenType::Assign,
@@ -23,9 +21,7 @@ key = "value"
     };
 
     std::vector<std::string> expected_literals = {
-        "[",
         "Config",
-        "]",
         "// This is a comment",
         "key",
         "=",

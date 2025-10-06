@@ -18,6 +18,9 @@ namespace YINI
         std::string readIdentifier();
         std::string readString();
         std::string readLineComment();
+        std::string readBlockComment();
+        std::string readNumber();
+        std::string readSection();
 
         std::string m_input;
         int m_position;      // current position in input (points to current char)
