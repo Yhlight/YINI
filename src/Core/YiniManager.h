@@ -133,13 +133,36 @@ namespace YINI
         std::string get_key_inline_comment(const std::string& section, const std::string& key) const;
 
         /**
+         * @brief Sets the documentation comment for a specific section.
+         * @param section The name of the section.
+         * @param comment The new comment string.
+         */
+        void set_section_doc_comment(const std::string& section, const std::string& comment);
+
+        /**
+         * @brief Sets the documentation comment for a specific key within a section.
+         * @param section The name of the section.
+         * @param key The name of the key.
+         * @param comment The new comment string.
+         */
+        void set_key_doc_comment(const std::string& section, const std::string& key, const std::string& comment);
+
+        /**
+         * @brief Sets the inline comment for a specific key within a section.
+         * @param section The name of the section.
+         * @param key The name of the key.
+         * @param comment The new comment string.
+         */
+        void set_key_inline_comment(const std::string& section, const std::string& key, const std::string& comment);
+
+        /**
          * @brief A vector of validation errors from the last validation run.
          * This is public for the C-API to access.
          */
         std::vector<ValidationError> m_last_validation_errors;
 
     private:
-        std::vector<std::unique_ptr<Stmt>> load_file(const std::string& filepath, std::set<std::string>& loaded_files);
+        std::vector<std::unique_ptr<Stmt>> load_file_recursive(const std::string& filepath, std::set<std::string>& loaded_files);
         void merge_asts(std::vector<std::unique_ptr<Stmt>>& base_ast, std::vector<std::unique_ptr<Stmt>>& new_ast);
 
         std::string m_filepath;

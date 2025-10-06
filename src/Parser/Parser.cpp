@@ -1,6 +1,7 @@
 #include "Parser.h"
 #include "Core/YiniException.h"
 #include <stdexcept>
+#include <sstream>
 
 namespace YINI
 {
@@ -11,40 +12,54 @@ namespace YINI
         std::vector<std::unique_ptr<Stmt>> statements;
         while (!isAtEnd())
         {
-            consumeComments(); // Consume any comments before a declaration
-            if (isAtEnd()) break; // Consuming comments might lead to EOF
             statements.push_back(declaration());
         }
         return statements;
     }
 
-    void Parser::consumeComments() {
-        if (peek().type == TokenType::COMMENT) {
-             m_doc_comment_buffer = "";
-            while (peek().type == TokenType::COMMENT) {
-                Token comment_token = advance();
-                if (!m_doc_comment_buffer.empty()) {
-                    m_doc_comment_buffer += "\n";
-                }
-                m_doc_comment_buffer += std::get<std::string>(comment_token.literal.m_value);
+    std::string Parser::consumeDocComment()
+    {
+        std::stringstream ss;
+        if (peek().type != TokenType::COMMENT) return "";
+
+        while (peek().type == TokenType::COMMENT)
+        {
+            Token comment = advance();
+            if (ss.rdbuf()->in_avail() > 0) {
+                ss << "\n";
+            }
+            ss << std::get<std::string>(comment.literal.m_value);
+
+            // If the next token is not on a new line, this was the last doc comment.
+            if (peek().line == comment.line) {
+                break;
             }
         }
+        return ss.str();
     }
 
     std::unique_ptr<Stmt> Parser::declaration()
     {
-        if (check(TokenType::LEFT_BRACKET) && m_tokens[m_current + 1].type == TokenType::IDENTIFIER) {
-            if (m_tokens[m_current + 1].lexeme == "#define") {
-                return defineSection();
+        std::string doc_comment = consumeDocComment();
+
+        if (check(TokenType::LEFT_BRACKET)) {
+             if (m_tokens.size() > m_current + 1 && m_tokens[m_current + 1].type == TokenType::IDENTIFIER) {
+                const std::string& next_lexeme = m_tokens[m_current + 1].lexeme;
+                if (next_lexeme == "#define") return defineSection();
+                if (next_lexeme == "#include") return includeSection();
+                if (next_lexeme == "#schema") return schemaSection();
             }
-            if (m_tokens[m_current + 1].lexeme == "#include") {
-                return includeSection();
-            }
-            if (m_tokens[m_current + 1].lexeme == "#schema") {
-                return schemaSection();
-            }
+            auto section_node = section();
+            section_node->doc_comment = doc_comment;
+            return section_node;
         }
-        return section();
+
+        // This handles top-level statements that are not in a section
+        auto stmt = statement();
+        if(auto* kv = dynamic_cast<KeyValue*>(stmt.get())) {
+            kv->doc_comment = doc_comment;
+        }
+        return stmt;
     }
 
     std::unique_ptr<Stmt> Parser::includeSection()
@@ -54,17 +69,15 @@ namespace YINI
         consume(TokenType::RIGHT_BRACKET, "Expect ']' after #include.");
 
         std::vector<std::unique_ptr<Expr>> files;
-        while (match({TokenType::PLUS_EQUAL}))
+        while (!check(TokenType::LEFT_BRACKET) && !isAtEnd())
         {
-            files.push_back(expression());
+            if (match({TokenType::PLUS_EQUAL})) {
+                files.push_back(expression());
+            } else {
+                const Token& token = peek();
+                throw ParsingError("Only '+=' statements are allowed inside an [#include] block.", token.line, token.column, token.filepath);
+            }
         }
-
-        if (!check(TokenType::LEFT_BRACKET) && !isAtEnd())
-        {
-            const Token& token = peek();
-            throw ParsingError("Only '+=' statements are allowed inside an [#include] block.", token.line, token.column, token.filepath);
-        }
-
         return std::make_unique<Include>(std::move(files));
     }
 
@@ -79,7 +92,6 @@ namespace YINI
         {
             values.push_back(keyValue());
         }
-
         return std::make_unique<Define>(std::move(values));
     }
 
@@ -90,7 +102,7 @@ namespace YINI
         consume(TokenType::RIGHT_BRACKET, "Expect ']' after #schema.");
 
         std::vector<std::unique_ptr<Section>> sections;
-        while (!isAtEnd() && peek().type == TokenType::LEFT_BRACKET)
+        while (!isAtEnd() && check(TokenType::LEFT_BRACKET))
         {
             if (m_tokens.size() > m_current + 1 && m_tokens[m_current + 1].type == TokenType::IDENTIFIER && m_tokens[m_current + 1].lexeme == "#end_schema") {
                 break;
@@ -123,29 +135,43 @@ namespace YINI
         std::vector<std::unique_ptr<Stmt>> statements;
         while (!check(TokenType::LEFT_BRACKET) && !isAtEnd())
         {
-            statements.push_back(statement());
+            auto stmt = statement();
+            if (stmt) {
+                statements.push_back(std::move(stmt));
+            } else {
+                break;
+            }
         }
 
-        auto section_node = std::make_unique<Section>(name, std::move(parents), std::move(statements));
-        section_node->doc_comment = m_doc_comment_buffer;
-        m_doc_comment_buffer.clear();
-        return section_node;
+        return std::make_unique<Section>(name, std::move(parents), std::move(statements));
     }
 
     std::unique_ptr<Stmt> Parser::statement()
     {
-        consumeComments();
-        if (check(TokenType::IDENTIFIER) && m_tokens.size() > m_current + 1 && m_tokens[m_current + 1].type == TokenType::PLUS_EQUAL)
-        {
-            return registration();
+        std::string doc_comment = consumeDocComment();
+
+        if (check(TokenType::IDENTIFIER)) {
+             if (m_tokens.size() > m_current + 1 && m_tokens[m_current + 1].type == TokenType::PLUS_EQUAL) {
+                auto reg = registration();
+                // TODO: Add comment support to Register nodes
+                return reg;
+            }
+            auto kv = keyValue();
+            kv->doc_comment = doc_comment;
+            return kv;
         }
-        if (peek().type == TokenType::PLUS_EQUAL)
+
+        if (match({TokenType::PLUS_EQUAL}))
         {
-            consume(TokenType::PLUS_EQUAL, "Expect '+=' for registration.");
             std::unique_ptr<Expr> value = expression();
             return std::make_unique<Register>(Token{}, std::move(value));
         }
-        return keyValue();
+
+        if(!doc_comment.empty()) {
+            m_current--;
+        }
+
+        return nullptr;
     }
 
     std::unique_ptr<Stmt> Parser::registration()
@@ -165,9 +191,6 @@ namespace YINI
         auto kv = std::make_unique<KeyValue>(key, std::move(value));
         kv->value_line = valueStartToken.line;
         kv->value_column = valueStartToken.column;
-
-        kv->doc_comment = m_doc_comment_buffer;
-        m_doc_comment_buffer.clear();
 
         if (peek().type == TokenType::COMMENT && peek().line == previous().line) {
             Token comment_token = advance();
@@ -340,7 +363,6 @@ namespace YINI
 
     bool Parser::match(const std::vector<TokenType>& types)
     {
-        consumeComments();
         for (TokenType type : types)
         {
             if (check(type))
@@ -354,7 +376,6 @@ namespace YINI
 
     Token Parser::consume(TokenType type, const std::string& message)
     {
-        consumeComments();
         if (check(type)) return advance();
         const Token& token = peek();
         throw ParsingError(message, token.line, token.column, token.filepath);

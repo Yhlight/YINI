@@ -117,7 +117,10 @@ namespace YINI
             const std::string& section_name = section_pair.first;
             for (const auto& key_pair : section_pair.second) {
                 // This will trigger the recursive, on-demand evaluation for each key
-                visit(XRef(Token{TokenType::IDENTIFIER, section_name}, Token{TokenType::IDENTIFIER, key_pair.first}));
+                visit(XRef(
+                    Token{TokenType::IDENTIFIER, section_name, YiniValue{}, 0, 0, ""},
+                    Token{TokenType::IDENTIFIER, key_pair.first, YiniValue{}, 0, 0, ""}
+                ));
             }
         }
     }
@@ -171,11 +174,11 @@ namespace YINI
     void Interpreter::execute(const Stmt& stmt) { stmt.accept(*this); }
     YiniValue Interpreter::evaluate(const Expr& expr) { return expr.accept(*this); }
 
-    void Interpreter::visit(const KeyValue& stmt) {}
-    void Interpreter::visit(const Section& stmt) {}
-    void Interpreter::visit(const Register& stmt) {}
-    void Interpreter::visit(const Include& stmt) {}
-    void Interpreter::visit(const Schema& stmt) {}
+    void Interpreter::visit(const KeyValue& /*stmt*/) {}
+    void Interpreter::visit(const Section& /*stmt*/) {}
+    void Interpreter::visit(const Register& /*stmt*/) {}
+    void Interpreter::visit(const Include& /*stmt*/) {}
+    void Interpreter::visit(const Schema& /*stmt*/) {}
 
     void Interpreter::visit(const Define& stmt)
     {

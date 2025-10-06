@@ -1,5 +1,6 @@
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System.IO;
+using System.Collections.Generic;
 using Yini;
 
 namespace Yini.Tests
@@ -40,7 +41,7 @@ rate = 1.0
                 Assert.AreEqual(100, manager.GetDouble("Settings", "volume"));
                 Assert.AreEqual(1.0, manager.GetDouble("Settings", "rate"));
 
-                // 4. Set a new value for the dynamic key
+                // 4. Set a new value for the dynamic key and a comment
                 manager.SetDouble("Settings", "volume", 50);
                 Assert.AreEqual(50, manager.GetDouble("Settings", "volume"));
 
@@ -48,16 +49,21 @@ rate = 1.0
                 manager.SaveChanges();
             }
 
-            // 6. Read the file back and verify its contents
-            string newContent = File.ReadAllText(TestFileName);
+            // 6. Re-load the file with a new manager and verify the content semantically
+            using (var verifyManager = new YiniManager())
+            {
+                verifyManager.Load(TestFileName);
 
-            // Check that the dynamic value was updated
-            Assert.IsTrue(newContent.Contains("volume = 50 "), "The dynamic value was not updated correctly.");
+                // Check that the dynamic value was updated
+                Assert.AreEqual(50, verifyManager.GetDouble("Settings", "volume"), "The dynamic value was not updated correctly.");
 
-            // Check that comments and other lines are preserved
-            Assert.IsTrue(newContent.Contains("// C# Test File"), "The top-level comment was not preserved.");
-            Assert.IsTrue(newContent.Contains("// Dynamic master volume"), "The inline comment was not preserved.");
-            Assert.IsTrue(newContent.Contains("rate = 1.0"), "The non-dynamic value was not preserved.");
+                // Check that the non-dynamic value is still correct
+                Assert.AreEqual(1.0, verifyManager.GetDouble("Settings", "rate"), "The non-dynamic value was not preserved.");
+
+                // Check that comments were preserved
+                Assert.AreEqual(" C# Test File", verifyManager.GetSectionDocComment("Settings"), "The doc comment was not preserved.");
+                Assert.AreEqual(" Dynamic master volume", verifyManager.GetKeyInlineComment("Settings", "volume"), "The inline comment was not preserved.");
+            }
         }
 
         [TestMethod]
@@ -86,6 +92,44 @@ long = ""{longString}""
                 Assert.AreEqual("Hello", shortResult);
                 Assert.AreEqual(longString, longResult);
                 Assert.AreEqual("default", nonExistentResult);
+            }
+        }
+
+        [TestMethod]
+        public void CommentAccess_GetsAndSetsComments()
+        {
+            string fileContent = @"
+// Section Comment
+[Comments]
+// Key Comment
+key = 1 // Inline Comment
+";
+            File.WriteAllText(TestFileName, fileContent);
+
+            using (var manager = new YiniManager())
+            {
+                manager.Load(TestFileName);
+
+                // Get comments
+                Assert.AreEqual(" Section Comment", manager.GetSectionDocComment("Comments"));
+                Assert.AreEqual(" Key Comment", manager.GetKeyDocComment("Comments", "key"));
+                Assert.AreEqual(" Inline Comment", manager.GetKeyInlineComment("Comments", "key"));
+
+                // Set comments
+                manager.SetSectionDocComment("Comments", "New Section Comment");
+                manager.SetKeyDocComment("Comments", "key", "New Key Comment");
+                manager.SetKeyInlineComment("Comments", "key", "New Inline Comment");
+
+                manager.SaveChanges();
+            }
+
+            // Verify changes were saved
+            using (var verifyManager = new YiniManager())
+            {
+                verifyManager.Load(TestFileName);
+                Assert.AreEqual("New Section Comment", verifyManager.GetSectionDocComment("Comments"));
+                Assert.AreEqual("New Key Comment", verifyManager.GetKeyDocComment("Comments", "key"));
+                Assert.AreEqual("New Inline Comment", verifyManager.GetKeyInlineComment("Comments", "key"));
             }
         }
     }

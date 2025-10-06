@@ -169,6 +169,32 @@ YINI_API int yini_manager_get_key_doc_comment(Yini_ManagerHandle manager, const 
  */
 YINI_API int yini_manager_get_key_inline_comment(Yini_ManagerHandle manager, const char* section_name, const char* key_name, char* out_buffer, int buffer_size);
 
+/**
+ * @brief Sets the documentation comment for a specific section.
+ * @param manager The manager handle.
+ * @param section_name The name of the section.
+ * @param comment The new comment string.
+ */
+YINI_API void yini_manager_set_section_doc_comment(Yini_ManagerHandle manager, const char* section_name, const char* comment);
+
+/**
+ * @brief Sets the documentation comment for a specific key.
+ * @param manager The manager handle.
+ * @param section_name The name of the section.
+ * @param key_name The name of the key.
+ * @param comment The new comment string.
+ */
+YINI_API void yini_manager_set_key_doc_comment(Yini_ManagerHandle manager, const char* section_name, const char* key_name, const char* comment);
+
+/**
+ * @brief Sets the inline comment for a specific key.
+ * @param manager The manager handle.
+ * @param section_name The name of the section.
+ * @param key_name The name of the key.
+ * @param comment The new comment string.
+ */
+YINI_API void yini_manager_set_key_inline_comment(Yini_ManagerHandle manager, const char* section_name, const char* key_name, const char* comment);
+
 //================================================================================
 // Iteration Functions
 //================================================================================

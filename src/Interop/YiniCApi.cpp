@@ -138,6 +138,21 @@ YINI_API int yini_manager_get_key_inline_comment(Yini_ManagerHandle manager, con
     return safe_string_copy(out_buffer, buffer_size, comment);
 }
 
+YINI_API void yini_manager_set_section_doc_comment(Yini_ManagerHandle manager, const char* section_name, const char* comment) {
+    if (!manager || !section_name || !comment) return;
+    as_manager(manager)->set_section_doc_comment(section_name, comment);
+}
+
+YINI_API void yini_manager_set_key_doc_comment(Yini_ManagerHandle manager, const char* section_name, const char* key_name, const char* comment) {
+    if (!manager || !section_name || !key_name || !comment) return;
+    as_manager(manager)->set_key_doc_comment(section_name, key_name, comment);
+}
+
+YINI_API void yini_manager_set_key_inline_comment(Yini_ManagerHandle manager, const char* section_name, const char* key_name, const char* comment) {
+    if (!manager || !section_name || !key_name || !comment) return;
+    as_manager(manager)->set_key_inline_comment(section_name, key_name, comment);
+}
+
 // --- Iteration Functions ---
 YINI_API int yini_manager_get_section_count(Yini_ManagerHandle manager) {
     if (!manager) return 0;

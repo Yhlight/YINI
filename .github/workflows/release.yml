@@ -6,8 +6,34 @@ on:
       - 'v*.*.*' # Trigger on tags like v1.0.0
 
 jobs:
-  build-and-publish:
-    name: Build, Test, and Publish
+  test:
+    name: Test on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Run Build and Test Script
+        shell: bash
+        run: python3 build.py test
+
+  publish:
+    name: Package and Publish Release
+    needs: test # This job will only run if the 'test' job completes successfully
     runs-on: ubuntu-latest
     permissions:
       contents: write # Required to create a GitHub Release
@@ -26,8 +52,8 @@ jobs:
         with:
           python-version: '3.x'
 
-      - name: Run Build and Test Script
-        run: python3 build.py test
+      - name: Build the project (no tests)
+        run: python3 build.py build
 
       - name: Create NuGet Package
         run: dotnet pack ./csharp/Yini/Yini.csproj -c Release -o ./dist

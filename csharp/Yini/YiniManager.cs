@@ -372,6 +372,25 @@ namespace Yini
 
         [DllImport(LibName, EntryPoint = "yini_manager_get_key_name_at")]
         internal static extern int YiniManager_GetKeyNameAt(IntPtr manager, string sectionName, int index, StringBuilder? outBuffer, int bufferSize);
+
+        // Metadata
+        [DllImport(LibName, EntryPoint = "yini_manager_get_section_doc_comment")]
+        internal static extern int YiniManager_GetSectionDocComment(IntPtr manager, string sectionName, StringBuilder? outBuffer, int bufferSize);
+
+        [DllImport(LibName, EntryPoint = "yini_manager_get_key_doc_comment")]
+        internal static extern int YiniManager_GetKeyDocComment(IntPtr manager, string sectionName, string keyName, StringBuilder? outBuffer, int bufferSize);
+
+        [DllImport(LibName, EntryPoint = "yini_manager_get_key_inline_comment")]
+        internal static extern int YiniManager_GetKeyInlineComment(IntPtr manager, string sectionName, string keyName, StringBuilder? outBuffer, int bufferSize);
+
+        [DllImport(LibName, EntryPoint = "yini_manager_set_section_doc_comment")]
+        internal static extern void YiniManager_SetSectionDocComment(IntPtr manager, string sectionName, string comment);
+
+        [DllImport(LibName, EntryPoint = "yini_manager_set_key_doc_comment")]
+        internal static extern void YiniManager_SetKeyDocComment(IntPtr manager, string sectionName, string keyName, string comment);
+
+        [DllImport(LibName, EntryPoint = "yini_manager_set_key_inline_comment")]
+        internal static extern void YiniManager_SetKeyInlineComment(IntPtr manager, string sectionName, string keyName, string comment);
         #endregion
 
         /// <summary>
@@ -779,6 +798,85 @@ namespace Yini
                 YiniManager_GetKeyNameAt(_managerPtr, sectionName, i, buffer, buffer.Capacity);
                 yield return buffer.ToString();
             }
+        }
+
+        /// <summary>
+        /// Gets the documentation comment for a specific section.
+        /// </summary>
+        /// <param name="sectionName">The name of the section.</param>
+        /// <returns>The documentation comment, or an empty string if not found.</returns>
+        public string GetSectionDocComment(string sectionName)
+        {
+            int requiredSize = YiniManager_GetSectionDocComment(_managerPtr, sectionName, null, 0);
+            if (requiredSize <= 0) return "";
+
+            var buffer = new StringBuilder(requiredSize);
+            YiniManager_GetSectionDocComment(_managerPtr, sectionName, buffer, buffer.Capacity);
+            return buffer.ToString();
+        }
+
+        /// <summary>
+        /// Gets the documentation comment for a specific key in a section.
+        /// </summary>
+        /// <param name="sectionName">The name of the section.</param>
+        /// <param name="keyName">The name of the key.</param>
+        /// <returns>The documentation comment, or an empty string if not found.</returns>
+        public string GetKeyDocComment(string sectionName, string keyName)
+        {
+            int requiredSize = YiniManager_GetKeyDocComment(_managerPtr, sectionName, keyName, null, 0);
+            if (requiredSize <= 0) return "";
+
+            var buffer = new StringBuilder(requiredSize);
+            YiniManager_GetKeyDocComment(_managerPtr, sectionName, keyName, buffer, buffer.Capacity);
+            return buffer.ToString();
+        }
+
+        /// <summary>
+        /// Gets the inline comment for a specific key in a section.
+        /// </summary>
+        /// <param name="sectionName">The name of the section.</param>
+        /// <param name="keyName">The name of the key.</param>
+        /// <returns>The inline comment, or an empty string if not found.</returns>
+        public string GetKeyInlineComment(string sectionName, string keyName)
+        {
+            int requiredSize = YiniManager_GetKeyInlineComment(_managerPtr, sectionName, keyName, null, 0);
+            if (requiredSize <= 0) return "";
+
+            var buffer = new StringBuilder(requiredSize);
+            YiniManager_GetKeyInlineComment(_managerPtr, sectionName, keyName, buffer, buffer.Capacity);
+            return buffer.ToString();
+        }
+
+        /// <summary>
+        /// Sets the documentation comment for a specific section.
+        /// </summary>
+        /// <param name="sectionName">The name of the section.</param>
+        /// <param name="comment">The new comment. An empty string will remove the comment.</param>
+        public void SetSectionDocComment(string sectionName, string comment)
+        {
+            YiniManager_SetSectionDocComment(_managerPtr, sectionName, comment);
+        }
+
+        /// <summary>
+        /// Sets the documentation comment for a specific key in a section.
+        /// </summary>
+        /// <param name="sectionName">The name of the section.</param>
+        /// <param name="keyName">The name of the key.</param>
+        /// <param name="comment">The new comment. An empty string will remove the comment.</param>
+        public void SetKeyDocComment(string sectionName, string keyName, string comment)
+        {
+            YiniManager_SetKeyDocComment(_managerPtr, sectionName, keyName, comment);
+        }
+
+        /// <summary>
+        /// Sets the inline comment for a specific key in a section.
+        /// </summary>
+        /// <param name="sectionName">The name of the section.</param>
+        /// <param name="keyName">The name of the key.</param>
+        /// <param name="comment">The new comment. An empty string will remove the comment.</param>
+        public void SetKeyInlineComment(string sectionName, string keyName, string comment)
+        {
+            YiniManager_SetKeyInlineComment(_managerPtr, sectionName, keyName, comment);
         }
 
         #region IDisposable Implementation
