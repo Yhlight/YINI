@@ -50,9 +50,25 @@ endif()
 # Enable testing
 enable_testing()
 
+# Option to build benchmarks
+option(YINI_ENABLE_BENCHMARKS "Enable benchmarks" OFF)
+if(YINI_ENABLE_BENCHMARKS)
+  message(STATUS "Benchmarks enabled.")
+  include(FetchContent)
+  FetchContent_Declare(
+    GoogleBenchmark
+    GIT_REPOSITORY https://github.com/google/benchmark.git
+    GIT_TAG        v1.8.0
+  )
+  FetchContent_MakeAvailable(GoogleBenchmark)
+endif()
+
 # Add subdirectories
 add_subdirectory(src)
 add_subdirectory(tests)
+if(YINI_ENABLE_BENCHMARKS)
+  add_subdirectory(benchmarks)
+endif()
 
 # Install rules
 include(GNUInstallDirs)
