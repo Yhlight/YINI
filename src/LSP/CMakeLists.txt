@@ -19,6 +19,8 @@ add_executable(yini_lsp
     ReferenceProvider.cpp
     RenameProvider.cpp
     FormattingProvider.cpp
+    SemanticTokensProvider.cpp
+    WorkspaceSymbolProvider.cpp
 )
 
 target_include_directories(yini_lsp PRIVATE

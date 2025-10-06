@@ -10,6 +10,8 @@
 #include "LSP/ReferenceProvider.h"
 #include "LSP/RenameProvider.h"
 #include "LSP/FormattingProvider.h"
+#include "LSP/SemanticTokensProvider.h"
+#include "LSP/WorkspaceSymbolProvider.h"
 #include <memory>
 
 namespace yini::lsp
@@ -33,6 +35,8 @@ private:
     std::unique_ptr<ReferenceProvider> referenceProvider;
     std::unique_ptr<RenameProvider> renameProvider;
     std::unique_ptr<FormattingProvider> formattingProvider;
+    std::unique_ptr<SemanticTokensProvider> semanticTokensProvider;
+    std::unique_ptr<WorkspaceSymbolProvider> workspaceSymbolProvider;
     bool initialized;
     
     // LSP method handlers
@@ -56,6 +60,9 @@ private:
     json handleTextDocumentRename(const json& params);
     json handleTextDocumentFormatting(const json& params);
     json handleTextDocumentRangeFormatting(const json& params);
+    json handleTextDocumentSemanticTokensFull(const json& params);
+    json handleTextDocumentSemanticTokensRange(const json& params);
+    json handleWorkspaceSymbol(const json& params);
     
     // Helper methods
     void publishDiagnostics(const std::string& uri);

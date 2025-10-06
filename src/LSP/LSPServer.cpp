@@ -10,6 +10,11 @@ LSPServer::LSPServer()
     , hoverProvider(std::make_unique<HoverProvider>())
     , definitionProvider(std::make_unique<DefinitionProvider>())
     , symbolProvider(std::make_unique<SymbolProvider>())
+    , referenceProvider(std::make_unique<ReferenceProvider>())
+    , renameProvider(std::make_unique<RenameProvider>())
+    , formattingProvider(std::make_unique<FormattingProvider>())
+    , semanticTokensProvider(std::make_unique<SemanticTokensProvider>())
+    , workspaceSymbolProvider(std::make_unique<WorkspaceSymbolProvider>())
     , initialized(false)
 {
     // Register LSP method handlers
@@ -71,11 +76,23 @@ json LSPServer::handleInitialize(const json& /*params*/)
             }},
             {"hoverProvider", true},
             {"definitionProvider", true},
-            {"documentSymbolProvider", true}
+            {"documentSymbolProvider", true},
+            {"referencesProvider", true},
+            {"renameProvider", {
+                {"prepareProvider", true}
+            }},
+            {"documentFormattingProvider", true},
+            {"documentRangeFormattingProvider", true},
+            {"semanticTokensProvider", {
+                {"legend", semanticTokensProvider->getLegend()},
+                {"range", true},
+                {"full", true}
+            }},
+            {"workspaceSymbolProvider", true}
         }},
         {"serverInfo", {
             {"name", "YINI Language Server"},
-            {"version", "1.5.0"}
+            {"version", "2.0.0"}
         }}
     };
 }
@@ -108,6 +125,9 @@ json LSPServer::handleTextDocumentDidOpen(const json& params)
     documentManager->openDocument(uri, text, version);
     publishDiagnostics(uri);
     
+    // Add to workspace
+    workspaceSymbolProvider->addFile(uri, text);
+    
     return json::object();
 }
 
@@ -123,6 +143,9 @@ json LSPServer::handleTextDocumentDidChange(const json& params)
         std::string text = contentChanges[0]["text"];
         documentManager->updateDocument(uri, text, version);
         publishDiagnostics(uri);
+        
+        // Update workspace
+        workspaceSymbolProvider->updateFile(uri, text);
     }
     
     return json::object();
@@ -134,6 +157,9 @@ json LSPServer::handleTextDocumentDidClose(const json& params)
     std::string uri = textDocument["uri"];
     
     documentManager->closeDocument(uri);
+    
+    // Remove from workspace
+    workspaceSymbolProvider->removeFile(uri);
     
     return json::object();
 }
@@ -334,6 +360,49 @@ json LSPServer::handleTextDocumentRangeFormatting(const json& params)
     formattingOptions.insertFinalNewline = options.value("insertFinalNewline", false);
     
     return formattingProvider->formatRange(doc->content, formatRange, formattingOptions);
+}
+
+json LSPServer::handleTextDocumentSemanticTokensFull(const json& params)
+{
+    auto textDocument = params["textDocument"];
+    std::string uri = textDocument["uri"];
+    
+    auto doc = documentManager->getDocument(uri);
+    if (!doc)
+    {
+        return json::object();
+    }
+    
+    auto parser = documentManager->getParser(uri);
+    
+    return semanticTokensProvider->getSemanticTokens(parser, doc->content);
+}
+
+json LSPServer::handleTextDocumentSemanticTokensRange(const json& params)
+{
+    auto textDocument = params["textDocument"];
+    std::string uri = textDocument["uri"];
+    
+    auto range = params["range"];
+    int startLine = range["start"]["line"];
+    int endLine = range["end"]["line"];
+    
+    auto doc = documentManager->getDocument(uri);
+    if (!doc)
+    {
+        return json::object();
+    }
+    
+    auto parser = documentManager->getParser(uri);
+    
+    return semanticTokensProvider->getSemanticTokensRange(parser, doc->content, startLine, endLine);
+}
+
+json LSPServer::handleWorkspaceSymbol(const json& params)
+{
+    std::string query = params.value("query", "");
+    
+    return workspaceSymbolProvider->searchSymbols(query);
 }
 
 void LSPServer::publishDiagnostics(const std::string& uri)
