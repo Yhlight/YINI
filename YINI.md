@@ -107,10 +107,66 @@ UIName = @name
 
 按照顺序，合并同名的配置块(不存在的添加，存在的覆写)，[#define]块也遵守这样的行为  
 
+### 配置块验证
+你可以使用[#schema]对配置块进行验证  
+验证块通常会在生成YMETA文件之前进行  
+确保你的文件之中包含此配置块  
+
+验证条件有下述形式  
+是否必须  
+必须(!)，可选(?)  
+
+键值类型  
+int, float, bool, string, array, list, map, color, coord, path  
+
+空值行为  
+忽略(~)，赋予值(=)，抛出错误(e)  
+
+使用方式如下，`!, int, =1280`  
+不写其中的某一个选项则是忽略此类型的验证  
+
+```YINI
+[#schema]
+[Visual]
+width = !, int, =1280
+height = ?, int  // 不进行空值验证
+fps = ?, int, =60
+isOld = !, bool, e
+
+[#schema]
+[Audio]
+volume = !, float, =1.0
+music = ?, bool, =true
+```
+
+### 环境变量
+YINI支持环境变量，你可以使用${name}引用环境变量  
+
+```YINI
+[Visual]
+width = ${WIDTH}
+height = ${HEIGHT}
+```
+
+### 横截面引用
+YINI支持横截面引用，你可以使用@{name}引用横截面变量  
+
+```YINI
+[Config]
+width = 1920
+height = 1080
+
+[Visual]
+width = @{Config.width}
+height = @{Config.height}
+```
+
 ### YMETA
 在程序加载YINI文件之后，会为每一个YINI文件生成一个YMETA文件  
 YMETA缓存着YINI文件中所有的信息，避免重复加载  
 YMETA使用.ymeta，.YMETA作为后缀  
+
+对于具有动态值DYNA()的YMETA文件，它们会在游戏中持续存在，其他则不会  
 
 ### CLI
 虽然YINI是一门简单的编程语言，但也具有相关的CLI工具  
