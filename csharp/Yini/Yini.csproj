@@ -12,7 +12,7 @@
     <Authors>YINI-Project</Authors>
     <Description>A modern, feature-rich configuration file format based on the INI syntax, designed for game development. This package provides the .NET bindings for the YINI library.</Description>
     <PackageTags>ini, yini, configuration, gamedev, cpp, csharp</PackageTags>
-    <RepositoryUrl>https://github.com/your-repo/YINI</RepositoryUrl>
+    <RepositoryUrl>https://github.com/YINI-Project/YINI</RepositoryUrl>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>

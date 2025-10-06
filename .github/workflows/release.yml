@@ -51,6 +51,9 @@ jobs:
     name: Package and Publish
     needs: build-native
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # Required to create a release
+      packages: write # Required to publish packages to GitHub Packages
 
     steps:
       - name: Checkout repository
@@ -60,6 +63,9 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
+          source-url: https://nuget.pkg.github.com/${{ github.repository_owner }}
+        env:
+          NUGET_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -117,10 +123,12 @@ jobs:
           vsce package -o ../../artifacts/vsix/yini-vscode-${{ env.VERSION }}.vsix
           cd ../..
 
-      - name: Upload Release Artifacts
-        uses: actions/upload-artifact@v4
+      - name: Publish NuGet package to GitHub Packages
+        run: dotnet nuget push "artifacts/nuget/*.nupkg" --no-symbols --skip-duplicate
+
+      - name: Create GitHub Release and Upload Artifacts
+        uses: softprops/action-gh-release@v1
         with:
-          name: release-packages
-          path: |
+          files: |
             ./artifacts/nuget/*.nupkg
             ./artifacts/vsix/*.vsix
