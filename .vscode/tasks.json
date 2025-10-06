@@ -1,0 +1,87 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Build YINI",
+            "type": "shell",
+            "command": "python3",
+            "args": [
+                "build.py",
+                "build"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": ["$gcc"],
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            }
+        },
+        {
+            "label": "Clean Build",
+            "type": "shell",
+            "command": "python3",
+            "args": [
+                "build.py",
+                "clean"
+            ],
+            "problemMatcher": []
+        },
+        {
+            "label": "Configure",
+            "type": "shell",
+            "command": "python3",
+            "args": [
+                "build.py",
+                "configure"
+            ],
+            "problemMatcher": []
+        },
+        {
+            "label": "Run Tests",
+            "type": "shell",
+            "command": "python3",
+            "args": [
+                "build.py",
+                "test"
+            ],
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            },
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            }
+        },
+        {
+            "label": "Build and Test",
+            "type": "shell",
+            "command": "python3",
+            "args": [
+                "build.py",
+                "all"
+            ],
+            "problemMatcher": ["$gcc"],
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            }
+        },
+        {
+            "label": "Build Release",
+            "type": "shell",
+            "command": "python3",
+            "args": [
+                "build.py",
+                "configure",
+                "--build-type",
+                "Release"
+            ],
+            "problemMatcher": ["$gcc"]
+        }
+    ]
+}

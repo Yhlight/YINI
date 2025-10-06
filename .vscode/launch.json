@@ -1,0 +1,59 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug YINI CLI",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/bin/yini",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "Build YINI",
+            "miDebuggerPath": "/usr/bin/gdb",
+            "logging": {
+                "moduleLoad": false,
+                "trace": false,
+                "engineLogging": false,
+                "programOutput": true,
+                "exceptions": false
+            }
+        },
+        {
+            "name": "Debug Lexer Tests",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/bin/test_lexer",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "preLaunchTask": "Build YINI"
+        },
+        {
+            "name": "Debug Core Tests",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/bin/test_core",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "preLaunchTask": "Build YINI"
+        }
+    ]
+}
