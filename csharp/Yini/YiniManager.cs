@@ -517,6 +517,30 @@ namespace Yini
         }
 
         /// <summary>
+        /// Gets an integer value for a given section and key.
+        /// </summary>
+        /// <param name="section">The section name.</param>
+        /// <param name="key">The key name.</param>
+        /// <param name="defaultValue">The value to return if the key is not found or is not a number.</param>
+        /// <returns>The integer value or the default value.</returns>
+        public int GetInt(string section, string key, int defaultValue = 0)
+        {
+            return (int)GetDouble(section, key, defaultValue);
+        }
+
+        /// <summary>
+        /// Gets a long value for a given section and key.
+        /// </summary>
+        /// <param name="section">The section name.</param>
+        /// <param name="key">The key name.</param>
+        /// <param name="defaultValue">The value to return if the key is not found or is not a number.</param>
+        /// <returns>The long value or the default value.</returns>
+        public long GetLong(string section, string key, long defaultValue = 0L)
+        {
+            return (long)GetDouble(section, key, defaultValue);
+        }
+
+        /// <summary>
         /// Sets a double value for a given section and key.
         /// </summary>
         /// <param name="section">The section name.</param>
@@ -556,6 +580,28 @@ namespace Yini
             {
                 SetValue(section, key, yiniValue);
             }
+        }
+
+        /// <summary>
+        /// Sets an integer value for a given section and key.
+        /// </summary>
+        /// <param name="section">The section name.</param>
+        /// <param name="key">The key name.</param>
+        /// <param name="value">The integer value to set.</param>
+        public void SetInt(string section, string key, int value)
+        {
+            SetDouble(section, key, value);
+        }
+
+        /// <summary>
+        /// Sets a long value for a given section and key.
+        /// </summary>
+        /// <param name="section">The section name.</param>
+        /// <param name="key">The key name.</param>
+        /// <param name="value">The long value to set.</param>
+        public void SetLong(string section, string key, long value)
+        {
+            SetDouble(section, key, value);
         }
 
         /// <summary>

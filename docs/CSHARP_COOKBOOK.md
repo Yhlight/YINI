@@ -54,7 +54,7 @@ using (var yini = new YiniManager())
 
     // Reading strings, integers, and booleans
     string playerName = yini.GetString("Player", "name", "DefaultPlayer");
-    int playerLevel = yini.GetInt("Player", "level", 1); // GetInt is not implemented, but we can use GetDouble
+    int playerLevel = yini.GetInt("Player", "level", 1);
     bool isPro = yini.GetBool("Player", "is_pro", false);
 
     Console.WriteLine($"Player: {playerName}, Level: {playerLevel}, Pro: {isPro}");
@@ -232,7 +232,7 @@ using (var yini = new YiniManager())
 
     // Player takes damage
     int newHealth = 85;
-    yini.SetInt("PlayerState", "health", newHealth); // SetInt is not implemented, use SetDouble
+    yini.SetInt("PlayerState", "health", newHealth);
 
     // This saves the change to config.yini.ymeta
     yini.SaveChanges();

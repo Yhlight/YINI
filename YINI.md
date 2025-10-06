@@ -38,19 +38,15 @@ exp = 2550.75
 
 YINI supports a rich set of built-in data types:
 
-| Type        | Example                                       | Description                               |
-|-------------|-----------------------------------------------|-------------------------------------------|
-| **Integer** | `123`, `-45`                                  | A 64-bit signed integer.                  |
-| **Float**   | `3.14`, `-0.01`, `1.2e-5`                       | A double-precision floating-point number. |
-| **Boolean** | `true`, `false`                               | A boolean value.                          |
-| **String**  | `"Hello"`, `'World'`                          | Text enclosed in double or single quotes. |
-| **Array**   | `[ 1, "two", 3.0, true ]`                     | An ordered, mixed-type list.              |
-| **Set**     | `( 1, 2, 3 )`                                 | An ordered, unique-element collection.    |
-| **Map**     | `{ "key1": "value1", "health": 100 }`         | A collection of key-value pairs.          |
-| **Color**   | `#FFC0CB`, `Color(255, 192, 203)`              | An RGBA color value.                      |
-| **Coord**   | `Coord(1.0, 2.5, -3.0)`                       | A 3D coordinate or vector.                |
-| **Path**    | `Path("/assets/textures/player.png")`         | A file system path.                       |
-| **List**    | `List( "item1", "item2" )`                    | A general-purpose list.                   |
+| Type | Example | Description |
+| :--- | :--- | :--- |
+| **Integer** | `123`, `-45` | A 64-bit signed integer. |
+| **Long** | `9007199254740991` | A 64-bit signed long integer, for larger values. |
+| **Float** | `3.14`, `-0.01`, `1.2e-5` | A double-precision floating-point number. |
+| **Boolean** | `true`, `false` | A boolean value. |
+| **String** | `"Hello"`, `'World'` | Text enclosed in double or single quotes. |
+| **Array** | `[ 1, "two", 3.0, true ]` | An ordered, mixed-type list. |
+| **Map** | `{ "key1": "value1", "health": 100 }` | A collection of key-value pairs. |
 
 ## 3. Advanced Features
 
@@ -198,7 +194,7 @@ Graphics = {
 
 ### 6.2. Validation Rules
 
--   **Types:** `String`, `Integer`, `Float`, `Boolean`, `Array`, `Set`, `Map`, `Color`, `Coord`, `Path`, `List`.
+-   **Types:** `String`, `Integer`, `Long`, `Float`, `Boolean`, `Array`, `Map`.
 -   **Dynamic Types:** You can specify a dynamic type with `Dyna(TypeName)`, e.g., `Dyna(Integer)`.
 -   **Required:** `true` means the key must be present in the section. `false` means it is optional.
 
