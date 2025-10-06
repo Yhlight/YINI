@@ -41,6 +41,7 @@ enum class TokenType
     
     // Delimiters
     COMMA,             // ,
+    DOT,               // .
     LPAREN,            // (
     RPAREN,            // )
     LBRACKET,          // [

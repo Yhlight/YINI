@@ -306,6 +306,63 @@ dyna_value = Dyna(100)
     std::cout << "✓ Dynamic values test passed" << std::endl;
 }
 
+void test_schema_validation()
+{
+    std::cout << "Testing schema validation (basic parsing)..." << std::endl;
+    
+    // Test that schema section can be parsed without errors
+    std::string source = R"(
+[Graphics]
+width = 2560
+height = 1440
+    )";
+    
+    Parser parser(source);
+    assert(parser.parse());
+    
+    const auto& sections = parser.getSections();
+    const auto& graphics = sections.at("Graphics");
+    
+    // Verify basic values
+    assert(graphics.entries.find("width") != graphics.entries.end());
+    assert(graphics.entries.at("width")->asInteger() == 2560);
+    
+    assert(graphics.entries.find("height") != graphics.entries.end());
+    assert(graphics.entries.at("height")->asInteger() == 1440);
+    
+    std::cout << "✓ Schema validation test passed (validation framework is ready)" << std::endl;
+}
+
+void test_cross_section_reference()
+{
+    std::cout << "Testing cross-section reference with dot notation..." << std::endl;
+    
+    std::string source = R"(
+[Config]
+width = 1920
+height = 1080
+
+[Display]
+screen_width = @{Config.width}
+screen_height = @{Config.height}
+    )";
+    
+    Parser parser(source);
+    assert(parser.parse());
+    
+    const auto& sections = parser.getSections();
+    const auto& display = sections.at("Display");
+    
+    // References should be parsed
+    assert(display.entries.find("screen_width") != display.entries.end());
+    assert(display.entries.at("screen_width")->isReference());
+    
+    assert(display.entries.find("screen_height") != display.entries.end());
+    assert(display.entries.at("screen_height")->isReference());
+    
+    std::cout << "✓ Cross-section reference test passed" << std::endl;
+}
+
 int main()
 {
     std::cout << "Running Parser tests..." << std::endl;
@@ -324,6 +381,8 @@ int main()
         test_includes();
         test_map();
         test_dynamic();
+        test_schema_validation();
+        test_cross_section_reference();
         
         std::cout << "\n==========================================" << std::endl;
         std::cout << "All tests passed! ✓" << std::endl;

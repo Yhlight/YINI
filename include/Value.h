@@ -95,6 +95,8 @@ public:
     bool isColor() const { return type == ValueType::COLOR; }
     bool isCoord() const { return type == ValueType::COORD; }
     bool isDynamic() const { return type == ValueType::DYNAMIC; }
+    bool isReference() const { return type == ValueType::REFERENCE; }
+    bool isEnvVar() const { return type == ValueType::ENV_VAR; }
     
     // Value getters
     int64_t asInteger() const;

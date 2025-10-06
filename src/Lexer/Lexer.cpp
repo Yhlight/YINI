@@ -73,6 +73,15 @@ Token Lexer::nextToken()
         case '}': return makeToken(TokenType::RBRACE);
         case ',': return makeToken(TokenType::COMMA);
         case ':': return makeToken(TokenType::COLON);
+        
+        // Handle dot - but only if not part of a number
+        case '.':
+            if (isDigit(peekNext()))
+            {
+                // This is a float starting with .
+                return parseNumber();
+            }
+            return makeToken(TokenType::DOT);
         case '!': return makeToken(TokenType::EXCLAMATION);
         case '?': return makeToken(TokenType::QUESTION);
         case '~': return makeToken(TokenType::TILDE);

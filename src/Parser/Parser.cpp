@@ -376,11 +376,68 @@ bool Parser::parseSchemaSection()
             rule.required = false;
             rule.null_behavior = SchemaRule::NullBehavior::IGNORE;
             
-            // Parse rule components (!, ?, type, default)
-            // This is a simplified version
-            // TODO: Implement full schema parsing
+            // Parse rule components: !, int, =1280
+            // Format: [!|?], [type], [~|=value|e]
             
-            rules[key.getValue<std::string>()] = rule;
+            std::string key_name = key.getValue<std::string>();
+            
+            while (!isAtEnd() && !check(TokenType::NEWLINE) && !check(TokenType::LBRACKET))
+            {
+                Token component = advance();
+                
+                // Check for required/optional marker
+                if (component.type == TokenType::EXCLAMATION)
+                {
+                    rule.required = true;
+                }
+                else if (component.type == TokenType::QUESTION)
+                {
+                    rule.required = false;
+                }
+                // Check for type
+                else if (component.type == TokenType::IDENTIFIER)
+                {
+                    std::string type_str = component.getValue<std::string>();
+                    if (type_str == "int") rule.value_type = ValueType::INTEGER;
+                    else if (type_str == "float") rule.value_type = ValueType::FLOAT;
+                    else if (type_str == "bool") rule.value_type = ValueType::BOOLEAN;
+                    else if (type_str == "string") rule.value_type = ValueType::STRING;
+                    else if (type_str == "array") rule.value_type = ValueType::ARRAY;
+                    else if (type_str == "list") rule.value_type = ValueType::LIST;
+                    else if (type_str == "map") rule.value_type = ValueType::MAP;
+                    else if (type_str == "color") rule.value_type = ValueType::COLOR;
+                    else if (type_str == "coord") rule.value_type = ValueType::COORD;
+                    else if (type_str == "path") rule.value_type = ValueType::PATH;
+                    else if (type_str == "e")
+                    {
+                        // Error on null
+                        rule.null_behavior = SchemaRule::NullBehavior::ERROR;
+                    }
+                }
+                // Check for tilde (ignore null)
+                else if (component.type == TokenType::IDENTIFIER && component.getValue<std::string>() == "~")
+                {
+                    rule.null_behavior = SchemaRule::NullBehavior::IGNORE;
+                }
+                // Check for equals (default value)
+                else if (component.type == TokenType::EQUALS)
+                {
+                    rule.null_behavior = SchemaRule::NullBehavior::DEFAULT;
+                    // Parse default value
+                    auto default_val = parseValue();
+                    if (default_val)
+                    {
+                        rule.default_value = default_val;
+                    }
+                }
+                // Skip commas
+                else if (component.type == TokenType::COMMA)
+                {
+                    continue;
+                }
+            }
+            
+            rules[key_name] = rule;
             
             while (match(TokenType::NEWLINE))
             {
@@ -1074,8 +1131,7 @@ std::shared_ptr<Value> Parser::parseReference()
     }
     else if (match(TokenType::AT_LBRACE))
     {
-        // Cross-section reference: @{section.key}
-        // For now, collect everything until }
+        // Cross-section reference: @{section.key} or @{section.key.subkey}
         std::string ref;
         
         Token ident = advance();
@@ -1086,6 +1142,18 @@ std::shared_ptr<Value> Parser::parseReference()
         }
         
         ref = ident.getValue<std::string>();
+        
+        // Support dot notation for nested access
+        while (match(TokenType::DOT))
+        {
+            Token next = advance();
+            if (next.type != TokenType::IDENTIFIER)
+            {
+                error("Expected identifier after '.' in cross-section reference");
+                return nullptr;
+            }
+            ref += "." + next.getValue<std::string>();
+        }
         
         if (!match(TokenType::RBRACE))
         {
@@ -1162,7 +1230,86 @@ void Parser::resolveInheritance()
 
 bool Parser::validateAgainstSchema()
 {
-    // TODO: Implement schema validation
+    if (schema.empty())
+    {
+        return true; // No schema defined, validation passes
+    }
+    
+    // Validate each section against its schema rules
+    for (const auto& [schema_section, rules] : schema)
+    {
+        auto section_it = sections.find(schema_section);
+        
+        // Check if required section exists
+        if (section_it == sections.end())
+        {
+            // Section doesn't exist, check if any rules are required
+            bool has_required = false;
+            for (const auto& [key, rule] : rules)
+            {
+                if (rule.required)
+                {
+                    has_required = true;
+                    break;
+                }
+            }
+            
+            if (has_required)
+            {
+                error("Schema validation failed: Required section [" + schema_section + "] not found");
+                return false;
+            }
+            continue;
+        }
+        
+        auto& section = section_it->second;
+        
+        // Validate each key in the schema
+        for (const auto& [key, rule] : rules)
+        {
+            auto entry_it = section.entries.find(key);
+            
+            // Check if required key exists
+            if (entry_it == section.entries.end())
+            {
+                if (rule.required)
+                {
+                    error("Schema validation failed: Required key '" + key + "' not found in section [" + schema_section + "]");
+                    return false;
+                }
+                
+                // Apply default value if specified
+                if (rule.null_behavior == SchemaRule::NullBehavior::DEFAULT && rule.default_value)
+                {
+                    section.entries[key] = rule.default_value;
+                }
+                else if (rule.null_behavior == SchemaRule::NullBehavior::ERROR)
+                {
+                    error("Schema validation failed: Key '" + key + "' is null in section [" + schema_section + "]");
+                    return false;
+                }
+                
+                continue;
+            }
+            
+            auto& value = entry_it->second;
+            
+            // Validate value type if specified
+            if (rule.value_type.has_value())
+            {
+                ValueType expected_type = rule.value_type.value();
+                ValueType actual_type = value->getType();
+                
+                if (expected_type != actual_type)
+                {
+                    error("Schema validation failed: Key '" + key + "' in section [" + schema_section + 
+                          "] has wrong type (expected type, got type)");
+                    return false;
+                }
+            }
+        }
+    }
+    
     return true;
 }
 
