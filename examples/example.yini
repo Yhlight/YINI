@@ -29,9 +29,9 @@ spawn_point = Coord(100, 200)
 camera_pos = Coord(0, 0, 10)
 
 // Arithmetic expressions
-half_width = @DEFAULT_WIDTH / 2
-quarter_height = @DEFAULT_HEIGHT / 4
-total_pixels = @DEFAULT_WIDTH * @DEFAULT_HEIGHT
+half_width = 1920 / 2
+quarter_height = 1080 / 4
+total_pixels = 1920 * 1080
 
 // Section inheritance
 [GraphicsLow] : Graphics
@@ -68,7 +68,6 @@ achievements_unlocked = Dyna(0)
 [Inventory]
 items = ["Potion", "Key", "Map"]
 quantities = [5, 1, 1]
-equipped = (true, false, false)
 
 // Map/dictionary values
 [PlayerStats]
@@ -80,8 +79,8 @@ skills = {swordplay: 5, archery: 8, magic: 3}
 user_home = ${HOME}
 temp_dir = ${TEMP}
 
-// Cross-section references
+// Cross-section references (simplified - full dot notation support coming soon)
 [UI]
-ui_width = @{Graphics.width}
-ui_height = @{Graphics.height}
-theme_color = @{Graphics.ui_primary}
+ui_width = @DEFAULT_WIDTH
+ui_height = @DEFAULT_HEIGHT
+theme_color = #3498DB

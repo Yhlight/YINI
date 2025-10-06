@@ -2,6 +2,8 @@
 add_library(yini_parser
     Parser.cpp
     Value.cpp
+    YMETA.cpp
+    YINI_C_API.cpp
 )
 
 target_link_libraries(yini_parser PUBLIC yini_lexer)
