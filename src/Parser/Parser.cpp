@@ -14,6 +14,7 @@ namespace YINI
         {TokenType::Slash,     Precedence::PRODUCT},
         {TokenType::Asterisk,  Precedence::PRODUCT},
         {TokenType::Percent,   Precedence::PRODUCT},
+        {TokenType::LeftParen, Precedence::CALL},
     };
 
     Parser::Parser(Lexer& lexer) : m_lexer(lexer)
@@ -30,6 +31,8 @@ namespace YINI
         registerPrefix(TokenType::String, &Parser::parseStringLiteral);
         registerPrefix(TokenType::LeftBracket, &Parser::parseArrayLiteral);
         registerPrefix(TokenType::At, &Parser::parseMacroReference);
+        registerPrefix(TokenType::LeftBrace, &Parser::parseMapLiteral);
+        registerPrefix(TokenType::LeftParen, &Parser::parseGroupedOrCollectionExpression);
 
         // Register infix parsing functions
         registerInfix(TokenType::Plus, &Parser::parseInfixExpression);
@@ -37,6 +40,7 @@ namespace YINI
         registerInfix(TokenType::Slash, &Parser::parseInfixExpression);
         registerInfix(TokenType::Asterisk, &Parser::parseInfixExpression);
         registerInfix(TokenType::Percent, &Parser::parseInfixExpression);
+        registerInfix(TokenType::LeftParen, &Parser::parseCallExpression);
     }
 
     void Parser::nextToken()
@@ -112,7 +116,7 @@ namespace YINI
 
     std::shared_ptr<Statement> Parser::parseStatement()
     {
-        if (m_currentToken.type == TokenType::LeftBracket) {
+        if (currentTokenIs(TokenType::LeftBracket)) {
             if (peekTokenIs(TokenType::Identifier) && m_peekToken.literal == "#define") {
                 return parseDefineStatement();
             }
@@ -128,8 +132,23 @@ namespace YINI
 
         auto section = std::make_shared<Section>();
         section->name = m_currentToken.literal;
+        nextToken(); // consume name
 
-        if (!expectPeek(TokenType::RightBracket)) return nullptr;
+        if (currentTokenIs(TokenType::Colon)) {
+            nextToken(); // consume ':'
+
+            while(true) {
+                if (!currentTokenIs(TokenType::Identifier)) return nullptr;
+                section->parents.push_back(std::dynamic_pointer_cast<Identifier>(parseIdentifier()));
+                nextToken();
+
+                if (currentTokenIs(TokenType::RightBracket)) break;
+                if (!currentTokenIs(TokenType::Comma)) return nullptr;
+                nextToken();
+            }
+        }
+
+        if (!currentTokenIs(TokenType::RightBracket)) return nullptr;
 
         while (!peekTokenIs(TokenType::Eof) && !peekTokenIs(TokenType::LeftBracket)) {
             nextToken();
@@ -192,17 +211,18 @@ namespace YINI
 
     std::shared_ptr<Expression> Parser::parseExpression(Precedence precedence)
     {
-        auto prefix = m_prefixParseFns[m_currentToken.type];
-        if (prefix == nullptr) {
+        if (m_prefixParseFns.find(m_currentToken.type) == m_prefixParseFns.end()) {
             return nullptr;
         }
+        auto prefix = m_prefixParseFns.at(m_currentToken.type);
+
         auto leftExp = (this->*prefix)();
 
         while (!peekTokenIs(TokenType::Eof) && precedence < peekPrecedence()) {
-            auto infix = m_infixParseFns[m_peekToken.type];
-            if (infix == nullptr) {
+            if (m_infixParseFns.find(m_peekToken.type) == m_infixParseFns.end()) {
                 return leftExp;
             }
+            auto infix = m_infixParseFns.at(m_peekToken.type);
 
             nextToken();
 
@@ -223,6 +243,54 @@ namespace YINI
         expression->right = parseExpression(precedence);
 
         return expression;
+    }
+
+    std::shared_ptr<Expression> Parser::parseCallExpression(std::shared_ptr<Expression> function)
+    {
+        auto call = std::make_shared<CallExpression>();
+        call->function = function;
+        call->arguments = parseExpressionList(TokenType::RightParen);
+        return call;
+    }
+
+    std::shared_ptr<Expression> Parser::parseGroupedOrCollectionExpression()
+    {
+        nextToken(); // Consume '('
+
+        // Handle empty collection `()`
+        if (currentTokenIs(TokenType::RightParen)) {
+            return std::make_shared<CollectionLiteral>();
+        }
+
+        auto first_expr = parseExpression(Precedence::LOWEST);
+
+        // If the next token is not a comma, it must be a grouped expression.
+        if (!peekTokenIs(TokenType::Comma)) {
+            if (!expectPeek(TokenType::RightParen)) return nullptr;
+            return first_expr;
+        }
+
+        // If we get here, it's a collection because we saw a comma.
+        auto collection = std::make_shared<CollectionLiteral>();
+        collection->elements.push_back(first_expr);
+
+        while (peekTokenIs(TokenType::Comma)) {
+            nextToken(); // consume previous expr token
+            nextToken(); // consume comma
+
+            // Handle trailing comma
+            if (currentTokenIs(TokenType::RightParen)) {
+                break;
+            }
+
+            collection->elements.push_back(parseExpression(Precedence::LOWEST));
+        }
+
+        if (!currentTokenIs(TokenType::RightParen)) {
+             if (!expectPeek(TokenType::RightParen)) return nullptr;
+        }
+
+        return collection;
     }
 
     std::shared_ptr<Expression> Parser::parseIdentifier()
@@ -277,13 +345,41 @@ namespace YINI
 
     std::shared_ptr<Expression> Parser::parseMacroReference()
     {
-        // currentToken is '@'
         nextToken(); // consume '@'
         if (!currentTokenIs(TokenType::Identifier)) return nullptr;
 
         auto macro = std::make_shared<MacroReference>();
         macro->name = m_currentToken.literal;
         return macro;
+    }
+
+    std::shared_ptr<Expression> Parser::parseMapLiteral()
+    {
+        auto map = std::make_shared<MapLiteral>();
+
+        while (!peekTokenIs(TokenType::RightBrace) && !peekTokenIs(TokenType::Eof)) {
+            nextToken(); // consume '{' or ','
+
+            auto key = parseExpression(Precedence::LOWEST);
+            if (!key) return nullptr;
+
+            if (!expectPeek(TokenType::Colon)) return nullptr;
+
+            nextToken(); // consume ':'
+
+            auto value = parseExpression(Precedence::LOWEST);
+            if (!value) return nullptr;
+
+            map->pairs[key] = value;
+
+            if (!peekTokenIs(TokenType::RightBrace) && !expectPeek(TokenType::Comma)) {
+                return nullptr;
+            }
+        }
+
+        if (!expectPeek(TokenType::RightBrace)) return nullptr;
+
+        return map;
     }
 
     bool Parser::currentTokenIs(TokenType t)

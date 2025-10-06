@@ -47,6 +47,9 @@ namespace YINI
         std::shared_ptr<Expression> parseStringLiteral();
         std::shared_ptr<Expression> parseArrayLiteral();
         std::shared_ptr<Expression> parseMacroReference();
+        std::shared_ptr<Expression> parseMapLiteral();
+        std::shared_ptr<Expression> parseGroupedOrCollectionExpression();
+        std::shared_ptr<Expression> parseCallExpression(std::shared_ptr<Expression> function);
         std::vector<std::shared_ptr<Expression>> parseExpressionList(TokenType end);
         std::shared_ptr<Expression> parseInfixExpression(std::shared_ptr<Expression> left);
 

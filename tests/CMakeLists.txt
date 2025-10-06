@@ -6,6 +6,8 @@ add_executable(YINITests
     TestParser.cpp
     TestParserExpressions.cpp
     TestParserMacros.cpp
+    TestParserInheritance.cpp
+    TestParserDataStructures.cpp
 )
 
 target_link_libraries(YINITests YINI gtest gtest_main)

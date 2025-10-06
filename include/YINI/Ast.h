@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 #include <memory>
+#include <map>
 
 namespace YINI
 {
@@ -64,6 +65,62 @@ namespace YINI
         }
     };
 
+    // Represents a collection literal, e.g., (1, "two", true)
+    struct CollectionLiteral : public Expression {
+        std::vector<std::shared_ptr<Expression>> elements;
+
+        std::string String() const override {
+            std::string out = "(";
+            for (size_t i = 0; i < elements.size(); ++i) {
+                out += elements[i]->String();
+                if (i < elements.size() - 1) {
+                    out += ", ";
+                }
+            }
+            // Handle trailing comma for single-element collections
+            if (elements.size() == 1) {
+                out += ",";
+            }
+            out += ")";
+            return out;
+        }
+    };
+
+    // Represents a call expression, e.g., Color(255, 192, 203)
+    struct CallExpression : public Expression {
+        std::shared_ptr<Expression> function; // Identifier
+        std::vector<std::shared_ptr<Expression>> arguments;
+
+        std::string String() const override {
+            std::string out = function->String() + "(";
+            for (size_t i = 0; i < arguments.size(); ++i) {
+                out += arguments[i]->String();
+                if (i < arguments.size() - 1) {
+                    out += ", ";
+                }
+            }
+            out += ")";
+            return out;
+        }
+    };
+
+    // Represents a map literal, e.g., {key: "value", key2: 123}
+    struct MapLiteral : public Expression {
+        std::map<std::shared_ptr<Expression>, std::shared_ptr<Expression>> pairs;
+
+        std::string String() const override {
+            std::string out = "{";
+            for (auto it = pairs.begin(); it != pairs.end(); ++it) {
+                out += it->first->String() + ":" + it->second->String();
+                if (std::next(it) != pairs.end()) {
+                    out += ", ";
+                }
+            }
+            out += "}";
+            return out;
+        }
+    };
+
     // Represents an infix operation, e.g., left + right
     struct InfixExpression : public Expression {
         std::shared_ptr<Expression> left;
@@ -88,10 +145,22 @@ namespace YINI
     // Represents a section, e.g., [Config]
     struct Section : public Statement {
         std::string name;
+        std::vector<std::shared_ptr<Identifier>> parents;
         std::vector<std::shared_ptr<KeyValuePair>> pairs;
 
         std::string String() const override {
-            return "[" + name + "]";
+            std::string out = "[" + name;
+            if (!parents.empty()) {
+                out += " : ";
+                for (size_t i = 0; i < parents.size(); ++i) {
+                    out += parents[i]->String();
+                    if (i < parents.size() - 1) {
+                        out += ", ";
+                    }
+                }
+            }
+            out += "]";
+            return out;
         }
     };
 
