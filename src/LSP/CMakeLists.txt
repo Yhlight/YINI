@@ -13,6 +13,9 @@ add_executable(yini_lsp
     LSPServer.cpp
     DocumentManager.cpp
     CompletionProvider.cpp
+    HoverProvider.cpp
+    DefinitionProvider.cpp
+    SymbolProvider.cpp
 )
 
 target_include_directories(yini_lsp PRIVATE

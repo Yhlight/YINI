@@ -7,6 +7,9 @@ namespace yini::lsp
 LSPServer::LSPServer()
     : documentManager(std::make_unique<DocumentManager>())
     , completionProvider(std::make_unique<CompletionProvider>())
+    , hoverProvider(std::make_unique<HoverProvider>())
+    , definitionProvider(std::make_unique<DefinitionProvider>())
+    , symbolProvider(std::make_unique<SymbolProvider>())
     , initialized(false)
 {
     // Register LSP method handlers
@@ -41,6 +44,9 @@ LSPServer::LSPServer()
     
     rpcHandler.registerMethod("textDocument/definition", 
         [this](const json& params) { return handleTextDocumentDefinition(params); });
+    
+    rpcHandler.registerMethod("textDocument/documentSymbol", 
+        [this](const json& params) { return handleTextDocumentDocumentSymbol(params); });
 }
 
 void LSPServer::start()
@@ -64,11 +70,12 @@ json LSPServer::handleInitialize(const json& /*params*/)
                 {"triggerCharacters", json::array({"@", "{", "."})}
             }},
             {"hoverProvider", true},
-            {"definitionProvider", true}
+            {"definitionProvider", true},
+            {"documentSymbolProvider", true}
         }},
         {"serverInfo", {
             {"name", "YINI Language Server"},
-            {"version", "1.3.0"}
+            {"version", "1.4.0"}
         }}
     };
 }
@@ -152,16 +159,62 @@ json LSPServer::handleTextDocumentCompletion(const json& params)
     return completionProvider->getCompletions(parser, doc->content, pos);
 }
 
-json LSPServer::handleTextDocumentHover(const json& /*params*/)
+json LSPServer::handleTextDocumentHover(const json& params)
 {
-    // TODO: Implement hover
-    return nullptr;
+    auto textDocument = params["textDocument"];
+    std::string uri = textDocument["uri"];
+    
+    auto position = params["position"];
+    int line = position["line"];
+    int character = position["character"];
+    
+    auto doc = documentManager->getDocument(uri);
+    if (!doc)
+    {
+        return nullptr;
+    }
+    
+    auto parser = documentManager->getParser(uri);
+    
+    yini::lsp::Position pos{line, character};
+    return hoverProvider->getHover(parser, doc->content, pos);
 }
 
-json LSPServer::handleTextDocumentDefinition(const json& /*params*/)
+json LSPServer::handleTextDocumentDefinition(const json& params)
 {
-    // TODO: Implement definition
-    return nullptr;
+    auto textDocument = params["textDocument"];
+    std::string uri = textDocument["uri"];
+    
+    auto position = params["position"];
+    int line = position["line"];
+    int character = position["character"];
+    
+    auto doc = documentManager->getDocument(uri);
+    if (!doc)
+    {
+        return nullptr;
+    }
+    
+    auto parser = documentManager->getParser(uri);
+    
+    yini::lsp::Position pos{line, character};
+    return definitionProvider->getDefinition(parser, doc->content, uri, pos);
+}
+
+json LSPServer::handleTextDocumentDocumentSymbol(const json& params)
+{
+    auto textDocument = params["textDocument"];
+    std::string uri = textDocument["uri"];
+    
+    auto doc = documentManager->getDocument(uri);
+    if (!doc)
+    {
+        return json::array();
+    }
+    
+    auto parser = documentManager->getParser(uri);
+    
+    return symbolProvider->getDocumentSymbols(parser, doc->content);
 }
 
 void LSPServer::publishDiagnostics(const std::string& uri)

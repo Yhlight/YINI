@@ -2,6 +2,7 @@
 #define YINI_COMPLETION_PROVIDER_H
 
 #include "Parser.h"
+#include "LSP/LSPTypes.h"
 #include <nlohmann/json.hpp>
 #include <vector>
 #include <string>
@@ -10,12 +11,6 @@ namespace yini::lsp
 {
 
 using json = nlohmann::json;
-
-struct Position
-{
-    int line;
-    int character;
-};
 
 class CompletionProvider
 {

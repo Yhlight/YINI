@@ -4,6 +4,9 @@
 #include "LSP/JSONRPCHandler.h"
 #include "LSP/DocumentManager.h"
 #include "LSP/CompletionProvider.h"
+#include "LSP/HoverProvider.h"
+#include "LSP/DefinitionProvider.h"
+#include "LSP/SymbolProvider.h"
 #include <memory>
 
 namespace yini::lsp
@@ -21,6 +24,9 @@ private:
     JSONRPCHandler rpcHandler;
     std::unique_ptr<DocumentManager> documentManager;
     std::unique_ptr<CompletionProvider> completionProvider;
+    std::unique_ptr<HoverProvider> hoverProvider;
+    std::unique_ptr<DefinitionProvider> definitionProvider;
+    std::unique_ptr<SymbolProvider> symbolProvider;
     bool initialized;
     
     // LSP method handlers
@@ -38,6 +44,7 @@ private:
     json handleTextDocumentCompletion(const json& params);
     json handleTextDocumentHover(const json& params);
     json handleTextDocumentDefinition(const json& params);
+    json handleTextDocumentDocumentSymbol(const json& params);
     
     // Helper methods
     void publishDiagnostics(const std::string& uri);
