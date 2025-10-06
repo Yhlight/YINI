@@ -16,6 +16,9 @@ add_executable(yini_lsp
     HoverProvider.cpp
     DefinitionProvider.cpp
     SymbolProvider.cpp
+    ReferenceProvider.cpp
+    RenameProvider.cpp
+    FormattingProvider.cpp
 )
 
 target_include_directories(yini_lsp PRIVATE

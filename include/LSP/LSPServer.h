@@ -7,6 +7,9 @@
 #include "LSP/HoverProvider.h"
 #include "LSP/DefinitionProvider.h"
 #include "LSP/SymbolProvider.h"
+#include "LSP/ReferenceProvider.h"
+#include "LSP/RenameProvider.h"
+#include "LSP/FormattingProvider.h"
 #include <memory>
 
 namespace yini::lsp
@@ -27,6 +30,9 @@ private:
     std::unique_ptr<HoverProvider> hoverProvider;
     std::unique_ptr<DefinitionProvider> definitionProvider;
     std::unique_ptr<SymbolProvider> symbolProvider;
+    std::unique_ptr<ReferenceProvider> referenceProvider;
+    std::unique_ptr<RenameProvider> renameProvider;
+    std::unique_ptr<FormattingProvider> formattingProvider;
     bool initialized;
     
     // LSP method handlers
@@ -45,6 +51,11 @@ private:
     json handleTextDocumentHover(const json& params);
     json handleTextDocumentDefinition(const json& params);
     json handleTextDocumentDocumentSymbol(const json& params);
+    json handleTextDocumentReferences(const json& params);
+    json handleTextDocumentPrepareRename(const json& params);
+    json handleTextDocumentRename(const json& params);
+    json handleTextDocumentFormatting(const json& params);
+    json handleTextDocumentRangeFormatting(const json& params);
     
     // Helper methods
     void publishDiagnostics(const std::string& uri);

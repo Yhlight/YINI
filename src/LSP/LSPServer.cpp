@@ -75,7 +75,7 @@ json LSPServer::handleInitialize(const json& /*params*/)
         }},
         {"serverInfo", {
             {"name", "YINI Language Server"},
-            {"version", "1.4.0"}
+            {"version", "1.5.0"}
         }}
     };
 }
@@ -215,6 +215,125 @@ json LSPServer::handleTextDocumentDocumentSymbol(const json& params)
     auto parser = documentManager->getParser(uri);
     
     return symbolProvider->getDocumentSymbols(parser, doc->content);
+}
+
+json LSPServer::handleTextDocumentReferences(const json& params)
+{
+    auto textDocument = params["textDocument"];
+    std::string uri = textDocument["uri"];
+    
+    auto position = params["position"];
+    int line = position["line"];
+    int character = position["character"];
+    
+    auto context = params["context"];
+    bool includeDeclaration = context.value("includeDeclaration", true);
+    
+    auto doc = documentManager->getDocument(uri);
+    if (!doc)
+    {
+        return json::array();
+    }
+    
+    auto parser = documentManager->getParser(uri);
+    
+    yini::lsp::Position pos{line, character};
+    return referenceProvider->findReferences(parser, doc->content, uri, pos, includeDeclaration);
+}
+
+json LSPServer::handleTextDocumentPrepareRename(const json& params)
+{
+    auto textDocument = params["textDocument"];
+    std::string uri = textDocument["uri"];
+    
+    auto position = params["position"];
+    int line = position["line"];
+    int character = position["character"];
+    
+    auto doc = documentManager->getDocument(uri);
+    if (!doc)
+    {
+        return nullptr;
+    }
+    
+    auto parser = documentManager->getParser(uri);
+    
+    yini::lsp::Position pos{line, character};
+    return renameProvider->prepareRename(parser, doc->content, pos);
+}
+
+json LSPServer::handleTextDocumentRename(const json& params)
+{
+    auto textDocument = params["textDocument"];
+    std::string uri = textDocument["uri"];
+    
+    auto position = params["position"];
+    int line = position["line"];
+    int character = position["character"];
+    
+    std::string newName = params["newName"];
+    
+    auto doc = documentManager->getDocument(uri);
+    if (!doc)
+    {
+        return nullptr;
+    }
+    
+    auto parser = documentManager->getParser(uri);
+    
+    yini::lsp::Position pos{line, character};
+    return renameProvider->rename(parser, doc->content, uri, pos, newName);
+}
+
+json LSPServer::handleTextDocumentFormatting(const json& params)
+{
+    auto textDocument = params["textDocument"];
+    std::string uri = textDocument["uri"];
+    
+    auto options = params["options"];
+    
+    auto doc = documentManager->getDocument(uri);
+    if (!doc)
+    {
+        return json::array();
+    }
+    
+    FormattingOptions formattingOptions;
+    formattingOptions.tabSize = options.value("tabSize", 4);
+    formattingOptions.insertSpaces = options.value("insertSpaces", true);
+    formattingOptions.trimTrailingWhitespace = options.value("trimTrailingWhitespace", true);
+    formattingOptions.insertFinalNewline = options.value("insertFinalNewline", true);
+    
+    return formattingProvider->formatDocument(doc->content, formattingOptions);
+}
+
+json LSPServer::handleTextDocumentRangeFormatting(const json& params)
+{
+    auto textDocument = params["textDocument"];
+    std::string uri = textDocument["uri"];
+    
+    auto range = params["range"];
+    auto options = params["options"];
+    
+    auto doc = documentManager->getDocument(uri);
+    if (!doc)
+    {
+        return json::array();
+    }
+    
+    Range formatRange;
+    formatRange.start.line = range["start"]["line"];
+    formatRange.start.character = range["start"]["character"];
+    formatRange.end.line = range["end"]["line"];
+    formatRange.end.character = range["end"]["character"];
+    
+    FormattingOptions formattingOptions;
+    formattingOptions.tabSize = options.value("tabSize", 4);
+    formattingOptions.insertSpaces = options.value("insertSpaces", true);
+    formattingOptions.trimTrailingWhitespace = options.value("trimTrailingWhitespace", true);
+    formattingOptions.insertFinalNewline = options.value("insertFinalNewline", false);
+    
+    return formattingProvider->formatRange(doc->content, formatRange, formattingOptions);
 }
 
 void LSPServer::publishDiagnostics(const std::string& uri)
