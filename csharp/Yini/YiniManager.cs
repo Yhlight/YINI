@@ -359,6 +359,19 @@ namespace Yini
 
         [DllImport(LibName, EntryPoint = "yini_manager_get_validation_error")]
         internal static extern int YiniManager_GetValidationError(IntPtr manager, int index, StringBuilder? outBuffer, int bufferSize);
+
+        // Iteration
+        [DllImport(LibName, EntryPoint = "yini_manager_get_section_count")]
+        internal static extern int YiniManager_GetSectionCount(IntPtr manager);
+
+        [DllImport(LibName, EntryPoint = "yini_manager_get_section_name_at")]
+        internal static extern int YiniManager_GetSectionNameAt(IntPtr manager, int index, StringBuilder? outBuffer, int bufferSize);
+
+        [DllImport(LibName, EntryPoint = "yini_manager_get_key_count_in_section")]
+        internal static extern int YiniManager_GetKeyCountInSection(IntPtr manager, string sectionName);
+
+        [DllImport(LibName, EntryPoint = "yini_manager_get_key_name_at")]
+        internal static extern int YiniManager_GetKeyNameAt(IntPtr manager, string sectionName, int index, StringBuilder? outBuffer, int bufferSize);
         #endregion
 
         /// <summary>
@@ -729,6 +742,43 @@ namespace Yini
             }
 
             return errors;
+        }
+
+        /// <summary>
+        /// Gets an enumerable collection of all resolved section names.
+        /// </summary>
+        /// <returns>An <see cref="IEnumerable{T}"/> of section names.</returns>
+        public IEnumerable<string> GetSectionNames()
+        {
+            int count = YiniManager_GetSectionCount(_managerPtr);
+            for (int i = 0; i < count; i++)
+            {
+                int requiredSize = YiniManager_GetSectionNameAt(_managerPtr, i, null, 0);
+                if (requiredSize <= 0) continue;
+
+                var buffer = new StringBuilder(requiredSize);
+                YiniManager_GetSectionNameAt(_managerPtr, i, buffer, buffer.Capacity);
+                yield return buffer.ToString();
+            }
+        }
+
+        /// <summary>
+        /// Gets an enumerable collection of all key names within a specific section.
+        /// </summary>
+        /// <param name="sectionName">The name of the section.</param>
+        /// <returns>An <see cref="IEnumerable{T}"/> of key names.</returns>
+        public IEnumerable<string> GetKeyNamesInSection(string sectionName)
+        {
+            int count = YiniManager_GetKeyCountInSection(_managerPtr, sectionName);
+            for (int i = 0; i < count; i++)
+            {
+                int requiredSize = YiniManager_GetKeyNameAt(_managerPtr, sectionName, i, null, 0);
+                if (requiredSize <= 0) continue;
+
+                var buffer = new StringBuilder(requiredSize);
+                YiniManager_GetKeyNameAt(_managerPtr, sectionName, i, buffer, buffer.Capacity);
+                yield return buffer.ToString();
+            }
         }
 
         #region IDisposable Implementation

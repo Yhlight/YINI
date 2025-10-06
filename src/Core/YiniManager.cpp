@@ -185,6 +185,19 @@ namespace YINI
         return m_schema.get();
     }
 
+bool YiniManager::validate()
+{
+    m_last_validation_errors.clear();
+    if (!m_schema) {
+        return true; // No schema to validate against
+    }
+
+    Validator validator;
+    m_last_validation_errors = validator.validate(*m_schema, m_interpreter);
+
+    return m_last_validation_errors.empty();
+}
+
     void YiniManager::merge_asts(std::vector<std::unique_ptr<Stmt>>& base_ast, std::vector<std::unique_ptr<Stmt>>& new_ast)
     {
         Define* base_define = nullptr;

@@ -100,6 +100,81 @@ YINI_API Yini_ValueHandle yini_manager_get_value(Yini_ManagerHandle manager, con
 YINI_API void yini_manager_set_value(Yini_ManagerHandle manager, const char* section, const char* key, Yini_ValueHandle value_handle);
 
 //================================================================================
+// Schema and Validation Functions
+//================================================================================
+
+/**
+ * @brief Validates the loaded configuration against its schema.
+ * @param manager The manager handle.
+ * @return True if validation succeeds or if there is no schema, false otherwise.
+ */
+YINI_API bool yini_manager_validate(Yini_ManagerHandle manager);
+
+/**
+ * @brief Gets the number of validation errors found during the last validation.
+ * @param manager The manager handle.
+ * @return The number of validation errors.
+ */
+YINI_API int yini_manager_get_validation_error_count(Yini_ManagerHandle manager);
+
+/**
+ * @brief Gets a specific validation error message.
+ *
+ * This function should be called twice. First, with `out_buffer` as NULL to get the
+ * required buffer size. Then, after allocating a buffer of that size, call it
+ * again to get the error message.
+ *
+ * @param manager The manager handle.
+ * @param index The index of the error.
+ * @param out_buffer The buffer to write the message into, or NULL.
+ * @param buffer_size The size of the buffer.
+ * @return If `out_buffer` is NULL, returns the required buffer size. Otherwise,
+ *         returns the number of characters written. Returns a negative value on error.
+ */
+YINI_API int yini_manager_get_validation_error(Yini_ManagerHandle manager, int index, char* out_buffer, int buffer_size);
+
+//================================================================================
+// Iteration Functions
+//================================================================================
+
+/**
+ * @brief Gets the number of resolved sections.
+ * @param manager The manager handle.
+ * @return The number of sections.
+ */
+YINI_API int yini_manager_get_section_count(Yini_ManagerHandle manager);
+
+/**
+ * @brief Gets the name of a section at a specific index.
+ * @param manager The manager handle.
+ * @param index The index of the section.
+ * @param out_buffer The buffer to write the name into.
+ * @param buffer_size The size of the buffer.
+ * @return The number of characters written, or required buffer size.
+ */
+YINI_API int yini_manager_get_section_name_at(Yini_ManagerHandle manager, int index, char* out_buffer, int buffer_size);
+
+/**
+ * @brief Gets the number of keys in a specific section.
+ * @param manager The manager handle.
+ * @param section_name The name of the section.
+ * @return The number of keys in the section, or -1 if the section doesn't exist.
+ */
+YINI_API int yini_manager_get_key_count_in_section(Yini_ManagerHandle manager, const char* section_name);
+
+/**
+ * @brief Gets the name of a key in a section at a specific index.
+ * @param manager The manager handle.
+ * @param section_name The name of the section.
+ * @param index The index of the key.
+ * @param out_buffer The buffer to write the name into.
+ * @param buffer_size The size of the buffer.
+ * @return The number of characters written, or required buffer size.
+ */
+YINI_API int yini_manager_get_key_name_at(Yini_ManagerHandle manager, const char* section_name, int index, char* out_buffer, int buffer_size);
+
+
+//================================================================================
 // Value Functions
 //================================================================================
 

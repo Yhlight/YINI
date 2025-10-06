@@ -92,24 +92,19 @@ YINI_API void yini_manager_set_value(Yini_ManagerHandle manager, const char* sec
     }
 }
 
-YINI_API int yini_manager_validate(Yini_ManagerHandle manager) {
-    if (!manager) return -1;
-    auto* mgr = as_manager(manager);
-    mgr->m_last_validation_errors.clear(); // Clear previous errors
-
-    const YINI::Schema* schema = mgr->get_schema();
-    if (!schema) {
-        return 0; // No schema means nothing to validate against, so no errors.
-    }
-
+// --- Schema and Validation Functions ---
+YINI_API bool yini_manager_validate(Yini_ManagerHandle manager) {
+    if (!manager) return false;
     try {
-        YINI::Validator validator;
-        mgr->m_last_validation_errors = validator.validate(*schema, mgr->get_interpreter());
-        return static_cast<int>(mgr->m_last_validation_errors.size());
+        return as_manager(manager)->validate();
     } catch (...) {
-        // A critical error occurred during validation itself.
-        return -1;
+        return false;
     }
+}
+
+YINI_API int yini_manager_get_validation_error_count(Yini_ManagerHandle manager) {
+    if (!manager) return 0;
+    return static_cast<int>(as_manager(manager)->m_last_validation_errors.size());
 }
 
 YINI_API int yini_manager_get_validation_error(Yini_ManagerHandle manager, int index, char* out_buffer, int buffer_size) {
@@ -124,6 +119,48 @@ YINI_API int yini_manager_get_validation_error(Yini_ManagerHandle manager, int i
     return safe_string_copy(out_buffer, buffer_size, error_message);
 }
 
+// --- Iteration Functions ---
+YINI_API int yini_manager_get_section_count(Yini_ManagerHandle manager) {
+    if (!manager) return 0;
+    return static_cast<int>(as_manager(manager)->get_interpreter().resolved_sections.size());
+}
+
+YINI_API int yini_manager_get_section_name_at(Yini_ManagerHandle manager, int index, char* out_buffer, int buffer_size) {
+    if (!manager || index < 0) return -1;
+    const auto& sections = as_manager(manager)->get_interpreter().resolved_sections;
+    if (static_cast<size_t>(index) >= sections.size()) {
+        return -1;
+    }
+    auto it = sections.begin();
+    std::advance(it, index);
+    return safe_string_copy(out_buffer, buffer_size, it->first);
+}
+
+YINI_API int yini_manager_get_key_count_in_section(Yini_ManagerHandle manager, const char* section_name) {
+    if (!manager || !section_name) return -1;
+    const auto& sections = as_manager(manager)->get_interpreter().resolved_sections;
+    auto it = sections.find(section_name);
+    if (it == sections.end()) {
+        return -1; // Section not found
+    }
+    return static_cast<int>(it->second.size());
+}
+
+YINI_API int yini_manager_get_key_name_at(Yini_ManagerHandle manager, const char* section_name, int index, char* out_buffer, int buffer_size) {
+    if (!manager || !section_name || index < 0) return -1;
+    const auto& sections = as_manager(manager)->get_interpreter().resolved_sections;
+    auto sec_it = sections.find(section_name);
+    if (sec_it == sections.end()) {
+        return -1; // Section not found
+    }
+    const auto& keys = sec_it->second;
+    if (static_cast<size_t>(index) >= keys.size()) {
+        return -1; // Key index out of bounds
+    }
+    auto key_it = keys.begin();
+    std::advance(key_it, index);
+    return safe_string_copy(out_buffer, buffer_size, key_it->first);
+}
 
 // --- Value Handle Functions ---
 YINI_API void yini_value_destroy(Yini_ValueHandle handle) {

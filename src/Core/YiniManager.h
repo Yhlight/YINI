@@ -99,6 +99,15 @@ namespace YINI
         const Schema* get_schema() const;
 
         /**
+         * @brief Validates the loaded configuration against the schema.
+         *
+         * If no schema was loaded, this method returns true.
+         * Errors can be retrieved from the `m_last_validation_errors` member.
+         * @return True if validation succeeds or if there is no schema, false otherwise.
+         */
+        bool validate();
+
+        /**
          * @brief A vector of validation errors from the last validation run.
          * This is public for the C-API to access.
          */
