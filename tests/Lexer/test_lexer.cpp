@@ -1,315 +1,216 @@
+#include <gtest/gtest.h>
 #include "Lexer.h"
 #include "Token.h"
-#include <cassert>
-#include <iostream>
-#include <string>
 
 using namespace yini;
 
-void test_basic_tokens()
-{
-    std::cout << "Testing basic tokens..." << std::endl;
-    
-    Lexer lexer("[ ] ( ) { } , : = += + - * / %");
-    auto tokens = lexer.tokenize();
-    
-    assert(tokens[0].type == TokenType::LBRACKET);
-    assert(tokens[1].type == TokenType::RBRACKET);
-    assert(tokens[2].type == TokenType::LPAREN);
-    assert(tokens[3].type == TokenType::RPAREN);
-    assert(tokens[4].type == TokenType::LBRACE);
-    assert(tokens[5].type == TokenType::RBRACE);
-    assert(tokens[6].type == TokenType::COMMA);
-    assert(tokens[7].type == TokenType::COLON);
-    assert(tokens[8].type == TokenType::EQUALS);
-    assert(tokens[9].type == TokenType::PLUS_EQUALS);
-    assert(tokens[10].type == TokenType::PLUS);
-    assert(tokens[11].type == TokenType::MINUS);
-    assert(tokens[12].type == TokenType::MULTIPLY);
-    assert(tokens[13].type == TokenType::DIVIDE);
-    assert(tokens[14].type == TokenType::MODULO);
-    
-    std::cout << "✓ Basic tokens test passed" << std::endl;
+// Test fixture for Lexer tests to reduce boilerplate
+class LexerTest : public ::testing::Test {
+protected:
+    std::vector<Token> tokenize(const std::string& source) {
+        Lexer lexer(source);
+        return lexer.tokenize();
+    }
+};
+
+TEST_F(LexerTest, BasicTokens) {
+    auto tokens = tokenize("[ ] ( ) { } , : = += + - * / %");
+    ASSERT_EQ(tokens[0].type, TokenType::LBRACKET);
+    ASSERT_EQ(tokens[1].type, TokenType::RBRACKET);
+    ASSERT_EQ(tokens[2].type, TokenType::LPAREN);
+    ASSERT_EQ(tokens[3].type, TokenType::RPAREN);
+    ASSERT_EQ(tokens[4].type, TokenType::LBRACE);
+    ASSERT_EQ(tokens[5].type, TokenType::RBRACE);
+    ASSERT_EQ(tokens[6].type, TokenType::COMMA);
+    ASSERT_EQ(tokens[7].type, TokenType::COLON);
+    ASSERT_EQ(tokens[8].type, TokenType::EQUALS);
+    ASSERT_EQ(tokens[9].type, TokenType::PLUS_EQUALS);
+    ASSERT_EQ(tokens[10].type, TokenType::PLUS);
+    ASSERT_EQ(tokens[11].type, TokenType::MINUS);
+    ASSERT_EQ(tokens[12].type, TokenType::MULTIPLY);
+    ASSERT_EQ(tokens[13].type, TokenType::DIVIDE);
+    ASSERT_EQ(tokens[14].type, TokenType::MODULO);
+    ASSERT_EQ(tokens[15].type, TokenType::END_OF_FILE);
 }
 
-void test_integers()
-{
-    std::cout << "Testing integers..." << std::endl;
+TEST_F(LexerTest, Integers) {
+    auto tokens = tokenize("123 456 0 999");
+    ASSERT_EQ(tokens[0].type, TokenType::INTEGER);
+    ASSERT_EQ(tokens[0].getValue<int64_t>(), 123);
     
-    Lexer lexer("123 456 0 999");
-    auto tokens = lexer.tokenize();
+    ASSERT_EQ(tokens[1].type, TokenType::INTEGER);
+    ASSERT_EQ(tokens[1].getValue<int64_t>(), 456);
     
-    assert(tokens[0].type == TokenType::INTEGER);
-    assert(tokens[0].getValue<int64_t>() == 123);
-    
-    assert(tokens[1].type == TokenType::INTEGER);
-    assert(tokens[1].getValue<int64_t>() == 456);
-    
-    assert(tokens[2].type == TokenType::INTEGER);
-    assert(tokens[2].getValue<int64_t>() == 0);
-    
-    std::cout << "✓ Integer test passed" << std::endl;
+    ASSERT_EQ(tokens[2].type, TokenType::INTEGER);
+    ASSERT_EQ(tokens[2].getValue<int64_t>(), 0);
 }
 
-void test_floats()
-{
-    std::cout << "Testing floats..." << std::endl;
+TEST_F(LexerTest, Floats) {
+    auto tokens = tokenize("3.14 2.5 0.1");
+    ASSERT_EQ(tokens[0].type, TokenType::FLOAT);
+    ASSERT_EQ(tokens[0].getValue<double>(), 3.14);
     
-    Lexer lexer("3.14 2.5 0.1");
-    auto tokens = lexer.tokenize();
-    
-    assert(tokens[0].type == TokenType::FLOAT);
-    assert(tokens[0].getValue<double>() == 3.14);
-    
-    assert(tokens[1].type == TokenType::FLOAT);
-    assert(tokens[1].getValue<double>() == 2.5);
-    
-    std::cout << "✓ Float test passed" << std::endl;
+    ASSERT_EQ(tokens[1].type, TokenType::FLOAT);
+    ASSERT_EQ(tokens[1].getValue<double>(), 2.5);
 }
 
-void test_booleans()
-{
-    std::cout << "Testing booleans..." << std::endl;
+TEST_F(LexerTest, Booleans) {
+    auto tokens = tokenize("true false");
+    ASSERT_EQ(tokens[0].type, TokenType::BOOLEAN);
+    ASSERT_EQ(tokens[0].getValue<bool>(), true);
     
-    Lexer lexer("true false");
-    auto tokens = lexer.tokenize();
-    
-    assert(tokens[0].type == TokenType::BOOLEAN);
-    assert(tokens[0].getValue<bool>() == true);
-    
-    assert(tokens[1].type == TokenType::BOOLEAN);
-    assert(tokens[1].getValue<bool>() == false);
-    
-    std::cout << "✓ Boolean test passed" << std::endl;
+    ASSERT_EQ(tokens[1].type, TokenType::BOOLEAN);
+    ASSERT_EQ(tokens[1].getValue<bool>(), false);
 }
 
-void test_strings()
-{
-    std::cout << "Testing strings..." << std::endl;
+TEST_F(LexerTest, Strings) {
+    auto tokens = tokenize(R"("hello" "world" "test\nvalue")");
+    ASSERT_EQ(tokens[0].type, TokenType::STRING);
+    ASSERT_EQ(tokens[0].getValue<std::string>(), "hello");
     
-    Lexer lexer(R"("hello" "world" "test\nvalue")");
-    auto tokens = lexer.tokenize();
+    ASSERT_EQ(tokens[1].type, TokenType::STRING);
+    ASSERT_EQ(tokens[1].getValue<std::string>(), "world");
     
-    assert(tokens[0].type == TokenType::STRING);
-    assert(tokens[0].getValue<std::string>() == "hello");
-    
-    assert(tokens[1].type == TokenType::STRING);
-    assert(tokens[1].getValue<std::string>() == "world");
-    
-    assert(tokens[2].type == TokenType::STRING);
-    assert(tokens[2].getValue<std::string>() == "test\nvalue");
-    
-    std::cout << "✓ String test passed" << std::endl;
+    ASSERT_EQ(tokens[2].type, TokenType::STRING);
+    ASSERT_EQ(tokens[2].getValue<std::string>(), "test\nvalue");
 }
 
-void test_identifiers()
-{
-    std::cout << "Testing identifiers..." << std::endl;
+TEST_F(LexerTest, Identifiers) {
+    auto tokens = tokenize("key1 value name_test");
+    ASSERT_EQ(tokens[0].type, TokenType::IDENTIFIER);
+    ASSERT_EQ(tokens[0].getValue<std::string>(), "key1");
     
-    Lexer lexer("key1 value name_test");
-    auto tokens = lexer.tokenize();
-    
-    assert(tokens[0].type == TokenType::IDENTIFIER);
-    assert(tokens[0].getValue<std::string>() == "key1");
-    
-    assert(tokens[1].type == TokenType::IDENTIFIER);
-    assert(tokens[1].getValue<std::string>() == "value");
-    
-    std::cout << "✓ Identifier test passed" << std::endl;
+    ASSERT_EQ(tokens[1].type, TokenType::IDENTIFIER);
+    ASSERT_EQ(tokens[1].getValue<std::string>(), "value");
 }
 
-void test_comments()
-{
-    std::cout << "Testing comments..." << std::endl;
-    
-    Lexer lexer("key1 // this is a comment\nkey2 /* block comment */ key3");
-    auto tokens = lexer.tokenize();
-    
+TEST_F(LexerTest, Comments) {
+    auto tokens = tokenize("key1 // this is a comment\nkey2 /* block comment */ key3");
     // Comments should be filtered out, but newlines are kept
-    assert(tokens[0].type == TokenType::IDENTIFIER);
-    assert(tokens[0].getValue<std::string>() == "key1");
+    ASSERT_EQ(tokens[0].type, TokenType::IDENTIFIER);
+    ASSERT_EQ(tokens[0].getValue<std::string>(), "key1");
     
-    // tokens[1] is NEWLINE
-    assert(tokens[1].type == TokenType::NEWLINE);
+    ASSERT_EQ(tokens[1].type, TokenType::NEWLINE);
     
-    assert(tokens[2].type == TokenType::IDENTIFIER);
-    assert(tokens[2].getValue<std::string>() == "key2");
+    ASSERT_EQ(tokens[2].type, TokenType::IDENTIFIER);
+    ASSERT_EQ(tokens[2].getValue<std::string>(), "key2");
     
-    assert(tokens[3].type == TokenType::IDENTIFIER);
-    assert(tokens[3].getValue<std::string>() == "key3");
-    
-    std::cout << "✓ Comment test passed" << std::endl;
+    ASSERT_EQ(tokens[3].type, TokenType::IDENTIFIER);
+    ASSERT_EQ(tokens[3].getValue<std::string>(), "key3");
 }
 
-void test_builtin_types()
-{
-    std::cout << "Testing built-in types..." << std::endl;
-    
-    Lexer lexer("Color color Coord coord List list Array array Dyna dyna Path path");
-    auto tokens = lexer.tokenize();
-    
-    assert(tokens[0].type == TokenType::COLOR);
-    assert(tokens[1].type == TokenType::COLOR);
-    assert(tokens[2].type == TokenType::COORD);
-    assert(tokens[3].type == TokenType::COORD);
-    assert(tokens[4].type == TokenType::LIST);
-    assert(tokens[5].type == TokenType::LIST);
-    assert(tokens[6].type == TokenType::ARRAY);
-    assert(tokens[7].type == TokenType::ARRAY);
-    assert(tokens[8].type == TokenType::DYNA);
-    assert(tokens[9].type == TokenType::DYNA);
-    
-    std::cout << "✓ Built-in types test passed" << std::endl;
+TEST_F(LexerTest, BuiltinTypes) {
+    auto tokens = tokenize("Color color Coord coord List list Array array Dyna dyna Path path");
+    ASSERT_EQ(tokens[0].type, TokenType::COLOR);
+    ASSERT_EQ(tokens[1].type, TokenType::COLOR);
+    ASSERT_EQ(tokens[2].type, TokenType::COORD);
+    ASSERT_EQ(tokens[3].type, TokenType::COORD);
+    ASSERT_EQ(tokens[4].type, TokenType::LIST);
+    ASSERT_EQ(tokens[5].type, TokenType::LIST);
+    ASSERT_EQ(tokens[6].type, TokenType::ARRAY);
+    ASSERT_EQ(tokens[7].type, TokenType::ARRAY);
+    ASSERT_EQ(tokens[8].type, TokenType::DYNA);
+    ASSERT_EQ(tokens[9].type, TokenType::DYNA);
+    ASSERT_EQ(tokens[10].type, TokenType::PATH);
+    ASSERT_EQ(tokens[11].type, TokenType::PATH);
 }
 
-void test_color_hex()
-{
-    std::cout << "Testing hex colors..." << std::endl;
+TEST_F(LexerTest, ColorHex) {
+    auto tokens = tokenize("#FF0000 #00FF00 #0000FF");
+    ASSERT_EQ(tokens[0].type, TokenType::COLOR);
+    ASSERT_EQ(tokens[0].getValue<std::string>(), "#FF0000");
     
-    Lexer lexer("#FF0000 #00FF00 #0000FF");
-    auto tokens = lexer.tokenize();
-    
-    assert(tokens[0].type == TokenType::COLOR);
-    assert(tokens[0].getValue<std::string>() == "#FF0000");
-    
-    assert(tokens[1].type == TokenType::COLOR);
-    assert(tokens[1].getValue<std::string>() == "#00FF00");
-    
-    std::cout << "✓ Hex color test passed" << std::endl;
+    ASSERT_EQ(tokens[1].type, TokenType::COLOR);
+    ASSERT_EQ(tokens[1].getValue<std::string>(), "#00FF00");
 }
 
-void test_special_symbols()
-{
-    std::cout << "Testing special symbols..." << std::endl;
-    
-    Lexer lexer("@ @{ ${ # ! ? ~");
-    auto tokens = lexer.tokenize();
-    
-    assert(tokens[0].type == TokenType::AT);
-    assert(tokens[1].type == TokenType::AT_LBRACE);
-    assert(tokens[2].type == TokenType::DOLLAR_LBRACE);
-    assert(tokens[3].type == TokenType::HASH);
-    assert(tokens[4].type == TokenType::EXCLAMATION);
-    assert(tokens[5].type == TokenType::QUESTION);
-    assert(tokens[6].type == TokenType::TILDE);
-    
-    std::cout << "✓ Special symbols test passed" << std::endl;
+TEST_F(LexerTest, SpecialSymbols) {
+    auto tokens = tokenize("@ @{ ${ # ! ? ~");
+    ASSERT_EQ(tokens[0].type, TokenType::AT);
+    ASSERT_EQ(tokens[1].type, TokenType::AT_LBRACE);
+    ASSERT_EQ(tokens[2].type, TokenType::DOLLAR_LBRACE);
+    ASSERT_EQ(tokens[3].type, TokenType::HASH);
+    ASSERT_EQ(tokens[4].type, TokenType::EXCLAMATION);
+    ASSERT_EQ(tokens[5].type, TokenType::QUESTION);
+    ASSERT_EQ(tokens[6].type, TokenType::TILDE);
 }
 
-void test_section_header()
-{
-    std::cout << "Testing section header..." << std::endl;
-    
-    Lexer lexer("[Config]");
-    auto tokens = lexer.tokenize();
-    
-    assert(tokens[0].type == TokenType::LBRACKET);
-    assert(tokens[1].type == TokenType::IDENTIFIER);
-    assert(tokens[1].getValue<std::string>() == "Config");
-    assert(tokens[2].type == TokenType::RBRACKET);
-    
-    std::cout << "✓ Section header test passed" << std::endl;
+TEST_F(LexerTest, SectionHeader) {
+    auto tokens = tokenize("[Config]");
+    ASSERT_EQ(tokens[0].type, TokenType::LBRACKET);
+    ASSERT_EQ(tokens[1].type, TokenType::IDENTIFIER);
+    ASSERT_EQ(tokens[1].getValue<std::string>(), "Config");
+    ASSERT_EQ(tokens[2].type, TokenType::RBRACKET);
 }
 
-void test_key_value_pair()
-{
-    std::cout << "Testing key-value pair..." << std::endl;
-    
-    Lexer lexer("key = value");
-    auto tokens = lexer.tokenize();
-    
-    assert(tokens[0].type == TokenType::IDENTIFIER);
-    assert(tokens[0].getValue<std::string>() == "key");
-    assert(tokens[1].type == TokenType::EQUALS);
-    assert(tokens[2].type == TokenType::IDENTIFIER);
-    assert(tokens[2].getValue<std::string>() == "value");
-    
-    std::cout << "✓ Key-value pair test passed" << std::endl;
+TEST_F(LexerTest, KeyValuePair) {
+    auto tokens = tokenize("key = value");
+    ASSERT_EQ(tokens[0].type, TokenType::IDENTIFIER);
+    ASSERT_EQ(tokens[0].getValue<std::string>(), "key");
+    ASSERT_EQ(tokens[1].type, TokenType::EQUALS);
+    ASSERT_EQ(tokens[2].type, TokenType::IDENTIFIER);
+    ASSERT_EQ(tokens[2].getValue<std::string>(), "value");
 }
 
-void test_array_syntax()
-{
-    std::cout << "Testing array syntax..." << std::endl;
-    
-    Lexer lexer("[1, 2, 3]");
-    auto tokens = lexer.tokenize();
-    
-    assert(tokens[0].type == TokenType::LBRACKET);
-    assert(tokens[1].type == TokenType::INTEGER);
-    assert(tokens[2].type == TokenType::COMMA);
-    assert(tokens[3].type == TokenType::INTEGER);
-    assert(tokens[4].type == TokenType::COMMA);
-    assert(tokens[5].type == TokenType::INTEGER);
-    assert(tokens[6].type == TokenType::RBRACKET);
-    
-    std::cout << "✓ Array syntax test passed" << std::endl;
+TEST_F(LexerTest, ArraySyntax) {
+    auto tokens = tokenize("[1, 2, 3]");
+    ASSERT_EQ(tokens[0].type, TokenType::LBRACKET);
+    ASSERT_EQ(tokens[1].type, TokenType::INTEGER);
+    ASSERT_EQ(tokens[2].type, TokenType::COMMA);
+    ASSERT_EQ(tokens[3].type, TokenType::INTEGER);
+    ASSERT_EQ(tokens[4].type, TokenType::COMMA);
+    ASSERT_EQ(tokens[5].type, TokenType::INTEGER);
+    ASSERT_EQ(tokens[6].type, TokenType::RBRACKET);
 }
 
-void test_inheritance_syntax()
-{
-    std::cout << "Testing inheritance syntax..." << std::endl;
-    
-    Lexer lexer("[Config3] : Config, Config2");
-    auto tokens = lexer.tokenize();
-    
-    assert(tokens[0].type == TokenType::LBRACKET);
-    assert(tokens[1].type == TokenType::IDENTIFIER);
-    assert(tokens[1].getValue<std::string>() == "Config3");
-    assert(tokens[2].type == TokenType::RBRACKET);
-    assert(tokens[3].type == TokenType::COLON);
-    assert(tokens[4].type == TokenType::IDENTIFIER);
-    assert(tokens[4].getValue<std::string>() == "Config");
-    
-    std::cout << "✓ Inheritance syntax test passed" << std::endl;
+TEST_F(LexerTest, InheritanceSyntax) {
+    auto tokens = tokenize("[Config3] : Config, Config2");
+    ASSERT_EQ(tokens[0].type, TokenType::LBRACKET);
+    ASSERT_EQ(tokens[1].type, TokenType::IDENTIFIER);
+    ASSERT_EQ(tokens[1].getValue<std::string>(), "Config3");
+    ASSERT_EQ(tokens[2].type, TokenType::RBRACKET);
+    ASSERT_EQ(tokens[3].type, TokenType::COLON);
+    ASSERT_EQ(tokens[4].type, TokenType::IDENTIFIER);
+    ASSERT_EQ(tokens[4].getValue<std::string>(), "Config");
 }
 
-void test_arithmetic_expression()
-{
-    std::cout << "Testing arithmetic expression..." << std::endl;
-    
-    Lexer lexer("1 + 2 * 3 - 4 / 5 % 6");
-    auto tokens = lexer.tokenize();
-    
-    assert(tokens[0].type == TokenType::INTEGER);
-    assert(tokens[1].type == TokenType::PLUS);
-    assert(tokens[2].type == TokenType::INTEGER);
-    assert(tokens[3].type == TokenType::MULTIPLY);
-    assert(tokens[4].type == TokenType::INTEGER);
-    assert(tokens[5].type == TokenType::MINUS);
-    
-    std::cout << "✓ Arithmetic expression test passed" << std::endl;
+TEST_F(LexerTest, ArithmeticExpression) {
+    auto tokens = tokenize("1 + 2 * 3 - 4 / 5 % 6");
+    ASSERT_EQ(tokens[0].type, TokenType::INTEGER);
+    ASSERT_EQ(tokens[1].type, TokenType::PLUS);
+    ASSERT_EQ(tokens[2].type, TokenType::INTEGER);
+    ASSERT_EQ(tokens[3].type, TokenType::MULTIPLY);
+    ASSERT_EQ(tokens[4].type, TokenType::INTEGER);
+    ASSERT_EQ(tokens[5].type, TokenType::MINUS);
 }
 
-int main()
-{
-    std::cout << "Running Lexer tests..." << std::endl;
-    std::cout << "==========================================\n" << std::endl;
-    
-    try
-    {
-        test_basic_tokens();
-        test_integers();
-        test_floats();
-        test_booleans();
-        test_strings();
-        test_identifiers();
-        test_comments();
-        test_builtin_types();
-        test_color_hex();
-        test_special_symbols();
-        test_section_header();
-        test_key_value_pair();
-        test_array_syntax();
-        test_inheritance_syntax();
-        test_arithmetic_expression();
-        
-        std::cout << "\n==========================================" << std::endl;
-        std::cout << "All tests passed! ✓" << std::endl;
-        return 0;
-    }
-    catch (const std::exception& e)
-    {
-        std::cerr << "Test failed: " << e.what() << std::endl;
-        return 1;
-    }
+// Test suite for lexer error conditions
+class LexerErrorTest : public ::testing::Test {};
+
+TEST_F(LexerErrorTest, UnterminatedString) {
+    Lexer lexer(R"("hello world)");
+    lexer.tokenize(); // Run the lexer
+    ASSERT_TRUE(lexer.hasError());
+    ASSERT_NE(lexer.getLastError().find("Unterminated string"), std::string::npos);
+}
+
+TEST_F(LexerErrorTest, UnterminatedBlockComment) {
+    Lexer lexer("key = 1 /* this is a comment");
+    lexer.tokenize();
+    ASSERT_TRUE(lexer.hasError());
+    ASSERT_NE(lexer.getLastError().find("Unterminated block comment"), std::string::npos);
+}
+
+TEST_F(LexerErrorTest, UnexpectedCharacter) {
+    Lexer lexer("key = ^");
+    lexer.tokenize();
+    ASSERT_TRUE(lexer.hasError());
+    ASSERT_NE(lexer.getLastError().find("Unexpected character"), std::string::npos);
+}
+
+TEST_F(LexerErrorTest, IncompleteDollarBrace) {
+    Lexer lexer("key = $");
+    lexer.tokenize();
+    ASSERT_TRUE(lexer.hasError());
+    ASSERT_NE(lexer.getLastError().find("Expected '{' after '$'"), std::string::npos);
 }

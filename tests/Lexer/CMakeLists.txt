@@ -1,10 +1,19 @@
-# Lexer tests
-add_executable(test_lexer test_lexer.cpp)
+# Lexer tests using GoogleTest
+add_executable(LexerTests test_lexer.cpp)
 
-target_link_libraries(test_lexer PRIVATE yini_lexer)
+# Link against the lexer library and gtest_main
+# gtest_main provides a main() function, so our test code doesn't need one.
+target_link_libraries(LexerTests
+    PRIVATE
+    yini_lexer # The static library for the lexer
+    gtest_main # GoogleTest with main()
+)
 
-target_include_directories(test_lexer PRIVATE
+# Include the project's public headers
+target_include_directories(LexerTests PRIVATE
     ${PROJECT_SOURCE_DIR}/include
 )
 
-add_test(NAME LexerTest COMMAND test_lexer)
+# Discover tests for CTest integration
+include(GoogleTest)
+gtest_discover_tests(LexerTests)

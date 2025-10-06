@@ -44,56 +44,77 @@ Value::Value()
 {
 }
 
-Value::Value(int64_t val)
+// Constructors without token (for deserialization, etc.)
+Value::Value(int64_t val) : type(ValueType::INTEGER), data(val) {}
+Value::Value(double val) : type(ValueType::FLOAT), data(val) {}
+Value::Value(bool val) : type(ValueType::BOOLEAN), data(val) {}
+Value::Value(const std::string& val) : type(ValueType::STRING), data(val) {}
+Value::Value(const char* val) : type(ValueType::STRING), data(std::string(val)) {}
+Value::Value(const Color& val) : type(ValueType::COLOR), data(val) {}
+Value::Value(const Coord& val) : type(ValueType::COORD), data(val) {}
+Value::Value(const ArrayType& val) : type(ValueType::ARRAY), data(val) {}
+Value::Value(const MapType& val) : type(ValueType::MAP), data(val) {}
+
+// Constructors with token (for parsing)
+Value::Value(int64_t val, Token token)
     : type(ValueType::INTEGER)
+    , token(token)
     , data(val)
 {
 }
 
-Value::Value(double val)
+Value::Value(double val, Token token)
     : type(ValueType::FLOAT)
+    , token(token)
     , data(val)
 {
 }
 
-Value::Value(bool val)
+Value::Value(bool val, Token token)
     : type(ValueType::BOOLEAN)
+    , token(token)
     , data(val)
 {
 }
 
-Value::Value(const std::string& val)
+Value::Value(const std::string& val, Token token)
     : type(ValueType::STRING)
+    , token(token)
     , data(val)
 {
 }
 
-Value::Value(const char* val)
+Value::Value(const char* val, Token token)
     : type(ValueType::STRING)
+    , token(token)
     , data(std::string(val))
 {
 }
 
-Value::Value(const Color& val)
+Value::Value(const Color& val, Token token)
     : type(ValueType::COLOR)
+    , token(token)
     , data(val)
 {
 }
 
-Value::Value(const Coord& val)
+Value::Value(const Coord& val, Token token)
     : type(ValueType::COORD)
+    , token(token)
     , data(val)
 {
 }
 
-Value::Value(const ArrayType& val)
+Value::Value(const ArrayType& val, Token token)
     : type(ValueType::ARRAY)
+    , token(token)
     , data(val)
 {
 }
 
-Value::Value(const MapType& val)
+Value::Value(const MapType& val, Token token)
     : type(ValueType::MAP)
+    , token(token)
     , data(val)
 {
 }
@@ -131,25 +152,21 @@ bool Value::asBoolean() const
 
 std::string Value::asString() const
 {
-    if (type == ValueType::STRING)
+    // Allow string-like types to be extracted as a string.
+    if (type == ValueType::STRING || type == ValueType::PATH || type == ValueType::REFERENCE || type == ValueType::ENV_VAR)
     {
         return std::get<std::string>(data);
     }
-    // Also allow REFERENCE and ENV_VAR to return their string content
-    if (type == ValueType::REFERENCE || type == ValueType::ENV_VAR)
-    {
-        return std::get<std::string>(data);
-    }
-    throw std::runtime_error("Value is not a string");
+    throw std::runtime_error("Value is not a string or string-like type");
 }
 
 Value::ArrayType Value::asArray() const
 {
-    if (type == ValueType::ARRAY || type == ValueType::LIST)
+    if (type == ValueType::ARRAY || type == ValueType::LIST || type == ValueType::SET || type == ValueType::TUPLE)
     {
         return std::get<ArrayType>(data);
     }
-    throw std::runtime_error("Value is not an array");
+    throw std::runtime_error("Value is not an array or list-like type");
 }
 
 Value::MapType Value::asMap() const
@@ -206,7 +223,6 @@ std::string Value::toString() const
             break;
         
         case ValueType::ARRAY:
-        case ValueType::LIST:
         {
             auto arr = std::get<ArrayType>(data);
             oss << "[";
@@ -216,6 +232,33 @@ std::string Value::toString() const
                 oss << arr[i]->toString();
             }
             oss << "]";
+            break;
+        }
+
+        case ValueType::LIST:
+        {
+            auto arr = std::get<ArrayType>(data);
+            oss << "List(";
+            for (size_t i = 0; i < arr.size(); i++)
+            {
+                if (i > 0) oss << ", ";
+                oss << arr[i]->toString();
+            }
+            oss << ")";
+            break;
+        }
+
+        case ValueType::SET:
+        case ValueType::TUPLE:
+        {
+            auto arr = std::get<ArrayType>(data);
+            oss << "(";
+            for (size_t i = 0; i < arr.size(); i++)
+            {
+                if (i > 0) oss << ", ";
+                oss << arr[i]->toString();
+            }
+            oss << ")";
             break;
         }
         
@@ -269,26 +312,65 @@ std::string Value::toString() const
     return oss.str();
 }
 
-std::shared_ptr<Value> Value::makeDynamic(std::shared_ptr<Value> inner)
+std::shared_ptr<Value> Value::makeDynamic(std::shared_ptr<Value> inner, Token token)
 {
     auto val = std::make_shared<Value>();
     val->type = ValueType::DYNAMIC;
+    val->token = token;
     val->data = inner;
     return val;
 }
 
-std::shared_ptr<Value> Value::makeReference(const std::string& ref)
+std::shared_ptr<Value> Value::makePath(const std::string& path_str, Token token)
+{
+    auto val = std::make_shared<Value>();
+    val->type = ValueType::PATH;
+    val->token = token;
+    val->data = path_str;
+    return val;
+}
+
+std::shared_ptr<Value> Value::makeList(const ArrayType& elements, Token token)
+{
+    auto val = std::make_shared<Value>();
+    val->type = ValueType::LIST;
+    val->token = token;
+    val->data = elements;
+    return val;
+}
+
+std::shared_ptr<Value> Value::makeSet(const ArrayType& elements, Token token)
+{
+    auto val = std::make_shared<Value>();
+    val->type = ValueType::SET;
+    val->token = token;
+    val->data = elements;
+    return val;
+}
+
+std::shared_ptr<Value> Value::makeTuple(const ArrayType& elements, Token token)
+{
+    auto val = std::make_shared<Value>();
+    val->type = ValueType::TUPLE;
+    val->token = token;
+    val->data = elements;
+    return val;
+}
+
+std::shared_ptr<Value> Value::makeReference(const std::string& ref, Token token)
 {
     auto val = std::make_shared<Value>();
     val->type = ValueType::REFERENCE;
+    val->token = token;
     val->data = ref;
     return val;
 }
 
-std::shared_ptr<Value> Value::makeEnvVar(const std::string& var_name)
+std::shared_ptr<Value> Value::makeEnvVar(const std::string& var_name, Token token)
 {
     auto val = std::make_shared<Value>();
     val->type = ValueType::ENV_VAR;
+    val->token = token;
     val->data = var_name;
     return val;
 }

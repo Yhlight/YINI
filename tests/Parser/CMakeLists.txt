@@ -1,10 +1,19 @@
-# Parser tests
-add_executable(test_parser test_parser.cpp)
+# Parser tests using GoogleTest
+add_executable(ParserTests test_parser.cpp)
 
-target_link_libraries(test_parser PRIVATE yini_parser yini_lexer)
+# Link against the parser, lexer, and gtest_main
+target_link_libraries(ParserTests
+    PRIVATE
+    yini_parser # The static library for the parser
+    yini_lexer  # The static library for the lexer
+    gtest_main  # GoogleTest with main()
+)
 
-target_include_directories(test_parser PRIVATE
+# Include the project's public headers
+target_include_directories(ParserTests PRIVATE
     ${PROJECT_SOURCE_DIR}/include
 )
 
-add_test(NAME ParserTest COMMAND test_parser)
+# Discover tests for CTest integration
+include(GoogleTest)
+gtest_discover_tests(ParserTests)
