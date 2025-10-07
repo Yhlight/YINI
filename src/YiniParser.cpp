@@ -9,7 +9,11 @@
 // Forward declarations for recursive parsing
 static YiniValue parseValue(const std::string& valueStr, const std::map<std::string, YiniValue>& macros);
 static YiniArray parseArray(const std::string& arrayStr, const std::map<std::string, YiniValue>& macros);
+static YiniList parseList(const std::string& listStr, const std::map<std::string, YiniValue>& macros);
 static YiniMap parseMap(const std::string& mapStr, const std::map<std::string, YiniValue>& macros);
+static std::optional<YiniColor> parseColor(const std::string& colorStr);
+static std::optional<YiniCoord> parseCoord(const std::string& coordStr);
+static std::optional<YiniPath> parsePath(const std::string& pathStr);
 
 
 // Helper function to trim whitespace from both ends of a string
@@ -41,6 +45,38 @@ YiniArray parseArray(const std::string& arrayStr, const std::map<std::string, Yi
         if (!inQuotes) {
             if (c == '[' || c == '{') nestingLevel++;
             if (c == ']' || c == '}') nestingLevel--;
+        }
+
+        if (c == ',' && nestingLevel == 0 && !inQuotes) {
+            result.push_back(parseValue(element, macros));
+            element.clear();
+        } else {
+            element += c;
+        }
+    }
+    if (!element.empty()) {
+        result.push_back(parseValue(element, macros));
+    }
+    return result;
+}
+
+YiniList parseList(const std::string& listStr, const std::map<std::string, YiniValue>& macros) {
+    YiniList result;
+    std::string content = trim(listStr);
+    if (content.length() < 6 || (content.rfind("List(", 0) != 0 && content.rfind("list(", 0) != 0) || content.back() != ')') {
+        return result;
+    }
+    content = content.substr(5, content.length() - 6);
+
+    std::string element;
+    int nestingLevel = 0;
+    bool inQuotes = false;
+
+    for (char c : content) {
+        if (c == '"') inQuotes = !inQuotes;
+        if (!inQuotes) {
+            if (c == '[' || c == '{' || c == '(') nestingLevel++;
+            if (c == ']' || c == '}' || c == ')') nestingLevel--;
         }
 
         if (c == ',' && nestingLevel == 0 && !inQuotes) {
@@ -100,6 +136,75 @@ YiniMap parseMap(const std::string& mapStr, const std::map<std::string, YiniValu
 }
 
 
+// --- Type-specific Parsers ---
+
+std::optional<YiniColor> parseColor(const std::string& colorStr) {
+    std::string trimmed = trim(colorStr);
+    if (trimmed.empty()) return std::nullopt;
+
+    // Hex format: #RRGGBB
+    if (trimmed.front() == '#') {
+        if (trimmed.length() != 7) return std::nullopt;
+        try {
+            uint8_t r = std::stoul(trimmed.substr(1, 2), nullptr, 16);
+            uint8_t g = std::stoul(trimmed.substr(3, 2), nullptr, 16);
+            uint8_t b = std::stoul(trimmed.substr(5, 2), nullptr, 16);
+            return YiniColor{r, g, b, 255};
+        } catch (...) {
+            return std::nullopt;
+        }
+    }
+
+    // Functional format: color(r, g, b)
+    static const std::regex color_regex(R"((?:color|Color)\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\))");
+    std::smatch match;
+    if (std::regex_match(trimmed, match, color_regex)) {
+        try {
+            uint8_t r = std::stoi(match[1]);
+            uint8_t g = std::stoi(match[2]);
+            uint8_t b = std::stoi(match[3]);
+            return YiniColor{r, g, b, 255};
+        } catch (...) {
+            return std::nullopt;
+        }
+    }
+
+    return std::nullopt;
+}
+
+std::optional<YiniCoord> parseCoord(const std::string& coordStr) {
+    std::string trimmed = trim(coordStr);
+    static const std::regex coord_regex(R"((?:Coord|coord)\s*\(\s*([+-]?\d*\.?\d+)\s*,\s*([+-]?\d*\.?\d+)(?:\s*,\s*([+-]?\d*\.?\d+))?\s*\))");
+    std::smatch match;
+
+    if (std::regex_match(trimmed, match, coord_regex)) {
+        try {
+            double x = std::stod(match[1]);
+            double y = std::stod(match[2]);
+            if (match[3].matched) { // 3D
+                double z = std::stod(match[3]);
+                return YiniCoord{x, y, z, true};
+            } else { // 2D
+                return YiniCoord{x, y, 0.0, false};
+            }
+        } catch (...) {
+            return std::nullopt;
+        }
+    }
+    return std::nullopt;
+}
+
+std::optional<YiniPath> parsePath(const std::string& pathStr) {
+    std::string trimmed = trim(pathStr);
+    static const std::regex path_regex(R"((?:Path|path)\s*\(\s*\"(.*)\"\s*\))");
+    std::smatch match;
+    if (std::regex_match(trimmed, match, path_regex)) {
+        return YiniPath{match[1].str()};
+    }
+    return std::nullopt;
+}
+
+
 // --- Main Value Parser ---
 static YiniValue parseValue(const std::string& valueStr, const std::map<std::string, YiniValue>& macros) {
     std::string trimmedValue = trim(valueStr);
@@ -113,7 +218,17 @@ static YiniValue parseValue(const std::string& valueStr, const std::map<std::str
         }
     }
 
-    // Check for containers first
+    // Check for explicit types first
+    if (auto color = parseColor(trimmedValue); color.has_value()) return YiniValue(color.value());
+    if (auto coord = parseCoord(trimmedValue); coord.has_value()) return YiniValue(coord.value());
+    if (auto path = parsePath(trimmedValue); path.has_value()) return YiniValue(path.value());
+
+    if ((trimmedValue.rfind("List(", 0) == 0 || trimmedValue.rfind("list(", 0) == 0)) {
+        return YiniValue(parseList(trimmedValue, macros));
+    }
+
+
+    // Check for containers
     if (!trimmedValue.empty() && trimmedValue.front() == '[' && trimmedValue.back() == ']') {
         return YiniValue(parseArray(trimmedValue, macros));
     }

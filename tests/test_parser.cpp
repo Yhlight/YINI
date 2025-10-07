@@ -149,3 +149,64 @@ TEST(YiniParserTest, HandlesCrossSectionReferences) {
     ASSERT_TRUE(value->is<int>());
     EXPECT_EQ(value->get<int>(), 42);
 }
+
+TEST(YiniParserTest, ParsesList) {
+    YiniParser parser;
+    parser.parse("[test]\nkey = List(1, \"two\", true)\n");
+    auto value = parser.getValue("test", "key");
+    ASSERT_TRUE(value.has_value());
+    ASSERT_TRUE(value->is<YiniList>());
+    const auto& list = value->get<YiniList>();
+    ASSERT_EQ(list.size(), 3);
+    auto it = list.begin();
+    EXPECT_EQ(it->get<int>(), 1);
+    it++;
+    EXPECT_EQ(it->get<std::string>(), "two");
+    it++;
+    EXPECT_EQ(it->get<bool>(), true);
+}
+
+TEST(YiniParserTest, ParsesColorHex) {
+    YiniParser parser;
+    parser.parse("[test]\nkey = #FFC0CB\n");
+    auto value = parser.getValue("test", "key");
+    ASSERT_TRUE(value.has_value());
+    ASSERT_TRUE(value->is<YiniColor>());
+    EXPECT_EQ(value->get<YiniColor>(), YiniColor({255, 192, 203, 255}));
+}
+
+TEST(YiniParserTest, ParsesColorRGB) {
+    YiniParser parser;
+    parser.parse("[test]\nkey = color(255, 192, 203)\n");
+    auto value = parser.getValue("test", "key");
+    ASSERT_TRUE(value.has_value());
+    ASSERT_TRUE(value->is<YiniColor>());
+    EXPECT_EQ(value->get<YiniColor>(), YiniColor({255, 192, 203, 255}));
+}
+
+TEST(YiniParserTest, ParsesCoord2D) {
+    YiniParser parser;
+    parser.parse("[test]\nkey = Coord(1.5, 2.5)\n");
+    auto value = parser.getValue("test", "key");
+    ASSERT_TRUE(value.has_value());
+    ASSERT_TRUE(value->is<YiniCoord>());
+    EXPECT_EQ(value->get<YiniCoord>(), YiniCoord({1.5, 2.5, 0.0, false}));
+}
+
+TEST(YiniParserTest, ParsesCoord3D) {
+    YiniParser parser;
+    parser.parse("[test]\nkey = Coord(1.5, 2.5, 3.5)\n");
+    auto value = parser.getValue("test", "key");
+    ASSERT_TRUE(value.has_value());
+    ASSERT_TRUE(value->is<YiniCoord>());
+    EXPECT_EQ(value->get<YiniCoord>(), YiniCoord({1.5, 2.5, 3.5, true}));
+}
+
+TEST(YiniParserTest, ParsesPath) {
+    YiniParser parser;
+    parser.parse("[test]\nkey = Path(\"/path/to/file.txt\")\n");
+    auto value = parser.getValue("test", "key");
+    ASSERT_TRUE(value.has_value());
+    ASSERT_TRUE(value->is<YiniPath>());
+    EXPECT_EQ(value->get<YiniPath>(), YiniPath({"/path/to/file.txt"}));
+}

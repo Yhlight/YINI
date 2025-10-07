@@ -6,6 +6,8 @@ static YiniVariant deep_copy_variant(const YiniVariant& v) {
         using T = std::decay_t<decltype(value)>;
         if constexpr (std::is_same_v<T, std::unique_ptr<YiniArray>>) {
             return std::make_unique<YiniArray>(*value);
+        } else if constexpr (std::is_same_v<T, std::unique_ptr<YiniList>>) {
+            return std::make_unique<YiniList>(*value);
         } else if constexpr (std::is_same_v<T, std::unique_ptr<YiniMap>>) {
             return std::make_unique<YiniMap>(*value);
         } else {
@@ -22,7 +24,11 @@ YiniValue::YiniValue(int value) : m_value(value) {}
 YiniValue::YiniValue(bool value) : m_value(value) {}
 YiniValue::YiniValue(double value) : m_value(value) {}
 YiniValue::YiniValue(YiniArray value) : m_value(std::make_unique<YiniArray>(std::move(value))) {}
+YiniValue::YiniValue(YiniList value) : m_value(std::make_unique<YiniList>(std::move(value))) {}
 YiniValue::YiniValue(YiniMap value) : m_value(std::make_unique<YiniMap>(std::move(value))) {}
+YiniValue::YiniValue(YiniColor value) : m_value(value) {}
+YiniValue::YiniValue(YiniCoord value) : m_value(value) {}
+YiniValue::YiniValue(YiniPath value) : m_value(value) {}
 
 // --- Rule of Five ---
 YiniValue::~YiniValue() = default;
@@ -45,6 +51,8 @@ template<typename T>
 bool YiniValue::is() const {
     if constexpr (std::is_same_v<T, YiniArray>) {
         return std::holds_alternative<std::unique_ptr<YiniArray>>(m_value);
+    } else if constexpr (std::is_same_v<T, YiniList>) {
+        return std::holds_alternative<std::unique_ptr<YiniList>>(m_value);
     } else if constexpr (std::is_same_v<T, YiniMap>) {
         return std::holds_alternative<std::unique_ptr<YiniMap>>(m_value);
     } else {
@@ -56,6 +64,8 @@ template<typename T>
 const T& YiniValue::get() const {
     if constexpr (std::is_same_v<T, YiniArray>) {
         return *std::get<std::unique_ptr<YiniArray>>(m_value);
+    } else if constexpr (std::is_same_v<T, YiniList>) {
+        return *std::get<std::unique_ptr<YiniList>>(m_value);
     } else if constexpr (std::is_same_v<T, YiniMap>) {
         return *std::get<std::unique_ptr<YiniMap>>(m_value);
     } else {
@@ -67,6 +77,8 @@ template<typename T>
 T& YiniValue::get() {
     if constexpr (std::is_same_v<T, YiniArray>) {
         return *std::get<std::unique_ptr<YiniArray>>(m_value);
+    } else if constexpr (std::is_same_v<T, YiniList>) {
+        return *std::get<std::unique_ptr<YiniList>>(m_value);
     } else if constexpr (std::is_same_v<T, YiniMap>) {
         return *std::get<std::unique_ptr<YiniMap>>(m_value);
     } else {
@@ -81,18 +93,30 @@ template bool YiniValue::is<int>() const;
 template bool YiniValue::is<bool>() const;
 template bool YiniValue::is<double>() const;
 template bool YiniValue::is<YiniArray>() const;
+template bool YiniValue::is<YiniList>() const;
 template bool YiniValue::is<YiniMap>() const;
+template bool YiniValue::is<YiniColor>() const;
+template bool YiniValue::is<YiniCoord>() const;
+template bool YiniValue::is<YiniPath>() const;
 
 template const std::string& YiniValue::get<std::string>() const;
 template const int& YiniValue::get<int>() const;
 template const bool& YiniValue::get<bool>() const;
 template const double& YiniValue::get<double>() const;
 template const YiniArray& YiniValue::get<YiniArray>() const;
+template const YiniList& YiniValue::get<YiniList>() const;
 template const YiniMap& YiniValue::get<YiniMap>() const;
+template const YiniColor& YiniValue::get<YiniColor>() const;
+template const YiniCoord& YiniValue::get<YiniCoord>() const;
+template const YiniPath& YiniValue::get<YiniPath>() const;
 
 template std::string& YiniValue::get<std::string>();
 template int& YiniValue::get<int>();
 template bool& YiniValue::get<bool>();
 template double& YiniValue::get<double>();
 template YiniArray& YiniValue::get<YiniArray>();
+template YiniList& YiniValue::get<YiniList>();
 template YiniMap& YiniValue::get<YiniMap>();
+template YiniColor& YiniValue::get<YiniColor>();
+template YiniCoord& YiniValue::get<YiniCoord>();
+template YiniPath& YiniValue::get<YiniPath>();
