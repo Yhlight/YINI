@@ -118,9 +118,14 @@ UIName = @name
 
 键值类型  
 int, float, bool, string, array, list, map, color, coord, path  
+可以指定容器的容纳类型array[int], array[array[int]]  
 
 空值行为  
 忽略(~)，赋予值(=)，抛出错误(e)  
+
+范围验证  
+min=, max=  
+范围为[min, max]  
 
 使用方式如下，`!, int, =1280`  
 不写其中的某一个选项则是忽略此类型的验证  
@@ -128,15 +133,43 @@ int, float, bool, string, array, list, map, color, coord, path
 ```YINI
 [#schema]
 [Visual]
-width = !, int, =1280
+width = !, int, =1280, min=800, max=1920
 height = ?, int  // 不进行空值验证
 fps = ?, int, =60
 isOld = !, bool, e
+
+[Config]
 
 [#schema]
 [Audio]
 volume = !, float, =1.0
 music = ?, bool, =true
+```
+
+#### 实践
+一般情况下，不建议在同一个文件之中将验证块与配置块放一起  
+而是应该分开  
+
+schema.yini  
+```YINI
+[#schema]
+[Visual]
+width = !, int, =1280, min=800, max=1920
+height = ?, int
+fps = ?, int, =60
+isOld = !, bool, e
+```
+
+config.yini  
+```YINI
+[#include]
++= schema.yini  // 引用schema
+
+[Visual]
+width = 1920
+height = 1080
+fps = 60
+isOld = true
 ```
 
 ### 环境变量
@@ -175,7 +208,7 @@ CLI工具主要用来编译与反编译YMETA文件，以及检查是否语法错
 
 ### 项目开发建议
 #### 架构设计
-状态机 + 策略模式  
+状态机 + 策略模式 / 递归下降  
 
 #### 项目命名规范
 基本数据类型，常规函数  ->  蛇形命名法  
