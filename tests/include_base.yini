@@ -1,0 +1,7 @@
+[#define]
+version = "1.0"
+
+[Settings]
+fullscreen = false
+sound = 100
+user = "base"

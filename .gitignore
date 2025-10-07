@@ -1,0 +1,23 @@
+# Build artifacts
+build/
+*.so
+*.a
+*.dll
+*.exe
+
+# CMake files
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+
+# VSCode
+.vscode/
+
+# .NET
+[Oo]bj/
+[Bb]in/
+
+# YMETA files
+*.ymeta
+*.YMETA

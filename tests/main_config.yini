@@ -1,0 +1,6 @@
+[#include]
++= "include_base.yini"
++= "include_override.yini"
+
+[Main]
+setting = "main_value"
