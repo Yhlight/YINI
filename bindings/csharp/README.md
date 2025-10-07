@@ -210,6 +210,9 @@ example.exe
 3. **Thread safety**
    - Create separate Parser instances for different threads
    - DO NOT share Parser instances across threads
+   - **IMPORTANT**: `Parser.setAllowedEnvVars()` is NOT thread-safe
+   - Call `setAllowedEnvVars()` BEFORE creating any Parser instances in multi-threaded scenarios
+   - Or ensure only one thread modifies the whitelist at a time
 
 4. **C API users (advanced)**
    - String arrays from `yini_parser_get_section_names()` MUST be freed

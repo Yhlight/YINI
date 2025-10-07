@@ -169,6 +169,32 @@ score = Dyna(0)
 
 项目编译为共享库 (`libyini.so`/`yini.dll`)，可通过P/Invoke在C#中使用。
 
+详细的C# API文档请查看 [bindings/csharp/README.md](bindings/csharp/README.md)
+
+## 线程安全
+
+**重要提示**:
+- ✅ **Parser实例** - 每个线程应创建独立的Parser实例
+- ⚠️ **环境变量白名单** - `Parser::setAllowedEnvVars()` 不是线程安全的
+- ✅ **建议** - 在创建任何Parser之前设置环境变量白名单
+- ✅ **安全模式** - `setSafeMode()` 是实例级别的，线程安全
+
+**示例**:
+```cpp
+// 主线程初始化
+Parser::setAllowedEnvVars({
+    "YINI_CONFIG_DIR",
+    "YINI_DATA_DIR"
+});
+
+// 然后在各线程中使用
+void worker_thread() {
+    Parser parser(source);  // 每线程独立实例
+    parser.setSafeMode(true);
+    parser.parse();
+}
+```
+
 ## VSCode 插件
 
 计划开发VSCode插件，提供：
