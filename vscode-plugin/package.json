@@ -2,7 +2,7 @@
   "name": "yini-language-support",
   "displayName": "YINI Language Support",
   "description": "Language support for YINI configuration files with LSP",
-  "version": "3.0.0",
+  "version": "2.5.0",
   "publisher": "yini",
   "engines": {
     "vscode": "^1.60.0"

@@ -92,7 +92,7 @@ json LSPServer::handleInitialize(const json& /*params*/)
         }},
         {"serverInfo", {
             {"name", "YINI Language Server"},
-            {"version", "2.0.0"}
+            {"version", "2.5.0"}
         }}
     };
 }
