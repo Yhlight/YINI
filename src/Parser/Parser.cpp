@@ -16,6 +16,9 @@ std::set<std::string> Parser::allowed_env_vars = {
     "YINI_DEBUG"
 };
 
+// Initialize mutex for thread-safe access to allowed_env_vars
+std::mutex Parser::env_vars_mutex;
+
 Parser::Parser(const std::vector<Token>& tokens)
     : tokens(tokens)
     , current(0)
@@ -553,10 +556,30 @@ std::shared_ptr<Value> Parser::parseExpression()
         // Perform arithmetic
         if (left->isInteger() && right->isInteger())
         {
-            int64_t result = (op == TokenType::PLUS) 
-                ? (left->asInteger() + right->asInteger())
-                : (left->asInteger() - right->asInteger());
-            left = std::make_shared<Value>(result);
+            int64_t l_val = left->asInteger();
+            int64_t r_val = right->asInteger();
+            
+            // Check for overflow
+            if (op == TokenType::PLUS)
+            {
+                if (willOverflowAdd(l_val, r_val))
+                {
+                    error("Integer overflow in addition");
+                    --expression_depth;
+                    return nullptr;
+                }
+                left = std::make_shared<Value>(l_val + r_val);
+            }
+            else // MINUS
+            {
+                if (willOverflowSubtract(l_val, r_val))
+                {
+                    error("Integer overflow in subtraction");
+                    --expression_depth;
+                    return nullptr;
+                }
+                left = std::make_shared<Value>(l_val - r_val);
+            }
         }
         else if ((left->isFloat() || left->isInteger()) && 
                  (right->isFloat() || right->isInteger()))
@@ -598,20 +621,45 @@ std::shared_ptr<Value> Parser::parseTerm()
         // Perform arithmetic
         if (left->isInteger() && right->isInteger())
         {
-            int64_t result;
+            int64_t l_val = left->asInteger();
+            int64_t r_val = right->asInteger();
+            
             if (op == TokenType::MULTIPLY)
             {
-                result = left->asInteger() * right->asInteger();
+                // Check for overflow
+                if (willOverflowMultiply(l_val, r_val))
+                {
+                    error("Integer overflow in multiplication");
+                    return nullptr;
+                }
+                left = std::make_shared<Value>(l_val * r_val);
             }
             else if (op == TokenType::DIVIDE)
             {
-                result = left->asInteger() / right->asInteger();
+                // Check for division by zero
+                if (r_val == 0)
+                {
+                    error("Division by zero");
+                    return nullptr;
+                }
+                // Check for overflow (INT64_MIN / -1)
+                if (l_val == INT64_MIN && r_val == -1)
+                {
+                    error("Integer overflow in division");
+                    return nullptr;
+                }
+                left = std::make_shared<Value>(l_val / r_val);
             }
-            else
+            else // MODULO
             {
-                result = left->asInteger() % right->asInteger();
+                // Check for modulo by zero
+                if (r_val == 0)
+                {
+                    error("Modulo by zero");
+                    return nullptr;
+                }
+                left = std::make_shared<Value>(l_val % r_val);
             }
-            left = std::make_shared<Value>(result);
         }
         else if ((left->isFloat() || left->isInteger()) && 
                  (right->isFloat() || right->isInteger()))
@@ -847,11 +895,22 @@ std::shared_ptr<Value> Parser::parseArray()
 
 std::shared_ptr<Value> Parser::parseList()
 {
+    // Reuse array_depth for all collection types
+    if (array_depth >= MAX_RECURSION_DEPTH)
+    {
+        error("List nesting too deep (max " + 
+              std::to_string(MAX_RECURSION_DEPTH) + ")");
+        return nullptr;
+    }
+    
+    ++array_depth;
+    
     advance(); // List keyword
     
     if (!match(TokenType::LPAREN))
     {
         error("Expected '(' after List");
+        --array_depth;
         return nullptr;
     }
     
@@ -859,9 +918,19 @@ std::shared_ptr<Value> Parser::parseList()
     
     while (!check(TokenType::RPAREN) && !isAtEnd())
     {
+        // Check size limit
+        if (elements.size() >= MAX_ARRAY_SIZE)
+        {
+            error("List exceeds maximum size of " + 
+                  std::to_string(MAX_ARRAY_SIZE) + " elements");
+            --array_depth;
+            return nullptr;
+        }
+        
         auto element = parseValue();
         if (!element)
         {
+            --array_depth;
             return nullptr;
         }
         
@@ -876,8 +945,11 @@ std::shared_ptr<Value> Parser::parseList()
     if (!match(TokenType::RPAREN))
     {
         error("Expected ')' at end of list");
+        --array_depth;
         return nullptr;
     }
+    
+    --array_depth;
     
     auto val = std::make_shared<Value>(elements);
     // Mark as LIST type (would need to modify Value constructor)
@@ -886,9 +958,20 @@ std::shared_ptr<Value> Parser::parseList()
 
 std::shared_ptr<Value> Parser::parseMap()
 {
+    // Reuse array_depth for all collection types
+    if (array_depth >= MAX_RECURSION_DEPTH)
+    {
+        error("Map nesting too deep (max " + 
+              std::to_string(MAX_RECURSION_DEPTH) + ")");
+        return nullptr;
+    }
+    
+    ++array_depth;
+    
     if (!match(TokenType::LBRACE))
     {
         error("Expected '{' at start of map");
+        --array_depth;
         return nullptr;
     }
     
@@ -896,22 +979,34 @@ std::shared_ptr<Value> Parser::parseMap()
     
     while (!check(TokenType::RBRACE) && !isAtEnd())
     {
+        // Check size limit
+        if (map.size() >= MAX_ARRAY_SIZE)
+        {
+            error("Map exceeds maximum size of " + 
+                  std::to_string(MAX_ARRAY_SIZE) + " entries");
+            --array_depth;
+            return nullptr;
+        }
+        
         Token key = advance();
         if (key.type != TokenType::IDENTIFIER && key.type != TokenType::STRING)
         {
             error("Expected key in map");
+            --array_depth;
             return nullptr;
         }
         
         if (!match(TokenType::COLON))
         {
             error("Expected ':' after map key");
+            --array_depth;
             return nullptr;
         }
         
         auto value = parseValue();
         if (!value)
         {
+            --array_depth;
             return nullptr;
         }
         
@@ -930,17 +1025,30 @@ std::shared_ptr<Value> Parser::parseMap()
     if (!match(TokenType::RBRACE))
     {
         error("Expected '}' at end of map");
+        --array_depth;
         return nullptr;
     }
     
+    --array_depth;
     return std::make_shared<Value>(map);
 }
 
 std::shared_ptr<Value> Parser::parseSet()
 {
+    // Reuse array_depth for all collection types
+    if (array_depth >= MAX_RECURSION_DEPTH)
+    {
+        error("Set nesting too deep (max " + 
+              std::to_string(MAX_RECURSION_DEPTH) + ")");
+        return nullptr;
+    }
+    
+    ++array_depth;
+    
     if (!match(TokenType::LPAREN))
     {
         error("Expected '(' at start of set");
+        --array_depth;
         return nullptr;
     }
     
@@ -948,9 +1056,19 @@ std::shared_ptr<Value> Parser::parseSet()
     
     while (!check(TokenType::RPAREN) && !isAtEnd())
     {
+        // Check size limit
+        if (elements.size() >= MAX_ARRAY_SIZE)
+        {
+            error("Set exceeds maximum size of " + 
+                  std::to_string(MAX_ARRAY_SIZE) + " elements");
+            --array_depth;
+            return nullptr;
+        }
+        
         auto element = parseValue();
         if (!element)
         {
+            --array_depth;
             return nullptr;
         }
         
@@ -965,8 +1083,11 @@ std::shared_ptr<Value> Parser::parseSet()
     if (!match(TokenType::RPAREN))
     {
         error("Expected ')' at end of set");
+        --array_depth;
         return nullptr;
     }
+    
+    --array_depth;
     
     // For now, represent sets as arrays
     return std::make_shared<Value>(elements);
@@ -1475,10 +1596,16 @@ std::shared_ptr<Value> Parser::resolveValue(std::shared_ptr<Value> value, std::s
     {
         std::string var_name = value->asString();
         
-        // Security check: If safe mode is enabled, check whitelist
+        // Security check: If safe mode is enabled, check whitelist (thread-safe)
         if (safe_mode)
         {
-            if (allowed_env_vars.find(var_name) == allowed_env_vars.end())
+            bool is_allowed;
+            {
+                std::lock_guard<std::mutex> lock(env_vars_mutex);
+                is_allowed = (allowed_env_vars.find(var_name) != allowed_env_vars.end());
+            }
+            
+            if (!is_allowed)
             {
                 error("Environment variable '" + var_name + 
                       "' is not allowed in safe mode. " +
@@ -1597,19 +1724,49 @@ void Parser::error(const std::string& message)
                  ", column " + std::to_string(token.column) + ": " + message;
 }
 
-// Environment variable security management
+// Overflow checking helpers
+bool Parser::willOverflowAdd(int64_t a, int64_t b) const
+{
+    if (b > 0 && a > INT64_MAX - b) return true;
+    if (b < 0 && a < INT64_MIN - b) return true;
+    return false;
+}
+
+bool Parser::willOverflowSubtract(int64_t a, int64_t b) const
+{
+    if (b < 0 && a > INT64_MAX + b) return true;
+    if (b > 0 && a < INT64_MIN + b) return true;
+    return false;
+}
+
+bool Parser::willOverflowMultiply(int64_t a, int64_t b) const
+{
+    if (a == 0 || b == 0) return false;
+    if (a == -1 && b == INT64_MIN) return true;
+    if (b == -1 && a == INT64_MIN) return true;
+    if (a > 0 && b > 0 && a > INT64_MAX / b) return true;
+    if (a > 0 && b < 0 && b < INT64_MIN / a) return true;
+    if (a < 0 && b > 0 && a < INT64_MIN / b) return true;
+    if (a < 0 && b < 0 && -a > INT64_MAX / -b) return true;
+    return false;
+}
+
+// Environment variable security management (thread-safe)
 void Parser::setAllowedEnvVars(const std::set<std::string>& vars)
 {
+    std::lock_guard<std::mutex> lock(env_vars_mutex);
     allowed_env_vars = vars;
 }
 
 void Parser::addAllowedEnvVar(const std::string& var)
 {
+    std::lock_guard<std::mutex> lock(env_vars_mutex);
     allowed_env_vars.insert(var);
 }
 
 void Parser::clearAllowedEnvVars()
 {
+    std::lock_guard<std::mutex> lock(env_vars_mutex);
     allowed_env_vars.clear();
 }
 

@@ -10,6 +10,7 @@
 #include <set>
 #include <memory>
 #include <optional>
+#include <mutex>
 
 namespace yini
 {
@@ -136,6 +137,11 @@ private:
     // Error handling
     void error(const std::string& message);
     
+    // Overflow checking helpers
+    bool willOverflowAdd(int64_t a, int64_t b) const;
+    bool willOverflowSubtract(int64_t a, int64_t b) const;
+    bool willOverflowMultiply(int64_t a, int64_t b) const;
+    
     // State
     std::vector<Token> tokens;
     size_t current;
@@ -160,6 +166,7 @@ private:
     // Environment variable security
     bool safe_mode;
     static std::set<std::string> allowed_env_vars;
+    static std::mutex env_vars_mutex;  // Thread safety for static whitelist
     
     // Error tracking
     std::string last_error;

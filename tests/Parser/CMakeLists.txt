@@ -30,3 +30,14 @@ target_include_directories(test_schema PRIVATE
 )
 
 add_test(NAME SchemaTest COMMAND test_schema)
+
+# Overflow and arithmetic safety tests
+add_executable(test_overflow test_overflow.cpp)
+
+target_link_libraries(test_overflow PRIVATE yini_parser yini_lexer)
+
+target_include_directories(test_overflow PRIVATE
+    ${PROJECT_SOURCE_DIR}/include
+)
+
+add_test(NAME OverflowTest COMMAND test_overflow)
