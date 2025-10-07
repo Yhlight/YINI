@@ -1,0 +1,271 @@
+// YINI Comprehensive Example
+// This file demonstrates ALL features of the YINI configuration language
+
+// ============================================================================
+// 1. MACRO DEFINITIONS
+// ============================================================================
+[#define]
+SCREEN_WIDTH = 1920
+SCREEN_HEIGHT = 1080
+MAX_FPS = 144
+DEFAULT_VOLUME = 0.8
+APP_NAME = "MyAwesomeGame"
+
+// ============================================================================
+// 2. FILE INCLUDES (commented out - enable when files exist)
+// ============================================================================
+[#include]
+// += "graphics_presets.yini"
+// += "audio_config.yini"
+
+// ============================================================================
+// 3. BASIC CONFIGURATION WITH ALL VALUE TYPES
+// ============================================================================
+[Graphics]
+// Basic types
+width = @SCREEN_WIDTH               // Macro reference
+height = @SCREEN_HEIGHT
+fullscreen = true
+vsync = false
+fps_limit = @MAX_FPS
+
+// Arithmetic expressions
+half_width = 1920 / 2
+quarter_height = 1080 / 4
+total_pixels = 1920 * 1080
+scaled_fps = 144 - 24
+
+// Colors
+background = #000000
+primary_color = Color(64, 128, 255)
+secondary_color = #FF6B35
+accent = color(255, 200, 100)
+
+// Coordinates
+spawn_point = Coord(100.5, 200.3)
+camera_position = Coord(0, 0, 10)
+ui_offset = coord(10, 20)
+
+// Arrays
+resolutions = [[1920, 1080], [2560, 1440], [3840, 2160]]
+supported_modes = ["windowed", "fullscreen", "borderless"]
+
+// Lists (linked list implementation)
+render_queue = List("skybox", "terrain", "objects", "ui")
+
+// Maps/Dictionaries
+quality_settings = {low: 1, medium: 2, high: 3, ultra: 4}
+
+// Note: Complex sets parsing needs refinement
+// enabled_features = ("shadows", "reflections")
+
+// Paths  
+shader_path = "assets/shaders/main.glsl"
+texture_dir = "textures/environment/"
+
+// ============================================================================
+// 4. CONFIGURATION INHERITANCE
+// ============================================================================
+[GraphicsLow] : Graphics
+width = 1280
+height = 720
+fps_limit = 60
+quality_settings = {low: 1}
+
+[GraphicsHigh] : Graphics
+width = 3840
+height = 2160
+quality_settings = {ultra: 4}
+
+// Multiple inheritance
+[GraphicsOptimized] : GraphicsLow, GraphicsHigh
+// Takes GraphicsHigh values (later inheritance wins)
+fps_limit = 120  // Override
+
+// ============================================================================
+// 5. DYNAMIC VALUES (RUNTIME MODIFIABLE)
+// ============================================================================
+[GameState]
+current_level = Dyna(1)
+player_score = Dyna(0)
+high_score = Dyna(0)
+achievements_unlocked = Dyna(0)
+play_time_hours = Dyna(0.0)
+last_checkpoint = Dyna("start")
+
+// ============================================================================
+// 6. QUICK REGISTER (AUTO-INDEXED)
+// ============================================================================
+[WeaponRegistry]
++= "Sword"
++= "Bow"
++= "Staff"
++= "Dagger"
++= "Axe"
+
+[EnemyTypes]
++= "Goblin"
++= "Orc"
++= "Dragon"
++= "Skeleton"
+
+// ============================================================================
+// 7. CROSS-SECTION REFERENCES WITH DOT NOTATION
+// ============================================================================
+[Display]
+window_width = @{Graphics.width}
+window_height = @{Graphics.height}
+window_title = @APP_NAME
+default_fps = @{Graphics.fps_limit}
+
+[Audio]
+master_volume = @DEFAULT_VOLUME
+music_volume = 0.7
+sfx_volume = 0.9
+voice_volume = 1.0
+
+// Reference from another section
+ui_volume = @{Audio.master_volume}
+
+// ============================================================================
+// 8. ENVIRONMENT VARIABLES
+// ============================================================================
+[System]
+user_home = ${HOME}
+temp_directory = ${TEMP}
+current_user = ${USER}
+
+// Combine with paths
+save_directory = Path("${HOME}/.myawesomegame/saves")
+
+// ============================================================================
+// 9. COMPLEX NESTED STRUCTURES
+// ============================================================================
+[Player]
+stats = {strength: 10, dexterity: 15, intelligence: 12, vitality: 20, luck: 8}
+
+skills = {swordplay: 5, archery: 8, magic: 3, crafting: 6}
+
+inventory_items = ["Health Potion", "Mana Potion", "Iron Sword"]
+inventory_quantities = [5, 3, 1]
+
+equipment = {weapon: "Iron Sword", armor: "Leather Armor", accessory: "Lucky Ring"}
+
+// ============================================================================
+// 10. UI CONFIGURATION
+// ============================================================================
+[UI]
+theme = "dark"
+colors = {text: #FFFFFF, background: #2C3E50, accent: #3498DB, error: #E74C3C, success: #2ECC71}
+
+fonts = {title: "Arial Bold 24", body: "Arial Regular 14", mono: "Courier New 12"}
+
+positions = [Coord(0, 0), Coord(1920, 0), Coord(0, 1080), Coord(1920, 1080)]
+
+// Reference from Graphics section (division with reference not yet fully supported)
+ui_scale = 1.0
+
+// ============================================================================
+// 11. NETWORK CONFIGURATION
+// ============================================================================
+[Network]
+server_host = "localhost"
+server_port = 8080
+max_connections = 100
+timeout = 30.0
+use_ssl = true
+
+// Connection string
+database_url = "mongodb://localhost:27017/gamedb"
+
+// Retry configuration
+retry_attempts = 3
+retry_delay = 1.5
+
+// ============================================================================
+// 12. LOGGING CONFIGURATION
+// ============================================================================
+[Logging]
+enabled = true
+level = "INFO"  // DEBUG, INFO, WARN, ERROR
+file = "game.log"
+max_size = 10485760  // 10MB
+rotation = true
+console_output = true
+
+// Log categories
+categories = ["graphics", "audio", "network", "gameplay"]
+
+// ============================================================================
+// 13. PERFORMANCE TUNING
+// ============================================================================
+[Performance]
+enable_multithreading = true
+worker_threads = 4
+chunk_size = 1024
+cache_size_mb = 256
+
+// Computed values
+memory_limit = 256 * 1024 * 1024  // 256MB in bytes
+batch_size = 100 * 10             // 1000 items
+
+// ============================================================================
+// 14. GAME RULES
+// ============================================================================
+[Rules]
+difficulty = "normal"  // easy, normal, hard, insane
+
+multipliers = {easy: 0.5, normal: 1.0, hard: 1.5, insane: 2.0}
+
+// Enemy health scaling
+base_health = 100
+health_per_level = 50
+max_level = 100
+
+// Experience formula: base + (level * multiplier)
+base_xp = 100
+xp_multiplier = 1.2
+
+// ============================================================================
+// 15. LOCALIZATION
+// ============================================================================
+[Localization]
+default_language = "en"
+supported_languages = ["en", "es", "fr", "de", "ja", "zh"]
+
+text = {en: "Hello, World!", es: "¡Hola, Mundo!", fr: "Bonjour, le Monde!", de: "Hallo, Welt!"}
+
+// ============================================================================
+// 16. ADVANCED FEATURES SHOWCASE
+// ============================================================================
+[Advanced]
+// Nested arrays
+matrix_2x2 = [[1, 2], [3, 4]]
+matrix_3x3 = [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
+
+// Mixed type arrays (all converted to compatible types)
+mixed_numbers = [1, 2.5, 3, 4.8]
+
+// Complex map structures
+scene_graph = {root: "MainScene"}
+
+// Color gradients
+gradient_colors = [#FF0000, #FFFF00, #00FF00, #00FFFF, #0000FF, #FF00FF]
+
+// Waypoints for path finding
+waypoints = [Coord(0, 0, 0), Coord(100, 50, 0), Coord(200, 100, 50), Coord(300, 150, 100)]
+
+// Boolean flags
+flags = {debug_mode: false, show_fps: true, show_stats: false, god_mode: false, no_clip: false}
+
+// ============================================================================
+// NOTES:
+// - All comments use // or /* */
+// - Macro references use @NAME
+// - Cross-section references use @{Section.key}
+// - Environment variables use ${VAR}
+// - Dynamic values use Dyna(value)
+// - Quick register uses +=
+// - Section inheritance uses [Section] : Base1, Base2
+// - Arithmetic operations: +, -, *, /, %, with parentheses for precedence
+// ============================================================================
