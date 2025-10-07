@@ -98,7 +98,7 @@ public:
     bool isReference() const { return type == ValueType::REFERENCE; }
     bool isEnvVar() const { return type == ValueType::ENV_VAR; }
     
-    // Value getters
+    // Value getters (may throw if type mismatch)
     int64_t asInteger() const;
     double asFloat() const;
     bool asBoolean() const;
@@ -107,6 +107,22 @@ public:
     MapType asMap() const;
     Color asColor() const;
     Coord asCoord() const;
+    
+    // Safe value getters (returns optional)
+    std::optional<int64_t> tryAsInteger() const;
+    std::optional<double> tryAsFloat() const;
+    std::optional<bool> tryAsBoolean() const;
+    std::optional<std::string> tryAsString() const;
+    std::optional<ArrayType> tryAsArray() const;
+    std::optional<MapType> tryAsMap() const;
+    std::optional<Color> tryAsColor() const;
+    std::optional<Coord> tryAsCoord() const;
+    
+    // Value getters with default (never throws)
+    int64_t asIntegerOr(int64_t default_val) const;
+    double asFloatOr(double default_val) const;
+    bool asBooleanOr(bool default_val) const;
+    std::string asStringOr(const std::string& default_val) const;
     
     // String representation
     std::string toString() const;

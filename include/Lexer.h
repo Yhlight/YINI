@@ -101,6 +101,10 @@ private:
     // Current state
     LexerState state;
     
+    // Resource limits
+    static constexpr size_t MAX_STRING_LENGTH = 10 * 1024 * 1024; // 10MB
+    static constexpr size_t MAX_IDENTIFIER_LENGTH = 1024;         // 1KB
+    
     // Error tracking
     std::string last_error;
 };

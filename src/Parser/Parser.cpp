@@ -11,6 +11,8 @@ Parser::Parser(const std::vector<Token>& tokens)
     : tokens(tokens)
     , current(0)
     , quick_register_counter(0)
+    , expression_depth(0)
+    , array_depth(0)
     , last_error("")
 {
 }
@@ -18,6 +20,8 @@ Parser::Parser(const std::vector<Token>& tokens)
 Parser::Parser(const std::string& source)
     : current(0)
     , quick_register_counter(0)
+    , expression_depth(0)
+    , array_depth(0)
     , last_error("")
 {
     Lexer lexer(source);
@@ -508,9 +512,20 @@ std::shared_ptr<Value> Parser::parseValue()
 
 std::shared_ptr<Value> Parser::parseExpression()
 {
+    // Check recursion depth to prevent stack overflow
+    if (expression_depth >= MAX_RECURSION_DEPTH)
+    {
+        error("Expression nesting too deep (max " + 
+              std::to_string(MAX_RECURSION_DEPTH) + ")");
+        return nullptr;
+    }
+    
+    ++expression_depth;
+    
     auto left = parseTerm();
     if (!left)
     {
+        --expression_depth;
         return nullptr;
     }
     
@@ -520,6 +535,7 @@ std::shared_ptr<Value> Parser::parseExpression()
         auto right = parseTerm();
         if (!right)
         {
+            --expression_depth;
             return nullptr;
         }
         
@@ -542,10 +558,12 @@ std::shared_ptr<Value> Parser::parseExpression()
         else
         {
             error("Cannot perform arithmetic on non-numeric values");
+            --expression_depth;
             return nullptr;
         }
     }
     
+    --expression_depth;
     return left;
 }
 
@@ -760,9 +778,20 @@ std::shared_ptr<Value> Parser::parsePrimary()
 
 std::shared_ptr<Value> Parser::parseArray()
 {
+    // Check array nesting depth
+    if (array_depth >= MAX_RECURSION_DEPTH)
+    {
+        error("Array nesting too deep (max " + 
+              std::to_string(MAX_RECURSION_DEPTH) + ")");
+        return nullptr;
+    }
+    
+    ++array_depth;
+    
     if (!match(TokenType::LBRACKET))
     {
         error("Expected '[' at start of array");
+        --array_depth;
         return nullptr;
     }
     
@@ -770,9 +799,19 @@ std::shared_ptr<Value> Parser::parseArray()
     
     while (!check(TokenType::RBRACKET) && !isAtEnd())
     {
+        // Check array size limit
+        if (elements.size() >= MAX_ARRAY_SIZE)
+        {
+            error("Array exceeds maximum size of " + 
+                  std::to_string(MAX_ARRAY_SIZE) + " elements");
+            --array_depth;
+            return nullptr;
+        }
+        
         auto element = parseValue();
         if (!element)
         {
+            --array_depth;
             return nullptr;
         }
         
@@ -787,9 +826,11 @@ std::shared_ptr<Value> Parser::parseArray()
     if (!match(TokenType::RBRACKET))
     {
         error("Expected ']' at end of array");
+        --array_depth;
         return nullptr;
     }
     
+    --array_depth;
     return std::make_shared<Value>(elements);
 }
 

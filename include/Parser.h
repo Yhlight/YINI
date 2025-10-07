@@ -133,6 +133,14 @@ private:
     // Quick register counter
     int64_t quick_register_counter;
     
+    // Recursion depth tracking
+    static constexpr size_t MAX_RECURSION_DEPTH = 100;
+    size_t expression_depth;
+    size_t array_depth;
+    
+    // Resource limits
+    static constexpr size_t MAX_ARRAY_SIZE = 100000;  // 100K elements
+    
     // Error tracking
     std::string last_error;
 };

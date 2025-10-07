@@ -263,6 +263,13 @@ Token Lexer::parseString()
     
     while (!isAtEnd() && peek() != '"')
     {
+        // Check string length limit
+        if (str.length() >= MAX_STRING_LENGTH)
+        {
+            return makeError("String exceeds maximum length of " + 
+                           std::to_string(MAX_STRING_LENGTH) + " bytes");
+        }
+        
         if (peek() == '\n')
         {
             line++;
