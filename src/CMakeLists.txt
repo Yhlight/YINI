@@ -1,6 +1,7 @@
 # Define the yini library
 add_library(yini
     YiniParser.cpp
+    YiniValue.cpp
 )
 
 # Publicly expose the include directory for this library

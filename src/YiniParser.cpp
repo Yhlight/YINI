@@ -4,6 +4,13 @@
 #include <deque>
 #include <set>
 #include <cctype>
+#include <regex>
+
+// Forward declarations for recursive parsing
+static YiniValue parseValue(const std::string& valueStr, const std::map<std::string, YiniValue>& macros);
+static YiniArray parseArray(const std::string& arrayStr, const std::map<std::string, YiniValue>& macros);
+static YiniMap parseMap(const std::string& mapStr, const std::map<std::string, YiniValue>& macros);
+
 
 // Helper function to trim whitespace from both ends of a string
 static std::string trim(const std::string& str) {
@@ -15,30 +22,127 @@ static std::string trim(const std::string& str) {
     return str.substr(first, (last - first + 1));
 }
 
-// Helper function to parse a value string into a YiniValue
-static YiniValue parseValue(const std::string& valueStr) {
+// --- Container Parsers ---
+
+YiniArray parseArray(const std::string& arrayStr, const std::map<std::string, YiniValue>& macros) {
+    YiniArray result;
+    std::string content = trim(arrayStr);
+    if (content.length() < 2 || content.front() != '[' || content.back() != ']') {
+        return result;
+    }
+    content = content.substr(1, content.length() - 2);
+
+    std::string element;
+    int nestingLevel = 0;
+    bool inQuotes = false;
+
+    for (char c : content) {
+        if (c == '"') inQuotes = !inQuotes;
+        if (!inQuotes) {
+            if (c == '[' || c == '{') nestingLevel++;
+            if (c == ']' || c == '}') nestingLevel--;
+        }
+
+        if (c == ',' && nestingLevel == 0 && !inQuotes) {
+            result.push_back(parseValue(element, macros));
+            element.clear();
+        } else {
+            element += c;
+        }
+    }
+    if (!element.empty()) {
+        result.push_back(parseValue(element, macros));
+    }
+    return result;
+}
+
+YiniMap parseMap(const std::string& mapStr, const std::map<std::string, YiniValue>& macros) {
+    YiniMap result;
+    std::string content = trim(mapStr);
+    if (content.length() < 2 || content.front() != '{' || content.back() != '}') {
+        return result;
+    }
+    content = content.substr(1, content.length() - 2);
+
+    std::string pair;
+    int nestingLevel = 0;
+    bool inQuotes = false;
+
+    for (char c : content) {
+        if (c == '"') inQuotes = !inQuotes;
+        if (!inQuotes) {
+            if (c == '[' || c == '{') nestingLevel++;
+            if (c == ']' || c == '}') nestingLevel--;
+        }
+
+        if (c == ',' && nestingLevel == 0 && !inQuotes) {
+            size_t colonPos = pair.find(':');
+            if (colonPos != std::string::npos) {
+                std::string key = trim(pair.substr(0, colonPos));
+                std::string valStr = trim(pair.substr(colonPos + 1));
+                result[key] = parseValue(valStr, macros);
+            }
+            pair.clear();
+        } else {
+            pair += c;
+        }
+    }
+    if (!pair.empty()) {
+        size_t colonPos = pair.find(':');
+        if (colonPos != std::string::npos) {
+            std::string key = trim(pair.substr(0, colonPos));
+            std::string valStr = trim(pair.substr(colonPos + 1));
+            result[key] = parseValue(valStr, macros);
+        }
+    }
+
+    return result;
+}
+
+
+// --- Main Value Parser ---
+static YiniValue parseValue(const std::string& valueStr, const std::map<std::string, YiniValue>& macros) {
     std::string trimmedValue = trim(valueStr);
-    if (trimmedValue == "true") return true;
-    if (trimmedValue == "false") return false;
+
+    // Check for macro reference
+    if (!trimmedValue.empty() && trimmedValue.front() == '@' && trimmedValue.find('{') == std::string::npos) {
+        std::string macroName = trimmedValue.substr(1);
+        auto it = macros.find(macroName);
+        if (it != macros.end()) {
+            return it->second;
+        }
+    }
+
+    // Check for containers first
+    if (!trimmedValue.empty() && trimmedValue.front() == '[' && trimmedValue.back() == ']') {
+        return YiniValue(parseArray(trimmedValue, macros));
+    }
+    if (!trimmedValue.empty() && trimmedValue.front() == '{' && trimmedValue.back() == '}') {
+        return YiniValue(parseMap(trimmedValue, macros));
+    }
+
+    // Fallback to primitive types
+    if (trimmedValue == "true") return YiniValue(true);
+    if (trimmedValue == "false") return YiniValue(false);
 
     try {
         size_t pos;
         int i_val = std::stoi(trimmedValue, &pos);
-        if (pos == trimmedValue.length()) return i_val;
+        if (pos == trimmedValue.length()) return YiniValue(i_val);
     } catch (...) {}
 
     try {
         size_t pos;
         double d_val = std::stod(trimmedValue, &pos);
-        if (pos == trimmedValue.length()) return d_val;
+        if (pos == trimmedValue.length()) return YiniValue(d_val);
     } catch (...) {}
 
     // If value is wrapped in quotes, it's a string
     if (trimmedValue.length() >= 2 && trimmedValue.front() == '"' && trimmedValue.back() == '"') {
-        return trimmedValue.substr(1, trimmedValue.length() - 2);
+        return YiniValue(trimmedValue.substr(1, trimmedValue.length() - 2));
     }
 
-    return trimmedValue;
+    return YiniValue(trimmedValue);
 }
 
 void YiniParser::processSectionHeader(const std::string& header) {
@@ -61,12 +165,32 @@ void YiniParser::processSectionHeader(const std::string& header) {
     currentSection = childName;
 }
 
+void YiniParser::commitValue() {
+    if (currentSection.empty() || currentKey.empty()) {
+        return;
+    }
+
+    std::string key = trim(currentKey);
+    // Pass the current state of macros to the parser
+    YiniValue value = parseValue(currentValue, macros);
+
+    if (currentSection == "#define") {
+        macros[key] = value;
+    } else {
+        data[currentSection][key] = value;
+    }
+
+    currentKey.clear();
+    currentValue.clear();
+}
+
 
 YiniParser::YiniParser() {}
 
 void YiniParser::parse(const std::string& content) {
     // Reset state for new parsing
     data.clear();
+    macros.clear();
     inheritance.clear();
     quickValueCounters.clear();
     state = ParserState::Idle;
@@ -74,49 +198,36 @@ void YiniParser::parse(const std::string& content) {
     currentKey.clear();
     currentValue.clear();
     previousChar = '\0';
+    containerNestingLevel = 0;
 
     std::string processed_content = content + "\n";
 
     for (char c : processed_content) {
         processChar(c);
     }
+
+    resolveReferences();
 }
 
 void YiniParser::processChar(char c) {
     // Comment handling should be checked first, as it can interrupt other states.
     if (previousChar == '/') {
         if (c == '/') {
-            // Start of a line comment.
             if (state == ParserState::ParsingValue) {
-                currentValue.pop_back(); // remove the extraneous '/'
-                // Commit the value parsed so far.
-                if (!currentSection.empty() && !currentKey.empty()) {
-                    std::string key = trim(currentKey);
-                    data[currentSection][key] = parseValue(currentValue);
-                }
-                currentKey.clear();
-                currentValue.clear();
+                currentValue.pop_back();
+                commitValue();
             } else if (state == ParserState::ParsingKey) {
-                currentKey.pop_back(); // remove the extraneous '/'
-                currentKey.clear();
+                currentKey.pop_back(); currentKey.clear();
             }
             state = ParserState::LineComment;
             previousChar = c;
             return;
         } else if (c == '*') {
-            // Start of a block comment.
             if (state == ParserState::ParsingValue) {
-                currentValue.pop_back(); // remove the extraneous '/'
-                // Commit the value parsed so far.
-                if (!currentSection.empty() && !currentKey.empty()) {
-                    std::string key = trim(currentKey);
-                    data[currentSection][key] = parseValue(currentValue);
-                }
-                currentKey.clear();
-                currentValue.clear();
+                currentValue.pop_back();
+                commitValue();
             } else if (state == ParserState::ParsingKey) {
-                currentKey.pop_back(); // remove the extraneous '/'
-                currentKey.clear();
+                currentKey.pop_back(); currentKey.clear();
             }
             state = ParserState::BlockComment;
             previousChar = c;
@@ -147,8 +258,7 @@ void YiniParser::processChar(char c) {
 
         case ParserState::ParsingKey:
             if (c == '=') {
-                if (currentKey == "+") {
-                    // This is a += operation
+                if (trim(currentKey) == "+") {
                     int index = quickValueCounters[currentSection]++;
                     currentKey = std::to_string(index);
                 }
@@ -163,16 +273,44 @@ void YiniParser::processChar(char c) {
             break;
 
         case ParserState::ParsingValue:
-            if (c == '\n' || c == '\r') {
-                if (!currentSection.empty() && !currentKey.empty()) {
-                    std::string key = trim(currentKey);
-                    data[currentSection][key] = parseValue(currentValue);
+            if (currentValue.empty() && isspace(c)) {
+                 break; // Ignore leading whitespace
+            }
+            if (currentValue.empty()) {
+                if (c == '[') {
+                    state = ParserState::ParsingArray;
+                    containerNestingLevel = 1;
+                } else if (c == '{') {
+                    state = ParserState::ParsingMap;
+                    containerNestingLevel = 1;
                 }
-                currentKey.clear();
-                currentValue.clear();
+            }
+            if (state == ParserState::ParsingValue) { // If not transitioned to container
+                if (c == '\n' || c == '\r') {
+                    commitValue();
+                    state = ParserState::Idle;
+                }
+            }
+            currentValue += c; // Always append char if we are in a value-parsing state
+            break;
+
+        case ParserState::ParsingArray:
+            currentValue += c;
+            if (c == '[') containerNestingLevel++;
+            if (c == ']') containerNestingLevel--;
+            if (containerNestingLevel == 0) {
+                commitValue();
                 state = ParserState::Idle;
-            } else {
-                currentValue += c;
+            }
+            break;
+
+        case ParserState::ParsingMap:
+            currentValue += c;
+            if (c == '{') containerNestingLevel++;
+            if (c == '}') containerNestingLevel--;
+            if (containerNestingLevel == 0) {
+                commitValue();
+                state = ParserState::Idle;
             }
             break;
 
@@ -190,6 +328,50 @@ void YiniParser::processChar(char c) {
     }
     previousChar = c;
 }
+
+YiniValue YiniParser::resolveValue(const YiniValue& value, std::set<std::string>& visited) const {
+    if (!value.is<std::string>()) {
+        return value; // Not a string, nothing to resolve
+    }
+
+    const std::string& str = value.get<std::string>();
+    static const std::regex ref_regex(R"(@\{([^}]+)\})");
+    std::smatch match;
+
+    if (std::regex_match(str, match, ref_regex)) {
+        std::string fullKey = match[1].str();
+
+        if (visited.count(fullKey)) {
+            // Cycle detected, return as-is to prevent infinite loop
+            return value;
+        }
+        visited.insert(fullKey);
+
+        size_t dotPos = fullKey.find('.');
+        if (dotPos != std::string::npos) {
+            std::string sectionName = fullKey.substr(0, dotPos);
+            std::string keyName = fullKey.substr(dotPos + 1);
+
+            auto resolved_value = getValue(sectionName, keyName);
+            if(resolved_value.has_value()){
+                 return resolveValue(resolved_value.value(), visited);
+            }
+        }
+        visited.erase(fullKey);
+    }
+
+    return value;
+}
+
+void YiniParser::resolveReferences() {
+    for (auto& section_pair : data) {
+        for (auto& key_pair : section_pair.second) {
+            std::set<std::string> visited;
+            key_pair.second = resolveValue(key_pair.second, visited);
+        }
+    }
+}
+
 
 std::optional<YiniValue> YiniParser::getValue(const std::string& section, const std::string& key) const {
     std::deque<std::string> sectionsToCheck;
@@ -209,16 +391,14 @@ std::optional<YiniValue> YiniParser::getValue(const std::string& section, const 
         if (sectionIt != data.end()) {
             auto keyIt = sectionIt->second.find(key);
             if (keyIt != sectionIt->second.end()) {
-                return keyIt->second;
+                 std::set<std::string> visitedRefs;
+                 return resolveValue(keyIt->second, visitedRefs);
             }
         }
 
         auto inheritanceIt = inheritance.find(currentSectionName);
         if (inheritanceIt != inheritance.end()) {
             const auto& parents = inheritanceIt->second;
-            // For [C: P1, P2], parents is ["P1", "P2"]. We want to check P2 then P1.
-            // To make the queue [P2, P1, ...], we must prepend P1, then P2.
-            // So we iterate through the parents list forwards.
             for (const auto& parent : parents) {
                  sectionsToCheck.push_front(parent);
             }
