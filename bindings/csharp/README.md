@@ -152,8 +152,28 @@ if (Parser.DecompileFromYMETA("config.ymeta", "config_restored.yini"))
 
 ## Building the Example
 
+### Quick Build (using build script)
+
 ```bash
-# On Linux/macOS
+# Build YINI library first
+cd ../..
+./build.py --clean
+
+# Build C# bindings
+cd bindings/csharp
+./build_csharp.sh
+```
+
+The `build_csharp.sh` script will automatically:
+- Check for Mono or .NET SDK
+- Verify the YINI library is built
+- Compile the C# bindings
+- Provide run instructions
+
+### Manual Build
+
+```bash
+# On Linux/macOS with Mono
 cd bindings/csharp
 mcs Example.cs YINI.cs -out:example.exe
 LD_LIBRARY_PATH=../../build/lib mono example.exe

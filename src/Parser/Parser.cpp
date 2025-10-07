@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <cstdlib>
 #include <iostream>
+#include <set>
 
 namespace yini
 {
@@ -119,6 +120,12 @@ bool Parser::parse()
         {
             return false;
         }
+    }
+    
+    // Resolve references
+    if (!resolveReferences())
+    {
+        return false;
     }
     
     return true;
@@ -376,11 +383,68 @@ bool Parser::parseSchemaSection()
             rule.required = false;
             rule.null_behavior = SchemaRule::NullBehavior::IGNORE;
             
-            // Parse rule components (!, ?, type, default)
-            // This is a simplified version
-            // TODO: Implement full schema parsing
+            // Parse rule components: !, int, =1280
+            // Format: [!|?], [type], [~|=value|e]
             
-            rules[key.getValue<std::string>()] = rule;
+            std::string key_name = key.getValue<std::string>();
+            
+            while (!isAtEnd() && !check(TokenType::NEWLINE) && !check(TokenType::LBRACKET))
+            {
+                Token component = advance();
+                
+                // Check for required/optional marker
+                if (component.type == TokenType::EXCLAMATION)
+                {
+                    rule.required = true;
+                }
+                else if (component.type == TokenType::QUESTION)
+                {
+                    rule.required = false;
+                }
+                // Check for type
+                else if (component.type == TokenType::IDENTIFIER)
+                {
+                    std::string type_str = component.getValue<std::string>();
+                    if (type_str == "int") rule.value_type = ValueType::INTEGER;
+                    else if (type_str == "float") rule.value_type = ValueType::FLOAT;
+                    else if (type_str == "bool") rule.value_type = ValueType::BOOLEAN;
+                    else if (type_str == "string") rule.value_type = ValueType::STRING;
+                    else if (type_str == "array") rule.value_type = ValueType::ARRAY;
+                    else if (type_str == "list") rule.value_type = ValueType::LIST;
+                    else if (type_str == "map") rule.value_type = ValueType::MAP;
+                    else if (type_str == "color") rule.value_type = ValueType::COLOR;
+                    else if (type_str == "coord") rule.value_type = ValueType::COORD;
+                    else if (type_str == "path") rule.value_type = ValueType::PATH;
+                    else if (type_str == "e")
+                    {
+                        // Error on null
+                        rule.null_behavior = SchemaRule::NullBehavior::ERROR;
+                    }
+                }
+                // Check for tilde (ignore null)
+                else if (component.type == TokenType::IDENTIFIER && component.getValue<std::string>() == "~")
+                {
+                    rule.null_behavior = SchemaRule::NullBehavior::IGNORE;
+                }
+                // Check for equals (default value)
+                else if (component.type == TokenType::EQUALS)
+                {
+                    rule.null_behavior = SchemaRule::NullBehavior::DEFAULT;
+                    // Parse default value
+                    auto default_val = parseValue();
+                    if (default_val)
+                    {
+                        rule.default_value = default_val;
+                    }
+                }
+                // Skip commas
+                else if (component.type == TokenType::COMMA)
+                {
+                    continue;
+                }
+            }
+            
+            rules[key_name] = rule;
             
             while (match(TokenType::NEWLINE))
             {
@@ -1074,8 +1138,7 @@ std::shared_ptr<Value> Parser::parseReference()
     }
     else if (match(TokenType::AT_LBRACE))
     {
-        // Cross-section reference: @{section.key}
-        // For now, collect everything until }
+        // Cross-section reference: @{section.key} or @{section.key.subkey}
         std::string ref;
         
         Token ident = advance();
@@ -1086,6 +1149,18 @@ std::shared_ptr<Value> Parser::parseReference()
         }
         
         ref = ident.getValue<std::string>();
+        
+        // Support dot notation for nested access
+        while (match(TokenType::DOT))
+        {
+            Token next = advance();
+            if (next.type != TokenType::IDENTIFIER)
+            {
+                error("Expected identifier after '.' in cross-section reference");
+                return nullptr;
+            }
+            ref += "." + next.getValue<std::string>();
+        }
         
         if (!match(TokenType::RBRACE))
         {
@@ -1162,8 +1237,244 @@ void Parser::resolveInheritance()
 
 bool Parser::validateAgainstSchema()
 {
-    // TODO: Implement schema validation
+    if (schema.empty())
+    {
+        return true; // No schema defined, validation passes
+    }
+    
+    // Validate each section against its schema rules
+    for (const auto& [schema_section, rules] : schema)
+    {
+        auto section_it = sections.find(schema_section);
+        
+        // Check if required section exists
+        if (section_it == sections.end())
+        {
+            // Section doesn't exist, check if any rules are required
+            bool has_required = false;
+            for (const auto& [key, rule] : rules)
+            {
+                if (rule.required)
+                {
+                    has_required = true;
+                    break;
+                }
+            }
+            
+            if (has_required)
+            {
+                error("Schema validation failed: Required section [" + schema_section + "] not found");
+                return false;
+            }
+            continue;
+        }
+        
+        auto& section = section_it->second;
+        
+        // Validate each key in the schema
+        for (const auto& [key, rule] : rules)
+        {
+            auto entry_it = section.entries.find(key);
+            
+            // Check if required key exists
+            if (entry_it == section.entries.end())
+            {
+                if (rule.required)
+                {
+                    error("Schema validation failed: Required key '" + key + "' not found in section [" + schema_section + "]");
+                    return false;
+                }
+                
+                // Apply default value if specified
+                if (rule.null_behavior == SchemaRule::NullBehavior::DEFAULT && rule.default_value)
+                {
+                    section.entries[key] = rule.default_value;
+                }
+                else if (rule.null_behavior == SchemaRule::NullBehavior::ERROR)
+                {
+                    error("Schema validation failed: Key '" + key + "' is null in section [" + schema_section + "]");
+                    return false;
+                }
+                
+                continue;
+            }
+            
+            auto& value = entry_it->second;
+            
+            // Validate value type if specified
+            if (rule.value_type.has_value())
+            {
+                ValueType expected_type = rule.value_type.value();
+                ValueType actual_type = value->getType();
+                
+                if (expected_type != actual_type)
+                {
+                    error("Schema validation failed: Key '" + key + "' in section [" + schema_section + 
+                          "] has wrong type (expected type, got type)");
+                    return false;
+                }
+            }
+        }
+    }
+    
     return true;
+}
+
+bool Parser::resolveReferences()
+{
+    // Resolve all references in all sections
+    for (auto& [section_name, section] : sections)
+    {
+        for (auto& [key, value] : section.entries)
+        {
+            std::set<std::string> visiting;
+            std::string ref_path = section_name + "." + key;
+            visiting.insert(ref_path);
+            
+            auto resolved = resolveValue(value, visiting);
+            if (!resolved)
+            {
+                error("Failed to resolve reference in [" + section_name + "]." + key);
+                return false;
+            }
+            
+            section.entries[key] = resolved;
+        }
+    }
+    
+    return true;
+}
+
+std::shared_ptr<Value> Parser::resolveValue(std::shared_ptr<Value> value, std::set<std::string>& visiting)
+{
+    if (!value)
+    {
+        return value;
+    }
+    
+    // Handle reference types
+    if (value->isReference())
+    {
+        std::string ref_name = value->asString();
+        
+        // Check for macro reference first (@name)
+        if (defines.find(ref_name) != defines.end())
+        {
+            // Resolve macro
+            auto macro_value = defines[ref_name];
+            
+            // Recursively resolve the macro value
+            auto resolved = resolveValue(macro_value, visiting);
+            return resolved;
+        }
+        
+        // Check for cross-section reference (@{Section.key})
+        // Format: "Section.key" or "Section.key.subkey"
+        size_t dot_pos = ref_name.find('.');
+        if (dot_pos != std::string::npos)
+        {
+            std::string section_name = ref_name.substr(0, dot_pos);
+            std::string key_name = ref_name.substr(dot_pos + 1);
+            
+            // Check for circular reference
+            std::string ref_path = ref_name;
+            if (visiting.find(ref_path) != visiting.end())
+            {
+                error("Circular reference detected: " + ref_path);
+                return nullptr;
+            }
+            
+            // Find the section
+            auto section_it = sections.find(section_name);
+            if (section_it == sections.end())
+            {
+                error("Reference to unknown section: " + section_name);
+                return nullptr;
+            }
+            
+            // Find the key
+            auto& section = section_it->second;
+            auto entry_it = section.entries.find(key_name);
+            if (entry_it == section.entries.end())
+            {
+                error("Reference to unknown key: " + key_name + " in section [" + section_name + "]");
+                return nullptr;
+            }
+            
+            // Add to visiting set
+            visiting.insert(ref_path);
+            
+            // Recursively resolve
+            auto resolved = resolveValue(entry_it->second, visiting);
+            
+            // Remove from visiting set
+            visiting.erase(ref_path);
+            
+            return resolved;
+        }
+        
+        // Unknown reference
+        error("Unresolved reference: " + ref_name);
+        return nullptr;
+    }
+    
+    // Handle environment variables
+    if (value->isEnvVar())
+    {
+        std::string var_name = value->asString();
+        const char* env_value = std::getenv(var_name.c_str());
+        
+        if (env_value)
+        {
+            return std::make_shared<Value>(std::string(env_value));
+        }
+        else
+        {
+            // Environment variable not set, return empty string
+            return std::make_shared<Value>(std::string(""));
+        }
+    }
+    
+    // Handle arrays (recursively resolve elements)
+    if (value->isArray())
+    {
+        auto arr = value->asArray();
+        Value::ArrayType resolved_arr;
+        
+        for (auto& elem : arr)
+        {
+            auto resolved_elem = resolveValue(elem, visiting);
+            if (!resolved_elem)
+            {
+                return nullptr;
+            }
+            resolved_arr.push_back(resolved_elem);
+        }
+        
+        return std::make_shared<Value>(resolved_arr);
+    }
+    
+    // Handle maps (recursively resolve values)
+    if (value->isMap())
+    {
+        auto map = value->asMap();
+        Value::MapType resolved_map;
+        
+        for (auto& [k, v] : map)
+        {
+            auto resolved_v = resolveValue(v, visiting);
+            if (!resolved_v)
+            {
+                return nullptr;
+            }
+            resolved_map[k] = resolved_v;
+        }
+        
+        return std::make_shared<Value>(resolved_map);
+    }
+    
+    // For all other types, return as-is
+    return value;
 }
 
 // Token management
