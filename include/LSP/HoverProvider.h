@@ -47,6 +47,9 @@ private:
     
     // Format hover content
     json makeHoverContent(const std::string& content, const std::string& language = "");
+
+private:
+    std::optional<Token> findTokenAtPosition(yini::Parser* parser, Position position);
 };
 
 } // namespace yini::lsp

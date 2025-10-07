@@ -498,12 +498,14 @@ bool Lexer::isWhitespace(char c) const
 
 Token Lexer::makeToken(TokenType type)
 {
-    return Token(type, line, column - (current - token_start));
+    size_t len = current - token_start;
+    return Token(type, line, column - len, len);
 }
 
 Token Lexer::makeToken(TokenType type, TokenValue value)
 {
-    return Token(type, value, line, column - (current - token_start));
+    size_t len = current - token_start;
+    return Token(type, value, line, column - len, len);
 }
 
 Token Lexer::makeError(const std::string& message)

@@ -309,26 +309,17 @@ std::shared_ptr<Value> YMETA::readValue(std::ifstream& in)
             return std::make_shared<Value>(readString(in));
         }
         case ValueType::ARRAY:
+        case ValueType::LIST:
         {
             uint32_t size;
             in.read(reinterpret_cast<char*>(&size), sizeof(size));
+
             Value::ArrayType arr;
             for (uint32_t i = 0; i < size; i++)
             {
                 arr.push_back(readValue(in));
             }
             return std::make_shared<Value>(arr);
-        }
-        case ValueType::LIST:
-        {
-            uint32_t size;
-            in.read(reinterpret_cast<char*>(&size), sizeof(size));
-            Value::ArrayType arr;
-            for (uint32_t i = 0; i < size; i++)
-            {
-                arr.push_back(readValue(in));
-            }
-            return Value::makeList(arr);
         }
         default:
             // Fallback: read as string

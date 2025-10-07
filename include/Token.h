@@ -90,14 +90,15 @@ struct Token
     TokenValue value;
     size_t line;
     size_t column;
+    size_t length;
     
-    Token(TokenType t = TokenType::ERROR, size_t l = 0, size_t c = 0)
-        : type(t), value(std::monostate{}), line(l), column(c)
+    Token(TokenType t = TokenType::ERROR, size_t l = 0, size_t c = 0, size_t len = 0)
+        : type(t), value(std::monostate{}), line(l), column(c), length(len)
     {
     }
     
-    Token(TokenType t, TokenValue v, size_t l, size_t c)
-        : type(t), value(v), line(l), column(c)
+    Token(TokenType t, TokenValue v, size_t l, size_t c, size_t len = 0)
+        : type(t), value(v), line(l), column(c), length(len)
     {
     }
     

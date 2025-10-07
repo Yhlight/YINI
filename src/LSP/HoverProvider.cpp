@@ -204,6 +204,26 @@ json HoverProvider::getSectionKeyHover(yini::Parser* parser, const std::string& 
     return makeHoverContent(content.str());
 }
 
+// Helper to convert TokenType to string
+std::string tokenTypeToString(TokenType type) {
+    switch (type) {
+        case TokenType::INTEGER: return "integer";
+        case TokenType::FLOAT: return "float";
+        case TokenType::BOOLEAN: return "boolean";
+        case TokenType::STRING: return "string";
+        case TokenType::IDENTIFIER: return "identifier";
+        case TokenType::COLOR: return "color";
+        case TokenType::COORD: return "coordinate";
+        case TokenType::PATH: return "path";
+        case TokenType::LIST: return "list";
+        case TokenType::ARRAY: return "array";
+        case TokenType::MAP: return "map";
+        case TokenType::DYNA: return "dynamic";
+        case TokenType::SECTION_START: return "section_start";
+        default: return "token";
+    }
+}
+
 json HoverProvider::makeHoverContent(const std::string& content, const std::string& /*language*/)
 {
     return {
@@ -214,74 +234,69 @@ json HoverProvider::makeHoverContent(const std::string& content, const std::stri
     };
 }
 
+std::optional<Token> HoverProvider::findTokenAtPosition(yini::Parser* parser, Position position)
+{
+    if (!parser) {
+        return std::nullopt;
+    }
+
+    const auto& tokens = parser->getTokens();
+    for (const auto& token : tokens) {
+        // LSP position is 0-based, our parser is 1-based.
+        size_t lsp_line = token.line - 1;
+        size_t lsp_col_start = token.column - 1;
+        size_t lsp_col_end = lsp_col_start + token.length;
+
+        if (lsp_line == static_cast<size_t>(position.line) &&
+            static_cast<size_t>(position.character) >= lsp_col_start &&
+            static_cast<size_t>(position.character) < lsp_col_end)
+        {
+            return token;
+        }
+    }
+
+    return std::nullopt;
+}
+
 json HoverProvider::getHover(
     yini::Parser* parser,
-    const std::string& content,
+    const std::string& /* content */,
     Position position)
 {
-    std::string line = getLineAtPosition(content, position.line);
-    if (line.empty())
+    auto token_opt = findTokenAtPosition(parser, position);
+    if (!token_opt)
     {
         return nullptr;
     }
+
+    Token token = token_opt.value();
     
-    // Check if hovering over macro reference (@name)
-    if (isMacroReference(line, position.character))
-    {
-        std::string word = getWordAtPosition(content, position);
-        if (!word.empty())
-        {
-            return getMacroHover(parser, word);
-        }
+    // Create a hover content based on the token type
+    std::ostringstream content;
+    std::string type_str = tokenTypeToString(token.type);
+    
+    // Don't show hover for uninteresting tokens like operators or brackets
+    switch(token.type) {
+        case TokenType::INTEGER:
+        case TokenType::FLOAT:
+        case TokenType::BOOLEAN:
+        case TokenType::STRING:
+        case TokenType::IDENTIFIER:
+        case TokenType::COLOR:
+        case TokenType::COORD:
+        case TokenType::PATH:
+        case TokenType::LIST:
+        case TokenType::ARRAY:
+        case TokenType::MAP:
+        case TokenType::DYNA:
+            content << "**Type**: `" << type_str << "`\n\n";
+            content << "**Value**: `" << token.toString() << "`";
+            break;
+        default:
+            return nullptr; // No hover for other token types
     }
-    
-    // Check if hovering over cross-section reference (@{Section.key})
-    if (isCrossSectionReference(line, position.character))
-    {
-        // Extract section and key from @{Section.key}
-        size_t at_brace = line.rfind("@{", position.character);
-        if (at_brace != std::string::npos)
-        {
-            size_t close_brace = line.find("}", at_brace);
-            if (close_brace != std::string::npos)
-            {
-                std::string ref = line.substr(at_brace + 2, close_brace - at_brace - 2);
-                size_t dot_pos = ref.find('.');
-                
-                if (dot_pos != std::string::npos)
-                {
-                    std::string section = ref.substr(0, dot_pos);
-                    std::string key = ref.substr(dot_pos + 1);
-                    return getSectionKeyHover(parser, section, key);
-                }
-            }
-        }
-    }
-    
-    // Check if hovering over a key in current section
-    std::string word = getWordAtPosition(content, position);
-    if (!word.empty() && parser)
-    {
-        // Try to find in all sections (simple search)
-        const auto& sections = parser->getSections();
-        for (const auto& [section_name, section] : sections)
-        {
-            const auto& entries = section.entries;
-            if (entries.find(word) != entries.end())
-            {
-                return getSectionKeyHover(parser, section_name, word);
-            }
-        }
-        
-        // Try to find as macro
-        const auto& defines = parser->getDefines();
-        if (defines.find(word) != defines.end())
-        {
-            return getMacroHover(parser, word);
-        }
-    }
-    
-    return nullptr;
+
+    return makeHoverContent(content.str());
 }
 
 } // namespace yini::lsp

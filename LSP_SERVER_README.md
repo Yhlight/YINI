@@ -134,12 +134,10 @@ The server is automatically launched by the VSCode extension.
   - Macro references: `@macro_name`
   - Section references: `@{Section.key}`
 
-### ⏳ Planned (v1.4.0)
-
 #### 4. Hover Information
-- Show value types
-- Display macro values
-- Show resolved references
+- `textDocument/hover` - Show type and value for any token under the cursor.
+
+### ⏳ Planned (v1.4.0)
 
 #### 5. Go to Definition
 - Jump to macro definitions
@@ -234,7 +232,7 @@ The server is automatically launched by the VSCode extension.
 | `textDocument/didClose` | ✅ | Document closed |
 | `textDocument/publishDiagnostics` | ✅ | Error reporting |
 | `textDocument/completion` | ✅ | Auto-completion |
-| `textDocument/hover` | ⏳ | Hover info |
+| `textDocument/hover` | ✅ | Hover info |
 | `textDocument/definition` | ⏳ | Go to definition |
 
 ---
@@ -333,9 +331,9 @@ json LSPServer::handleNewFeature(const json& params)
 - ✅ Document synchronization
 - ✅ Diagnostics
 - ✅ Completion
+- ✅ Hover information
 
 ### v1.4.0 (Next)
-- ⏳ Hover information
 - ⏳ Go to definition
 - ⏳ Document symbols
 - ⏳ Find references

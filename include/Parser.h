@@ -20,7 +20,6 @@ struct Section
     std::string name;
     std::vector<std::string> inherited_sections;
     std::map<std::string, std::shared_ptr<Value>> entries;
-    Token token; // Token for the section's name, for error reporting.
     
     Section(const std::string& name = "") : name(name)
     {
@@ -67,6 +66,7 @@ public:
     // Error reporting
     std::string getLastError() const { return last_error; }
     bool hasError() const { return !last_error.empty(); }
+    const std::vector<Token>& getTokens() const { return tokens; }
     
 private:
     // Token management
@@ -93,16 +93,17 @@ private:
     std::shared_ptr<Value> parsePrimary();
     
     std::shared_ptr<Value> parseArray();
-    std::shared_ptr<Value> parseArray(Token token);
-    std::shared_ptr<Value> parseList(Token token);
-    std::shared_ptr<Value> parseMap(Token token);
-    std::shared_ptr<Value> parseSet(Token token);
-    std::shared_ptr<Value> parseColor(Token token);
-    std::shared_ptr<Value> parseCoord(Token token);
-    std::shared_ptr<Value> parsePath(Token token);
-    std::shared_ptr<Value> parseDynamic(Token token);
-    std::shared_ptr<Value> parseReference(Token token);
-    std::shared_ptr<Value> parseEnvVar(Token token);
+    std::shared_ptr<Value> parseList();
+    std::shared_ptr<Value> parseMap();
+    std::shared_ptr<Value> parseTuple();
+    std::shared_ptr<Value> parseSet();
+    std::shared_ptr<Value> parseColor();
+    std::shared_ptr<Value> parseCoord();
+    std::shared_ptr<Value> parsePath();
+    std::shared_ptr<Value> parseDynamic();
+
+    std::shared_ptr<Value> parseReference();
+    std::shared_ptr<Value> parseEnvVar();
     
     // Section inheritance
     void resolveInheritance();
@@ -119,7 +120,6 @@ private:
     
     // Error handling
     void error(const std::string& message);
-    void error(const std::string& message, const Token& token);
     
     // State
     std::vector<Token> tokens;

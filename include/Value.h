@@ -1,7 +1,6 @@
 #ifndef YINI_VALUE_H
 #define YINI_VALUE_H
 
-#include "Token.h"
 #include <string>
 #include <vector>
 #include <map>
@@ -72,7 +71,7 @@ public:
     using MapType = std::map<std::string, std::shared_ptr<Value>>;
     
     // Constructors
-    Value(); // Default for NIL
+    Value();
     explicit Value(int64_t val);
     explicit Value(double val);
     explicit Value(bool val);
@@ -82,16 +81,6 @@ public:
     explicit Value(const Coord& val);
     explicit Value(const ArrayType& val);
     explicit Value(const MapType& val);
-
-    explicit Value(int64_t val, Token token);
-    explicit Value(double val, Token token);
-    explicit Value(bool val, Token token);
-    explicit Value(const std::string& val, Token token);
-    explicit Value(const char* val, Token token);
-    explicit Value(const Color& val, Token token);
-    explicit Value(const Coord& val, Token token);
-    explicit Value(const ArrayType& val, Token token);
-    explicit Value(const MapType& val, Token token);
     
     // Type checking
     ValueType getType() const { return type; }
@@ -103,11 +92,8 @@ public:
     bool isArray() const { return type == ValueType::ARRAY; }
     bool isList() const { return type == ValueType::LIST; }
     bool isMap() const { return type == ValueType::MAP; }
-    bool isTuple() const { return type == ValueType::TUPLE; }
-    bool isSet() const { return type == ValueType::SET; }
     bool isColor() const { return type == ValueType::COLOR; }
     bool isCoord() const { return type == ValueType::COORD; }
-    bool isPath() const { return type == ValueType::PATH; }
     bool isDynamic() const { return type == ValueType::DYNAMIC; }
     bool isReference() const { return type == ValueType::REFERENCE; }
     bool isEnvVar() const { return type == ValueType::ENV_VAR; }
@@ -125,21 +111,17 @@ public:
     // String representation
     std::string toString() const;
     
-    // Getter for position information
-    Token getToken() const { return token; }
+    // Dynamic wrapper
+    static std::shared_ptr<Value> makeDynamic(std::shared_ptr<Value> inner);
 
-    // Factory functions for specific types
-    static std::shared_ptr<Value> makePath(const std::string& path_str, Token token = Token());
-    static std::shared_ptr<Value> makeList(const ArrayType& elements, Token token = Token());
-    static std::shared_ptr<Value> makeSet(const ArrayType& elements, Token token = Token());
-    static std::shared_ptr<Value> makeTuple(const ArrayType& elements, Token token = Token());
-    static std::shared_ptr<Value> makeDynamic(std::shared_ptr<Value> inner, Token token = Token());
-    static std::shared_ptr<Value> makeReference(const std::string& ref, Token token = Token());
-    static std::shared_ptr<Value> makeEnvVar(const std::string& var_name, Token token = Token());
+    // Reference value
+    static std::shared_ptr<Value> makeReference(const std::string& ref);
+
+    // Environment variable
+    static std::shared_ptr<Value> makeEnvVar(const std::string& var_name);
     
 private:
     ValueType type;
-    Token token;
     
     // Storage using variant
     std::variant<

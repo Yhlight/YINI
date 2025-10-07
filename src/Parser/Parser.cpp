@@ -148,7 +148,6 @@ bool Parser::parseSection()
     
     std::string section_name = name_token.getValue<std::string>();
     Section section(section_name);
-    section.token = name_token;
     
     if (!match(TokenType::RBRACKET))
     {
@@ -321,48 +320,62 @@ bool Parser::parseSchemaSection()
         return false;
     }
 
-    while (match(TokenType::NEWLINE)) {}
-
-    // A schema block continues until the next directive `[#...` or EOF.
-    while (!isAtEnd())
+    while (match(TokenType::NEWLINE))
     {
-        // Stop if we encounter the next directive.
-        if (check(TokenType::LBRACKET) && current + 1 < tokens.size() && tokens[current + 1].type == TokenType::HASH)
+    }
+
+    // Parse schema definitions
+    while (!isAtEnd() && !check(TokenType::LBRACKET) && !check(TokenType::HASH))
+    {
+        if (match(TokenType::NEWLINE))
         {
-            break;
+            continue;
         }
 
-        // If it's not a section definition, the schema block is over.
-        if (!check(TokenType::LBRACKET))
+        // Should be a section header
+        if (!match(TokenType::LBRACKET))
         {
-            break;
-        }
-
-        // Consume the section header (e.g., `[Visual]`)
-        match(TokenType::LBRACKET);
-        Token section_name_token = advance();
-        if (section_name_token.type != TokenType::IDENTIFIER)
-        {
-            error("Expected section name in schema definition");
+            error("Expected section header in schema");
             return false;
         }
+
+        Token section_name = advance();
+        if (section_name.type != TokenType::IDENTIFIER)
+        {
+            error("Expected section name in schema");
+            return false;
+        }
+
         if (!match(TokenType::RBRACKET))
         {
-            error("Expected ']' after section name in schema definition");
+            error("Expected ']' after section name in schema");
             return false;
         }
-        std::string sec_name = section_name_token.getValue<std::string>();
+
+        std::string sec_name = section_name.getValue<std::string>();
         std::map<std::string, SchemaRule> rules;
 
-        while (match(TokenType::NEWLINE)) {}
-
-        // Parse rules for this section. A rule must start with an identifier.
-        while (check(TokenType::IDENTIFIER))
+        while (match(TokenType::NEWLINE))
         {
+        }
+
+        // Parse rules for this section
+        while (!isAtEnd() && !check(TokenType::LBRACKET))
+        {
+            if (match(TokenType::NEWLINE))
+            {
+                continue;
+            }
+
             Token key = advance();
+            if (key.type != TokenType::IDENTIFIER)
+            {
+                break; // End of this section's rules
+            }
+
             if (!match(TokenType::EQUALS))
             {
-                error("Expected '=' after key in schema rule");
+                error("Expected '=' in schema rule");
                 return false;
             }
 
@@ -370,76 +383,77 @@ bool Parser::parseSchemaSection()
             rule.required = false;
             rule.null_behavior = SchemaRule::NullBehavior::IGNORE;
 
-            // Loop over rule components until a newline is found.
-            bool in_rule = true;
-            while(in_rule && !isAtEnd() && !check(TokenType::NEWLINE) && !check(TokenType::LBRACKET))
-            {
-                // Consume optional comma separators
-                if (match(TokenType::COMMA)) continue;
+            // Parse rule components: !, int, =1280
+            // Format: [!|?], [type], [~|=value|e]
 
-                Token component = peek();
-                switch (component.type)
+            std::string key_name = key.getValue<std::string>();
+
+            while (!isAtEnd() && !check(TokenType::NEWLINE) && !check(TokenType::LBRACKET))
+            {
+                Token component = advance();
+
+                // Check for required/optional marker
+                if (component.type == TokenType::EXCLAMATION)
                 {
-                    case TokenType::EXCLAMATION:
-                        rule.required = true;
-                        advance();
-                        break;
-                    case TokenType::QUESTION:
-                        rule.required = false;
-                        advance();
-                        break;
-                    case TokenType::IDENTIFIER:
+                    rule.required = true;
+                }
+                else if (component.type == TokenType::QUESTION)
+                {
+                    rule.required = false;
+                }
+                // Check for type
+                else if (component.type == TokenType::IDENTIFIER)
+                {
+                    std::string type_str = component.getValue<std::string>();
+                    if (type_str == "int") rule.value_type = ValueType::INTEGER;
+                    else if (type_str == "float") rule.value_type = ValueType::FLOAT;
+                    else if (type_str == "bool") rule.value_type = ValueType::BOOLEAN;
+                    else if (type_str == "string") rule.value_type = ValueType::STRING;
+                    else if (type_str == "array") rule.value_type = ValueType::ARRAY;
+                    else if (type_str == "list") rule.value_type = ValueType::LIST;
+                    else if (type_str == "map") rule.value_type = ValueType::MAP;
+                    else if (type_str == "color") rule.value_type = ValueType::COLOR;
+                    else if (type_str == "coord") rule.value_type = ValueType::COORD;
+                    else if (type_str == "path") rule.value_type = ValueType::PATH;
+                    else if (type_str == "e")
                     {
-                        std::string type_str = component.getValue<std::string>();
-                        if (type_str == "int") rule.value_type = ValueType::INTEGER;
-                        else if (type_str == "float") rule.value_type = ValueType::FLOAT;
-                        else if (type_str == "bool") rule.value_type = ValueType::BOOLEAN;
-                        else if (type_str == "string") rule.value_type = ValueType::STRING;
-                        else if (type_str == "array") rule.value_type = ValueType::ARRAY;
-                        else if (type_str == "list") rule.value_type = ValueType::LIST;
-                        else if (type_str == "map") rule.value_type = ValueType::MAP;
-                        else if (type_str == "color") rule.value_type = ValueType::COLOR;
-                        else if (type_str == "coord") rule.value_type = ValueType::COORD;
-                        else if (type_str == "path") rule.value_type = ValueType::PATH;
-                        else if (type_str == "e") rule.null_behavior = SchemaRule::NullBehavior::ERROR;
-                        else {
-                            // This is not a valid type identifier, so the rule must be over.
-                            in_rule = false;
-                        }
-                        if (in_rule) advance();
-                        break;
+                        // Error on null
+                        rule.null_behavior = SchemaRule::NullBehavior::ERROR;
                     }
-                    case TokenType::TILDE:
-                        rule.null_behavior = SchemaRule::NullBehavior::IGNORE;
-                        advance();
-                        break;
-                    case TokenType::EQUALS:
-                        advance(); // Consume '='
-                        rule.null_behavior = SchemaRule::NullBehavior::DEFAULT;
-                        rule.default_value = parseValue();
-                        if (!rule.default_value) {
-                             error("Failed to parse default value in schema rule");
-                             return false;
-                        }
-                        break;
-                    default:
-                        // Any other token ends the parsing of this rule.
-                        in_rule = false;
-                        break;
+                }
+                // Check for tilde (ignore null)
+                else if (component.type == TokenType::IDENTIFIER && component.getValue<std::string>() == "~")
+                {
+                    rule.null_behavior = SchemaRule::NullBehavior::IGNORE;
+                }
+                // Check for equals (default value)
+                else if (component.type == TokenType::EQUALS)
+                {
+                    rule.null_behavior = SchemaRule::NullBehavior::DEFAULT;
+                    // Parse default value
+                    auto default_val = parseValue();
+                    if (default_val)
+                    {
+                        rule.default_value = default_val;
+                    }
+                }
+                // Skip commas
+                else if (component.type == TokenType::COMMA)
+                {
+                    continue;
                 }
             }
-            rules[key.getValue<std::string>()] = rule;
 
-            // Consume the newline at the end of the rule.
-            if (!isAtEnd() && !check(TokenType::LBRACKET)) {
-                if (!match(TokenType::NEWLINE)) {
-                    error("Expected newline after schema rule");
-                    return false;
-                }
+            rules[key_name] = rule;
+
+            while (match(TokenType::NEWLINE))
+            {
             }
         }
+
         schema[sec_name] = rules;
     }
+
     return true;
 }
 
@@ -515,7 +529,7 @@ std::shared_ptr<Value> Parser::parseExpression()
             int64_t result = (op == TokenType::PLUS) 
                 ? (left->asInteger() + right->asInteger())
                 : (left->asInteger() - right->asInteger());
-            left = std::make_shared<Value>(result, left->getToken());
+            left = std::make_shared<Value>(result);
         }
         else if ((left->isFloat() || left->isInteger()) && 
                  (right->isFloat() || right->isInteger()))
@@ -523,7 +537,7 @@ std::shared_ptr<Value> Parser::parseExpression()
             double l_val = left->isFloat() ? left->asFloat() : left->asInteger();
             double r_val = right->isFloat() ? right->asFloat() : right->asInteger();
             double result = (op == TokenType::PLUS) ? (l_val + r_val) : (l_val - r_val);
-            left = std::make_shared<Value>(result, left->getToken());
+            left = std::make_shared<Value>(result);
         }
         else
         {
@@ -568,7 +582,7 @@ std::shared_ptr<Value> Parser::parseTerm()
             {
                 result = left->asInteger() % right->asInteger();
             }
-            left = std::make_shared<Value>(result, left->getToken());
+            left = std::make_shared<Value>(result);
         }
         else if ((left->isFloat() || left->isInteger()) && 
                  (right->isFloat() || right->isInteger()))
@@ -584,7 +598,7 @@ std::shared_ptr<Value> Parser::parseTerm()
             {
                 result = l_val / r_val;
             }
-            left = std::make_shared<Value>(result, left->getToken());
+            left = std::make_shared<Value>(result);
         }
         else
         {
@@ -609,11 +623,11 @@ std::shared_ptr<Value> Parser::parseFactor()
         
         if (value->isInteger())
         {
-            return std::make_shared<Value>(-value->asInteger(), value->getToken());
+            return std::make_shared<Value>(-value->asInteger());
         }
         else if (value->isFloat())
         {
-            return std::make_shared<Value>(-value->asFloat(), value->getToken());
+            return std::make_shared<Value>(-value->asFloat());
         }
         else
         {
@@ -622,8 +636,18 @@ std::shared_ptr<Value> Parser::parseFactor()
         }
     }
     
-    // Parenthesized expressions are now handled in parseSet to resolve ambiguity
-    // with tuples/sets.
+    // Parentheses
+    if (match(TokenType::LPAREN))
+    {
+        auto value = parseExpression();
+        if (!match(TokenType::RPAREN))
+        {
+            error("Expected ')' after expression");
+            return nullptr;
+        }
+        return value;
+    }
+
     return parsePrimary();
 }
 
@@ -635,108 +659,106 @@ std::shared_ptr<Value> Parser::parsePrimary()
     if (token.type == TokenType::INTEGER)
     {
         advance();
-        return std::make_shared<Value>(token.getValue<int64_t>(), token);
+        return std::make_shared<Value>(token.getValue<int64_t>());
     }
     
     if (token.type == TokenType::FLOAT)
     {
         advance();
-        return std::make_shared<Value>(token.getValue<double>(), token);
+        return std::make_shared<Value>(token.getValue<double>());
     }
     
     if (token.type == TokenType::BOOLEAN)
     {
         advance();
-        return std::make_shared<Value>(token.getValue<bool>(), token);
+        return std::make_shared<Value>(token.getValue<bool>());
     }
     
     if (token.type == TokenType::STRING)
     {
         advance();
-        return std::make_shared<Value>(token.getValue<std::string>(), token);
+        return std::make_shared<Value>(token.getValue<std::string>());
     }
     
     // Arrays
     if (token.type == TokenType::LBRACKET)
     {
-        return parseArray(token);
+        return parseArray();
     }
     
     // Maps/tuples
     if (token.type == TokenType::LBRACE)
     {
-        return parseMap(token);
+        return parseMap();
     }
     
-    // Sets, Tuples, and Grouped Expressions
+    // Sets
     if (token.type == TokenType::LPAREN)
     {
-        return parseSet(token);
+        return parseSet();
     }
     
     // Hex color or Color() constructor
     if (token.type == TokenType::COLOR)
     {
-        return parseColor(token);
+        return parseColor();
     }
     
     if (token.type == TokenType::COORD)
     {
-        return parseCoord(token);
+        return parseCoord();
     }
     
     if (token.type == TokenType::PATH)
     {
-        return parsePath(token);
+        return parsePath();
     }
     
     if (token.type == TokenType::LIST)
     {
-        return parseList(token);
+        return parseList();
     }
     
     if (token.type == TokenType::ARRAY)
     {
-        Token array_token = advance(); // Array keyword
+        advance(); // Array keyword
         if (!match(TokenType::LPAREN))
         {
             error("Expected '(' after Array");
             return nullptr;
         }
-        // We pass the `Array(` token for position, but use `[` for parsing logic.
-        Token bracket_token(TokenType::LBRACKET, array_token.line, array_token.column);
-        auto arr = parseArray(bracket_token);
-        // TODO: We could potentially mark this as a different kind of array if needed.
+        auto arr = parseArray();
+        // Convert to array type if needed
         return arr;
     }
     
     if (token.type == TokenType::DYNA)
     {
-        return parseDynamic(token);
+        return parseDynamic();
     }
     
     // References
     if (token.type == TokenType::AT)
     {
-        return parseReference(token);
+        return parseReference();
     }
     
     if (token.type == TokenType::AT_LBRACE)
     {
-        return parseReference(token);
+        return parseReference();
     }
     
     // Environment variables
     if (token.type == TokenType::DOLLAR_LBRACE)
     {
-        return parseEnvVar(token);
+        return parseEnvVar();
     }
     
     error("Unexpected token in value: " + token.toString());
     return nullptr;
 }
 
-std::shared_ptr<Value> Parser::parseArray(Token token)
+std::shared_ptr<Value> Parser::parseArray()
 {
     if (!match(TokenType::LBRACKET))
     {
@@ -768,10 +790,10 @@ std::shared_ptr<Value> Parser::parseArray(Token token)
         return nullptr;
     }
     
-    return std::make_shared<Value>(elements, token);
+    return std::make_shared<Value>(elements);
 }
 
-std::shared_ptr<Value> Parser::parseList(Token token)
+std::shared_ptr<Value> Parser::parseList()
 {
     advance(); // List keyword
     
@@ -805,11 +827,12 @@ std::shared_ptr<Value> Parser::parseList(Token token)
         return nullptr;
     }
     
-    // A List is explicitly a List.
-    return Value::makeList(elements, token);
+    auto val = std::make_shared<Value>(elements);
+    // Mark as LIST type (would need to modify Value constructor)
+    return val;
 }
 
-std::shared_ptr<Value> Parser::parseMap(Token token)
+std::shared_ptr<Value> Parser::parseMap()
 {
     if (!match(TokenType::LBRACE))
     {
@@ -858,75 +881,49 @@ std::shared_ptr<Value> Parser::parseMap(Token token)
         return nullptr;
     }
     
-    return std::make_shared<Value>(map, token);
+    return std::make_shared<Value>(map);
 }
 
-// This function now handles grouped expressions, sets, and tuples to resolve ambiguity.
-std::shared_ptr<Value> Parser::parseSet(Token token)
+std::shared_ptr<Value> Parser::parseSet()
 {
     if (!match(TokenType::LPAREN))
     {
-        error("Expected '(' at start of grouping or tuple/set");
+        error("Expected '(' at start of set");
         return nullptr;
-    }
-
-    // Handle empty tuple `()`
-    if (check(TokenType::RPAREN)) {
-        advance(); // consume ')'
-        return Value::makeTuple({}, token);
     }
     
     Value::ArrayType elements;
-    elements.push_back(parseExpression());
 
-    // If a comma follows the first expression, it's a tuple/set.
-    if (match(TokenType::COMMA)) {
-        // It's a tuple/set like `(a,)` or `(a, b, ...)`.
-        // The comma for `(a,)` is already consumed. If there are more elements, parse them.
-        while (!check(TokenType::RPAREN) && !isAtEnd()) {
-            elements.push_back(parseExpression());
-            if (!match(TokenType::COMMA)) {
-                break; // No more commas, so no more elements.
-            }
-        }
-
-        if (!match(TokenType::RPAREN)) {
-            error("Expected ')' after elements in tuple/set");
+    while (!check(TokenType::RPAREN) && !isAtEnd())
+    {
+        auto element = parseValue();
+        if (!element)
+        {
             return nullptr;
         }
 
-        // Distinguish between a Set (all same type) and a Tuple (mixed types).
-        bool all_same_type = true;
-        ValueType first_type = elements[0]->getType();
-        for (size_t i = 1; i < elements.size(); ++i)
-        {
-            if (elements[i]->getType() != first_type)
-            {
-                all_same_type = false;
-                break;
-            }
-        }
+        elements.push_back(element);
 
-        if (all_same_type) {
-            return Value::makeSet(elements, token);
-        } else {
-            return Value::makeTuple(elements, token);
+        if (!match(TokenType::COMMA))
+        {
+            break;
         }
     }
-    // If no comma follows, it must be a grouped expression like `(expr)`.
-    else if (match(TokenType::RPAREN))
+
+    if (!match(TokenType::RPAREN))
     {
-        return elements[0];
-    }
-    else
-    {
-        error("Expected ')' or ',' after expression in parentheses");
+        error("Expected ')' at end of set");
         return nullptr;
     }
+
+    // For now, represent sets as arrays
+    return std::make_shared<Value>(elements);
 }
 
-std::shared_ptr<Value> Parser::parseColor(Token token)
+std::shared_ptr<Value> Parser::parseColor()
 {
+    Token token = peek();
+
     // Hex color #RRGGBB
     if (token.type == TokenType::COLOR && token.hasValue())
     {
@@ -949,7 +946,7 @@ std::shared_ptr<Value> Parser::parseColor(Token token)
                     a = std::stoi(hex.substr(7, 2), nullptr, 16);
                 }
                 
-                return std::make_shared<Value>(Color(r, g, b, a), token);
+                return std::make_shared<Value>(Color(r, g, b, a));
             }
         }
     }
@@ -1009,14 +1006,14 @@ std::shared_ptr<Value> Parser::parseColor(Token token)
         uint8_t g = static_cast<uint8_t>(g_token.getValue<int64_t>());
         uint8_t b = static_cast<uint8_t>(b_token.getValue<int64_t>());
         
-        return std::make_shared<Value>(Color(r, g, b), token);
+        return std::make_shared<Value>(Color(r, g, b));
     }
     
     error("Invalid color syntax");
     return nullptr;
 }
 
-std::shared_ptr<Value> Parser::parseCoord(Token token)
+std::shared_ptr<Value> Parser::parseCoord()
 {
     advance(); // Coord keyword
     
@@ -1069,10 +1066,10 @@ std::shared_ptr<Value> Parser::parseCoord(Token token)
         return nullptr;
     }
     
-    return std::make_shared<Value>(Coord(x, y, z), token);
+    return std::make_shared<Value>(Coord(x, y, z));
 }
 
-std::shared_ptr<Value> Parser::parsePath(Token token)
+std::shared_ptr<Value> Parser::parsePath()
 {
     advance(); // Path keyword
     
@@ -1095,11 +1092,12 @@ std::shared_ptr<Value> Parser::parsePath(Token token)
         return nullptr;
     }
     
-    // A Path is explicitly a Path.
-    return Value::makePath(path_token.getValue<std::string>(), token);
+    auto val = std::make_shared<Value>(path_token.getValue<std::string>());
+    // Mark as PATH type (would need custom handling)
+    return val;
 }
 
-std::shared_ptr<Value> Parser::parseDynamic(Token token)
+std::shared_ptr<Value> Parser::parseDynamic()
 {
     advance(); // Dyna keyword
     
@@ -1121,10 +1119,10 @@ std::shared_ptr<Value> Parser::parseDynamic(Token token)
         return nullptr;
     }
     
-    return Value::makeDynamic(inner, token);
+    return Value::makeDynamic(inner);
 }
 
-std::shared_ptr<Value> Parser::parseReference(Token token)
+std::shared_ptr<Value> Parser::parseReference()
 {
     if (match(TokenType::AT))
     {
@@ -1136,7 +1134,7 @@ std::shared_ptr<Value> Parser::parseReference(Token token)
             return nullptr;
         }
         
-        return Value::makeReference(name.getValue<std::string>(), token);
+        return Value::makeReference(name.getValue<std::string>());
     }
     else if (match(TokenType::AT_LBRACE))
     {
@@ -1170,14 +1168,14 @@ std::shared_ptr<Value> Parser::parseReference(Token token)
             return nullptr;
         }
         
-        return Value::makeReference(ref, token);
+        return Value::makeReference(ref);
     }
     
     error("Invalid reference syntax");
     return nullptr;
 }
 
-std::shared_ptr<Value> Parser::parseEnvVar(Token token)
+std::shared_ptr<Value> Parser::parseEnvVar()
 {
     if (!match(TokenType::DOLLAR_LBRACE))
     {
@@ -1198,7 +1196,7 @@ std::shared_ptr<Value> Parser::parseEnvVar(Token token)
         return nullptr;
     }
     
-    return Value::makeEnvVar(name.getValue<std::string>(), token);
+    return Value::makeEnvVar(name.getValue<std::string>());
 }
 
 void Parser::resolveInheritance()
@@ -1283,9 +1281,7 @@ bool Parser::validateAgainstSchema()
             {
                 if (rule.required)
                 {
-                    // Error: required key is missing. We don't have a token for something that doesn't exist,
-                    // so we report the error at the section level.
-                    error("Schema validation failed: Required key '" + key + "' not found in section [" + schema_section + "]", section.token);
+                    error("Schema validation failed: Required key '" + key + "' not found in section [" + schema_section + "]");
                     return false;
                 }
                 
@@ -1296,7 +1292,7 @@ bool Parser::validateAgainstSchema()
                 }
                 else if (rule.null_behavior == SchemaRule::NullBehavior::ERROR)
                 {
-                    error("Schema validation failed: Key '" + key + "' is null in section [" + schema_section + "]", section.token);
+                    error("Schema validation failed: Key '" + key + "' is null in section [" + schema_section + "]");
                     return false;
                 }
                 
@@ -1313,9 +1309,8 @@ bool Parser::validateAgainstSchema()
                 
                 if (expected_type != actual_type)
                 {
-                    // Now we can report the error with the exact location of the problematic value.
                     error("Schema validation failed: Key '" + key + "' in section [" + schema_section + 
-                          "] has wrong type", value->getToken());
+                          "] has wrong type (expected type, got type)");
                     return false;
                 }
             }
@@ -1339,11 +1334,7 @@ bool Parser::resolveReferences()
             auto resolved = resolveValue(value, visiting);
             if (!resolved)
             {
-                // If a more specific error was not already set by resolveValue, set a generic one.
-                if (!hasError())
-                {
-                    error("Failed to resolve reference in [" + section_name + "]." + key);
-                }
+                error("Failed to resolve reference in [" + section_name + "]." + key);
                 return false;
             }
             
@@ -1435,12 +1426,12 @@ std::shared_ptr<Value> Parser::resolveValue(std::shared_ptr<Value> value, std::s
         
         if (env_value)
         {
-            return std::make_shared<Value>(std::string(env_value), value->getToken());
+            return std::make_shared<Value>(std::string(env_value));
         }
         else
         {
             // Environment variable not set, return empty string
-            return std::make_shared<Value>(std::string(""), value->getToken());
+            return std::make_shared<Value>(std::string(""));
         }
     }
     
@@ -1460,7 +1451,7 @@ std::shared_ptr<Value> Parser::resolveValue(std::shared_ptr<Value> value, std::s
             resolved_arr.push_back(resolved_elem);
         }
         
-        return std::make_shared<Value>(resolved_arr, value->getToken());
+        return std::make_shared<Value>(resolved_arr);
     }
     
     // Handle maps (recursively resolve values)
@@ -1479,7 +1470,7 @@ std::shared_ptr<Value> Parser::resolveValue(std::shared_ptr<Value> value, std::s
             resolved_map[k] = resolved_v;
         }
         
-        return std::make_shared<Value>(resolved_map, value->getToken());
+        return std::make_shared<Value>(resolved_map);
     }
     
     // For all other types, return as-is
@@ -1536,23 +1527,9 @@ bool Parser::isAtEnd() const
 
 void Parser::error(const std::string& message)
 {
-    // Only record the first error encountered.
-    if (!hasError())
-    {
-        Token token = peek();
-        last_error = "Parse error at line " + std::to_string(token.line) +
-                     ", column " + std::to_string(token.column) + ": " + message;
-    }
-}
-
-void Parser::error(const std::string& message, const Token& token)
-{
-    // Only record the first error encountered.
-    if (!hasError())
-    {
-        last_error = "Parse error at line " + std::to_string(token.line) +
-                     ", column " + std::to_string(token.column) + ": " + message;
-    }
+    Token token = peek();
+    last_error = "Parse error at line " + std::to_string(token.line) +
+                 ", column " + std::to_string(token.column) + ": " + message;
 }
 
 } // namespace yini
