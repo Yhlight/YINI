@@ -48,8 +48,24 @@ public:
     explicit Parser(const std::string& source);
     ~Parser() = default;
     
+    // Disable copying (expensive and unnecessary)
+    Parser(const Parser&) = delete;
+    Parser& operator=(const Parser&) = delete;
+    
+    // Enable moving
+    Parser(Parser&&) noexcept = default;
+    Parser& operator=(Parser&&) noexcept = default;
+    
     // Main parsing function
     bool parse();
+    
+    // Environment variable security
+    void setSafeMode(bool enabled) { safe_mode = enabled; }
+    bool isSafeModeEnabled() const { return safe_mode; }
+    static void setAllowedEnvVars(const std::set<std::string>& vars);
+    static void addAllowedEnvVar(const std::string& var);
+    static void clearAllowedEnvVars();
+    static const std::set<std::string>& getAllowedEnvVars() { return allowed_env_vars; }
     
     // Get parsed sections
     const std::map<std::string, Section>& getSections() const { return sections; }
@@ -140,6 +156,10 @@ private:
     
     // Resource limits
     static constexpr size_t MAX_ARRAY_SIZE = 100000;  // 100K elements
+    
+    // Environment variable security
+    bool safe_mode;
+    static std::set<std::string> allowed_env_vars;
     
     // Error tracking
     std::string last_error;

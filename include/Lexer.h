@@ -31,6 +31,14 @@ public:
     explicit Lexer(const std::string& source);
     ~Lexer() = default;
     
+    // Disable copying (expensive and unnecessary)
+    Lexer(const Lexer&) = delete;
+    Lexer& operator=(const Lexer&) = delete;
+    
+    // Enable moving
+    Lexer(Lexer&&) noexcept = default;
+    Lexer& operator=(Lexer&&) noexcept = default;
+    
     // Main tokenization function
     std::vector<Token> tokenize();
     

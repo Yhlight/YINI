@@ -7,12 +7,22 @@
 namespace yini
 {
 
+// Initialize static allowed environment variables with safe defaults
+std::set<std::string> Parser::allowed_env_vars = {
+    "YINI_CONFIG_DIR",
+    "YINI_DATA_DIR",
+    "YINI_RESOURCE_PATH",
+    "YINI_LOCALE",
+    "YINI_DEBUG"
+};
+
 Parser::Parser(const std::vector<Token>& tokens)
     : tokens(tokens)
     , current(0)
     , quick_register_counter(0)
     , expression_depth(0)
     , array_depth(0)
+    , safe_mode(false)
     , last_error("")
 {
 }
@@ -22,6 +32,7 @@ Parser::Parser(const std::string& source)
     , quick_register_counter(0)
     , expression_depth(0)
     , array_depth(0)
+    , safe_mode(false)
     , last_error("")
 {
     Lexer lexer(source);
@@ -1463,6 +1474,19 @@ std::shared_ptr<Value> Parser::resolveValue(std::shared_ptr<Value> value, std::s
     if (value->isEnvVar())
     {
         std::string var_name = value->asString();
+        
+        // Security check: If safe mode is enabled, check whitelist
+        if (safe_mode)
+        {
+            if (allowed_env_vars.find(var_name) == allowed_env_vars.end())
+            {
+                error("Environment variable '" + var_name + 
+                      "' is not allowed in safe mode. " +
+                      "Use Parser::addAllowedEnvVar() to whitelist it.");
+                return nullptr;
+            }
+        }
+        
         const char* env_value = std::getenv(var_name.c_str());
         
         if (env_value)
@@ -1571,6 +1595,22 @@ void Parser::error(const std::string& message)
     Token token = peek();
     last_error = "Parse error at line " + std::to_string(token.line) + 
                  ", column " + std::to_string(token.column) + ": " + message;
+}
+
+// Environment variable security management
+void Parser::setAllowedEnvVars(const std::set<std::string>& vars)
+{
+    allowed_env_vars = vars;
+}
+
+void Parser::addAllowedEnvVar(const std::string& var)
+{
+    allowed_env_vars.insert(var);
+}
+
+void Parser::clearAllowedEnvVars()
+{
+    allowed_env_vars.clear();
 }
 
 } // namespace yini
