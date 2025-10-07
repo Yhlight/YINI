@@ -1,7 +1,8 @@
 #ifndef YINI_HOVER_PROVIDER_H
 #define YINI_HOVER_PROVIDER_H
 
-#include "Parser.h"
+#include "Interpreter.h"
+#include "LSP/DocumentManager.h"
 #include "LSP/LSPTypes.h"
 #include <nlohmann/json.hpp>
 #include <string>
@@ -18,8 +19,8 @@ public:
     
     // Get hover information at position
     json getHover(
-        yini::Parser* parser,
-        const std::string& content,
+        yini::Interpreter* interpreter,
+        Document* document,
         Position position
     );
     
@@ -37,10 +38,10 @@ private:
     bool isCrossSectionReference(const std::string& line, int character);
     
     // Get macro hover info
-    json getMacroHover(yini::Parser* parser, const std::string& name);
+    json getMacroHover(yini::Interpreter* interpreter, const std::string& name);
     
     // Get section key hover info
-    json getSectionKeyHover(yini::Parser* parser, const std::string& section, const std::string& key);
+    json getSectionKeyHover(yini::Interpreter* interpreter, const std::string& section, const std::string& key);
     
     // Get value type string
     std::string getValueTypeString(std::shared_ptr<yini::Value> value);

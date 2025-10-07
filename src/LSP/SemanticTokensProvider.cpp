@@ -5,48 +5,21 @@
 namespace yini::lsp
 {
 
-SemanticTokensProvider::SemanticTokensProvider()
-{
-}
+SemanticTokensProvider::SemanticTokensProvider() {}
 
 json SemanticTokensProvider::getLegend()
 {
     return {
         {"tokenTypes", json::array({
-            "namespace",   // 0
-            "class",       // 1
-            "enum",        // 2
-            "interface",   // 3
-            "struct",      // 4
-            "typeParameter", // 5
-            "parameter",   // 6
-            "variable",    // 7
-            "property",    // 8
-            "enumMember",  // 9
-            "decorator",   // 10
-            "event",       // 11
-            "function",    // 12
-            "method",      // 13
-            "macro",       // 14
-            "label",       // 15
-            "comment",     // 16
-            "string",      // 17
-            "keyword",     // 18
-            "number",      // 19
-            "regexp",      // 20
-            "operator"     // 21
+            "namespace", "class", "enum", "interface", "struct",
+            "typeParameter", "parameter", "variable", "property", "enumMember",
+            "decorator", "event", "function", "method", "macro",
+            "label", "comment", "string", "keyword", "number",
+            "regexp", "operator"
         })},
         {"tokenModifiers", json::array({
-            "declaration",     // 0
-            "definition",      // 1
-            "readonly",        // 2
-            "static",          // 3
-            "deprecated",      // 4
-            "abstract",        // 5
-            "async",           // 6
-            "modification",    // 7
-            "documentation",   // 8
-            "defaultLibrary"   // 9
+            "declaration", "definition", "readonly", "static", "deprecated",
+            "abstract", "async", "modification", "documentation", "defaultLibrary"
         })}
     };
 }
@@ -56,7 +29,6 @@ std::string SemanticTokensProvider::getLineAtPosition(const std::string& content
     std::istringstream stream(content);
     std::string current_line;
     int current = 0;
-    
     while (std::getline(stream, current_line))
     {
         if (current == line)
@@ -65,7 +37,6 @@ std::string SemanticTokensProvider::getLineAtPosition(const std::string& content
         }
         current++;
     }
-    
     return "";
 }
 
@@ -84,62 +55,55 @@ void SemanticTokensProvider::findAndAddTokens(const std::string& line, int lineN
     }
 }
 
-void SemanticTokensProvider::extractTokens(yini::Parser* parser, const std::string& content)
+void SemanticTokensProvider::extractTokens(yini::Interpreter* interpreter, Document* document)
 {
     tokens.clear();
-    
-    if (!parser)
+    if (!interpreter || !document)
     {
         return;
     }
-    
+
+    const std::string& content = document->content;
     std::istringstream stream(content);
     std::string line;
     int lineNum = 0;
     bool inDefineSection = false;
     std::string currentSection;
-    
-    const auto& defines = parser->getDefines();
-    
+
+    const auto& defines = interpreter->getDefines();
+
     while (std::getline(stream, line))
     {
-        // Detect section headers
         if (line.find("[#define]") != std::string::npos)
         {
-            size_t pos = line.find("[#define]");
-            addToken(lineNum, static_cast<int>(pos), 9, SemanticTokenType::NAMESPACE, 1); // definition
+            addToken(lineNum, static_cast<int>(line.find("[#define]")), 9, SemanticTokenType::NAMESPACE, 1);
             inDefineSection = true;
             currentSection = "#define";
         }
         else if (line.find("[#include]") != std::string::npos)
         {
-            size_t pos = line.find("[#include]");
-            addToken(lineNum, static_cast<int>(pos), 10, SemanticTokenType::NAMESPACE, 1);
+            addToken(lineNum, static_cast<int>(line.find("[#include]")), 10, SemanticTokenType::NAMESPACE, 1);
             inDefineSection = false;
             currentSection = "#include";
         }
         else if (line.find("[#schema]") != std::string::npos)
         {
-            size_t pos = line.find("[#schema]");
-            addToken(lineNum, static_cast<int>(pos), 9, SemanticTokenType::NAMESPACE, 1);
+            addToken(lineNum, static_cast<int>(line.find("[#schema]")), 9, SemanticTokenType::NAMESPACE, 1);
             inDefineSection = false;
             currentSection = "#schema";
         }
         else if (line.find('[') != std::string::npos && line.find(']') != std::string::npos)
         {
-            // Regular section
             size_t start = line.find('[');
             size_t end = line.find(']');
-            if (start != std::string::npos && end != std::string::npos && end > start)
+            if (end > start)
             {
-                std::string sectionName = line.substr(start + 1, end - start - 1);
                 addToken(lineNum, static_cast<int>(start), static_cast<int>(end - start + 1), SemanticTokenType::CLASS, 1);
                 inDefineSection = false;
-                currentSection = sectionName;
+                currentSection = line.substr(start + 1, end - start - 1);
             }
         }
-        
-        // Highlight macro references (@name)
+
         for (const auto& [macroName, value] : defines)
         {
             (void)value;
@@ -147,16 +111,14 @@ void SemanticTokensProvider::extractTokens(yini::Parser* parser, const std::stri
             size_t pos = 0;
             while ((pos = line.find(pattern, pos)) != std::string::npos)
             {
-                // Make sure it's not @{...}
                 if (pos + pattern.length() >= line.length() || line[pos + pattern.length()] != '{')
                 {
-                    addToken(lineNum, static_cast<int>(pos), static_cast<int>(pattern.length()), SemanticTokenType::MACRO, 4); // readonly
+                    addToken(lineNum, static_cast<int>(pos), static_cast<int>(pattern.length()), SemanticTokenType::MACRO, 4);
                 }
                 pos += pattern.length();
             }
         }
-        
-        // Highlight cross-section references @{Section.key}
+
         size_t atBrace = 0;
         while ((atBrace = line.find("@{", atBrace)) != std::string::npos)
         {
@@ -167,8 +129,7 @@ void SemanticTokensProvider::extractTokens(yini::Parser* parser, const std::stri
             }
             atBrace++;
         }
-        
-        // Highlight environment variables ${VAR}
+
         size_t dollar = 0;
         while ((dollar = line.find("${", dollar)) != std::string::npos)
         {
@@ -179,8 +140,7 @@ void SemanticTokensProvider::extractTokens(yini::Parser* parser, const std::stri
             }
             dollar++;
         }
-        
-        // Highlight key names in sections
+
         if (!currentSection.empty() && !inDefineSection)
         {
             size_t equals = line.find('=');
@@ -188,109 +148,65 @@ void SemanticTokensProvider::extractTokens(yini::Parser* parser, const std::stri
             {
                 std::string keyPart = line.substr(0, equals);
                 size_t keyStart = keyPart.find_first_not_of(" \t");
-                size_t keyEnd = keyPart.find_last_not_of(" \t");
-                if (keyStart != std::string::npos && keyEnd != std::string::npos)
+                if (keyStart != std::string::npos)
                 {
+                    size_t keyEnd = keyPart.find_last_not_of(" \t");
                     addToken(lineNum, static_cast<int>(keyStart), static_cast<int>(keyEnd - keyStart + 1), SemanticTokenType::PROPERTY, 0);
                 }
             }
         }
         
-        // Highlight numbers
-        std::istringstream lineStream(line);
-        std::string word;
-        int colPos = 0;
-        while (lineStream >> word)
-        {
-            size_t wordPos = line.find(word, colPos);
-            if (wordPos != std::string::npos)
-            {
-                // Check if it's a number
-                bool isNumber = !word.empty() && (std::isdigit(word[0]) || (word[0] == '-' && word.length() > 1));
-                if (isNumber)
-                {
-                    for (char c : word)
-                    {
-                        if (!std::isdigit(c) && c != '.' && c != '-' && c != 'e' && c != 'E')
-                        {
-                            isNumber = false;
-                            break;
-                        }
-                    }
-                    if (isNumber)
-                    {
-                        addToken(lineNum, static_cast<int>(wordPos), static_cast<int>(word.length()), SemanticTokenType::NUMBER, 0);
-                    }
-                }
-                colPos = static_cast<int>(wordPos + word.length());
-            }
-        }
-        
-        // Highlight keywords
-        if (line.find("true") != std::string::npos)
-        {
-            findAndAddTokens(line, lineNum, "true", SemanticTokenType::KEYWORD);
-        }
-        if (line.find("false") != std::string::npos)
-        {
-            findAndAddTokens(line, lineNum, "false", SemanticTokenType::KEYWORD);
-        }
-        
+        findAndAddTokens(line, lineNum, "true", SemanticTokenType::KEYWORD);
+        findAndAddTokens(line, lineNum, "false", SemanticTokenType::KEYWORD);
+
         lineNum++;
     }
 }
 
 json SemanticTokensProvider::encodeTokens()
 {
-    // Sort tokens by line, then by character
     std::sort(tokens.begin(), tokens.end(), [](const SemanticToken& a, const SemanticToken& b) {
         if (a.line != b.line) return a.line < b.line;
         return a.startChar < b.startChar;
     });
-    
-    // Delta-encode tokens
+
     json data = json::array();
     int prevLine = 0;
     int prevChar = 0;
-    
+
     for (const auto& token : tokens)
     {
         int deltaLine = token.line - prevLine;
         int deltaStart = (deltaLine == 0) ? (token.startChar - prevChar) : token.startChar;
-        
+
         data.push_back(deltaLine);
         data.push_back(deltaStart);
         data.push_back(token.length);
         data.push_back(static_cast<int>(token.type));
         data.push_back(token.modifiers);
-        
+
         prevLine = token.line;
         prevChar = token.startChar;
     }
-    
     return data;
 }
 
 json SemanticTokensProvider::getSemanticTokens(
-    yini::Parser* parser,
-    const std::string& content)
+    yini::Interpreter* interpreter,
+    Document* document)
 {
-    extractTokens(parser, content);
-    
-    return {
-        {"data", encodeTokens()}
-    };
+    extractTokens(interpreter, document);
+    return {{"data", encodeTokens()}};
 }
 
 json SemanticTokensProvider::getSemanticTokensRange(
-    yini::Parser* parser,
-    const std::string& content,
+    yini::Interpreter* interpreter,
+    Document* document,
     int startLine,
     int endLine)
 {
-    extractTokens(parser, content);
+    extractTokens(interpreter, document);
     
-    // Filter tokens in range
     std::vector<SemanticToken> rangeTokens;
     for (const auto& token : tokens)
     {
@@ -300,7 +216,6 @@ json SemanticTokensProvider::getSemanticTokensRange(
         }
     }
     
-    // Temporarily swap
     std::swap(tokens, rangeTokens);
     json result = {{"data", encodeTokens()}};
     std::swap(tokens, rangeTokens);

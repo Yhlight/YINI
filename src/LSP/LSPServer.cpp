@@ -179,10 +179,10 @@ json LSPServer::handleTextDocumentCompletion(const json& params)
         return json::array();
     }
     
-    auto parser = documentManager->getParser(uri);
+    auto interpreter = documentManager->getInterpreter(uri);
     
     yini::lsp::Position pos{line, character};
-    return completionProvider->getCompletions(parser, doc->content, pos);
+    return completionProvider->getCompletions(interpreter, doc, pos);
 }
 
 json LSPServer::handleTextDocumentHover(const json& params)
@@ -200,10 +200,10 @@ json LSPServer::handleTextDocumentHover(const json& params)
         return nullptr;
     }
     
-    auto parser = documentManager->getParser(uri);
+    auto interpreter = documentManager->getInterpreter(uri);
     
     yini::lsp::Position pos{line, character};
-    return hoverProvider->getHover(parser, doc->content, pos);
+    return hoverProvider->getHover(interpreter, doc, pos);
 }
 
 json LSPServer::handleTextDocumentDefinition(const json& params)
@@ -221,10 +221,10 @@ json LSPServer::handleTextDocumentDefinition(const json& params)
         return nullptr;
     }
     
-    auto parser = documentManager->getParser(uri);
+    auto interpreter = documentManager->getInterpreter(uri);
     
     yini::lsp::Position pos{line, character};
-    return definitionProvider->getDefinition(parser, doc->content, uri, pos);
+    return definitionProvider->getDefinition(interpreter, doc, uri, pos);
 }
 
 json LSPServer::handleTextDocumentDocumentSymbol(const json& params)
@@ -238,9 +238,9 @@ json LSPServer::handleTextDocumentDocumentSymbol(const json& params)
         return json::array();
     }
     
-    auto parser = documentManager->getParser(uri);
+    auto interpreter = documentManager->getInterpreter(uri);
     
-    return symbolProvider->getDocumentSymbols(parser, doc->content);
+    return symbolProvider->getDocumentSymbols(interpreter, doc);
 }
 
 json LSPServer::handleTextDocumentReferences(const json& params)
@@ -261,10 +261,10 @@ json LSPServer::handleTextDocumentReferences(const json& params)
         return json::array();
     }
     
-    auto parser = documentManager->getParser(uri);
+    auto interpreter = documentManager->getInterpreter(uri);
     
     yini::lsp::Position pos{line, character};
-    return referenceProvider->findReferences(parser, doc->content, uri, pos, includeDeclaration);
+    return referenceProvider->findReferences(interpreter, doc, uri, pos, includeDeclaration);
 }
 
 json LSPServer::handleTextDocumentPrepareRename(const json& params)
@@ -282,10 +282,10 @@ json LSPServer::handleTextDocumentPrepareRename(const json& params)
         return nullptr;
     }
     
-    auto parser = documentManager->getParser(uri);
+    auto interpreter = documentManager->getInterpreter(uri);
     
     yini::lsp::Position pos{line, character};
-    return renameProvider->prepareRename(parser, doc->content, pos);
+    return renameProvider->prepareRename(interpreter, doc, pos);
 }
 
 json LSPServer::handleTextDocumentRename(const json& params)
@@ -305,10 +305,10 @@ json LSPServer::handleTextDocumentRename(const json& params)
         return nullptr;
     }
     
-    auto parser = documentManager->getParser(uri);
+    auto interpreter = documentManager->getInterpreter(uri);
     
     yini::lsp::Position pos{line, character};
-    return renameProvider->rename(parser, doc->content, uri, pos, newName);
+    return renameProvider->rename(interpreter, doc, uri, pos, newName);
 }
 
 json LSPServer::handleTextDocumentFormatting(const json& params)
@@ -373,9 +373,9 @@ json LSPServer::handleTextDocumentSemanticTokensFull(const json& params)
         return json::object();
     }
     
-    auto parser = documentManager->getParser(uri);
+    auto interpreter = documentManager->getInterpreter(uri);
     
-    return semanticTokensProvider->getSemanticTokens(parser, doc->content);
+    return semanticTokensProvider->getSemanticTokens(interpreter, doc);
 }
 
 json LSPServer::handleTextDocumentSemanticTokensRange(const json& params)
@@ -393,9 +393,9 @@ json LSPServer::handleTextDocumentSemanticTokensRange(const json& params)
         return json::object();
     }
     
-    auto parser = documentManager->getParser(uri);
+    auto interpreter = documentManager->getInterpreter(uri);
     
-    return semanticTokensProvider->getSemanticTokensRange(parser, doc->content, startLine, endLine);
+    return semanticTokensProvider->getSemanticTokensRange(interpreter, doc, startLine, endLine);
 }
 
 json LSPServer::handleWorkspaceSymbol(const json& params)

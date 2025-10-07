@@ -1,6 +1,7 @@
 # Parser library
 add_library(yini_parser
     Parser.cpp
+    Interpreter.cpp
     Value.cpp
     YMETA.cpp
     YINI_C_API.cpp

@@ -1,7 +1,8 @@
 #ifndef YINI_WORKSPACE_SYMBOL_PROVIDER_H
 #define YINI_WORKSPACE_SYMBOL_PROVIDER_H
 
-#include "Parser.h"
+#include "Interpreter.h"
+#include "AST.h"
 #include "LSP/LSPTypes.h"
 #include <nlohmann/json.hpp>
 #include <string>
@@ -17,8 +18,9 @@ struct WorkspaceFile
 {
     std::string uri;
     std::string content;
-    std::unique_ptr<yini::Parser> parser;
-    bool parsed;
+    std::shared_ptr<RootNode> ast;
+    std::unique_ptr<Interpreter> interpreter;
+    bool analyzed = false;
 };
 
 class WorkspaceSymbolProvider
@@ -41,8 +43,8 @@ public:
 private:
     std::map<std::string, std::unique_ptr<WorkspaceFile>> files;
     
-    // Parse file if needed
-    void parseFile(WorkspaceFile* file);
+    // Analyze file if needed
+    void analyzeFile(WorkspaceFile* file);
     
     // Check if symbol name matches query
     bool matchesQuery(const std::string& symbolName, const std::string& query);

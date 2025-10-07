@@ -1,7 +1,8 @@
 #ifndef YINI_YMETA_H
 #define YINI_YMETA_H
 
-#include "Parser.h"
+#include "Interpreter.h"
+#include "Section.h"
 #include <string>
 #include <vector>
 #include <fstream>
@@ -22,7 +23,7 @@ public:
     ~YMETA() = default;
     
     // Serialization
-    bool serialize(const Parser& parser, const std::string& output_file);
+    bool serialize(const Interpreter& interpreter, const std::string& output_file);
     bool deserialize(const std::string& input_file);
     
     // Export to YINI text

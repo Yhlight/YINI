@@ -1,7 +1,8 @@
 #ifndef YINI_RENAME_PROVIDER_H
 #define YINI_RENAME_PROVIDER_H
 
-#include "Parser.h"
+#include "Interpreter.h"
+#include "LSP/DocumentManager.h"
 #include "LSP/LSPTypes.h"
 #include <nlohmann/json.hpp>
 #include <string>
@@ -18,15 +19,15 @@ public:
     
     // Prepare rename (check if rename is valid)
     json prepareRename(
-        yini::Parser* parser,
-        const std::string& content,
+        yini::Interpreter* interpreter,
+        Document* document,
         Position position
     );
     
     // Perform rename
     json rename(
-        yini::Parser* parser,
-        const std::string& content,
+        yini::Interpreter* interpreter,
+        Document* document,
         const std::string& uri,
         Position position,
         const std::string& newName

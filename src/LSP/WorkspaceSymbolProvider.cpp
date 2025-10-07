@@ -1,29 +1,37 @@
 #include "LSP/WorkspaceSymbolProvider.h"
+#include "Parser.h"
+#include "Interpreter.h"
 #include <algorithm>
 #include <cctype>
 
 namespace yini::lsp
 {
 
-WorkspaceSymbolProvider::WorkspaceSymbolProvider()
-{
-}
+WorkspaceSymbolProvider::WorkspaceSymbolProvider() {}
 
-void WorkspaceSymbolProvider::parseFile(WorkspaceFile* file)
+void WorkspaceSymbolProvider::analyzeFile(WorkspaceFile* file)
 {
-    if (!file || file->parsed)
+    if (!file || file->analyzed)
     {
         return;
     }
-    
+
     try
     {
-        file->parser = std::make_unique<yini::Parser>(file->content);
-        file->parsed = file->parser->parse();
+        Parser parser(file->content);
+        file->ast = parser.parse();
+        if (parser.hasError())
+        {
+            file->analyzed = false;
+            return;
+        }
+
+        file->interpreter = std::make_unique<Interpreter>();
+        file->analyzed = file->interpreter->interpret(*file->ast);
     }
     catch (...)
     {
-        file->parsed = false;
+        file->analyzed = false;
     }
 }
 
@@ -32,9 +40,8 @@ void WorkspaceSymbolProvider::addFile(const std::string& uri, const std::string&
     auto file = std::make_unique<WorkspaceFile>();
     file->uri = uri;
     file->content = content;
-    file->parsed = false;
     
-    parseFile(file.get());
+    analyzeFile(file.get());
     files[uri] = std::move(file);
 }
 
@@ -49,8 +56,8 @@ void WorkspaceSymbolProvider::updateFile(const std::string& uri, const std::stri
     if (it != files.end())
     {
         it->second->content = content;
-        it->second->parsed = false;
-        parseFile(it->second.get());
+        it->second->analyzed = false;
+        analyzeFile(it->second.get());
     }
     else
     {
@@ -64,15 +71,12 @@ bool WorkspaceSymbolProvider::matchesQuery(const std::string& symbolName, const 
     {
         return true;
     }
-    
-    // Case-insensitive fuzzy match
+
     std::string lowerSymbol = symbolName;
     std::string lowerQuery = query;
-    
     std::transform(lowerSymbol.begin(), lowerSymbol.end(), lowerSymbol.begin(), ::tolower);
     std::transform(lowerQuery.begin(), lowerQuery.end(), lowerQuery.begin(), ::tolower);
-    
-    // Simple contains check
+
     return lowerSymbol.find(lowerQuery) != std::string::npos;
 }
 
@@ -95,57 +99,42 @@ json WorkspaceSymbolProvider::makeSymbolInformation(
             }}
         }}
     };
-    
     if (!containerName.empty())
     {
         symbol["containerName"] = containerName;
     }
-    
     return symbol;
 }
 
 json WorkspaceSymbolProvider::searchSymbols(const std::string& query)
 {
     json symbols = json::array();
-    
+
     for (const auto& [uri, file] : files)
     {
-        if (!file->parsed || !file->parser)
+        if (!file->analyzed || !file->interpreter)
         {
             continue;
         }
-        
+
         // Search in defines
-        const auto& defines = file->parser->getDefines();
+        const auto& defines = file->interpreter->getDefines();
         for (const auto& [name, value] : defines)
         {
             (void)value;
             if (matchesQuery(name, query))
             {
-                symbols.push_back(makeSymbolInformation(
-                    name,
-                    13, // Variable
-                    uri,
-                    0, // Line number (simplified)
-                    0,
-                    "[#define]"
-                ));
+                symbols.push_back(makeSymbolInformation(name, 13, uri, 0, 0, "[#define]"));
             }
         }
-        
+
         // Search in sections
-        const auto& sections = file->parser->getSections();
+        const auto& sections = file->interpreter->getSections();
         for (const auto& [sectionName, section] : sections)
         {
             if (matchesQuery(sectionName, query))
             {
-                symbols.push_back(makeSymbolInformation(
-                    sectionName,
-                    5, // Class
-                    uri,
-                    0,
-                    0
-                ));
+                symbols.push_back(makeSymbolInformation(sectionName, 5, uri, 0, 0));
             }
             
             // Search in keys
@@ -154,14 +143,7 @@ json WorkspaceSymbolProvider::searchSymbols(const std::string& query)
                 (void)value;
                 if (matchesQuery(key, query))
                 {
-                    symbols.push_back(makeSymbolInformation(
-                        key,
-                        7, // Property
-                        uri,
-                        0,
-                        0,
-                        "[" + sectionName + "]"
-                    ));
+                    symbols.push_back(makeSymbolInformation(key, 7, uri, 0, 0, "[" + sectionName + "]"));
                 }
             }
         }

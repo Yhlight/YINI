@@ -36,6 +36,11 @@ std::string Coord::toString() const
     return oss.str();
 }
 
+bool Value::isNumeric() const
+{
+    return type == ValueType::INTEGER || type == ValueType::FLOAT;
+}
+
 // Value methods
 
 Value::Value()
@@ -290,6 +295,22 @@ std::shared_ptr<Value> Value::makeEnvVar(const std::string& var_name)
     auto val = std::make_shared<Value>();
     val->type = ValueType::ENV_VAR;
     val->data = var_name;
+    return val;
+}
+
+std::shared_ptr<Value> Value::makePath(const std::string& path)
+{
+    auto val = std::make_shared<Value>();
+    val->type = ValueType::PATH;
+    val->data = path;
+    return val;
+}
+
+std::shared_ptr<Value> Value::makeList(const ArrayType& elements)
+{
+    auto val = std::make_shared<Value>();
+    val->type = ValueType::LIST;
+    val->data = elements;
     return val;
 }
 

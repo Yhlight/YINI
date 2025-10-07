@@ -89,6 +89,7 @@ public:
     bool isFloat() const { return type == ValueType::FLOAT; }
     bool isBoolean() const { return type == ValueType::BOOLEAN; }
     bool isString() const { return type == ValueType::STRING; }
+    bool isNumeric() const;
     bool isArray() const { return type == ValueType::ARRAY; }
     bool isList() const { return type == ValueType::LIST; }
     bool isMap() const { return type == ValueType::MAP; }
@@ -120,6 +121,12 @@ public:
     // Environment variable
     static std::shared_ptr<Value> makeEnvVar(const std::string& var_name);
     
+    // Path value
+    static std::shared_ptr<Value> makePath(const std::string& path);
+
+    // List value
+    static std::shared_ptr<Value> makeList(const ArrayType& elements);
+
 private:
     ValueType type;
     

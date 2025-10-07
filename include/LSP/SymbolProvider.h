@@ -1,7 +1,8 @@
 #ifndef YINI_SYMBOL_PROVIDER_H
 #define YINI_SYMBOL_PROVIDER_H
 
-#include "Parser.h"
+#include "Interpreter.h"
+#include "LSP/DocumentManager.h"
 #include "LSP/LSPTypes.h"
 #include <nlohmann/json.hpp>
 #include <string>
@@ -19,8 +20,8 @@ public:
     
     // Get document symbols
     json getDocumentSymbols(
-        yini::Parser* parser,
-        const std::string& content
+        yini::Interpreter* interpreter,
+        Document* document
     );
     
 private:

@@ -1,7 +1,8 @@
 #ifndef YINI_DOCUMENT_MANAGER_H
 #define YINI_DOCUMENT_MANAGER_H
 
-#include "Parser.h"
+#include "Interpreter.h"
+#include "AST.h"
 #include <string>
 #include <map>
 #include <memory>
@@ -14,12 +15,13 @@ struct Document
     std::string uri;
     std::string content;
     int version;
-    std::unique_ptr<yini::Parser> parser;
-    bool parsed;
+    std::shared_ptr<RootNode> ast;
+    std::unique_ptr<Interpreter> interpreter;
+    bool analyzed;
     std::string lastError;
     
     Document(const std::string& uri, const std::string& content, int version)
-        : uri(uri), content(content), version(version), parsed(false)
+        : uri(uri), content(content), version(version), analyzed(false)
     {
     }
 };
@@ -43,8 +45,8 @@ public:
     // Document access
     Document* getDocument(const std::string& uri);
     
-    // Get parsed Parser (trigger parse if needed)
-    yini::Parser* getParser(const std::string& uri);
+    // Get the interpreter for a document
+    yini::Interpreter* getInterpreter(const std::string& uri);
     
     // Check if document exists
     bool hasDocument(const std::string& uri) const;
@@ -52,8 +54,8 @@ public:
 private:
     std::map<std::string, std::unique_ptr<Document>> documents;
     
-    // Parse document content
-    void parseDocument(Document* doc);
+    // Parse and interpret document content
+    void analyzeDocument(Document* doc);
 };
 
 } // namespace yini::lsp

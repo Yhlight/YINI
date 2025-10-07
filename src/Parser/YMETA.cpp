@@ -5,7 +5,7 @@
 namespace yini
 {
 
-bool YMETA::serialize(const Parser& parser, const std::string& output_file)
+bool YMETA::serialize(const Interpreter& interpreter, const std::string& output_file)
 {
     std::ofstream out(output_file, std::ios::binary);
     if (!out.is_open())
@@ -14,10 +14,10 @@ bool YMETA::serialize(const Parser& parser, const std::string& output_file)
         return false;
     }
     
-    // Copy data from parser
-    sections = parser.getSections();
-    defines = parser.getDefines();
-    includes = parser.getIncludes();
+    // Copy data from interpreter
+    sections = interpreter.getSections();
+    defines = interpreter.getDefines();
+    includes = interpreter.getIncludes();
     version = YMETA_VERSION;
     
     // Write header

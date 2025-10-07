@@ -1,7 +1,8 @@
 #ifndef YINI_SEMANTIC_TOKENS_PROVIDER_H
 #define YINI_SEMANTIC_TOKENS_PROVIDER_H
 
-#include "Parser.h"
+#include "Interpreter.h"
+#include "LSP/DocumentManager.h"
 #include <nlohmann/json.hpp>
 #include <string>
 #include <vector>
@@ -72,14 +73,14 @@ public:
     
     // Get semantic tokens for entire document
     json getSemanticTokens(
-        yini::Parser* parser,
-        const std::string& content
+        yini::Interpreter* interpreter,
+        Document* document
     );
     
     // Get semantic tokens for range
     json getSemanticTokensRange(
-        yini::Parser* parser,
-        const std::string& content,
+        yini::Interpreter* interpreter,
+        Document* document,
         int startLine,
         int endLine
     );
@@ -88,7 +89,7 @@ private:
     std::vector<SemanticToken> tokens;
     
     // Extract tokens from parsed content
-    void extractTokens(yini::Parser* parser, const std::string& content);
+    void extractTokens(yini::Interpreter* interpreter, Document* document);
     
     // Add token
     void addToken(int line, int startChar, int length, SemanticTokenType type, int modifiers = 0);

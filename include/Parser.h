@@ -2,45 +2,17 @@
 #define YINI_PARSER_H
 
 #include "Token.h"
-#include "Value.h"
 #include "Lexer.h"
+#include "AST.h"
 #include <string>
 #include <vector>
-#include <map>
-#include <set>
 #include <memory>
 #include <optional>
 
 namespace yini
 {
 
-// Configuration section
-struct Section
-{
-    std::string name;
-    std::vector<std::string> inherited_sections;
-    std::map<std::string, std::shared_ptr<Value>> entries;
-    
-    Section(const std::string& name = "") : name(name)
-    {
-    }
-};
-
-// Schema validation rule
-struct SchemaRule
-{
-    bool required;           // ! or ?
-    std::optional<ValueType> value_type;
-    enum class NullBehavior
-    {
-        IGNORE,
-        DEFAULT,
-        ERROR
-    } null_behavior;
-    std::shared_ptr<Value> default_value;
-};
-
-// Parser class
+// Parser class: transforms a token stream into an Abstract Syntax Tree (AST).
 class Parser
 {
 public:
@@ -48,20 +20,8 @@ public:
     explicit Parser(const std::string& source);
     ~Parser() = default;
     
-    // Main parsing function
-    bool parse();
-    
-    // Get parsed sections
-    const std::map<std::string, Section>& getSections() const { return sections; }
-    
-    // Get defines
-    const std::map<std::string, std::shared_ptr<Value>>& getDefines() const { return defines; }
-    
-    // Get includes
-    const std::vector<std::string>& getIncludes() const { return includes; }
-    
-    // Get schema
-    const std::map<std::string, std::map<std::string, SchemaRule>>& getSchema() const { return schema; }
+    // Main parsing function: returns the root of the AST.
+    std::shared_ptr<RootNode> parse();
     
     // Error reporting
     std::string getLastError() const { return last_error; }
@@ -75,47 +35,26 @@ private:
     bool check(TokenType type) const;
     bool isAtEnd() const;
     
-    // Parsing methods
-    bool parseSection();
-    bool parseDefineSection();
-    bool parseIncludeSection();
-    bool parseSchemaSection();
+    // Parsing methods for top-level constructs
+    std::shared_ptr<ASTNode> parseTopLevel();
+    std::shared_ptr<SectionNode> parseSection();
+    std::shared_ptr<DefineNode> parseDefineSection();
+    std::shared_ptr<IncludeNode> parseIncludeSection();
+    std::shared_ptr<SchemaNode> parseSchemaSection();
     
-    bool parseKeyValuePair(Section& section);
-    bool parseQuickRegister(Section& section);
+    std::shared_ptr<KeyValuePairNode> parseKeyValuePair();
+    std::shared_ptr<KeyValuePairNode> parseQuickRegister();
     
-    // Value parsing (Strategy pattern)
-    std::shared_ptr<Value> parseValue();
-    std::shared_ptr<Value> parseExpression();
-    std::shared_ptr<Value> parseTerm();
-    std::shared_ptr<Value> parseFactor();
-    std::shared_ptr<Value> parsePrimary();
+    // Expression parsing (Pratt Parser)
+    std::shared_ptr<ASTNode> parseExpression(int precedence = 0);
+    std::shared_ptr<ASTNode> parsePrimary();
     
-    std::shared_ptr<Value> parseArray();
-    std::shared_ptr<Value> parseList();
-    std::shared_ptr<Value> parseMap();
-    std::shared_ptr<Value> parseTuple();
-    std::shared_ptr<Value> parseSet();
-    std::shared_ptr<Value> parseColor();
-    std::shared_ptr<Value> parseCoord();
-    std::shared_ptr<Value> parsePath();
-    std::shared_ptr<Value> parseDynamic();
-    
-    std::shared_ptr<Value> parseReference();
-    std::shared_ptr<Value> parseEnvVar();
-    
-    // Section inheritance
-    void resolveInheritance();
-    
-    // Schema validation
-    bool validateAgainstSchema();
-    
-    // Reference resolution
-    bool resolveReferences();
-    std::shared_ptr<Value> resolveValue(
-        std::shared_ptr<Value> value, 
-        std::set<std::string>& visiting
-    );
+    // Value parsing
+    std::shared_ptr<ASTNode> parseArray();
+    std::shared_ptr<ASTNode> parseMap();
+    std::shared_ptr<ASTNode> parseFunctionCall();
+    std::shared_ptr<ASTNode> parseReference();
+    std::shared_ptr<ASTNode> parseEnvVar();
     
     // Error handling
     void error(const std::string& message);
@@ -123,12 +62,6 @@ private:
     // State
     std::vector<Token> tokens;
     size_t current;
-    
-    // Parsed data
-    std::map<std::string, Section> sections;
-    std::map<std::string, std::shared_ptr<Value>> defines;
-    std::vector<std::string> includes;
-    std::map<std::string, std::map<std::string, SchemaRule>> schema;
     
     // Quick register counter
     int64_t quick_register_counter;

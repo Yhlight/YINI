@@ -1,7 +1,8 @@
 #ifndef YINI_REFERENCE_PROVIDER_H
 #define YINI_REFERENCE_PROVIDER_H
 
-#include "Parser.h"
+#include "Interpreter.h"
+#include "LSP/DocumentManager.h"
 #include "LSP/LSPTypes.h"
 #include <nlohmann/json.hpp>
 #include <string>
@@ -19,8 +20,8 @@ public:
     
     // Find all references to symbol at position
     json findReferences(
-        yini::Parser* parser,
-        const std::string& content,
+        yini::Interpreter* interpreter,
+        Document* document,
         const std::string& uri,
         Position position,
         bool includeDeclaration

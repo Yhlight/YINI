@@ -5,16 +5,13 @@
 namespace yini::lsp
 {
 
-ReferenceProvider::ReferenceProvider()
-{
-}
+ReferenceProvider::ReferenceProvider() {}
 
 std::string ReferenceProvider::getLineAtPosition(const std::string& content, int line)
 {
     std::istringstream stream(content);
     std::string current_line;
     int current = 0;
-    
     while (std::getline(stream, current_line))
     {
         if (current == line)
@@ -23,7 +20,6 @@ std::string ReferenceProvider::getLineAtPosition(const std::string& content, int
         }
         current++;
     }
-    
     return "";
 }
 
@@ -34,25 +30,24 @@ std::string ReferenceProvider::getWordAtPosition(const std::string& content, Pos
     {
         return "";
     }
-    
+
     int start = pos.character;
     int end = pos.character;
-    
+
     while (start > 0 && (std::isalnum(line[start - 1]) || line[start - 1] == '_'))
     {
         start--;
     }
-    
+
     while (end < static_cast<int>(line.length()) && (std::isalnum(line[end]) || line[end] == '_'))
     {
         end++;
     }
-    
+
     if (start < end)
     {
         return line.substr(start, end - start);
     }
-    
     return "";
 }
 
@@ -116,20 +111,18 @@ json ReferenceProvider::findMacroReferences(
     std::string line;
     int line_num = 0;
     bool in_define_section = false;
-    
+
     while (std::getline(stream, line))
     {
-        // Check for [#define] section
         if (line.find("[#define]") != std::string::npos)
         {
             in_define_section = true;
         }
-        else if (in_define_section && line.find("[") != std::string::npos && line.find("]") != std::string::npos)
+        else if (in_define_section && line.find('[') != std::string::npos)
         {
             in_define_section = false;
         }
-        
-        // Check for declaration in [#define]
+
         if (in_define_section && includeDeclaration)
         {
             size_t equals_pos = line.find('=');
@@ -137,54 +130,30 @@ json ReferenceProvider::findMacroReferences(
             {
                 std::string key = line.substr(0, equals_pos);
                 size_t start = key.find_first_not_of(" \t");
-                size_t end = key.find_last_not_of(" \t");
-                if (start != std::string::npos && end != std::string::npos)
+                if (start != std::string::npos)
                 {
+                    size_t end = key.find_last_not_of(" \t");
                     key = key.substr(start, end - start + 1);
                     if (key == macroName)
                     {
-                        locations.push_back(makeLocation(
-                            uri, line_num, 
-                            static_cast<int>(start), 
-                            static_cast<int>(end + 1)
-                        ));
+                        locations.push_back(makeLocation(uri, line_num, static_cast<int>(start), static_cast<int>(end + 1)));
                     }
                 }
             }
         }
-        
-        // Find all @macroName references
+
         std::string pattern = "@" + macroName;
         size_t pos = 0;
         while ((pos = line.find(pattern, pos)) != std::string::npos)
         {
-            // Make sure it's not @{macroName
-            if (pos + pattern.length() < line.length())
+            if (pos + pattern.length() >= line.length() || !isalnum(line[pos + pattern.length()]))
             {
-                char next = line[pos + pattern.length()];
-                if (!std::isalnum(next) && next != '_')
-                {
-                    locations.push_back(makeLocation(
-                        uri, line_num, 
-                        static_cast<int>(pos), 
-                        static_cast<int>(pos + pattern.length())
-                    ));
-                }
-            }
-            else
-            {
-                locations.push_back(makeLocation(
-                    uri, line_num, 
-                    static_cast<int>(pos), 
-                    static_cast<int>(pos + pattern.length())
-                ));
+                locations.push_back(makeLocation(uri, line_num, static_cast<int>(pos), static_cast<int>(pos + pattern.length())));
             }
             pos += pattern.length();
         }
-        
         line_num++;
     }
-    
     return locations;
 }
 
@@ -200,22 +169,19 @@ json ReferenceProvider::findKeyReferences(
     std::string line;
     int line_num = 0;
     bool in_target_section = false;
-    
     std::string section_header = "[" + section + "]";
-    
+
     while (std::getline(stream, line))
     {
-        // Check section
         if (line.find(section_header) != std::string::npos)
         {
             in_target_section = true;
         }
-        else if (in_target_section && line.find("[") != std::string::npos && line.find("]") != std::string::npos)
+        else if (in_target_section && line.find('[') != std::string::npos)
         {
             in_target_section = false;
         }
-        
-        // Check for declaration
+
         if (in_target_section && includeDeclaration)
         {
             size_t equals_pos = line.find('=');
@@ -223,55 +189,44 @@ json ReferenceProvider::findKeyReferences(
             {
                 std::string found_key = line.substr(0, equals_pos);
                 size_t start = found_key.find_first_not_of(" \t");
-                size_t end = found_key.find_last_not_of(" \t");
-                if (start != std::string::npos && end != std::string::npos)
+                if (start != std::string::npos)
                 {
+                    size_t end = found_key.find_last_not_of(" \t");
                     found_key = found_key.substr(start, end - start + 1);
                     if (found_key == key)
                     {
-                        locations.push_back(makeLocation(
-                            uri, line_num, 
-                            static_cast<int>(start), 
-                            static_cast<int>(end + 1)
-                        ));
+                        locations.push_back(makeLocation(uri, line_num, static_cast<int>(start), static_cast<int>(end + 1)));
                     }
                 }
             }
         }
-        
-        // Find all @{Section.key} references
+
         std::string pattern = "@{" + section + "." + key + "}";
         size_t pos = 0;
         while ((pos = line.find(pattern, pos)) != std::string::npos)
         {
-            locations.push_back(makeLocation(
-                uri, line_num, 
-                static_cast<int>(pos), 
-                static_cast<int>(pos + pattern.length())
-            ));
+            locations.push_back(makeLocation(uri, line_num, static_cast<int>(pos), static_cast<int>(pos + pattern.length())));
             pos += pattern.length();
         }
-        
         line_num++;
     }
-    
     return locations;
 }
 
 json ReferenceProvider::findReferences(
-    yini::Parser* /*parser*/,
-    const std::string& content,
+    yini::Interpreter* /*interpreter*/,
+    Document* document,
     const std::string& uri,
     Position position,
     bool includeDeclaration)
 {
+    const std::string& content = document->content;
     std::string line = getLineAtPosition(content, position.line);
     if (line.empty())
     {
         return json::array();
     }
-    
-    // Check if it's a macro reference
+
     if (isMacroReference(line, position.character))
     {
         std::string word = getWordAtPosition(content, position);
@@ -280,8 +235,7 @@ json ReferenceProvider::findReferences(
             return findMacroReferences(content, uri, word, includeDeclaration);
         }
     }
-    
-    // Check if it's a cross-section reference
+
     if (isCrossSectionReference(line, position.character))
     {
         size_t at_brace = line.rfind("@{", position.character);
@@ -292,7 +246,6 @@ json ReferenceProvider::findReferences(
             {
                 std::string ref = line.substr(at_brace + 2, close_brace - at_brace - 2);
                 size_t dot_pos = ref.find('.');
-                
                 if (dot_pos != std::string::npos)
                 {
                     std::string section = ref.substr(0, dot_pos);
@@ -302,19 +255,17 @@ json ReferenceProvider::findReferences(
             }
         }
     }
-    
-    // Check if cursor is on a key in a section (search for its usage)
+
     std::string word = getWordAtPosition(content, position);
     if (!word.empty())
     {
-        // Try as macro first
         json macroRefs = findMacroReferences(content, uri, word, includeDeclaration);
         if (!macroRefs.empty())
         {
             return macroRefs;
         }
     }
-    
+
     return json::array();
 }
 
