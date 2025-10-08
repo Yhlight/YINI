@@ -1,0 +1,29 @@
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+compile_commands.json
+
+# Build artifacts
+build/
+bin/
+lib/
+*.so
+*.a
+*.dll
+*.exe
+
+# Rider
+.idea/
+
+# VS Code
+.vscode/
+
+# Build
+[Bb]uild/
+[Bb]in/
+[Oo]bj/
+[Ll]ib/
+
+#Log
+*.log
