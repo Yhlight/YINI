@@ -5,13 +5,17 @@
 #include <vector>
 
 enum class TokenType {
-    Section,
     Identifier,
     Equals,
+    PlusEquals,
     String,
     Number,
     Boolean,
     Comment,
+    LeftBracket,
+    RightBracket,
+    Comma,
+    Colon,
     EndOfFile,
     Unexpected
 };

@@ -1,14 +1,6 @@
 #include <gtest/gtest.h>
 #include "Lexer/lexer.h"
 
-TEST(LexerTest, SectionHeader) {
-    std::string input = "[Config]";
-    Lexer lexer(input);
-    Token token = lexer.nextToken();
-    EXPECT_EQ(token.type, TokenType::Section);
-    EXPECT_EQ(token.value, "Config");
-}
-
 TEST(LexerTest, KeyValuePair) {
     std::string input = "key = \"value\"";
     Lexer lexer(input);

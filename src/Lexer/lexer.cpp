@@ -43,20 +43,12 @@ Token Lexer::nextToken() {
         }
     }
 
-    char currentChar = input[position];
-
-    // Section: [Header]
-    if (currentChar == '[') {
-        size_t start = ++position;
-        while (position < input.length() && input[position] != ']') {
-            position++;
-        }
-        if (position < input.length()) {
-            std::string value = input.substr(start, position - start);
-            position++; // Skip ']'
-            return {TokenType::Section, value};
-        }
+    if (input[position] == '+' && position + 1 < input.length() && input[position + 1] == '=') {
+        position += 2;
+        return {TokenType::PlusEquals, "+="};
     }
+
+    char currentChar = input[position];
 
     // Identifier, true, false
     if (isalpha(currentChar) || currentChar == '_') {
@@ -97,6 +89,22 @@ Token Lexer::nextToken() {
             position++;
         }
         return {TokenType::Number, input.substr(start, position - start)};
+    }
+
+    // Punctuation
+    switch (currentChar) {
+        case '[':
+            position++;
+            return {TokenType::LeftBracket, "["};
+        case ']':
+            position++;
+            return {TokenType::RightBracket, "]"};
+        case ',':
+            position++;
+            return {TokenType::Comma, ","};
+        case ':':
+            position++;
+            return {TokenType::Colon, ":"};
     }
 
     // If no token is matched, return unexpected
