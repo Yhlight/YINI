@@ -1,0 +1,8 @@
+[TestSection]
+key1 = "value1"
+key2 = 123
+key3 = true
+
+[AnotherSection]
+items = [1, 2, 3]
+name = "test"
