@@ -293,4 +293,130 @@ std::shared_ptr<Value> Value::makeEnvVar(const std::string& var_name)
     return val;
 }
 
+// Safe value getters (returns optional)
+std::optional<int64_t> Value::tryAsInteger() const
+{
+    if (type == ValueType::INTEGER)
+    {
+        return std::get<int64_t>(data);
+    }
+    return std::nullopt;
+}
+
+std::optional<double> Value::tryAsFloat() const
+{
+    if (type == ValueType::FLOAT)
+    {
+        return std::get<double>(data);
+    }
+    if (type == ValueType::INTEGER)
+    {
+        return static_cast<double>(std::get<int64_t>(data));
+    }
+    return std::nullopt;
+}
+
+std::optional<bool> Value::tryAsBoolean() const
+{
+    if (type == ValueType::BOOLEAN)
+    {
+        return std::get<bool>(data);
+    }
+    return std::nullopt;
+}
+
+std::optional<std::string> Value::tryAsString() const
+{
+    if (type == ValueType::STRING)
+    {
+        return std::get<std::string>(data);
+    }
+    if (type == ValueType::REFERENCE || type == ValueType::ENV_VAR)
+    {
+        return std::get<std::string>(data);
+    }
+    return std::nullopt;
+}
+
+std::optional<Value::ArrayType> Value::tryAsArray() const
+{
+    if (type == ValueType::ARRAY || type == ValueType::LIST)
+    {
+        return std::get<ArrayType>(data);
+    }
+    return std::nullopt;
+}
+
+std::optional<Value::MapType> Value::tryAsMap() const
+{
+    if (type == ValueType::MAP)
+    {
+        return std::get<MapType>(data);
+    }
+    return std::nullopt;
+}
+
+std::optional<Color> Value::tryAsColor() const
+{
+    if (type == ValueType::COLOR)
+    {
+        return std::get<Color>(data);
+    }
+    return std::nullopt;
+}
+
+std::optional<Coord> Value::tryAsCoord() const
+{
+    if (type == ValueType::COORD)
+    {
+        return std::get<Coord>(data);
+    }
+    return std::nullopt;
+}
+
+// Value getters with default (never throws)
+int64_t Value::asIntegerOr(int64_t default_val) const
+{
+    if (type == ValueType::INTEGER)
+    {
+        return std::get<int64_t>(data);
+    }
+    return default_val;
+}
+
+double Value::asFloatOr(double default_val) const
+{
+    if (type == ValueType::FLOAT)
+    {
+        return std::get<double>(data);
+    }
+    if (type == ValueType::INTEGER)
+    {
+        return static_cast<double>(std::get<int64_t>(data));
+    }
+    return default_val;
+}
+
+bool Value::asBooleanOr(bool default_val) const
+{
+    if (type == ValueType::BOOLEAN)
+    {
+        return std::get<bool>(data);
+    }
+    return default_val;
+}
+
+std::string Value::asStringOr(const std::string& default_val) const
+{
+    if (type == ValueType::STRING)
+    {
+        return std::get<std::string>(data);
+    }
+    if (type == ValueType::REFERENCE || type == ValueType::ENV_VAR)
+    {
+        return std::get<std::string>(data);
+    }
+    return default_val;
+}
+
 } // namespace yini

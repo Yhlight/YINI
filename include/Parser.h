@@ -10,6 +10,7 @@
 #include <set>
 #include <memory>
 #include <optional>
+#include <mutex>
 
 namespace yini
 {
@@ -48,8 +49,24 @@ public:
     explicit Parser(const std::string& source);
     ~Parser() = default;
     
+    // Disable copying (expensive and unnecessary)
+    Parser(const Parser&) = delete;
+    Parser& operator=(const Parser&) = delete;
+    
+    // Enable moving
+    Parser(Parser&&) noexcept = default;
+    Parser& operator=(Parser&&) noexcept = default;
+    
     // Main parsing function
     bool parse();
+    
+    // Environment variable security
+    void setSafeMode(bool enabled) { safe_mode = enabled; }
+    bool isSafeModeEnabled() const { return safe_mode; }
+    static void setAllowedEnvVars(const std::set<std::string>& vars);
+    static void addAllowedEnvVar(const std::string& var);
+    static void clearAllowedEnvVars();
+    static const std::set<std::string>& getAllowedEnvVars() { return allowed_env_vars; }
     
     // Get parsed sections
     const std::map<std::string, Section>& getSections() const { return sections; }
@@ -120,6 +137,11 @@ private:
     // Error handling
     void error(const std::string& message);
     
+    // Overflow checking helpers
+    bool willOverflowAdd(int64_t a, int64_t b) const;
+    bool willOverflowSubtract(int64_t a, int64_t b) const;
+    bool willOverflowMultiply(int64_t a, int64_t b) const;
+    
     // State
     std::vector<Token> tokens;
     size_t current;
@@ -132,6 +154,19 @@ private:
     
     // Quick register counter
     int64_t quick_register_counter;
+    
+    // Recursion depth tracking
+    static constexpr size_t MAX_RECURSION_DEPTH = 100;
+    size_t expression_depth;
+    size_t array_depth;
+    
+    // Resource limits
+    static constexpr size_t MAX_ARRAY_SIZE = 100000;  // 100K elements
+    
+    // Environment variable security
+    bool safe_mode;
+    static std::set<std::string> allowed_env_vars;
+    static std::mutex env_vars_mutex;  // Thread safety for static whitelist
     
     // Error tracking
     std::string last_error;

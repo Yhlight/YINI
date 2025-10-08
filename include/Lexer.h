@@ -31,6 +31,14 @@ public:
     explicit Lexer(const std::string& source);
     ~Lexer() = default;
     
+    // Disable copying (expensive and unnecessary)
+    Lexer(const Lexer&) = delete;
+    Lexer& operator=(const Lexer&) = delete;
+    
+    // Enable moving
+    Lexer(Lexer&&) noexcept = default;
+    Lexer& operator=(Lexer&&) noexcept = default;
+    
     // Main tokenization function
     std::vector<Token> tokenize();
     
@@ -100,6 +108,10 @@ private:
     
     // Current state
     LexerState state;
+    
+    // Resource limits
+    static constexpr size_t MAX_STRING_LENGTH = 10 * 1024 * 1024; // 10MB
+    static constexpr size_t MAX_IDENTIFIER_LENGTH = 1024;         // 1KB
     
     // Error tracking
     std::string last_error;

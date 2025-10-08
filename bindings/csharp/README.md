@@ -184,11 +184,76 @@ copy ..\..\build\lib\yini.dll .
 example.exe
 ```
 
+## ⚠️ Important: Memory Management
+
+### Critical Memory Safety Rules
+
+1. **ALWAYS use `using` statement with Parser**
+   ```csharp
+   // ✅ CORRECT - Automatic cleanup
+   using (var parser = new Parser(source))
+   {
+       // Use parser...
+   } // Automatically disposes
+   
+   // ❌ WRONG - Memory leak risk
+   var parser = new Parser(source);
+   parser.Parse();
+   // parser.Dispose() might be forgotten!
+   ```
+
+2. **Parser lifetime manages all resources**
+   - Section handles are valid only while Parser is alive
+   - Value handles are valid only while Parser is alive
+   - Disposing Parser invalidates ALL handles
+
+3. **Thread safety**
+   - Create separate Parser instances for different threads
+   - DO NOT share Parser instances across threads
+   - **IMPORTANT**: `Parser.setAllowedEnvVars()` is NOT thread-safe
+   - Call `setAllowedEnvVars()` BEFORE creating any Parser instances in multi-threaded scenarios
+   - Or ensure only one thread modifies the whitelist at a time
+
+4. **C API users (advanced)**
+   - String arrays from `yini_parser_get_section_names()` MUST be freed
+   - String arrays from `yini_section_get_keys()` MUST be freed
+   - Use `yini_free_string_array()` to free them
+   - The C# wrapper handles this automatically
+
+### Memory Leak Prevention
+
+```csharp
+// ✅ Safe pattern with proper cleanup
+public void ProcessConfig(string filename)
+{
+    using (var parser = Parser.FromFile(filename))
+    {
+        if (!parser.Parse())
+        {
+            Console.WriteLine($"Error: {parser.GetError()}");
+            return;
+        }
+        
+        // Work with parser...
+        var section = parser.GetSection("Config");
+        // ...
+        
+    } // ← Everything cleaned up here automatically
+}
+
+// ❌ Dangerous pattern - leak risk
+public Parser CreateParser(string filename)
+{
+    return Parser.FromFile(filename); // Caller must remember to dispose!
+}
+```
+
 ## Notes
 
 - The Parser class implements IDisposable - always use `using` statement or call `Dispose()`
 - String and array handles are only valid while the Parser object is alive
 - Thread safety: Create separate Parser instances for different threads
+- **Failure to dispose will cause memory leaks in unmanaged code**
 
 ## License
 

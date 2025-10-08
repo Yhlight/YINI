@@ -17,12 +17,28 @@ key3 = true
     )";
     
     Parser parser(source);
-    assert(parser.parse());
+    bool success = parser.parse();
+    if (!success)
+    {
+        std::cerr << "Parse failed: " << parser.getLastError() << std::endl;
+    }
+    assert(success);
     
     const auto& sections = parser.getSections();
+    std::cout << "  Number of sections: " << sections.size() << std::endl;
+    for (const auto& [name, sec] : sections)
+    {
+        std::cout << "  Section: " << name << " (entries: " << sec.entries.size() << ")" << std::endl;
+    }
+    
+    if (sections.find("Config") == sections.end())
+    {
+        std::cerr << "  ERROR: Config section not found!" << std::endl;
+    }
     assert(sections.find("Config") != sections.end());
     
     const auto& config = sections.at("Config");
+    (void)config; // Suppress unused variable warning
     assert(config.entries.find("key1") != config.entries.end());
     assert(config.entries.at("key1")->isInteger());
     assert(config.entries.at("key1")->asInteger() == 123);
@@ -46,9 +62,25 @@ arr = [1, 2, 3]
     )";
     
     Parser parser(source);
-    assert(parser.parse());
+    bool success = parser.parse();
+    if (!success)
+    {
+        std::cerr << "Parse failed: " << parser.getLastError() << std::endl;
+    }
+    assert(success);
     
     const auto& sections = parser.getSections();
+    std::cout << "  Number of sections: " << sections.size() << std::endl;
+    for (const auto& [name, sec] : sections)
+    {
+        std::cout << "  Section: " << name << " (entries: " << sec.entries.size() << ")" << std::endl;
+    }
+    
+    if (sections.find("Config") == sections.end())
+    {
+        std::cerr << "  ERROR: Config section not found!" << std::endl;
+    }
+    
     const auto& config = sections.at("Config");
     
     assert(config.entries.at("arr")->isArray());
@@ -76,10 +108,27 @@ key3 = 400
     )";
     
     Parser parser(source);
-    assert(parser.parse());
+    bool success = parser.parse();
+    if (!success)
+    {
+        std::cerr << "Parse failed: " << parser.getLastError() << std::endl;
+    }
+    assert(success);
     
     const auto& sections = parser.getSections();
+    std::cout << "  Number of sections: " << sections.size() << std::endl;
+    for (const auto& [name, sec] : sections)
+    {
+        std::cout << "  Section: " << name << " (entries: " << sec.entries.size() << ", inherited: " << sec.inherited_sections.size() << ")" << std::endl;
+    }
+    
+    if (sections.find("Derived") == sections.end())
+    {
+        std::cerr << "  ERROR: Derived section not found!" << std::endl;
+    }
+    
     const auto& derived = sections.at("Derived");
+    (void)derived; // Suppress unused variable warning
     
     // key1 should be inherited
     assert(derived.entries.find("key1") != derived.entries.end());
@@ -115,6 +164,7 @@ void test_quick_register()
     
     const auto& sections = parser.getSections();
     const auto& registry = sections.at("Registry");
+    (void)registry; // Suppress unused variable warning
     
     assert(registry.entries.size() == 3);
     assert(registry.entries.at("0")->asString() == "value1");
@@ -136,10 +186,31 @@ complex = 1 + 2 * 3
     )";
     
     Parser parser(source);
-    assert(parser.parse());
+    bool success = parser.parse();
+    if (!success)
+    {
+        std::cerr << "Parse failed: " << parser.getLastError() << std::endl;
+    }
+    assert(success);
     
     const auto& sections = parser.getSections();
+    std::cout << "  Number of sections: " << sections.size() << std::endl;
+    for (const auto& [name, sec] : sections)
+    {
+        std::cout << "  Section: " << name << " (entries: " << sec.entries.size() << ")" << std::endl;
+        for (const auto& [key, val] : sec.entries)
+        {
+            std::cout << "    " << key << " = " << val->toString() << std::endl;
+        }
+    }
+    
+    if (sections.find("Math") == sections.end())
+    {
+        std::cerr << "  ERROR: Math section not found!" << std::endl;
+    }
+    
     const auto& math = sections.at("Math");
+    (void)math; // Suppress unused variable warning
     
     assert(math.entries.at("add")->asInteger() == 3);
     assert(math.entries.at("multiply")->asInteger() == 12);
@@ -171,10 +242,12 @@ color2 = Color(255, 0, 0)
     
     assert(visual.entries.at("color1")->isColor());
     auto c1 = visual.entries.at("color1")->asColor();
+    (void)c1; // Suppress unused variable warning
     assert(c1.r == 255 && c1.g == 0 && c1.b == 0);
     
     assert(visual.entries.at("color2")->isColor());
     auto c2 = visual.entries.at("color2")->asColor();
+    (void)c2; // Suppress unused variable warning
     assert(c2.r == 255 && c2.g == 0 && c2.b == 0);
     
     std::cout << "✓ Color test passed" << std::endl;
@@ -191,17 +264,35 @@ pos3d = Coord(10, 20, 30)
     )";
     
     Parser parser(source);
-    assert(parser.parse());
+    bool success = parser.parse();
+    if (!success)
+    {
+        std::cerr << "Parse failed: " << parser.getLastError() << std::endl;
+    }
+    assert(success);
     
     const auto& sections = parser.getSections();
+    std::cout << "  Number of sections: " << sections.size() << std::endl;
+    for (const auto& [name, sec] : sections)
+    {
+        std::cout << "  Section: " << name << " (entries: " << sec.entries.size() << ")" << std::endl;
+    }
+    
+    if (sections.find("Position") == sections.end())
+    {
+        std::cerr << "  ERROR: Position section not found!" << std::endl;
+    }
+    
     const auto& position = sections.at("Position");
     
     assert(position.entries.at("pos2d")->isCoord());
     auto c2d = position.entries.at("pos2d")->asCoord();
+    (void)c2d; // Suppress unused variable warning
     assert(c2d.x == 10 && c2d.y == 20 && !c2d.z.has_value());
     
     assert(position.entries.at("pos3d")->isCoord());
     auto c3d = position.entries.at("pos3d")->asCoord();
+    (void)c3d; // Suppress unused variable warning
     assert(c3d.x == 10 && c3d.y == 20 && c3d.z.has_value() && c3d.z.value() == 30);
     
     std::cout << "✓ Coordinates test passed" << std::endl;
@@ -229,6 +320,7 @@ key1 = @width
     assert(success);
     
     const auto& defines = parser.getDefines();
+    (void)defines; // Suppress unused variable warning
     assert(defines.find("width") != defines.end());
     assert(defines.at("width")->asInteger() == 1920);
     assert(defines.at("height")->asInteger() == 1080);
@@ -265,6 +357,7 @@ void test_includes()
     assert(success);
     
     const auto& includes = parser.getIncludes();
+    (void)includes; // Suppress unused variable warning
     assert(includes.size() == 2);
     assert(includes[0] == "file1.yini");
     assert(includes[1] == "file2.yini");
@@ -282,10 +375,27 @@ settings = {width: 1920, height: 1080}
     )";
     
     Parser parser(source);
-    assert(parser.parse());
+    bool success = parser.parse();
+    if (!success)
+    {
+        std::cerr << "Parse failed: " << parser.getLastError() << std::endl;
+    }
+    assert(success);
     
     const auto& sections = parser.getSections();
+    std::cout << "  Number of sections: " << sections.size() << std::endl;
+    for (const auto& [name, sec] : sections)
+    {
+        std::cout << "  Section: " << name << " (entries: " << sec.entries.size() << ")" << std::endl;
+    }
+    
+    if (sections.find("Config") == sections.end())
+    {
+        std::cerr << "  ERROR: Config section not found!" << std::endl;
+    }
+    
     const auto& config = sections.at("Config");
+    (void)config; // Suppress unused variable warning
     
     assert(config.entries.at("settings")->isMap());
     auto map = config.entries.at("settings")->asMap();
@@ -306,10 +416,23 @@ dyna_value = Dyna(100)
     )";
     
     Parser parser(source);
-    assert(parser.parse());
+    bool success = parser.parse();
+    if (!success)
+    {
+        std::cerr << "Parse failed: " << parser.getLastError() << std::endl;
+    }
+    assert(success);
     
     const auto& sections = parser.getSections();
+    std::cout << "  Number of sections: " << sections.size() << std::endl;
+    
+    if (sections.find("Config") == sections.end())
+    {
+        std::cerr << "  ERROR: Config section not found!" << std::endl;
+    }
+    
     const auto& config = sections.at("Config");
+    (void)config; // Suppress unused variable warning
     
     assert(config.entries.at("dyna_value")->isDynamic());
     
@@ -328,10 +451,23 @@ height = 1440
     )";
     
     Parser parser(source);
-    assert(parser.parse());
+    bool success = parser.parse();
+    if (!success)
+    {
+        std::cerr << "Parse failed: " << parser.getLastError() << std::endl;
+    }
+    assert(success);
     
     const auto& sections = parser.getSections();
+    std::cout << "  Number of sections: " << sections.size() << std::endl;
+    
+    if (sections.find("Graphics") == sections.end())
+    {
+        std::cerr << "  ERROR: Graphics section not found!" << std::endl;
+    }
+    
     const auto& graphics = sections.at("Graphics");
+    (void)graphics; // Suppress unused variable warning
     
     // Verify basic values
     assert(graphics.entries.find("width") != graphics.entries.end());
@@ -358,10 +494,23 @@ screen_height = @{Config.height}
     )";
     
     Parser parser(source);
-    assert(parser.parse());
+    bool success = parser.parse();
+    if (!success)
+    {
+        std::cerr << "Parse failed: " << parser.getLastError() << std::endl;
+    }
+    assert(success);
     
     const auto& sections = parser.getSections();
+    std::cout << "  Number of sections: " << sections.size() << std::endl;
+    
+    if (sections.find("Display") == sections.end())
+    {
+        std::cerr << "  ERROR: Display section not found!" << std::endl;
+    }
+    
     const auto& display = sections.at("Display");
+    (void)display; // Suppress unused variable warning
     
     // References should be resolved to actual values
     assert(display.entries.find("screen_width") != display.entries.end());
@@ -400,17 +549,37 @@ resolution = [@{Graphics.width}, @{Graphics.height}]
     )";
     
     Parser parser(source);
-    assert(parser.parse());
+    bool success = parser.parse();
+    if (!success)
+    {
+        std::cerr << "Parse failed: " << parser.getLastError() << std::endl;
+    }
+    assert(success);
     
     const auto& sections = parser.getSections();
+    std::cout << "  Number of sections: " << sections.size() << std::endl;
+    for (const auto& [name, sec] : sections)
+    {
+        std::cout << "  Section: " << name << " (entries: " << sec.entries.size() << ")" << std::endl;
+    }
     
     // Test macro resolution
+    if (sections.find("Graphics") == sections.end())
+    {
+        std::cerr << "  ERROR: Graphics section not found!" << std::endl;
+    }
     const auto& graphics = sections.at("Graphics");
+    (void)graphics; // Suppress unused variable warning
     assert(graphics.entries.at("width")->asInteger() == 1920);
     assert(graphics.entries.at("height")->asInteger() == 1080);
     
     // Test cross-section resolution
+    if (sections.find("UI") == sections.end())
+    {
+        std::cerr << "  ERROR: UI section not found!" << std::endl;
+    }
     const auto& ui = sections.at("UI");
+    (void)ui; // Suppress unused variable warning
     assert(ui.entries.at("panel_width")->asInteger() == 960);
     assert(ui.entries.at("screen_width")->asInteger() == 1920);
     assert(ui.entries.at("screen_height")->asInteger() == 1080);

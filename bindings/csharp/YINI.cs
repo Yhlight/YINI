@@ -5,6 +5,70 @@ using System.Text;
 namespace YINI
 {
     /// <summary>
+    /// Safe wrapper for C API string arrays with automatic memory management
+    /// CRITICAL: This class ensures proper cleanup of native memory
+    /// </summary>
+    internal class SafeStringArray : IDisposable
+    {
+        private IntPtr arrayPtr;
+        private int count;
+        private bool disposed = false;
+
+        public SafeStringArray(IntPtr ptr, int arrayCount)
+        {
+            arrayPtr = ptr;
+            count = arrayCount;
+        }
+
+        public string[] ToManagedArray()
+        {
+            CheckDisposed();
+            
+            if (arrayPtr == IntPtr.Zero || count == 0)
+            {
+                return new string[0];
+            }
+
+            string[] result = new string[count];
+            IntPtr[] ptrs = new IntPtr[count];
+            Marshal.Copy(arrayPtr, ptrs, 0, count);
+
+            for (int i = 0; i < count; i++)
+            {
+                result[i] = Marshal.PtrToStringAnsi(ptrs[i]) ?? "";
+            }
+
+            return result;
+        }
+
+        private void CheckDisposed()
+        {
+            if (disposed)
+            {
+                throw new ObjectDisposedException(nameof(SafeStringArray));
+            }
+        }
+
+        public void Dispose()
+        {
+            if (!disposed)
+            {
+                if (arrayPtr != IntPtr.Zero)
+                {
+                    Parser.FreeStringArray(arrayPtr, count);
+                    arrayPtr = IntPtr.Zero;
+                }
+                disposed = true;
+            }
+        }
+
+        ~SafeStringArray()
+        {
+            Dispose();
+        }
+    }
+
+    /// <summary>
     /// Value types in YINI
     /// </summary>
     public enum ValueType
@@ -91,6 +155,14 @@ namespace YINI
 
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
         private static extern void yini_free_string_array(IntPtr array, int count);
+
+        /// <summary>
+        /// Internal method to free string arrays allocated by C API
+        /// </summary>
+        internal static void FreeStringArray(IntPtr array, int count)
+        {
+            yini_free_string_array(array, count);
+        }
 
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
         [return: MarshalAs(UnmanagedType.I1)]
