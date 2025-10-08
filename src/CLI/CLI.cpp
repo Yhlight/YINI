@@ -360,8 +360,7 @@ void CompileCommand::execute(const std::vector<std::string>& args)
     
     // Serialize to YMETA
     YMETA ymeta;
-    ymeta.populateFromParser(parser);
-    if (ymeta.save(output_file, YMETA_CONTENT_FULL))
+    if (ymeta.serialize(parser, output_file))
     {
         std::cout << "✓ Compilation successful!" << std::endl;
         std::cout << "  Output: " << output_file << std::endl;
@@ -398,7 +397,7 @@ void DecompileCommand::execute(const std::vector<std::string>& args)
     
     // Deserialize YMETA
     YMETA ymeta;
-    if (!ymeta.load(input_file))
+    if (!ymeta.deserialize(input_file))
     {
         std::cerr << "✗ Decompilation failed" << std::endl;
         return;
