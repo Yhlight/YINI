@@ -24,5 +24,8 @@ TEST_CASE("ParseSimpleSection")
     CHECK(pair->key.lexeme == "key");
 
     REQUIRE(pair->value != nullptr);
-    CHECK(pair->value->token.lexeme == "value");
+    REQUIRE(pair->value->getType() == Yini::ValueType::Identifier);
+    auto* identValue = dynamic_cast<Yini::IdentifierValue*>(pair->value.get());
+    REQUIRE(identValue != nullptr);
+    CHECK(identValue->token.lexeme == "value");
 }

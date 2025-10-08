@@ -1,9 +1,20 @@
 #include "Lexer.h"
 #include <cctype>
+#include <map>
 
 namespace Yini
 {
-Lexer::Lexer(const std::string& source) : source(source) {}
+
+static std::map<std::string, TokenType> keywords;
+
+Lexer::Lexer(const std::string& source) : source(source) {
+    keywords["true"] = TokenType::True;
+    keywords["false"] = TokenType::False;
+    keywords["List"] = TokenType::List;
+    keywords["list"] = TokenType::List;
+    keywords["Array"] = TokenType::Array;
+    keywords["array"] = TokenType::Array;
+}
 
 std::vector<Token> Lexer::scanTokens()
 {
@@ -13,7 +24,7 @@ std::vector<Token> Lexer::scanTokens()
         scanToken();
     }
 
-    tokens.push_back({TokenType::Eof, "", line});
+    tokens.push_back({TokenType::Eof, "", {}, line});
     return tokens;
 }
 
@@ -30,15 +41,26 @@ char Lexer::advance()
 
 void Lexer::addToken(TokenType type)
 {
-    std::string text = source.substr(start, current - start);
-    tokens.push_back({type, text, line});
+    addToken(type, {});
 }
+
+void Lexer::addToken(TokenType type, const std::variant<std::monostate, std::string, double, bool>& literal) {
+    std::string text = source.substr(start, current - start);
+    tokens.push_back({type, text, literal, line});
+}
+
 
 char Lexer::peek()
 {
     if (isAtEnd()) return '\0';
     return source[current];
 }
+
+char Lexer::peekNext() {
+    if (current + 1 >= source.length()) return '\0';
+    return source[current + 1];
+}
+
 
 bool Lexer::match(char expected) {
     if (isAtEnd()) return false;
@@ -48,11 +70,46 @@ bool Lexer::match(char expected) {
     return true;
 }
 
+void Lexer::string() {
+    while (peek() != '"' && !isAtEnd()) {
+        if (peek() == '\n') line++;
+        advance();
+    }
+
+    if (isAtEnd()) {
+        // Unterminated string.
+        return;
+    }
+
+    // The closing ".
+    advance();
+
+    // Trim the surrounding quotes.
+    std::string value = source.substr(start + 1, current - start - 2);
+    addToken(TokenType::String, value);
+}
+
+void Lexer::number() {
+    while (isdigit(peek())) advance();
+
+    // Look for a fractional part.
+    if (peek() == '.' && isdigit(peekNext())) {
+        // Consume the ".'
+        advance();
+
+        while (isdigit(peek())) advance();
+    }
+
+    addToken(TokenType::Number, std::stod(source.substr(start, current - start)));
+}
+
 void Lexer::scanToken()
 {
     char c = advance();
     switch (c)
     {
+        case '(': addToken(TokenType::LeftParen); break;
+        case ')': addToken(TokenType::RightParen); break;
         case '[': addToken(TokenType::LeftBracket); break;
         case ']': addToken(TokenType::RightBracket); break;
         case ':': addToken(TokenType::Colon); break;
@@ -65,6 +122,7 @@ void Lexer::scanToken()
                  addToken(TokenType::Plus);
              }
              break;
+        case '"': string(); break;
         case ' ':
         case '\r':
         case '\t':
@@ -74,11 +132,25 @@ void Lexer::scanToken()
             line++;
             break;
         default:
-            if (isalpha(c) || c == '_') {
+            if (isdigit(c)) {
+                number();
+            } else if (isalpha(c) || c == '_') {
                 while (isalnum(peek()) || peek() == '_') advance();
-                addToken(TokenType::Identifier);
+
+                std::string text = source.substr(start, current - start);
+                auto it = keywords.find(text);
+                if (it != keywords.end()) {
+                    if (it->second == TokenType::True) {
+                        addToken(TokenType::True, true);
+                    } else if (it->second == TokenType::False) {
+                        addToken(TokenType::False, false);
+                    } else {
+                         addToken(it->second);
+                    }
+                } else {
+                    addToken(TokenType::Identifier);
+                }
             }
-            // Ignoring other characters for now
             break;
     }
 }

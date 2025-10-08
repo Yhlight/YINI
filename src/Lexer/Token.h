@@ -39,7 +39,7 @@ struct Token
 {
     TokenType type;
     std::string lexeme;
-    // std::variant<std::monostate, int, double, std::string, bool> literal;
+    std::variant<std::monostate, std::string, double, bool> literal;
     int line;
 };
 } // namespace Yini

@@ -23,7 +23,12 @@ private:
     void scanToken();
     char advance();
     void addToken(TokenType type);
+    void addToken(TokenType type, const std::variant<std::monostate, std::string, double, bool>& literal);
     char peek();
+    char peekNext();
     bool match(char expected);
+
+    void string();
+    void number();
 };
 } // namespace Yini

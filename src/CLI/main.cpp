@@ -12,12 +12,46 @@ namespace Yini {
     std::unique_ptr<SectionNode> deserializeSection(std::istream& is);
 }
 
+void printValue(const Yini::Value& value);
+
+void printArray(const Yini::ArrayValue& array) {
+    std::cout << "[";
+    for (size_t i = 0; i < array.elements.size(); ++i) {
+        printValue(*array.elements[i]);
+        if (i < array.elements.size() - 1) {
+            std::cout << ", ";
+        }
+    }
+    std::cout << "]";
+}
+
+void printValue(const Yini::Value& value) {
+    switch (value.getType()) {
+        case Yini::ValueType::Identifier:
+            std::cout << dynamic_cast<const Yini::IdentifierValue&>(value).token.lexeme;
+            break;
+        case Yini::ValueType::String:
+            std::cout << '"' << dynamic_cast<const Yini::StringValue&>(value).value << '"';
+            break;
+        case Yini::ValueType::Number:
+            std::cout << dynamic_cast<const Yini::NumberValue&>(value).value;
+            break;
+        case Yini::ValueType::Bool:
+            std::cout << (dynamic_cast<const Yini::BoolValue&>(value).value ? "true" : "false");
+            break;
+        case Yini::ValueType::Array:
+            printArray(dynamic_cast<const Yini::ArrayValue&>(value));
+            break;
+    }
+}
 
 void printAst(const std::vector<std::unique_ptr<Yini::SectionNode>>& ast) {
     for (const auto& section : ast) {
         std::cout << "[" << section->name.lexeme << "]" << std::endl;
         for (const auto& pair : section->pairs) {
-            std::cout << pair->key.lexeme << " = " << pair->value->token.lexeme << std::endl;
+            std::cout << pair->key.lexeme << " = ";
+            printValue(*pair->value);
+            std::cout << std::endl;
         }
     }
 }

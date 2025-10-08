@@ -16,6 +16,7 @@ public:
 private:
     std::unique_ptr<SectionNode> parseSection();
     std::unique_ptr<KeyValuePairNode> parseKeyValuePair(size_t& quickRegIndex);
+    std::unique_ptr<Value> parseValue();
 
     bool isAtEnd();
     Token peek();

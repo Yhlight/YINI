@@ -25,7 +25,11 @@ std::map<std::string, std::string> getSectionPairs(const Yini::SectionNode* sect
     std::map<std::string, std::string> pairs;
     if (section) {
         for (const auto& pair : section->pairs) {
-            pairs[pair->key.lexeme] = pair->value->token.lexeme;
+            // For these tests, we assume values are identifiers.
+            auto* identValue = dynamic_cast<Yini::IdentifierValue*>(pair->value.get());
+            if(identValue) {
+                pairs[pair->key.lexeme] = identValue->token.lexeme;
+            }
         }
     }
     return pairs;
@@ -67,13 +71,9 @@ key1 = child_override
     CHECK(pairs.size() == 4);
 
     // Check inherited and overridden values
-    // Child's own value for key1 should take precedence
     CHECK(pairs["key1"] == "child_override");
-    // Parent2's value for key2 should override Parent1's
     CHECK(pairs["key2"] == "overridden");
-    // key3 should be inherited from Parent2
     CHECK(pairs["key3"] == "value3");
-    // key4 is the child's own key
     CHECK(pairs["key4"] == "value4");
 }
 

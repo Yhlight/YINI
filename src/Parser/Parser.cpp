@@ -1,6 +1,7 @@
 #include "Parser.h"
 #include <stdexcept>
 #include <string>
+#include <iostream>
 
 namespace Yini
 {
@@ -11,6 +12,7 @@ std::vector<std::unique_ptr<SectionNode>> Parser::parse()
     std::vector<std::unique_ptr<SectionNode>> sections;
     while (!isAtEnd())
     {
+        if (peek().type == TokenType::Eof) break;
         sections.push_back(parseSection());
     }
     return sections;
@@ -40,24 +42,66 @@ std::unique_ptr<SectionNode> Parser::parseSection()
     return section;
 }
 
+std::unique_ptr<Value> Parser::parseValue() {
+    if (match({TokenType::String})) {
+        return std::make_unique<StringValue>(std::get<std::string>(previous().literal));
+    }
+    if (match({TokenType::Number})) {
+        return std::make_unique<NumberValue>(std::get<double>(previous().literal));
+    }
+    if (match({TokenType::True})) {
+        return std::make_unique<BoolValue>(true);
+    }
+    if (match({TokenType::False})) {
+        return std::make_unique<BoolValue>(false);
+    }
+    if (match({TokenType::Identifier})) {
+        return std::make_unique<IdentifierValue>(previous());
+    }
+
+    if (match({TokenType::LeftBracket})) {
+        auto array = std::make_unique<ArrayValue>();
+        if (!check(TokenType::RightBracket)) {
+            do {
+                array->elements.push_back(parseValue());
+            } while (match({TokenType::Comma}));
+        }
+        consume(TokenType::RightBracket, "Expect ']' after array elements.");
+        return array;
+    }
+
+    if (match({TokenType::List, TokenType::Array})) {
+        consume(TokenType::LeftParen, "Expect '(' after List/Array keyword.");
+        auto array = std::make_unique<ArrayValue>();
+        if (!check(TokenType::RightParen)) {
+            do {
+                array->elements.push_back(parseValue());
+            } while (match({TokenType::Comma}));
+        }
+        consume(TokenType::RightParen, "Expect ')' after list/array elements.");
+        return array;
+    }
+
+    throw std::runtime_error("Expect a value (string, number, boolean, identifier, or array).");
+}
+
 std::unique_ptr<KeyValuePairNode> Parser::parseKeyValuePair(size_t& quickRegIndex)
 {
     if (match({TokenType::PlusEqual}))
     {
-        Token valueToken = consume(TokenType::Identifier, "Expect value after '+='.");
+        auto value = parseValue();
+
         Token keyToken;
         keyToken.type = TokenType::Identifier;
         keyToken.lexeme = std::to_string(quickRegIndex++);
-        keyToken.line = valueToken.line;
-        auto value = std::make_unique<ValueNode>(valueToken);
+
         return std::make_unique<KeyValuePairNode>(keyToken, std::move(value));
     }
     else
     {
         Token key = consume(TokenType::Identifier, "Expect key.");
         consume(TokenType::Equal, "Expect '=' after key.");
-        Token valueToken = consume(TokenType::Identifier, "Expect value.");
-        auto value = std::make_unique<ValueNode>(valueToken);
+        auto value = parseValue();
         return std::make_unique<KeyValuePairNode>(key, std::move(value));
     }
 }
@@ -80,7 +124,9 @@ Token Parser::previous()
 
 Token Parser::advance()
 {
-    if (!isAtEnd()) current++;
+    if (!isAtEnd()) {
+        current++;
+    }
     return previous();
 }
 
