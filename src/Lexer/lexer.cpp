@@ -51,9 +51,9 @@ Token Lexer::nextToken() {
     char currentChar = input[position];
 
     // Identifier, true, false
-    if (isalpha(currentChar) || currentChar == '_') {
+    if (isalpha(currentChar) || currentChar == '_' || currentChar == '#') {
         size_t start = position;
-        while (position < input.length() && (isalnum(input[position]) || input[position] == '_')) {
+        while (position < input.length() && (isalnum(input[position]) || input[position] == '_' || input[position] == '#')) {
             position++;
         }
         std::string value = input.substr(start, position - start);
@@ -99,12 +99,27 @@ Token Lexer::nextToken() {
         case ']':
             position++;
             return {TokenType::RightBracket, "]"};
+        case '(':
+            position++;
+            return {TokenType::LeftParen, "("};
+        case ')':
+            position++;
+            return {TokenType::RightParen, ")"};
+        case '{':
+            position++;
+            return {TokenType::LeftBrace, "{"};
+        case '}':
+            position++;
+            return {TokenType::RightBrace, "}"};
         case ',':
             position++;
             return {TokenType::Comma, ","};
         case ':':
             position++;
             return {TokenType::Colon, ":"};
+        case '@':
+            position++;
+            return {TokenType::At, "@"};
     }
 
     // If no token is matched, return unexpected

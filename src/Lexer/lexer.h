@@ -14,8 +14,13 @@ enum class TokenType {
     Comment,
     LeftBracket,
     RightBracket,
+    LeftParen,
+    RightParen,
+    LeftBrace,
+    RightBrace,
     Comma,
     Colon,
+    At,
     EndOfFile,
     Unexpected
 };
