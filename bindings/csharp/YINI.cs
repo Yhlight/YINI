@@ -166,16 +166,16 @@ namespace YINI
 
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
         [return: MarshalAs(UnmanagedType.I1)]
-        private static extern bool yini_compile_to_ymeta(string input_file, string output_file);
+        internal static extern bool yini_compile_to_ymeta(string input_file, string output_file);
 
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
         [return: MarshalAs(UnmanagedType.I1)]
-        private static extern bool yini_decompile_from_ymeta(string input_file, string output_file);
+        internal static extern bool yini_decompile_from_ymeta(string input_file, string output_file);
 
         #endregion
 
         /// <summary>
-        /// Create a parser from YINI source string
+        /// Initializes a new instance of the <see cref="Parser"/> class from a YINI source string.
         /// </summary>
         public Parser(string source)
         {
