@@ -29,6 +29,8 @@ enum class TokenType {
     Dollar,
     Hash,
     Dot,
+    Bang,
+    Question,
     EndOfFile,
     Unexpected
 };

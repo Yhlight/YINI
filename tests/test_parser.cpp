@@ -271,6 +271,49 @@ TEST(ParserTest, FileInclusion) {
     EXPECT_EQ(std::get<std::string>(config["Graphics"]["resolution"]), "1920x1080");
 }
 
+TEST(ParserTest, SchemaParsing) {
+    std::string filepath = "tests/schema.yini";
+    Parser parser;
+    parser.parseFile(filepath);
+
+    const auto& schema = parser.getSchema();
+
+    ASSERT_TRUE(schema.count("Visual"));
+    const auto& visual_schema = schema.at("Visual");
+
+    // Test 'width' rule
+    ASSERT_TRUE(visual_schema.count("width"));
+    const auto& width_rule = visual_schema.at("width");
+    EXPECT_TRUE(width_rule.required);
+    EXPECT_EQ(width_rule.type.value(), "int");
+    EXPECT_EQ(std::get<int>(width_rule.default_value.value()), 1280);
+    EXPECT_EQ(width_rule.min_val.value(), 800);
+    EXPECT_EQ(width_rule.max_val.value(), 1920);
+
+    // Test 'height' rule
+    ASSERT_TRUE(visual_schema.count("height"));
+    const auto& height_rule = visual_schema.at("height");
+    EXPECT_FALSE(height_rule.required);
+    EXPECT_EQ(height_rule.type.value(), "int");
+    EXPECT_FALSE(height_rule.default_value.has_value());
+
+    // Test 'isOld' rule
+    ASSERT_TRUE(visual_schema.count("isOld"));
+    const auto& isOld_rule = visual_schema.at("isOld");
+    EXPECT_TRUE(isOld_rule.required);
+    EXPECT_EQ(isOld_rule.type.value(), "bool");
+    EXPECT_EQ(isOld_rule.empty_behavior, 'e');
+
+    // Test 'render_mode' rule
+    ASSERT_TRUE(visual_schema.count("render_mode"));
+    const auto& render_mode_rule = visual_schema.at("render_mode");
+    EXPECT_FALSE(render_mode_rule.required);
+    EXPECT_EQ(render_mode_rule.type.value(), "string");
+    EXPECT_EQ(render_mode_rule.empty_behavior, '~');
+
+    ASSERT_TRUE(schema.count("Audio"));
+}
+
 TEST(ParserTest, ArithmeticOperations) {
     std::string input = R"(
 [#define]

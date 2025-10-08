@@ -144,6 +144,12 @@ Token Lexer::nextToken() {
         case '.':
             position++;
             return {TokenType::Dot, "."};
+        case '!':
+            position++;
+            return {TokenType::Bang, "!"};
+        case '?':
+            position++;
+            return {TokenType::Question, "?"};
     }
 
     // If no token is matched, return unexpected

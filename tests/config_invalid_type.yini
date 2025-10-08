@@ -1,0 +1,10 @@
+[Visual]
+width = "this-should-be-an-integer"
+height = 768
+fps = 60
+isOld = false
+render_mode = "forward"
+
+[Audio]
+volume = 0.9
+music = true

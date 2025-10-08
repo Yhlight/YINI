@@ -7,16 +7,18 @@
 #include <map>
 #include <variant>
 #include <memory>
+#include <optional>
 
+// Forward Declarations
 struct Array;
 struct Set;
 struct Map;
-struct CrossSectionRef;
-struct Color;
-struct Coord;
-struct Path;
 
-using ConfigValue = std::variant<std::string, int, double, bool, std::unique_ptr<Array>, std::unique_ptr<Set>, std::unique_ptr<Map>, CrossSectionRef, Color, Coord, Path>;
+// Complete Type Definitions needed for ConfigValue and SchemaRule
+struct CrossSectionRef {
+    std::string section;
+    std::string key;
+};
 
 struct Color {
     int r, g, b;
@@ -33,10 +35,18 @@ struct Path {
     bool operator==(const Path& other) const { return value == other.value; }
 };
 
-struct CrossSectionRef {
-    std::string section;
-    std::string key;
+using ConfigValue = std::variant<std::string, int, double, bool, std::unique_ptr<Array>, std::unique_ptr<Set>, std::unique_ptr<Map>, CrossSectionRef, Color, Coord, Path>;
+
+struct SchemaRule {
+    bool required = false;
+    std::optional<std::string> type;
+    std::optional<ConfigValue> default_value;
+    char empty_behavior = '~'; // ~, =, e
+    std::optional<double> min_val;
+    std::optional<double> max_val;
 };
+
+using Schema = std::map<std::string, std::map<std::string, SchemaRule>>;
 
 struct Array {
     std::vector<ConfigValue> elements;
@@ -74,17 +84,23 @@ public:
     Parser(Lexer& lexer);
     Config parse(const std::string& input);
     Config parseFile(const std::string& filepath);
+    const Schema& getSchema() const;
+    void validate(Config& config) const;
 
 private:
     Lexer* lexer;
     Token currentToken;
     Config config;
+    Schema schema;
     std::map<std::string, std::vector<std::string>> inheritanceMap;
     std::map<std::string, ConfigValue> macroMap;
+    bool in_schema_mode = false;
+    std::string current_schema_target_section;
 
     void _parse(Lexer& lexer_ref, const std::string& current_dir);
     void nextToken();
     void expect(TokenType type);
+    SchemaRule parseSchemaRule();
     std::unique_ptr<Array> parseArray();
     std::unique_ptr<Set> parseSet();
     std::unique_ptr<Map> parseMap();

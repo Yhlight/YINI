@@ -1,0 +1,11 @@
+[#schema]
+[Visual]
+width = !, int, =1280, min=800, max=1920
+height = ?, int
+fps = ?, int, =60
+isOld = !, bool, e
+render_mode = string
+
+[Audio]
+volume = !, float, =1.0
+music = ?, bool, =true

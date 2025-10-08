@@ -96,6 +96,59 @@ void Parser::expect(TokenType type) {
     }
 }
 
+SchemaRule Parser::parseSchemaRule() {
+    SchemaRule rule;
+
+    auto get_numeric_value = [](const ConfigValue& val) -> double {
+        if (std::holds_alternative<int>(val)) return static_cast<double>(std::get<int>(val));
+        if (std::holds_alternative<double>(val)) return std::get<double>(val);
+        throw std::runtime_error("min/max value must be a number");
+    };
+
+    while (true) {
+        if (currentToken.type == TokenType::Bang) {
+            rule.required = true;
+            nextToken();
+        } else if (currentToken.type == TokenType::Question) {
+            rule.required = false;
+            nextToken();
+        } else if (currentToken.type == TokenType::Identifier) {
+            const std::string& val = currentToken.value;
+            if (val == "~") {
+                rule.empty_behavior = '~';
+                nextToken();
+            } else if (val == "e") {
+                rule.empty_behavior = 'e';
+                nextToken();
+            } else if (val == "min") {
+                nextToken();
+                expect(TokenType::Equals);
+                rule.min_val = get_numeric_value(parse_expression());
+            } else if (val == "max") {
+                nextToken();
+                expect(TokenType::Equals);
+                rule.max_val = get_numeric_value(parse_expression());
+            } else { // It's a type
+                rule.type = val;
+                nextToken();
+            }
+        } else if (currentToken.type == TokenType::Equals) {
+            nextToken(); // consume '='
+            rule.empty_behavior = '=';
+            rule.default_value = parse_expression();
+        } else {
+            break; // Not a recognized part of a schema rule
+        }
+
+        if (currentToken.type == TokenType::Comma) {
+            nextToken();
+        } else {
+            break; // No more parts
+        }
+    }
+    return rule;
+}
+
 // --- Expression Parsing ---
 ConfigValue Parser::parse_expression() {
     return parse_term();
@@ -228,7 +281,6 @@ ConfigValue Parser::parse_primary() {
         }
         case TokenType::Identifier: {
             std::string id = currentToken.value;
-
             if (id.rfind("#", 0) == 0) { // Starts with #
                 nextToken(); // consume identifier
                 std::string hex = id.substr(1);
@@ -242,7 +294,6 @@ ConfigValue Parser::parse_primary() {
                     throw std::runtime_error("Invalid hex character in color code: " + hex);
                 }
             }
-
             if (id == "List" || id == "list" || id == "Array" || id == "array") {
                 nextToken();
                 expect(TokenType::LeftParen);
@@ -296,6 +347,7 @@ ConfigValue Parser::parse_primary() {
         default: throw std::runtime_error("Unexpected value token: " + currentToken.value);
     }
 }
+
 
 // --- Value and Structure Parsing ---
 std::unique_ptr<Array> Parser::parseArray() {
@@ -392,6 +444,51 @@ void Parser::resolveReferences(Config& config_ref) {
     }
 }
 
+void Parser::validate(Config& config) const {
+    for (const auto& [section_name, rules] : this->schema) {
+        for (const auto& [key, rule] : rules) {
+            if (!config.count(section_name) || !config.at(section_name).count(key)) {
+                if (rule.required) {
+                    if (rule.empty_behavior == 'e') {
+                        throw std::runtime_error("Missing required key '" + key + "' in section [" + section_name + "]");
+                    } else if (rule.empty_behavior == '=') {
+                        if (rule.default_value.has_value()) {
+                            config[section_name][key] = deep_copy_value(rule.default_value.value());
+                        } else {
+                            throw std::runtime_error("Schema error: default value specified for '" + key + "' but no value provided.");
+                        }
+                    }
+                }
+            } else {
+                auto& value = config.at(section_name).at(key);
+                if (rule.type.has_value()) {
+                    const auto& type_str = rule.type.value();
+                    bool type_ok = false;
+                    if (type_str == "int" && std::holds_alternative<int>(value)) type_ok = true;
+                    else if (type_str == "float" && std::holds_alternative<double>(value)) type_ok = true;
+                    else if (type_str == "string" && std::holds_alternative<std::string>(value)) type_ok = true;
+                    else if (type_str == "bool" && std::holds_alternative<bool>(value)) type_ok = true;
+
+                    if (!type_ok) {
+                        throw std::runtime_error("Type mismatch for key '" + key + "'. Expected " + type_str);
+                    }
+                }
+
+                if (std::holds_alternative<int>(value) || std::holds_alternative<double>(value)) {
+                    double numeric_value = std::holds_alternative<int>(value) ? static_cast<double>(std::get<int>(value)) : std::get<double>(value);
+                    if (rule.min_val.has_value() && numeric_value < rule.min_val.value()) {
+                        throw std::runtime_error("Value for key '" + key + "' is below minimum of " + std::to_string(rule.min_val.value()));
+                    }
+                    if (rule.max_val.has_value() && numeric_value > rule.max_val.value()) {
+                        throw std::runtime_error("Value for key '" + key + "' is above maximum of " + std::to_string(rule.max_val.value()));
+                    }
+                }
+            }
+        }
+    }
+}
+
+
 // --- Main Parsing Logic ---
 void Parser::_parse(Lexer& lexer_ref, const std::string& current_dir) {
     this->lexer = &lexer_ref;
@@ -405,11 +502,20 @@ void Parser::_parse(Lexer& lexer_ref, const std::string& current_dir) {
             nextToken();
             if (currentToken.type == TokenType::Identifier) {
                 currentSectionName = currentToken.value;
-                currentSection = &this->config[currentSectionName];
+                if (currentSectionName == "#schema") {
+                    in_schema_mode = true;
+                    currentSection = nullptr;
+                } else if (in_schema_mode) {
+                    current_schema_target_section = currentSectionName;
+                    currentSection = nullptr;
+                } else {
+                    in_schema_mode = false;
+                    currentSection = &this->config[currentSectionName];
+                }
                 nextToken();
                 expect(TokenType::RightBracket);
 
-                if (currentSectionName != "#define" && currentSectionName != "#include" && currentToken.type == TokenType::Colon) {
+                if (!in_schema_mode && currentSectionName != "#define" && currentSectionName != "#include" && currentToken.type == TokenType::Colon) {
                     nextToken();
                     while (currentToken.type == TokenType::Identifier) {
                         inheritanceMap[currentSectionName].push_back(currentToken.value);
@@ -422,15 +528,22 @@ void Parser::_parse(Lexer& lexer_ref, const std::string& current_dir) {
                 throw std::runtime_error("Unexpected token inside brackets at top level.");
             }
         } else if (currentToken.type == TokenType::Identifier) {
-            if (!currentSection) throw std::runtime_error("Key-value pair outside of a section");
+            if (!currentSection && !in_schema_mode) throw std::runtime_error("Key-value pair outside of a section");
+
             std::string key = currentToken.value;
             nextToken();
             expect(TokenType::Equals);
-            ConfigValue value = parse_expression();
-            if (currentSectionName == "#define") {
-                macroMap[key] = std::move(value);
+
+            if (in_schema_mode) {
+                if (current_schema_target_section.empty()) throw std::runtime_error("Schema rule defined without a section target");
+                schema[current_schema_target_section][key] = parseSchemaRule();
             } else {
-                (*currentSection)[key] = std::move(value);
+                ConfigValue value = parse_expression();
+                if (currentSectionName == "#define") {
+                    macroMap[key] = std::move(value);
+                } else {
+                    (*currentSection)[key] = std::move(value);
+                }
             }
         } else if (currentToken.type == TokenType::PlusEquals) {
             if (!currentSection) throw std::runtime_error("Quick registration outside of a section");
@@ -482,14 +595,20 @@ Config Parser::parse(const std::string& input) {
     this->config.clear();
     this->macroMap.clear();
     this->inheritanceMap.clear();
+    this->schema.clear();
+    this->in_schema_mode = false;
 
     Lexer lexer(input);
     _parse(lexer, ".");
 
     resolveInheritance(this->config);
     resolveReferences(this->config);
+
     if (this->config.count("#define")) {
         this->config.erase("#define");
+    }
+    if (this->config.count("#schema")) {
+        this->config.erase("#schema");
     }
     return std::move(this->config);
 }
@@ -505,6 +624,8 @@ Config Parser::parseFile(const std::string& filepath) {
     this->config.clear();
     this->macroMap.clear();
     this->inheritanceMap.clear();
+    this->schema.clear();
+    this->in_schema_mode = false;
 
     std::filesystem::path fs_path(filepath);
     Lexer lexer(buffer.str());
@@ -512,9 +633,17 @@ Config Parser::parseFile(const std::string& filepath) {
 
     resolveInheritance(this->config);
     resolveReferences(this->config);
+
     if (this->config.count("#define")) {
         this->config.erase("#define");
     }
+    if (this->config.count("#schema")) {
+        this->config.erase("#schema");
+    }
 
     return std::move(this->config);
+}
+
+const Schema& Parser::getSchema() const {
+    return schema;
 }
