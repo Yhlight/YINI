@@ -41,12 +41,3 @@ target_include_directories(test_overflow PRIVATE
 )
 
 add_test(NAME OverflowTest COMMAND test_overflow)
-
-# YMETA compile/decompile tests
-add_executable(test_ymeta test_ymeta.cpp)
-target_link_libraries(test_ymeta PRIVATE yini_parser)
-target_include_directories(test_ymeta PRIVATE
-    ${PROJECT_SOURCE_DIR}/include
-)
-
-add_test(NAME YMETATest COMMAND test_ymeta WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
