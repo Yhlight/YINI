@@ -7,27 +7,102 @@
 // Forward declaration
 ConfigValue deep_copy_value(const ConfigValue& val);
 
-// --- Struct Implementations ---
+// --- Struct Special Member Implementations ---
+
+// Array
 Array::Array(const Array& other) {
     elements.reserve(other.elements.size());
     for (const auto& elem : other.elements) {
         elements.push_back(deep_copy_value(elem));
     }
 }
+Array::~Array() = default;
+Array::Array(Array&&) noexcept = default;
+Array& Array::operator=(const Array& other) {
+    if (this == &other) return *this;
+    elements.clear();
+    elements.reserve(other.elements.size());
+    for (const auto& elem : other.elements) {
+        elements.push_back(deep_copy_value(elem));
+    }
+    return *this;
+}
+Array& Array::operator=(Array&&) noexcept = default;
+bool Array::operator==(const Array& other) const { return elements == other.elements; }
+
+// Set
 Set::Set(const Set& other) {
     elements.reserve(other.elements.size());
     for (const auto& elem : other.elements) {
         elements.push_back(deep_copy_value(elem));
     }
 }
+Set::~Set() = default;
+Set::Set(Set&&) noexcept = default;
+Set& Set::operator=(const Set& other) {
+     if (this == &other) return *this;
+    elements.clear();
+    elements.reserve(other.elements.size());
+    for (const auto& elem : other.elements) {
+        elements.push_back(deep_copy_value(elem));
+    }
+    return *this;
+}
+Set& Set::operator=(Set&&) noexcept = default;
+bool Set::operator==(const Set& other) const { return elements == other.elements; }
+
+// Map
 Map::Map(const Map& other) {
     for (const auto& [key, value] : other.elements) {
         elements[key] = deep_copy_value(value);
     }
 }
-bool Array::operator==(const Array& other) const { return true; }
-bool Set::operator==(const Set& other) const { return true; }
-bool Map::operator==(const Map& other) const { return true; }
+Map::~Map() = default;
+Map::Map(Map&&) noexcept = default;
+Map& Map::operator=(const Map& other) {
+    if (this == &other) return *this;
+    elements.clear();
+    for (const auto& [key, value] : other.elements) {
+        elements[key] = deep_copy_value(value);
+    }
+    return *this;
+}
+Map& Map::operator=(Map&&) noexcept = default;
+bool Map::operator==(const Map& other) const { return elements == other.elements; }
+
+
+// DynaValue
+DynaValue::DynaValue() = default;
+DynaValue::~DynaValue() = default;
+DynaValue::DynaValue(DynaValue&& other) noexcept = default;
+DynaValue& DynaValue::operator=(DynaValue&& other) noexcept = default;
+
+DynaValue::DynaValue(const DynaValue& other) {
+    if (other.value) value = std::make_unique<ConfigValue>(deep_copy_value(*other.value));
+    for(const auto& b : other.backup) {
+        backup.push_back(std::make_unique<ConfigValue>(deep_copy_value(*b)));
+    }
+}
+DynaValue& DynaValue::operator=(const DynaValue& other) {
+    if (this == &other) return *this;
+    if (other.value) value = std::make_unique<ConfigValue>(deep_copy_value(*other.value));
+    else value.reset();
+    backup.clear();
+    for(const auto& b : other.backup) {
+        backup.push_back(std::make_unique<ConfigValue>(deep_copy_value(*b)));
+    }
+    return *this;
+}
+bool DynaValue::operator==(const DynaValue& other) const {
+    if ((value && !other.value) || (!value && other.value)) return false;
+    if (value && other.value && *value != *other.value) return false;
+    if (backup.size() != other.backup.size()) return false;
+    for(size_t i = 0; i < backup.size(); ++i) {
+        if (*backup[i] != *other.backup[i]) return false;
+    }
+    return true;
+}
+
 
 // --- Deep Copy Helper ---
 ConfigValue deep_copy_value(const ConfigValue& val) {
@@ -39,7 +114,10 @@ ConfigValue deep_copy_value(const ConfigValue& val) {
             return v ? std::make_unique<Set>(*v) : nullptr;
         } else if constexpr (std::is_same_v<T, std::unique_ptr<Map>>) {
             return v ? std::make_unique<Map>(*v) : nullptr;
-        } else {
+        } else if constexpr (std::is_same_v<T, std::unique_ptr<DynaValue>>) {
+            return v ? std::make_unique<DynaValue>(*v) : nullptr;
+        }
+        else {
             return v;
         }
     }, val);
@@ -342,6 +420,14 @@ ConfigValue Parser::parse_primary() {
                 nextToken();
                 expect(TokenType::RightParen);
                 return Path{path_val};
+            }
+             if (id == "Dyna" || id == "dyna") {
+                nextToken();
+                expect(TokenType::LeftParen);
+                auto dyna_val = std::make_unique<DynaValue>();
+                dyna_val->value = std::make_unique<ConfigValue>(parse_expression());
+                expect(TokenType::RightParen);
+                return dyna_val;
             }
         }
         default: throw std::runtime_error("Unexpected value token: " + currentToken.value);

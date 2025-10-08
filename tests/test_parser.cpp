@@ -380,3 +380,23 @@ texture_path = path("textures/player.png")
     auto texture_path = std::get<Path>(texture_path_variant);
     EXPECT_EQ(texture_path.value, "textures/player.png");
 }
+
+TEST(ParserTest, ParseDynaValue) {
+    std::string input = "[Dynamic]\nd_val = Dyna(123)";
+    Parser parser;
+    auto config = parser.parse(input);
+
+    ASSERT_TRUE(config.count("Dynamic"));
+    auto& dynamic_section = config["Dynamic"];
+
+    ASSERT_TRUE(dynamic_section.count("d_val"));
+    auto& dyna_variant = dynamic_section.at("d_val");
+
+    // Check that we have a DynaValue
+    auto* dyna_ptr = std::get<std::unique_ptr<DynaValue>>(dyna_variant).get();
+    ASSERT_TRUE(dyna_ptr);
+    ASSERT_TRUE(dyna_ptr->value);
+
+    // Check that the wrapped value is correct
+    EXPECT_EQ(std::get<int>(*dyna_ptr->value), 123);
+}
