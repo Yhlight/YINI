@@ -11,8 +11,32 @@
 struct Array;
 struct Set;
 struct Map;
+struct CrossSectionRef;
+struct Color;
+struct Coord;
+struct Path;
 
-using ConfigValue = std::variant<std::string, int, double, bool, std::unique_ptr<Array>, std::unique_ptr<Set>, std::unique_ptr<Map>>;
+using ConfigValue = std::variant<std::string, int, double, bool, std::unique_ptr<Array>, std::unique_ptr<Set>, std::unique_ptr<Map>, CrossSectionRef, Color, Coord, Path>;
+
+struct Color {
+    int r, g, b;
+    bool operator==(const Color& other) const { return r == other.r && g == other.g && b == other.b; }
+};
+
+struct Coord {
+    int x, y, z;
+    bool operator==(const Coord& other) const { return x == other.x && y == other.y && z == other.z; }
+};
+
+struct Path {
+    std::string value;
+    bool operator==(const Path& other) const { return value == other.value; }
+};
+
+struct CrossSectionRef {
+    std::string section;
+    std::string key;
+};
 
 struct Array {
     std::vector<ConfigValue> elements;
@@ -46,22 +70,32 @@ using Config = std::map<std::string, ConfigSection>;
 
 class Parser {
 public:
+    Parser() = default;
     Parser(Lexer& lexer);
-    Config parse();
+    Config parse(const std::string& input);
+    Config parseFile(const std::string& filepath);
 
 private:
-    Lexer& lexer;
+    Lexer* lexer;
     Token currentToken;
+    Config config;
     std::map<std::string, std::vector<std::string>> inheritanceMap;
     std::map<std::string, ConfigValue> macroMap;
 
+    void _parse(Lexer& lexer_ref, const std::string& current_dir);
     void nextToken();
     void expect(TokenType type);
-    ConfigValue parseValue();
     std::unique_ptr<Array> parseArray();
     std::unique_ptr<Set> parseSet();
     std::unique_ptr<Map> parseMap();
     void resolveInheritance(Config& config);
+    void resolveReferences(Config& config);
+
+    // Expression parsing
+    ConfigValue parse_expression();
+    ConfigValue parse_term();
+    ConfigValue parse_factor();
+    ConfigValue parse_primary();
 };
 
 #endif // PARSER_H

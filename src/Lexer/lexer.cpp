@@ -105,6 +105,21 @@ Token Lexer::nextToken() {
         case ')':
             position++;
             return {TokenType::RightParen, ")"};
+        case '+':
+            position++;
+            return {TokenType::Plus, "+"};
+        case '-':
+            position++;
+            return {TokenType::Minus, "-"};
+        case '*':
+            position++;
+            return {TokenType::Star, "*"};
+        case '/':
+            position++;
+            return {TokenType::Slash, "/"};
+        case '%':
+            position++;
+            return {TokenType::Percent, "%"};
         case '{':
             position++;
             return {TokenType::LeftBrace, "{"};
@@ -120,6 +135,15 @@ Token Lexer::nextToken() {
         case '@':
             position++;
             return {TokenType::At, "@"};
+        case '$':
+            position++;
+            return {TokenType::Dollar, "$"};
+        case '#':
+            position++;
+            return {TokenType::Hash, "#"};
+        case '.':
+            position++;
+            return {TokenType::Dot, "."};
     }
 
     // If no token is matched, return unexpected

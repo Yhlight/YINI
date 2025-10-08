@@ -1,0 +1,6 @@
+[#include]
++= "include_base.yini"
++= "include_override.yini"
+
+[Graphics]
+resolution = "1920x1080"
