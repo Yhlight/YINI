@@ -37,8 +37,6 @@ add_library(yini_shared SHARED
     src/Lexer/Token.cpp
     src/Parser/Parser.cpp
     src/Parser/Value.cpp
-    src/Parser/YINI_C_API.cpp
-    src/Parser/YMETA.cpp
 )
 
 target_include_directories(yini_shared PUBLIC 

@@ -453,7 +453,8 @@ bool yini_compile_to_ymeta(const char* input_file, const char* output_file)
         }
         
         YMETA ymeta;
-        return ymeta.serialize(parser, output_file);
+        ymeta.populateFromParser(parser);
+        return ymeta.save(output_file, YMETA_CONTENT_FULL);
     }
     catch (...)
     {
@@ -471,7 +472,7 @@ bool yini_decompile_from_ymeta(const char* input_file, const char* output_file)
     try
     {
         YMETA ymeta;
-        if (!ymeta.deserialize(input_file))
+        if (!ymeta.load(input_file))
         {
             return false;
         }

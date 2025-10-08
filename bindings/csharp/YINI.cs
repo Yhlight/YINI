@@ -98,63 +98,63 @@ namespace YINI
         #region P/Invoke Declarations
 
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
-        internal static extern IntPtr yini_parser_create(string source);
+        private static extern IntPtr yini_parser_create(string source);
 
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
-        internal static extern IntPtr yini_parser_create_from_file(string filename);
+        private static extern IntPtr yini_parser_create_from_file(string filename);
 
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
-        internal static extern void yini_parser_destroy(IntPtr parser);
-
-        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
-        [return: MarshalAs(UnmanagedType.I1)]
-        internal static extern bool yini_parser_parse(IntPtr parser);
-
-        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
-        internal static extern IntPtr yini_parser_get_error(IntPtr parser);
-
-        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
-        internal static extern int yini_parser_get_section_count(IntPtr parser);
-
-        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
-        internal static extern IntPtr yini_parser_get_section_names(IntPtr parser, out int count);
-
-        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
-        internal static extern IntPtr yini_parser_get_section(IntPtr parser, string name);
-
-        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
-        internal static extern int yini_section_get_entry_count(IntPtr section);
-
-        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
-        internal static extern IntPtr yini_section_get_keys(IntPtr section, out int count);
-
-        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
-        internal static extern IntPtr yini_section_get_value(IntPtr section, string key);
-
-        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
-        internal static extern ValueType yini_value_get_type(IntPtr value);
-
-        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
-        internal static extern long yini_value_get_integer(IntPtr value);
-
-        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
-        internal static extern double yini_value_get_float(IntPtr value);
+        private static extern void yini_parser_destroy(IntPtr parser);
 
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
         [return: MarshalAs(UnmanagedType.I1)]
-        internal static extern bool yini_value_get_boolean(IntPtr value);
+        private static extern bool yini_parser_parse(IntPtr parser);
 
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
-        internal static extern IntPtr yini_value_get_string(IntPtr value);
+        private static extern IntPtr yini_parser_get_error(IntPtr parser);
 
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
-        internal static extern int yini_value_get_array_size(IntPtr value);
+        private static extern int yini_parser_get_section_count(IntPtr parser);
 
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
-        internal static extern IntPtr yini_value_get_array_element(IntPtr value, int index);
+        private static extern IntPtr yini_parser_get_section_names(IntPtr parser, out int count);
 
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
-        internal static extern void yini_free_string_array(IntPtr array, int count);
+        private static extern IntPtr yini_parser_get_section(IntPtr parser, string name);
+
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        private static extern int yini_section_get_entry_count(IntPtr section);
+
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr yini_section_get_keys(IntPtr section, out int count);
+
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr yini_section_get_value(IntPtr section, string key);
+
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        private static extern ValueType yini_value_get_type(IntPtr value);
+
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        private static extern long yini_value_get_integer(IntPtr value);
+
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        private static extern double yini_value_get_float(IntPtr value);
+
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        [return: MarshalAs(UnmanagedType.I1)]
+        private static extern bool yini_value_get_boolean(IntPtr value);
+
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr yini_value_get_string(IntPtr value);
+
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        private static extern int yini_value_get_array_size(IntPtr value);
+
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr yini_value_get_array_element(IntPtr value, int index);
+
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        private static extern void yini_free_string_array(IntPtr array, int count);
 
         /// <summary>
         /// Internal method to free string arrays allocated by C API
