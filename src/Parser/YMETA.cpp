@@ -18,7 +18,7 @@ void YMETA::populateFromParser(const Parser& parser)
     includes = parser.getIncludes();
     version = YMETA_VERSION;
 
-    // Extract dynamic values
+    // Extract dynamic values and start their history
     for (const auto& [section_name, section] : sections)
     {
         for (const auto& [key, value] : section.entries)
@@ -26,7 +26,7 @@ void YMETA::populateFromParser(const Parser& parser)
             if (value->isDynamic())
             {
                 std::string full_key = section_name + "." + key;
-                dynamic_values[full_key] = value;
+                dynamic_values[full_key] = {value};
             }
         }
     }
@@ -70,10 +70,15 @@ bool YMETA::save(const std::string& output_file, uint32_t flags) const
     {
         uint32_t dynamic_count = static_cast<uint32_t>(dynamic_values.size());
         out.write(reinterpret_cast<const char*>(&dynamic_count), sizeof(dynamic_count));
-        for (const auto& [key, value] : dynamic_values)
+        for (const auto& [key, history] : dynamic_values)
         {
             writeString(out, key);
-            writeValue(out, value);
+            uint32_t history_size = static_cast<uint32_t>(history.size());
+            out.write(reinterpret_cast<const char*>(&history_size), sizeof(history_size));
+            for (const auto& value : history)
+            {
+                writeValue(out, value);
+            }
         }
     }
 
@@ -119,7 +124,14 @@ bool YMETA::load(const std::string& input_file)
         for (uint32_t i = 0; i < dynamic_count; ++i)
         {
             std::string key = readString(in);
-            dynamic_values[key] = readValue(in);
+            uint32_t history_size;
+            in.read(reinterpret_cast<char*>(&history_size), sizeof(history_size));
+            std::vector<std::shared_ptr<Value>> history;
+            for (uint32_t j = 0; j < history_size; ++j)
+            {
+                history.push_back(readValue(in));
+            }
+            dynamic_values[key] = history;
         }
     }
 
@@ -129,7 +141,12 @@ bool YMETA::load(const std::string& input_file)
 
 void YMETA::updateDynamicValue(const std::string& key, const std::shared_ptr<Value>& value)
 {
-    dynamic_values[key] = value;
+    auto& history = dynamic_values[key];
+    history.insert(history.begin(), value);
+    if (history.size() > MAX_DYNAMIC_HISTORY)
+    {
+        history.pop_back();
+    }
 }
 
 // Deprecated methods
@@ -377,11 +394,12 @@ bool YMETA::mergeUpdatesIntoYiniFile(const std::string& yini_input_path, const s
             std::string full_key = current_section + "." + key;
 
             auto it = dynamic_values.find(full_key);
-            if (it != dynamic_values.end())
+            if (it != dynamic_values.end() && !it->second.empty())
             {
+                const auto& latest_value = it->second.front();
                 size_t equals_pos = line.find('=');
                 std::string line_start = line.substr(0, equals_pos);
-                out << line_start << "= " << it->second->toString() << std::endl;
+                out << line_start << "= " << latest_value->toString() << std::endl;
             }
             else
             {

@@ -51,7 +51,7 @@ public:
     const std::map<std::string, Section>& getSections() const { return sections; }
     const std::map<std::string, std::shared_ptr<Value>>& getDefines() const { return defines; }
     const std::vector<std::string>& getIncludes() const { return includes; }
-    const std::map<std::string, std::shared_ptr<Value>>& getDynamicValues() const { return dynamic_values; }
+    const std::map<std::string, std::vector<std::shared_ptr<Value>>>& getDynamicValues() const { return dynamic_values; }
 
     // YINI file updating
     bool mergeUpdatesIntoYiniFile(const std::string& yini_input_path, const std::string& yini_output_path) const;
@@ -72,9 +72,10 @@ private:
     std::map<std::string, Section> sections;
     std::map<std::string, std::shared_ptr<Value>> defines;
     std::vector<std::string> includes;
-    std::map<std::string, std::shared_ptr<Value>> dynamic_values;
+    std::map<std::string, std::vector<std::shared_ptr<Value>>> dynamic_values;
     
     uint32_t version;
+    static constexpr size_t MAX_DYNAMIC_HISTORY = 5;
 };
 
 } // namespace yini

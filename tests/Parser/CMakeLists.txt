@@ -50,3 +50,12 @@ target_include_directories(test_dynamic_updates PRIVATE
 )
 
 add_test(NAME DynamicUpdatesTest COMMAND test_dynamic_updates WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+
+# Dynamic value history tests
+add_executable(test_dynamic_history test_dynamic_history.cpp)
+target_link_libraries(test_dynamic_history PRIVATE yini_parser yini_lexer)
+target_include_directories(test_dynamic_history PRIVATE
+    ${PROJECT_SOURCE_DIR}/include
+)
+
+add_test(NAME DynamicHistoryTest COMMAND test_dynamic_history WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
