@@ -131,4 +131,87 @@ TEST_CASE("Rich Value Types") {
         REQUIRE(arrayValue != nullptr);
         REQUIRE(arrayValue->elements.size() == 3);
     }
+
+    SUBCASE("Set Value") {
+        std::string source = R"([Test] key = (1, "two", true))";
+        auto value = getFirstValue(source);
+        REQUIRE(value != nullptr);
+        REQUIRE(value->getType() == Yini::ValueType::Set);
+        auto* setValue = dynamic_cast<Yini::SetValue*>(value.get());
+        REQUIRE(setValue != nullptr);
+        REQUIRE(setValue->elements.size() == 3);
+
+        auto* elem1 = dynamic_cast<Yini::NumberValue*>(setValue->elements[0].get());
+        CHECK(elem1->value == 1.0);
+        auto* elem2 = dynamic_cast<Yini::StringValue*>(setValue->elements[1].get());
+        CHECK(elem2->value == "two");
+        auto* elem3 = dynamic_cast<Yini::BoolValue*>(setValue->elements[2].get());
+        CHECK(elem3->value == true);
+    }
+
+    SUBCASE("Map Value") {
+        std::string source = R"([Test] key = { a: 1, b: "two", c: true })";
+        auto value = getFirstValue(source);
+        REQUIRE(value != nullptr);
+        REQUIRE(value->getType() == Yini::ValueType::Map);
+        auto* mapValue = dynamic_cast<Yini::MapValue*>(value.get());
+        REQUIRE(mapValue != nullptr);
+        REQUIRE(mapValue->elements.size() == 3);
+
+        auto* elem1 = dynamic_cast<Yini::NumberValue*>(mapValue->elements["a"].get());
+        CHECK(elem1->value == 1.0);
+        auto* elem2 = dynamic_cast<Yini::StringValue*>(mapValue->elements["b"].get());
+        CHECK(elem2->value == "two");
+        auto* elem3 = dynamic_cast<Yini::BoolValue*>(mapValue->elements["c"].get());
+        CHECK(elem3->value == true);
+    }
+
+    SUBCASE("Hex Color Value") {
+        std::string source = R"([Test] key = #FF00FF)";
+        auto value = getFirstValue(source);
+        REQUIRE(value != nullptr);
+        REQUIRE(value->getType() == Yini::ValueType::Color);
+        auto* colorValue = dynamic_cast<Yini::ColorValue*>(value.get());
+        REQUIRE(colorValue != nullptr);
+        CHECK(colorValue->r == 255);
+        CHECK(colorValue->g == 0);
+        CHECK(colorValue->b == 255);
+        CHECK(colorValue->a == 255);
+    }
+
+    SUBCASE("Function Color Value") {
+        std::string source = R"([Test] key = color(10, 20, 30, 40))";
+        auto value = getFirstValue(source);
+        REQUIRE(value != nullptr);
+        REQUIRE(value->getType() == Yini::ValueType::Color);
+        auto* colorValue = dynamic_cast<Yini::ColorValue*>(value.get());
+        REQUIRE(colorValue != nullptr);
+        CHECK(colorValue->r == 10);
+        CHECK(colorValue->g == 20);
+        CHECK(colorValue->b == 30);
+        CHECK(colorValue->a == 40);
+    }
+
+    SUBCASE("Coord Value") {
+        std::string source = R"([Test] key = Coord(1.5, 2.5, 3.5))";
+        auto value = getFirstValue(source);
+        REQUIRE(value != nullptr);
+        REQUIRE(value->getType() == Yini::ValueType::Coord);
+        auto* coordValue = dynamic_cast<Yini::CoordValue*>(value.get());
+        REQUIRE(coordValue != nullptr);
+        CHECK(coordValue->x == 1.5);
+        CHECK(coordValue->y == 2.5);
+        CHECK(coordValue->z == 3.5);
+        CHECK(coordValue->has_z == true);
+    }
+
+    SUBCASE("Path Value") {
+        std::string source = R"([Test] key = Path("my/path/to/file.txt"))";
+        auto value = getFirstValue(source);
+        REQUIRE(value != nullptr);
+        REQUIRE(value->getType() == Yini::ValueType::Path);
+        auto* pathValue = dynamic_cast<Yini::PathValue*>(value.get());
+        REQUIRE(pathValue != nullptr);
+        CHECK(pathValue->path == "my/path/to/file.txt");
+    }
 }

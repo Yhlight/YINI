@@ -9,43 +9,66 @@ Resolver::Resolver(std::vector<std::unique_ptr<SectionNode>>& ast) : ast(ast) {}
 
 void Resolver::resolve()
 {
-    // First, build a map of all sections for quick lookup.
+    // First, collect all macro definitions.
     for (const auto& section : ast)
     {
-        if (sectionMap.count(section->name.lexeme))
-        {
-            throw std::runtime_error("Duplicate section name: " + section->name.lexeme);
+        if (section->special_type == SpecialSectionType::Define) {
+            for (const auto& pair : section->pairs) {
+                macroMap[pair->key.lexeme] = pair->value.get();
+            }
         }
-        sectionMap[section->name.lexeme] = section.get();
     }
 
-    // Now, resolve inheritance for each section.
-    // We iterate through a copy of the pointers because the resolver might modify the ast vector itself
-    // if we decide to merge sections, etc. For now, it's just safer.
-    std::vector<SectionNode*> sectionsToResolve;
-    for (const auto& section : ast) {
-        sectionsToResolve.push_back(section.get());
-    }
-
-    for (auto* section : sectionsToResolve)
+    // Now, build a map of all non-special sections for quick lookup.
+    for (const auto& section : ast)
     {
-        resolveSection(*section);
+        if (section->special_type == SpecialSectionType::None) {
+            if (sectionMap.count(section->name.lexeme))
+            {
+                throw std::runtime_error("Duplicate section name: " + section->name.lexeme);
+            }
+            sectionMap[section->name.lexeme] = section.get();
+        }
+    }
+
+    // Resolve references and inheritance for each non-special section.
+    for (const auto& section : ast)
+    {
+        if (section->special_type == SpecialSectionType::None) {
+            resolveSection(*section);
+        }
     }
 }
 
+std::unique_ptr<Value> Resolver::resolveValue(Value* value) {
+    if (value->getType() == ValueType::Reference) {
+        auto* refValue = dynamic_cast<ReferenceValue*>(value);
+        auto it = macroMap.find(refValue->token.lexeme);
+        if (it == macroMap.end()) {
+            throw std::runtime_error("Undefined macro reference: " + refValue->token.lexeme);
+        }
+        // Recursively resolve the macro's value in case it contains other references.
+        return resolveValue(it->second);
+    }
+    // For other types, just clone them.
+    return value->clone();
+}
+
+
 void Resolver::resolveSection(SectionNode& section)
 {
-    if (section.parents.empty())
-    {
-        return; // Nothing to resolve
+    // First, resolve all references within the section's own key-value pairs
+    for (auto& pair : section.pairs) {
+        pair->value = resolveValue(pair->value.get());
     }
 
-    // This map will store the final, resolved key-value pairs for the section.
-    // Using a map automatically handles overriding: the last one inserted wins.
+    if (section.parents.empty())
+    {
+        return; // Nothing more to resolve
+    }
+
     std::map<std::string, std::unique_ptr<Value>> resolvedPairs;
 
-    // Inherit from parents. The spec says "later inherited...override previously inherited".
-    // So we iterate through parents in order, and later parents will override earlier ones in the map.
     for (const auto& parentNameToken : section.parents)
     {
         auto it = sectionMap.find(parentNameToken.lexeme);
@@ -55,24 +78,19 @@ void Resolver::resolveSection(SectionNode& section)
         }
 
         SectionNode* parent = it->second;
-
-        // Recursively resolve the parent first to ensure its pairs are complete.
         resolveSection(*parent);
 
-        // Inherit pairs from the parent. We need to deep-copy the values.
         for (const auto& parentPair : parent->pairs)
         {
             resolvedPairs[parentPair->key.lexeme] = parentPair->value->clone();
         }
     }
 
-    // Finally, apply the child's own pairs, which will override any inherited pairs.
     for (const auto& childPair : section.pairs)
     {
         resolvedPairs[childPair->key.lexeme] = childPair->value->clone();
     }
 
-    // Replace the section's old pairs with the new, resolved ones.
     section.pairs.clear();
     for (auto& pair : resolvedPairs)
     {
@@ -81,7 +99,6 @@ void Resolver::resolveSection(SectionNode& section)
         section.pairs.push_back(std::make_unique<KeyValuePairNode>(keyToken, std::move(pair.second)));
     }
 
-    // Clear parents so we don't resolve this section again unnecessarily.
     section.parents.clear();
 }
 

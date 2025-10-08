@@ -107,3 +107,51 @@ key = value
     CHECK(pairs["2"] == "item3");
     CHECK(pairs["key"] == "value");
 }
+
+TEST_CASE("Macro Definition and Reference")
+{
+    std::string source = R"(
+[#define]
+brand_color = #FF00FF
+base_width = 800
+
+[Window]
+width = @base_width
+background_color = @brand_color
+)";
+
+    auto ast = parseAndResolve(source);
+
+    Yini::SectionNode* windowSection = nullptr;
+    for(const auto& section : ast) {
+        if(section->name.lexeme == "Window") {
+            windowSection = section.get();
+            break;
+        }
+    }
+    REQUIRE(windowSection != nullptr);
+
+    // Check that the macros have been resolved
+    REQUIRE(windowSection->pairs.size() == 2);
+
+    Yini::KeyValuePairNode* widthPair = nullptr;
+    Yini::KeyValuePairNode* colorPair = nullptr;
+    for(const auto& pair : windowSection->pairs) {
+        if (pair->key.lexeme == "width") widthPair = pair.get();
+        if (pair->key.lexeme == "background_color") colorPair = pair.get();
+    }
+
+    // Check the resolved width value
+    REQUIRE(widthPair != nullptr);
+    auto* widthValue = dynamic_cast<Yini::NumberValue*>(widthPair->value.get());
+    REQUIRE(widthValue != nullptr);
+    CHECK(widthValue->value == 800.0);
+
+    // Check the resolved color value
+    REQUIRE(colorPair != nullptr);
+    auto* colorValue = dynamic_cast<Yini::ColorValue*>(colorPair->value.get());
+    REQUIRE(colorValue != nullptr);
+    CHECK(colorValue->r == 255);
+    CHECK(colorValue->g == 0);
+    CHECK(colorValue->b == 255);
+}

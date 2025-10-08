@@ -15,8 +15,11 @@ public:
 
 private:
     void resolveSection(SectionNode& section);
+    void resolveMacros();
+    std::unique_ptr<Value> resolveValue(Value* value);
 
     std::vector<std::unique_ptr<SectionNode>>& ast;
     std::map<std::string, SectionNode*> sectionMap;
+    std::map<std::string, Value*> macroMap;
 };
 } // namespace Yini

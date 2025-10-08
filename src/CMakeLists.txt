@@ -10,6 +10,7 @@ add_subdirectory(Parser)
 add_subdirectory(CLI)
 add_subdirectory(Api)
 add_subdirectory(Resolver)
+add_subdirectory(Loader)
 
 # Link all parts to the core library
-target_link_libraries(yini_core INTERFACE yini_lexer yini_parser yini_resolver)
+target_link_libraries(yini_core INTERFACE yini_lexer yini_parser yini_resolver yini_loader)

@@ -14,6 +14,7 @@ extern "C" {
 typedef void* YiniDocumentHandle;
 
 YINI_API YiniDocumentHandle yini_parse_string(const char* source);
+YINI_API YiniDocumentHandle yini_parse_file(const char* filepath);
 YINI_API void yini_free_document(YiniDocumentHandle handle);
 
 #ifdef __cplusplus

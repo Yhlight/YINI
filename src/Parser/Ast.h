@@ -5,6 +5,8 @@
 #include <vector>
 #include <memory>
 #include <iostream>
+#include <map>
+#include <cstdint>
 
 namespace Yini
 {
@@ -26,7 +28,13 @@ enum class ValueType {
     String,
     Number,
     Bool,
-    Array
+    Array,
+    Set,
+    Map,
+    Color,
+    Coord,
+    Path,
+    Reference
 };
 
 struct Value : public AstNode {
@@ -70,13 +78,54 @@ struct ArrayValue : public Value {
     std::vector<std::unique_ptr<Value>> elements;
     ValueType getType() const override { return ValueType::Array; }
     void serialize(std::ostream& os) const override;
-    std::unique_ptr<Value> clone() const override {
-        auto new_array = std::make_unique<ArrayValue>();
-        for (const auto& elem : elements) {
-            new_array->elements.push_back(elem->clone());
-        }
-        return new_array;
-    }
+    std::unique_ptr<Value> clone() const override;
+};
+
+struct SetValue : public Value {
+    std::vector<std::unique_ptr<Value>> elements;
+    ValueType getType() const override { return ValueType::Set; }
+    void serialize(std::ostream& os) const override;
+    std::unique_ptr<Value> clone() const override;
+};
+
+struct MapValue : public Value {
+    std::map<std::string, std::unique_ptr<Value>> elements;
+    ValueType getType() const override { return ValueType::Map; }
+    void serialize(std::ostream& os) const override;
+    std::unique_ptr<Value> clone() const override;
+};
+
+struct ColorValue : public Value {
+    uint8_t r, g, b, a;
+    explicit ColorValue(uint8_t r, uint8_t g, uint8_t b, uint8_t a = 255) : r(r), g(g), b(b), a(a) {}
+    ValueType getType() const override { return ValueType::Color; }
+    void serialize(std::ostream& os) const override;
+    std::unique_ptr<Value> clone() const override { return std::make_unique<ColorValue>(*this); }
+};
+
+struct CoordValue : public Value {
+    double x, y, z;
+    bool has_z;
+    explicit CoordValue(double x, double y, double z, bool has_z = true) : x(x), y(y), z(z), has_z(has_z) {}
+    ValueType getType() const override { return ValueType::Coord; }
+    void serialize(std::ostream& os) const override;
+    std::unique_ptr<Value> clone() const override { return std::make_unique<CoordValue>(*this); }
+};
+
+struct PathValue : public Value {
+    std::string path;
+    explicit PathValue(std::string p) : path(std::move(p)) {}
+    ValueType getType() const override { return ValueType::Path; }
+    void serialize(std::ostream& os) const override;
+    std::unique_ptr<Value> clone() const override { return std::make_unique<PathValue>(*this); }
+};
+
+struct ReferenceValue : public Value {
+    Token token;
+    explicit ReferenceValue(Token t) : token(std::move(t)) {}
+    ValueType getType() const override { return ValueType::Reference; }
+    void serialize(std::ostream& os) const override;
+    std::unique_ptr<Value> clone() const override { return std::make_unique<ReferenceValue>(*this); }
 };
 
 
@@ -91,9 +140,16 @@ struct KeyValuePairNode : public AstNode
     void serialize(std::ostream& os) const override;
 };
 
+enum class SpecialSectionType {
+    None,
+    Define,
+    Include
+};
+
 struct SectionNode : public AstNode
 {
     Token name;
+    SpecialSectionType special_type = SpecialSectionType::None;
     std::vector<Token> parents;
     std::vector<std::unique_ptr<KeyValuePairNode>> pairs;
 

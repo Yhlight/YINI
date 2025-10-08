@@ -1,14 +1,15 @@
 #include "YiniApi.h"
 #include "Lexer/Lexer.h"
 #include "Parser/Parser.h"
-#include "Parser/Ast.h"
 #include "Resolver/Resolver.h"
+#include "Loader/Loader.h"
 
 #include <vector>
 #include <memory>
 
 extern "C" {
 
+// This function is for parsing a simple string. It does NOT support [#include].
 YINI_API YiniDocumentHandle yini_parse_string(const char* source)
 {
     try
@@ -29,6 +30,23 @@ YINI_API YiniDocumentHandle yini_parse_string(const char* source)
         return nullptr;
     }
 }
+
+// This function is for parsing a file and supports [#include].
+YINI_API YiniDocumentHandle yini_parse_file(const char* filepath)
+{
+    try
+    {
+        Yini::Loader loader;
+        auto ast = loader.load(filepath);
+        auto* ast_ptr = new std::vector<std::unique_ptr<Yini::SectionNode>>(std::move(ast));
+        return reinterpret_cast<YiniDocumentHandle>(ast_ptr);
+    }
+    catch(...)
+    {
+        return nullptr;
+    }
+}
+
 
 YINI_API void yini_free_document(YiniDocumentHandle handle)
 {

@@ -14,6 +14,12 @@ Lexer::Lexer(const std::string& source) : source(source) {
     keywords["list"] = TokenType::List;
     keywords["Array"] = TokenType::Array;
     keywords["array"] = TokenType::Array;
+    keywords["color"] = TokenType::Color;
+    keywords["Color"] = TokenType::Color;
+    keywords["coord"] = TokenType::Coord;
+    keywords["Coord"] = TokenType::Coord;
+    keywords["path"] = TokenType::Path;
+    keywords["Path"] = TokenType::Path;
 }
 
 std::vector<Token> Lexer::scanTokens()
@@ -110,11 +116,14 @@ void Lexer::scanToken()
     {
         case '(': addToken(TokenType::LeftParen); break;
         case ')': addToken(TokenType::RightParen); break;
+        case '{': addToken(TokenType::LeftBrace); break;
+        case '}': addToken(TokenType::RightBrace); break;
         case '[': addToken(TokenType::LeftBracket); break;
         case ']': addToken(TokenType::RightBracket); break;
         case ':': addToken(TokenType::Colon); break;
         case ',': addToken(TokenType::Comma); break;
         case '=': addToken(TokenType::Equal); break;
+        case '@': addToken(TokenType::At); break;
         case '+':
              if (match('=')) {
                  addToken(TokenType::PlusEqual);
@@ -123,6 +132,26 @@ void Lexer::scanToken()
              }
              break;
         case '"': string(); break;
+        case '#':
+            // This is a more robust check for a hex color.
+            // It must be followed by exactly 6 hex digits, and not be part of a larger identifier.
+            if (current + 6 <= source.length()) {
+                bool is_hex = true;
+                for (int i = 0; i < 6; ++i) {
+                    if (!isxdigit(source[current + i])) {
+                        is_hex = false;
+                        break;
+                    }
+                }
+                if (is_hex && (current + 6 == source.length() || !isalnum(source[current + 6]))) {
+                    current += 6;
+                    addToken(TokenType::HexColor);
+                    break;
+                }
+            }
+            // Otherwise, it's just a hash for a special section.
+            addToken(TokenType::Hash);
+            break;
         case ' ':
         case '\r':
         case '\t':

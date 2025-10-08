@@ -2,15 +2,9 @@
 #include <fstream>
 #include <sstream>
 #include <vector>
-#include "Lexer/Lexer.h"
-#include "Parser/Parser.h"
+#include "Loader/Loader.h"
 #include "Parser/Ast.h"
-#include "Resolver/Resolver.h"
 
-// Forward declaration for the deserialize function in Ast.cpp
-namespace Yini {
-    std::unique_ptr<SectionNode> deserializeSection(std::istream& is);
-}
 
 void printValue(const Yini::Value& value);
 
@@ -40,7 +34,11 @@ void printValue(const Yini::Value& value) {
             std::cout << (dynamic_cast<const Yini::BoolValue&>(value).value ? "true" : "false");
             break;
         case Yini::ValueType::Array:
-            printArray(dynamic_cast<const Yini::ArrayValue&>(value));
+             printArray(dynamic_cast<const Yini::ArrayValue&>(value));
+            break;
+        // Other types can be added here
+        default:
+            std::cout << "UNPRINTABLE_VALUE";
             break;
     }
 }
@@ -70,25 +68,11 @@ int main(int argc, char* argv[]) {
 
     std::string command = argv[1];
     std::string filename = argv[2];
+    Yini::Loader loader;
 
     if (command == "compile") {
-        std::ifstream file(filename);
-        if (!file.is_open()) {
-            std::cerr << "Error: Could not open file " << filename << std::endl;
-            return 1;
-        }
-        std::stringstream buffer;
-        buffer << file.rdbuf();
-        std::string source = buffer.str();
-
         try {
-            Yini::Lexer lexer(source);
-            std::vector<Yini::Token> tokens = lexer.scanTokens();
-            Yini::Parser parser(tokens);
-            auto ast = parser.parse();
-            Yini::Resolver resolver(ast);
-            resolver.resolve();
-
+            auto ast = loader.load(filename);
             std::string outFilename = changeExtension(filename, ".ymeta");
             std::ofstream outFile(outFilename, std::ios::binary);
             if (!outFile.is_open()) {
@@ -132,21 +116,8 @@ int main(int argc, char* argv[]) {
         }
 
     } else if (command == "parse") {
-        std::ifstream file(filename);
-        if (!file.is_open()) {
-            std::cerr << "Error: Could not open file " << filename << std::endl;
-            return 1;
-        }
-        std::stringstream buffer;
-        buffer << file.rdbuf();
-        std::string source = buffer.str();
         try {
-            Yini::Lexer lexer(source);
-            std::vector<Yini::Token> tokens = lexer.scanTokens();
-            Yini::Parser parser(tokens);
-            auto ast = parser.parse();
-            Yini::Resolver resolver(ast);
-            resolver.resolve();
+            auto ast = loader.load(filename);
             std::cout << "File parsed successfully." << std::endl;
             printAst(ast);
         } catch (const std::exception& e) {
@@ -154,21 +125,8 @@ int main(int argc, char* argv[]) {
             return 1;
         }
     } else if (command == "check") {
-        std::ifstream file(filename);
-        if (!file.is_open()) {
-            std::cerr << "Error: Could not open file " << filename << std::endl;
-            return 1;
-        }
-        std::stringstream buffer;
-        buffer << file.rdbuf();
-        std::string source = buffer.str();
         try {
-            Yini::Lexer lexer(source);
-            std::vector<Yini::Token> tokens = lexer.scanTokens();
-            Yini::Parser parser(tokens);
-            auto ast = parser.parse();
-            Yini::Resolver resolver(ast);
-            resolver.resolve();
+            auto ast = loader.load(filename);
             std::cout << "File syntax is valid." << std::endl;
         } catch (const std::exception& e) {
             std::cerr << "File syntax is invalid: " << e.what() << std::endl;

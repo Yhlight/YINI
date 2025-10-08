@@ -1,0 +1,6 @@
+[Settings]
+volume = 0.5
+fullscreen = false
+
+[Graphics]
+quality = medium

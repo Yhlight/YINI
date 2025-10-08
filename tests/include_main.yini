@@ -1,0 +1,10 @@
+[#include]
++= "include_dependency.yini"
+
+[Settings]
+fullscreen = true
+user = "Jules"
+
+[Graphics]
+quality = high
+vsync = true

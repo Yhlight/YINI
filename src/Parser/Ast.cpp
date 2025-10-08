@@ -29,7 +29,7 @@ std::string readString(std::istream& is) {
 }
 
 
-// --- Serialization Implementations ---
+// --- Serialization & Clone Implementations ---
 
 void IdentifierValue::serialize(std::ostream& os) const {
     os.write(reinterpret_cast<const char*>(&token.type), sizeof(token.type));
@@ -58,6 +58,74 @@ void ArrayValue::serialize(std::ostream& os) const {
     }
 }
 
+std::unique_ptr<Value> ArrayValue::clone() const {
+    auto new_array = std::make_unique<ArrayValue>();
+    for (const auto& elem : elements) {
+        new_array->elements.push_back(elem->clone());
+    }
+    return new_array;
+}
+
+void SetValue::serialize(std::ostream& os) const {
+    size_t count = elements.size();
+    os.write(reinterpret_cast<const char*>(&count), sizeof(count));
+    for (const auto& elem : elements) {
+        ValueType type = elem->getType();
+        os.write(reinterpret_cast<const char*>(&type), sizeof(type));
+        elem->serialize(os);
+    }
+}
+
+std::unique_ptr<Value> SetValue::clone() const {
+    auto new_set = std::make_unique<SetValue>();
+    for (const auto& elem : elements) {
+        new_set->elements.push_back(elem->clone());
+    }
+    return new_set;
+}
+
+void MapValue::serialize(std::ostream& os) const {
+    size_t count = elements.size();
+    os.write(reinterpret_cast<const char*>(&count), sizeof(count));
+    for (const auto& pair : elements) {
+        writeString(os, pair.first);
+        ValueType type = pair.second->getType();
+        os.write(reinterpret_cast<const char*>(&type), sizeof(type));
+        pair.second->serialize(os);
+    }
+}
+
+std::unique_ptr<Value> MapValue::clone() const {
+    auto new_map = std::make_unique<MapValue>();
+    for (const auto& pair : elements) {
+        new_map->elements[pair.first] = pair.second->clone();
+    }
+    return new_map;
+}
+
+void ColorValue::serialize(std::ostream& os) const {
+    os.write(reinterpret_cast<const char*>(&r), sizeof(r));
+    os.write(reinterpret_cast<const char*>(&g), sizeof(g));
+    os.write(reinterpret_cast<const char*>(&b), sizeof(b));
+    os.write(reinterpret_cast<const char*>(&a), sizeof(a));
+}
+
+void CoordValue::serialize(std::ostream& os) const {
+    os.write(reinterpret_cast<const char*>(&x), sizeof(x));
+    os.write(reinterpret_cast<const char*>(&y), sizeof(y));
+    os.write(reinterpret_cast<const char*>(&z), sizeof(z));
+    os.write(reinterpret_cast<const char*>(&has_z), sizeof(has_z));
+}
+
+void PathValue::serialize(std::ostream& os) const {
+    writeString(os, path);
+}
+
+void ReferenceValue::serialize(std::ostream& os) const {
+    writeString(os, token.lexeme);
+}
+
+
 void KeyValuePairNode::serialize(std::ostream& os) const {
     writeString(os, key.lexeme);
     ValueType type = value->getType();
@@ -67,6 +135,7 @@ void KeyValuePairNode::serialize(std::ostream& os) const {
 
 void SectionNode::serialize(std::ostream& os) const {
     writeString(os, name.lexeme);
+    os.write(reinterpret_cast<const char*>(&special_type), sizeof(special_type));
     size_t pairCount = pairs.size();
     os.write(reinterpret_cast<const char*>(&pairCount), sizeof(pairCount));
     for (const auto& pair : pairs) {
@@ -113,6 +182,50 @@ std::unique_ptr<Value> deserializeValue(std::istream& is) {
             }
             return array;
         }
+        case ValueType::Set: {
+            auto set = std::make_unique<SetValue>();
+            size_t count;
+            is.read(reinterpret_cast<char*>(&count), sizeof(count));
+            for (size_t i = 0; i < count; ++i) {
+                set->elements.push_back(deserializeValue(is));
+            }
+            return set;
+        }
+        case ValueType::Map: {
+            auto map = std::make_unique<MapValue>();
+            size_t count;
+            is.read(reinterpret_cast<char*>(&count), sizeof(count));
+            for (size_t i = 0; i < count; ++i) {
+                std::string key = readString(is);
+                map->elements[key] = deserializeValue(is);
+            }
+            return map;
+        }
+        case ValueType::Color: {
+            uint8_t r, g, b, a;
+            is.read(reinterpret_cast<char*>(&r), sizeof(r));
+            is.read(reinterpret_cast<char*>(&g), sizeof(g));
+            is.read(reinterpret_cast<char*>(&b), sizeof(b));
+            is.read(reinterpret_cast<char*>(&a), sizeof(a));
+            return std::make_unique<ColorValue>(r, g, b, a);
+        }
+        case ValueType::Coord: {
+            double x, y, z;
+            bool has_z;
+            is.read(reinterpret_cast<char*>(&x), sizeof(x));
+            is.read(reinterpret_cast<char*>(&y), sizeof(y));
+            is.read(reinterpret_cast<char*>(&z), sizeof(z));
+            is.read(reinterpret_cast<char*>(&has_z), sizeof(has_z));
+            return std::make_unique<CoordValue>(x, y, z, has_z);
+        }
+        case ValueType::Path: {
+            return std::make_unique<PathValue>(readString(is));
+        }
+        case ValueType::Reference: {
+            Token t;
+            t.lexeme = readString(is);
+            return std::make_unique<ReferenceValue>(t);
+        }
         default:
             throw std::runtime_error("Unknown value type in ymeta file");
     }
@@ -129,6 +242,7 @@ std::unique_ptr<SectionNode> deserializeSection(std::istream& is) {
     Token nameToken;
     nameToken.lexeme = readString(is);
     auto section = std::make_unique<SectionNode>(nameToken);
+    is.read(reinterpret_cast<char*>(&section->special_type), sizeof(section->special_type));
 
     size_t pairCount;
     is.read(reinterpret_cast<char*>(&pairCount), sizeof(pairCount));
