@@ -223,5 +223,60 @@ texture_path = path(""textures/player.png"")
                 Assert.AreEqual("textures/player.png", path);
             }
         }
+
+        [Test]
+        public void SetColor_And_Save_PersistsChanges()
+        {
+            var newColor = new Color { r = 10, g = 20, b = 30 };
+            using (var config = new YiniConfig(TestFileName))
+            {
+                config.SetColor("SpecialTypes", "player_color", newColor);
+                config.Save();
+            }
+
+            using (var newConfig = new YiniConfig(TestFileName))
+            {
+                Color result = newConfig.GetColor("SpecialTypes", "player_color");
+                Assert.AreEqual(newColor.r, result.r);
+                Assert.AreEqual(newColor.g, result.g);
+                Assert.AreEqual(newColor.b, result.b);
+            }
+        }
+
+        [Test]
+        public void SetCoord_And_Save_PersistsChanges()
+        {
+            var newCoord = new Coord { x = 1, y = 2, z = 3 };
+            using (var config = new YiniConfig(TestFileName))
+            {
+                config.SetCoord("SpecialTypes", "spawn_point", newCoord);
+                config.Save();
+            }
+
+            using (var newConfig = new YiniConfig(TestFileName))
+            {
+                Coord result = newConfig.GetCoord("SpecialTypes", "spawn_point");
+                Assert.AreEqual(newCoord.x, result.x);
+                Assert.AreEqual(newCoord.y, result.y);
+                Assert.AreEqual(newCoord.z, result.z);
+            }
+        }
+
+        [Test]
+        public void SetPath_And_Save_PersistsChanges()
+        {
+            var newPath = "new/path/to/texture.png";
+            using (var config = new YiniConfig(TestFileName))
+            {
+                config.SetPath("SpecialTypes", "texture_path", newPath);
+                config.Save();
+            }
+
+            using (var newConfig = new YiniConfig(TestFileName))
+            {
+                string result = newConfig.GetPath("SpecialTypes", "texture_path");
+                Assert.AreEqual(newPath, result);
+            }
+        }
     }
 }

@@ -93,6 +93,10 @@ YINI_API void yini_set_int(YiniConfigHandle handle, const char* section, const c
 YINI_API void yini_set_double(YiniConfigHandle handle, const char* section, const char* key, double value);
 YINI_API void yini_set_bool(YiniConfigHandle handle, const char* section, const char* key, bool value);
 
+YINI_API void yini_set_color(YiniConfigHandle handle, const char* section, const char* key, YiniColor value);
+YINI_API void yini_set_coord(YiniConfigHandle handle, const char* section, const char* key, YiniCoord value);
+YINI_API void yini_set_path(YiniConfigHandle handle, const char* section, const char* key, const char* value);
+
 YINI_API void yini_save_file(YiniConfigHandle handle, const char* filepath);
 
 YINI_API void yini_free_config(YiniConfigHandle handle);

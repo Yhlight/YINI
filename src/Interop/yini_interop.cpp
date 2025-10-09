@@ -200,6 +200,18 @@ void yini_set_bool(YiniConfigHandle handle, const char* section, const char* key
     yini_set_value_internal(handle, section, key, value);
 }
 
+void yini_set_color(YiniConfigHandle handle, const char* section, const char* key, YiniColor value) {
+    yini_set_value_internal(handle, section, key, Color{value.r, value.g, value.b});
+}
+
+void yini_set_coord(YiniConfigHandle handle, const char* section, const char* key, YiniCoord value) {
+    yini_set_value_internal(handle, section, key, Coord{value.x, value.y, value.z});
+}
+
+void yini_set_path(YiniConfigHandle handle, const char* section, const char* key, const char* value) {
+    yini_set_value_internal(handle, section, key, Path{std::string(value)});
+}
+
 
 // --- Complex Value Getters ---
 YiniValue* to_c_style_value(const ConfigValue& cpp_value); // Forward declaration

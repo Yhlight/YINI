@@ -134,6 +134,15 @@ namespace Yini.Core
         [DllImport(LibName, EntryPoint = "yini_set_bool", CallingConvention = CallingConvention.Cdecl)]
         private static extern void YiniSetBool(IntPtr handle, string section, string key, [MarshalAs(UnmanagedType.I1)] bool value);
 
+        [DllImport(LibName, EntryPoint = "yini_set_color", CallingConvention = CallingConvention.Cdecl)]
+        private static extern void YiniSetColor(IntPtr handle, string section, string key, Color value);
+
+        [DllImport(LibName, EntryPoint = "yini_set_coord", CallingConvention = CallingConvention.Cdecl)]
+        private static extern void YiniSetCoord(IntPtr handle, string section, string key, Coord value);
+
+        [DllImport(LibName, EntryPoint = "yini_set_path", CallingConvention = CallingConvention.Cdecl)]
+        private static extern void YiniSetPath(IntPtr handle, string section, string key, string value);
+
         [DllImport(LibName, EntryPoint = "yini_save_file", CallingConvention = CallingConvention.Cdecl)]
         private static extern void YiniSaveFile(IntPtr handle, string filepath);
 
@@ -234,6 +243,21 @@ namespace Yini.Core
         public void SetBool(string section, string key, bool value)
         {
             YiniSetBool(_handle, section, key, value);
+        }
+
+        public void SetColor(string section, string key, Color value)
+        {
+            YiniSetColor(_handle, section, key, value);
+        }
+
+        public void SetCoord(string section, string key, Coord value)
+        {
+            YiniSetCoord(_handle, section, key, value);
+        }
+
+        public void SetPath(string section, string key, string value)
+        {
+            YiniSetPath(_handle, section, key, value);
         }
 
         public void Save(string filepath)
