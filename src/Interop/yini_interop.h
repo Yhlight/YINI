@@ -68,6 +68,14 @@ YINI_API bool yini_get_bool(YiniConfigHandle handle, const char* section, const 
 YINI_API YiniValue* yini_get_value(YiniConfigHandle handle, const char* section, const char* key);
 YINI_API void yini_free_value(YiniValue* value);
 
+typedef struct {
+    YiniValue* value;
+    YiniArray* backups;
+} YiniDynaValue;
+
+YINI_API YiniDynaValue* yini_get_dyna(YiniConfigHandle handle, const char* section, const char* key);
+YINI_API void yini_free_dyna(YiniDynaValue* dyna);
+
 YINI_API void yini_set_string(YiniConfigHandle handle, const char* section, const char* key, const char* value);
 YINI_API void yini_set_int(YiniConfigHandle handle, const char* section, const char* key, int value);
 YINI_API void yini_set_double(YiniConfigHandle handle, const char* section, const char* key, double value);

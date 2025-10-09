@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.InteropServices;
 
 namespace Yini.Core
@@ -62,6 +63,13 @@ namespace Yini.Core
         public IntPtr Entries; // YiniMapEntry**
     }
 
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct YiniDynaValue
+    {
+        public IntPtr Value; // YiniValue*
+        public IntPtr Backups; // YiniArray*
+    }
+
     public class YiniConfig : IDisposable
     {
         private const string LibName = "YiniInterop";
@@ -109,6 +117,12 @@ namespace Yini.Core
 
         [DllImport(LibName, EntryPoint = "yini_save_file", CallingConvention = CallingConvention.Cdecl)]
         private static extern void YiniSaveFile(IntPtr handle, string filepath);
+
+        [DllImport(LibName, EntryPoint = "yini_get_dyna", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr YiniGetDyna(IntPtr handle, string section, string key);
+
+        [DllImport(LibName, EntryPoint = "yini_free_dyna", CallingConvention = CallingConvention.Cdecl)]
+        private static extern void YiniFreeDyna(IntPtr dyna);
 
         public YiniConfig(string filepath)
         {
@@ -276,6 +290,29 @@ namespace Yini.Core
         ~YiniConfig()
         {
             Dispose(false);
+        }
+
+        public DynaValue<T> GetDyna<T>(string section, string key)
+        {
+            IntPtr dynaPtr = YiniGetDyna(_handle, section, key);
+            if (dynaPtr == IntPtr.Zero)
+            {
+                return null;
+            }
+
+            try
+            {
+                YiniDynaValue cDyna = Marshal.PtrToStructure<YiniDynaValue>(dynaPtr);
+                T currentValue = (T)MarshalYiniValue(cDyna.Value);
+
+                var backups = MarshalYiniArray(cDyna.Backups)?.Cast<T>() ?? Enumerable.Empty<T>();
+
+                return new DynaValue<T>(this, section, key, currentValue, backups);
+            }
+            finally
+            {
+                YiniFreeDyna(dynaPtr);
+            }
         }
     }
 }

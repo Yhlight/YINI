@@ -8,13 +8,19 @@ TEST(LexerTest, KeyValuePair) {
     Token key_token = lexer.nextToken();
     EXPECT_EQ(key_token.type, TokenType::Identifier);
     EXPECT_EQ(key_token.value, "key");
+    EXPECT_EQ(key_token.line, 1);
+    EXPECT_EQ(key_token.column, 1);
 
     Token equals_token = lexer.nextToken();
     EXPECT_EQ(equals_token.type, TokenType::Equals);
+    EXPECT_EQ(equals_token.line, 1);
+    EXPECT_EQ(equals_token.column, 5);
 
     Token value_token = lexer.nextToken();
     EXPECT_EQ(value_token.type, TokenType::String);
     EXPECT_EQ(value_token.value, "value");
+    EXPECT_EQ(value_token.line, 1);
+    EXPECT_EQ(value_token.column, 7);
 }
 
 TEST(LexerTest, SingleLineComment) {
@@ -25,6 +31,8 @@ TEST(LexerTest, SingleLineComment) {
     Token key_token = lexer.nextToken();
     EXPECT_EQ(key_token.type, TokenType::Identifier);
     EXPECT_EQ(key_token.value, "key");
+    EXPECT_EQ(key_token.line, 2);
+    EXPECT_EQ(key_token.column, 1);
 }
 
 TEST(LexerTest, MultiLineComment) {
@@ -35,4 +43,6 @@ TEST(LexerTest, MultiLineComment) {
     Token key_token = lexer.nextToken();
     EXPECT_EQ(key_token.type, TokenType::Identifier);
     EXPECT_EQ(key_token.value, "key");
+    EXPECT_EQ(key_token.line, 3);
+    EXPECT_EQ(key_token.column, 1);
 }

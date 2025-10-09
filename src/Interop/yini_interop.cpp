@@ -39,14 +39,18 @@ extern "C" {
 
 // --- Lifecycle ---
 YiniConfigHandle yini_parse_file(const char* filepath) {
-    Parser* parser = new Parser();
     Config* config = new Config();
     try {
-        *config = parser->parseFile(filepath);
-        delete parser;
+        YmetaManager ymeta_manager;
+        auto cached_config = ymeta_manager.read(filepath);
+        if (cached_config) {
+            *config = std::move(*cached_config);
+        } else {
+            Parser parser;
+            *config = parser.parseFile(filepath);
+        }
         return static_cast<YiniConfigHandle>(config);
     } catch (...) {
-        delete parser;
         delete config;
         return nullptr;
     }
@@ -57,6 +61,7 @@ void yini_save_file(YiniConfigHandle handle, const char* filepath) {
     Config* config = static_cast<Config*>(handle);
     YmetaManager ymeta_manager;
     ymeta_manager.write_yini(filepath, *config);
+    ymeta_manager.write(filepath, *config); // Also save the ymeta cache
 }
 
 void yini_free_config(YiniConfigHandle handle) {
@@ -71,9 +76,15 @@ const char* yini_get_string(YiniConfigHandle handle, const char* section, const 
     if (!handle) return nullptr;
     Config* config = static_cast<Config*>(handle);
     if (config->count(section) && (*config)[section].count(key)) {
-        const auto& value = (*config)[section][key];
-        if (std::holds_alternative<std::string>(value)) {
-            return std::get<std::string>(value).c_str();
+        const auto& value_variant = (*config)[section][key];
+        if (std::holds_alternative<std::string>(value_variant)) {
+            return std::get<std::string>(value_variant).c_str();
+        }
+        if (std::holds_alternative<std::unique_ptr<DynaValue>>(value_variant)) {
+            const auto* dyna_ptr = std::get<std::unique_ptr<DynaValue>>(value_variant).get();
+            if (dyna_ptr && dyna_ptr->value && std::holds_alternative<std::string>(*dyna_ptr->value)) {
+                return std::get<std::string>(*dyna_ptr->value).c_str();
+            }
         }
     }
     return nullptr;
@@ -83,9 +94,15 @@ int yini_get_int(YiniConfigHandle handle, const char* section, const char* key, 
     if (!handle) return default_value;
     Config* config = static_cast<Config*>(handle);
     if (config->count(section) && (*config)[section].count(key)) {
-        const auto& value = (*config)[section][key];
-        if (std::holds_alternative<int>(value)) {
-            return std::get<int>(value);
+        const auto& value_variant = (*config)[section][key];
+        if (std::holds_alternative<int>(value_variant)) {
+            return std::get<int>(value_variant);
+        }
+        if (std::holds_alternative<std::unique_ptr<DynaValue>>(value_variant)) {
+            const auto* dyna_ptr = std::get<std::unique_ptr<DynaValue>>(value_variant).get();
+            if (dyna_ptr && dyna_ptr->value && std::holds_alternative<int>(*dyna_ptr->value)) {
+                return std::get<int>(*dyna_ptr->value);
+            }
         }
     }
     return default_value;
@@ -95,9 +112,15 @@ double yini_get_double(YiniConfigHandle handle, const char* section, const char*
     if (!handle) return default_value;
     Config* config = static_cast<Config*>(handle);
     if (config->count(section) && (*config)[section].count(key)) {
-        const auto& value = (*config)[section][key];
-        if (std::holds_alternative<double>(value)) {
-            return std::get<double>(value);
+        const auto& value_variant = (*config)[section][key];
+        if (std::holds_alternative<double>(value_variant)) {
+            return std::get<double>(value_variant);
+        }
+        if (std::holds_alternative<std::unique_ptr<DynaValue>>(value_variant)) {
+            const auto* dyna_ptr = std::get<std::unique_ptr<DynaValue>>(value_variant).get();
+            if (dyna_ptr && dyna_ptr->value && std::holds_alternative<double>(*dyna_ptr->value)) {
+                return std::get<double>(*dyna_ptr->value);
+            }
         }
     }
     return default_value;
@@ -107,9 +130,15 @@ bool yini_get_bool(YiniConfigHandle handle, const char* section, const char* key
     if (!handle) return default_value;
     Config* config = static_cast<Config*>(handle);
     if (config->count(section) && (*config)[section].count(key)) {
-        const auto& value = (*config)[section][key];
-        if (std::holds_alternative<bool>(value)) {
-            return std::get<bool>(value);
+        const auto& value_variant = (*config)[section][key];
+        if (std::holds_alternative<bool>(value_variant)) {
+            return std::get<bool>(value_variant);
+        }
+        if (std::holds_alternative<std::unique_ptr<DynaValue>>(value_variant)) {
+            const auto* dyna_ptr = std::get<std::unique_ptr<DynaValue>>(value_variant).get();
+            if (dyna_ptr && dyna_ptr->value && std::holds_alternative<bool>(*dyna_ptr->value)) {
+                return std::get<bool>(*dyna_ptr->value);
+            }
         }
     }
     return default_value;
@@ -225,6 +254,46 @@ YiniValue* to_c_style_value(const ConfigValue& cpp_value) {
     }, cpp_value);
 
     return c_value;
+}
+
+YiniDynaValue* yini_get_dyna(YiniConfigHandle handle, const char* section, const char* key) {
+    if (!handle) return nullptr;
+    Config* config = static_cast<Config*>(handle);
+
+    if (config->count(section) && (*config)[section].count(key)) {
+        const auto& value_variant = (*config)[section][key];
+        if (std::holds_alternative<std::unique_ptr<DynaValue>>(value_variant)) {
+            const auto* dyna_ptr = std::get<std::unique_ptr<DynaValue>>(value_variant).get();
+            if (dyna_ptr) {
+                YiniDynaValue* c_dyna = new YiniDynaValue();
+                c_dyna->value = dyna_ptr->value ? to_c_style_value(*dyna_ptr->value) : nullptr;
+
+                YiniArray* c_backups = new YiniArray();
+                c_backups->size = dyna_ptr->backup.size();
+                c_backups->elements = new YiniValue*[c_backups->size];
+                for (size_t i = 0; i < c_backups->size; ++i) {
+                    c_backups->elements[i] = to_c_style_value(*dyna_ptr->backup[i]);
+                }
+                c_dyna->backups = c_backups;
+
+                return c_dyna;
+            }
+        }
+    }
+    return nullptr;
+}
+
+void yini_free_dyna(YiniDynaValue* dyna) {
+    if (!dyna) return;
+    yini_free_value(dyna->value);
+    if (dyna->backups) {
+        for (size_t i = 0; i < dyna->backups->size; ++i) {
+            yini_free_value(dyna->backups->elements[i]);
+        }
+        delete[] dyna->backups->elements;
+        delete dyna->backups;
+    }
+    delete dyna;
 }
 
 } // extern "C"

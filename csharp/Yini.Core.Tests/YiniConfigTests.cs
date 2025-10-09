@@ -21,6 +21,9 @@ bool_val = true
 [Data]
 array_val = [1, ""two"", 3.0, false]
 map_val = { key1: ""value1"", key2: 100 }
+
+[Dynamic]
+level = Dyna(10)
 ");
         }
 
@@ -123,6 +126,45 @@ map_val = { key1: ""value1"", key2: 100 }
             using (var newConfig = new YiniConfig(TestFileName))
             {
                 Assert.AreEqual(999, newConfig.GetInt("TestSection", "int_val"));
+            }
+        }
+
+        [Test]
+        public void GetDyna_And_Update_WorksCorrectly()
+        {
+            // 1. Arrange & Act
+            using (var config = new YiniConfig(TestFileName))
+            {
+                DynaValue<int> dynaLevel = config.GetDyna<int>("Dynamic", "level");
+
+                // 2. Assert Initial State
+                Assert.IsNotNull(dynaLevel);
+                Assert.AreEqual(10, dynaLevel.Value);
+                Assert.AreEqual(0, dynaLevel.Backups.Count);
+
+                // 3. Act: Update value
+                dynaLevel.Value = 11;
+
+                // 4. Assert Updated State
+                Assert.AreEqual(11, dynaLevel.Value);
+                Assert.AreEqual(1, dynaLevel.Backups.Count);
+                Assert.AreEqual(10, dynaLevel.Backups[0]);
+
+                // 5. Act: Save and reload
+                config.Save();
+            }
+
+            // 6. Assert Persistence
+            using (var newConfig = new YiniConfig(TestFileName))
+            {
+                Assert.AreEqual(11, newConfig.GetInt("Dynamic", "level"));
+
+                // Also check if the backups were persisted in the DynaValue object
+                DynaValue<int> reloadedDynaLevel = newConfig.GetDyna<int>("Dynamic", "level");
+                Assert.IsNotNull(reloadedDynaLevel);
+                Assert.AreEqual(11, reloadedDynaLevel.Value);
+                Assert.AreEqual(1, reloadedDynaLevel.Backups.Count);
+                Assert.AreEqual(10, reloadedDynaLevel.Backups[0]);
             }
         }
     }
