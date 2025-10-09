@@ -30,6 +30,30 @@ typedef enum {
 typedef struct YiniValue YiniValue;
 typedef struct YiniArray YiniArray;
 typedef struct YiniMap YiniMap;
+typedef struct YiniSetValue YiniSetValue;
+
+typedef struct {
+    const char* key;
+    YiniSetValue* value;
+} YiniSetMapEntry;
+
+struct YiniSetValue {
+    YiniValueType type;
+    union {
+        const char* string_value;
+        int int_value;
+        double double_value;
+        bool bool_value;
+        struct {
+            size_t size;
+            YiniSetValue** elements;
+        } array_value;
+        struct {
+            size_t size;
+            YiniSetMapEntry** entries;
+        } map_value;
+    } as;
+};
 
 struct YiniValue {
     YiniValueType type;
@@ -96,6 +120,8 @@ YINI_API void yini_set_bool(YiniConfigHandle handle, const char* section, const 
 YINI_API void yini_set_color(YiniConfigHandle handle, const char* section, const char* key, YiniColor value);
 YINI_API void yini_set_coord(YiniConfigHandle handle, const char* section, const char* key, YiniCoord value);
 YINI_API void yini_set_path(YiniConfigHandle handle, const char* section, const char* key, const char* value);
+
+YINI_API void yini_set_value(YiniConfigHandle handle, const char* section, const char* key, YiniSetValue* value);
 
 YINI_API void yini_save_file(YiniConfigHandle handle, const char* filepath);
 

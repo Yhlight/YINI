@@ -270,5 +270,76 @@ texture_path = path(""textures/player.png"")
                 Assert.AreEqual(newPath, result);
             }
         }
+
+        [Test]
+        public void SetValue_WithArray_PersistsChanges()
+        {
+            var newArray = new object[] { 10, "twenty", 30.5, true };
+            using (var config = new YiniConfig(TestFileName))
+            {
+                config.SetValue("Data", "array_val", newArray);
+                config.Save();
+            }
+
+            using (var newConfig = new YiniConfig(TestFileName))
+            {
+                var result = newConfig.GetValue("Data", "array_val") as object[];
+                Assert.IsNotNull(result);
+                CollectionAssert.AreEqual(newArray, result);
+            }
+        }
+
+        [Test]
+        public void SetValue_WithMap_PersistsChanges()
+        {
+            var newMap = new Dictionary<string, object>
+            {
+                { "a", 1 },
+                { "b", "two" },
+                { "c", false }
+            };
+            using (var config = new YiniConfig(TestFileName))
+            {
+                config.SetValue("Data", "map_val", newMap);
+                config.Save();
+            }
+
+            using (var newConfig = new YiniConfig(TestFileName))
+            {
+                var result = newConfig.GetValue("Data", "map_val") as Dictionary<string, object>;
+                Assert.IsNotNull(result);
+                CollectionAssert.AreEquivalent(newMap, result);
+            }
+        }
+
+        [Test]
+        public void SetValue_WithNestedStructure_PersistsChanges()
+        {
+            var nestedData = new Dictionary<string, object>
+            {
+                { "name", "complex_object" },
+                { "values", new object[] { 1, 2, new Dictionary<string, object> { { "nested_key", "nested_value" } } } }
+            };
+            using (var config = new YiniConfig(TestFileName))
+            {
+                config.SetValue("Data", "nested_data", nestedData);
+                config.Save();
+            }
+
+            using (var newConfig = new YiniConfig(TestFileName))
+            {
+                var result = newConfig.GetValue("Data", "nested_data") as Dictionary<string, object>;
+                Assert.IsNotNull(result);
+
+                Assert.AreEqual("complex_object", result["name"]);
+                var nestedArray = result["values"] as object[];
+                Assert.IsNotNull(nestedArray);
+                Assert.AreEqual(1, nestedArray[0]);
+                Assert.AreEqual(2, nestedArray[1]);
+                var nestedMap = nestedArray[2] as Dictionary<string, object>;
+                Assert.IsNotNull(nestedMap);
+                Assert.AreEqual("nested_value", nestedMap["nested_key"]);
+            }
+        }
     }
 }

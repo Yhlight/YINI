@@ -74,6 +74,57 @@ namespace Yini.Core
         public IntPtr Backups; // YiniArray*
     }
 
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct YiniSetMapEntry
+    {
+        public IntPtr Key; // const char*
+        public IntPtr Value; // YiniSetValue*
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct YiniSetArray
+    {
+        public ulong Size;
+        public IntPtr Elements; // YiniSetValue**
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct YiniSetMap
+    {
+        public ulong Size;
+        public IntPtr Entries; // YiniSetMapEntry**
+    }
+
+    [StructLayout(LayoutKind.Explicit)]
+    internal struct YiniSetValueUnion
+    {
+        [FieldOffset(0)]
+        public IntPtr StringValue;
+
+        [FieldOffset(0)]
+        public int IntValue;
+
+        [FieldOffset(0)]
+        public double DoubleValue;
+
+        [FieldOffset(0)]
+        [MarshalAs(UnmanagedType.I1)]
+        public bool BoolValue;
+
+        [FieldOffset(0)]
+        public YiniSetArray ArrayValue;
+
+        [FieldOffset(0)]
+        public YiniSetMap MapValue;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct YiniSetValue
+    {
+        public YiniValueType Type;
+        public YiniSetValueUnion As;
+    }
+
     public class YiniConfig : IDisposable
     {
         private const string LibName = "YiniInterop";
@@ -145,6 +196,9 @@ namespace Yini.Core
 
         [DllImport(LibName, EntryPoint = "yini_set_path", CallingConvention = CallingConvention.Cdecl)]
         private static extern void YiniSetPath(IntPtr handle, string section, string key, string value);
+
+        [DllImport(LibName, EntryPoint = "yini_set_value", CallingConvention = CallingConvention.Cdecl)]
+        private static extern void YiniSetValue(IntPtr handle, string section, string key, IntPtr value);
 
         [DllImport(LibName, EntryPoint = "yini_save_file", CallingConvention = CallingConvention.Cdecl)]
         private static extern void YiniSaveFile(IntPtr handle, string filepath);
@@ -268,6 +322,145 @@ namespace Yini.Core
         public void SetPath(string section, string key, string value)
         {
             YiniSetPath(_handle, section, key, value);
+        }
+
+        public void SetValue(string section, string key, object value)
+        {
+            IntPtr unmanagedValue = IntPtr.Zero;
+            try
+            {
+                unmanagedValue = MarshalObjectToYiniSetValue(value);
+                YiniSetValue(_handle, section, key, unmanagedValue);
+            }
+            finally
+            {
+                if (unmanagedValue != IntPtr.Zero)
+                {
+                    FreeUnmanagedYiniSetValue(unmanagedValue);
+                }
+            }
+        }
+
+        private IntPtr MarshalObjectToYiniSetValue(object obj)
+        {
+            var yiniSetValue = new YiniSetValue();
+            IntPtr finalPtr = Marshal.AllocHGlobal(Marshal.SizeOf(yiniSetValue));
+
+            if (obj == null)
+            {
+                yiniSetValue.Type = YiniValueType.Null;
+                Marshal.StructureToPtr(yiniSetValue, finalPtr, false);
+                return finalPtr;
+            }
+
+            var type = obj.GetType();
+
+            if (type == typeof(string))
+            {
+                yiniSetValue.Type = YiniValueType.String;
+                yiniSetValue.As.StringValue = Marshal.StringToHGlobalAnsi((string)obj);
+            }
+            else if (type == typeof(int))
+            {
+                yiniSetValue.Type = YiniValueType.Int;
+                yiniSetValue.As.IntValue = (int)obj;
+            }
+            else if (type == typeof(double) || type == typeof(float))
+            {
+                yiniSetValue.Type = YiniValueType.Double;
+                yiniSetValue.As.DoubleValue = Convert.ToDouble(obj);
+            }
+            else if (type == typeof(bool))
+            {
+                yiniSetValue.Type = YiniValueType.Bool;
+                yiniSetValue.As.BoolValue = (bool)obj;
+            }
+            else if (obj is object[] objArray) // Array
+            {
+                yiniSetValue.Type = YiniValueType.Array;
+                var arrayStruct = new YiniSetArray
+                {
+                    Size = (ulong)objArray.Length,
+                    Elements = Marshal.AllocHGlobal(IntPtr.Size * objArray.Length)
+                };
+
+                for (int i = 0; i < objArray.Length; i++)
+                {
+                    IntPtr elementPtr = MarshalObjectToYiniSetValue(objArray[i]);
+                    Marshal.WriteIntPtr(arrayStruct.Elements, i * IntPtr.Size, elementPtr);
+                }
+                yiniSetValue.As.ArrayValue = arrayStruct;
+            }
+            else if (obj is Dictionary<string, object> objDict) // Map
+            {
+                yiniSetValue.Type = YiniValueType.Map;
+                var mapStruct = new YiniSetMap
+                {
+                    Size = (ulong)objDict.Count,
+                    Entries = Marshal.AllocHGlobal(IntPtr.Size * objDict.Count)
+                };
+
+                int i = 0;
+                foreach (var kvp in objDict)
+                {
+                    var entryStruct = new YiniSetMapEntry
+                    {
+                        Key = Marshal.StringToHGlobalAnsi(kvp.Key),
+                        Value = MarshalObjectToYiniSetValue(kvp.Value)
+                    };
+                    IntPtr entryPtr = Marshal.AllocHGlobal(Marshal.SizeOf(entryStruct));
+                    Marshal.StructureToPtr(entryStruct, entryPtr, false);
+
+                    Marshal.WriteIntPtr(mapStruct.Entries, i * IntPtr.Size, entryPtr);
+                    i++;
+                }
+                yiniSetValue.As.MapValue = mapStruct;
+            }
+            else
+            {
+                Marshal.FreeHGlobal(finalPtr);
+                throw new NotSupportedException($"Type {type.Name} is not supported for setting in YINI.");
+            }
+
+            Marshal.StructureToPtr(yiniSetValue, finalPtr, false);
+            return finalPtr;
+        }
+
+        private void FreeUnmanagedYiniSetValue(IntPtr ptr)
+        {
+            if (ptr == IntPtr.Zero) return;
+
+            var yiniSetValue = Marshal.PtrToStructure<YiniSetValue>(ptr);
+
+            switch (yiniSetValue.Type)
+            {
+                case YiniValueType.String:
+                    Marshal.FreeHGlobal(yiniSetValue.As.StringValue);
+                    break;
+                case YiniValueType.Array:
+                    var arrayStruct = yiniSetValue.As.ArrayValue;
+                    for (int i = 0; i < (int)arrayStruct.Size; i++)
+                    {
+                        IntPtr elementPtr = Marshal.ReadIntPtr(arrayStruct.Elements, i * IntPtr.Size);
+                        FreeUnmanagedYiniSetValue(elementPtr);
+                    }
+                    Marshal.FreeHGlobal(arrayStruct.Elements);
+                    break;
+                case YiniValueType.Map:
+                    var mapStruct = yiniSetValue.As.MapValue;
+                    for (int i = 0; i < (int)mapStruct.Size; i++)
+                    {
+                        IntPtr entryPtr = Marshal.ReadIntPtr(mapStruct.Entries, i * IntPtr.Size);
+                        var entryStruct = Marshal.PtrToStructure<YiniSetMapEntry>(entryPtr);
+                        Marshal.FreeHGlobal(entryStruct.Key);
+                        FreeUnmanagedYiniSetValue(entryStruct.Value);
+                        Marshal.FreeHGlobal(entryPtr);
+                    }
+                    Marshal.FreeHGlobal(mapStruct.Entries);
+                    break;
+            }
+
+            Marshal.FreeHGlobal(ptr);
         }
 
         public void Save(string filepath)

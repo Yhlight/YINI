@@ -21,16 +21,16 @@ void yini_set_value_internal(YiniConfigHandle handle, const char* section, const
                 dyna_ptr->backup.push_back(std::move(dyna_ptr->value));
             }
             // Set the new value
-            dyna_ptr->value = std::make_unique<ConfigValue>(new_value);
+            dyna_ptr->value = std::make_unique<ConfigValue>(std::move(new_value));
         } else {
              // If dyna_ptr is null, create a new one
             auto new_dyna_val = std::make_unique<DynaValue>();
-            new_dyna_val->value = std::make_unique<ConfigValue>(new_value);
+            new_dyna_val->value = std::make_unique<ConfigValue>(std::move(new_value));
             value_variant = std::move(new_dyna_val);
         }
     } else {
         // Not a dynamic value, just overwrite it
-        value_variant = new_value;
+        value_variant = std::move(new_value);
     }
 }
 
@@ -217,6 +217,52 @@ void yini_set_coord(YiniConfigHandle handle, const char* section, const char* ke
 
 void yini_set_path(YiniConfigHandle handle, const char* section, const char* key, const char* value) {
     yini_set_value_internal(handle, section, key, Path{std::string(value)});
+}
+
+// --- Complex Value Setters ---
+static ConfigValue from_c_style_value(const YiniSetValue* c_value) {
+    if (!c_value) {
+        return ConfigValue(std::string(""));
+    }
+
+    switch (c_value->type) {
+        case YINI_TYPE_STRING:
+            return ConfigValue(std::string(c_value->as.string_value));
+        case YINI_TYPE_INT:
+            return ConfigValue(c_value->as.int_value);
+        case YINI_TYPE_DOUBLE:
+            return ConfigValue(c_value->as.double_value);
+        case YINI_TYPE_BOOL:
+            return ConfigValue(c_value->as.bool_value);
+        case YINI_TYPE_ARRAY: {
+            auto cpp_array = std::make_unique<Array>();
+            for (size_t i = 0; i < c_value->as.array_value.size; ++i) {
+                cpp_array->elements.push_back(from_c_style_value(c_value->as.array_value.elements[i]));
+            }
+            return ConfigValue(std::move(cpp_array));
+        }
+        case YINI_TYPE_MAP: {
+            auto cpp_map = std::make_unique<Map>();
+            for (size_t i = 0; i < c_value->as.map_value.size; ++i) {
+                YiniSetMapEntry* entry = c_value->as.map_value.entries[i];
+                if (entry && entry->key) {
+                    cpp_map->elements[std::string(entry->key)] = from_c_style_value(entry->value);
+                }
+            }
+            return ConfigValue(std::move(cpp_map));
+        }
+        case YINI_TYPE_NULL:
+        default:
+            return ConfigValue(std::string(""));
+    }
+}
+
+void yini_set_value(YiniConfigHandle handle, const char* section, const char* key, YiniSetValue* value) {
+    if (!handle || !section || !key) {
+        return;
+    }
+    ConfigValue cpp_value = from_c_style_value(value);
+    yini_set_value_internal(handle, section, key, std::move(cpp_value));
 }
 
 
