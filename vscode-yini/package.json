@@ -11,7 +11,8 @@
     ],
     "main": "./extension.js",
     "activationEvents": [
-        "onLanguage:yini"
+        "onLanguage:yini",
+        "workspaceContains:**/*.yini"
     ],
     "dependencies": {
         "vscode-languageclient": "^7.0.0"

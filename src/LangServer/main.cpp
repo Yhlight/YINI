@@ -3,6 +3,7 @@
 #include <vector>
 #include <map>
 #include <stdexcept>
+#include <filesystem>
 #include "Parser/parser.h"
 #include <nlohmann/json.hpp>
 
@@ -68,8 +69,7 @@ void validate_document(const std::string& uri, const std::string& text) {
             {"source", "yini"},
             {"message", e.what()}
         });
-        open_documents.erase(uri);
-        open_documents[uri].text = text;
+        open_documents[uri] = {text, Config(), {}};
     } catch (const std::exception& e) {
         diagnostics.push_back({
             {"range", {
@@ -80,8 +80,7 @@ void validate_document(const std::string& uri, const std::string& text) {
             {"source", "yini"},
             {"message", e.what()}
         });
-        open_documents.erase(uri);
-        open_documents[uri].text = text;
+        open_documents[uri] = {text, Config(), {}};
     }
 
     send_notification("textDocument/publishDiagnostics", {
