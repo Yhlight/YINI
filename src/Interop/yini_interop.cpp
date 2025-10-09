@@ -144,6 +144,45 @@ bool yini_get_bool(YiniConfigHandle handle, const char* section, const char* key
     return default_value;
 }
 
+YiniColor yini_get_color(YiniConfigHandle handle, const char* section, const char* key, YiniColor default_value) {
+    if (!handle) return default_value;
+    Config* config = static_cast<Config*>(handle);
+    if (config->count(section) && (*config)[section].count(key)) {
+        const auto& value_variant = (*config)[section][key];
+        if (std::holds_alternative<Color>(value_variant)) {
+            const auto& color = std::get<Color>(value_variant);
+            return {color.r, color.g, color.b};
+        }
+    }
+    return default_value;
+}
+
+YiniCoord yini_get_coord(YiniConfigHandle handle, const char* section, const char* key, YiniCoord default_value) {
+    if (!handle) return default_value;
+    Config* config = static_cast<Config*>(handle);
+    if (config->count(section) && (*config)[section].count(key)) {
+        const auto& value_variant = (*config)[section][key];
+        if (std::holds_alternative<Coord>(value_variant)) {
+            const auto& coord = std::get<Coord>(value_variant);
+            return {coord.x, coord.y, coord.z};
+        }
+    }
+    return default_value;
+}
+
+const char* yini_get_path(YiniConfigHandle handle, const char* section, const char* key) {
+    if (!handle) return nullptr;
+    Config* config = static_cast<Config*>(handle);
+    if (config->count(section) && (*config)[section].count(key)) {
+        const auto& value_variant = (*config)[section][key];
+        if (std::holds_alternative<Path>(value_variant)) {
+            return std::get<Path>(value_variant).value.c_str();
+        }
+    }
+    return nullptr;
+}
+
+
 // --- Primitive Setters ---
 void yini_set_string(YiniConfigHandle handle, const char* section, const char* key, const char* value) {
     yini_set_value_internal(handle, section, key, std::string(value));

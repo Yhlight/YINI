@@ -21,4 +21,13 @@
     <ProjectReference Include="..\Yini.Core\Yini.Core.csproj" />
   </ItemGroup>
 
+  <Target Name="CopyNativeLibrary" AfterTargets="Build">
+    <Message Text="Copying native YiniInterop library..." Importance="high" />
+    <Copy
+      SourceFiles="../../build/src/Interop/libYiniInterop.so"
+      DestinationFolder="$(OutDir)"
+      SkipUnchangedFiles="true"
+    />
+  </Target>
+
 </Project>

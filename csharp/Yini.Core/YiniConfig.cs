@@ -104,6 +104,15 @@ namespace Yini.Core
         [return: MarshalAs(UnmanagedType.I1)]
         private static extern bool YiniGetBool(IntPtr handle, string section, string key, bool defaultValue);
 
+        [DllImport(LibName, EntryPoint = "yini_get_color", CallingConvention = CallingConvention.Cdecl)]
+        private static extern Color YiniGetColor(IntPtr handle, string section, string key, Color defaultValue);
+
+        [DllImport(LibName, EntryPoint = "yini_get_coord", CallingConvention = CallingConvention.Cdecl)]
+        private static extern Coord YiniGetCoord(IntPtr handle, string section, string key, Coord defaultValue);
+
+        [DllImport(LibName, EntryPoint = "yini_get_path", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr YiniGetPathInternal(IntPtr handle, string section, string key);
+
         [DllImport(LibName, EntryPoint = "yini_free_config", CallingConvention = CallingConvention.Cdecl)]
         private static extern void YiniFreeConfig(IntPtr handle);
 
@@ -167,6 +176,26 @@ namespace Yini.Core
         public bool GetBool(string section, string key, bool defaultValue = false)
         {
             return YiniGetBool(_handle, section, key, defaultValue);
+        }
+
+        public Color GetColor(string section, string key, Color defaultValue = default)
+        {
+            return YiniGetColor(_handle, section, key, defaultValue);
+        }
+
+        public Coord GetCoord(string section, string key, Coord defaultValue = default)
+        {
+            return YiniGetCoord(_handle, section, key, defaultValue);
+        }
+
+        public string GetPath(string section, string key, string defaultValue = null)
+        {
+            IntPtr cstr = YiniGetPathInternal(_handle, section, key);
+            if (cstr == IntPtr.Zero)
+            {
+                return defaultValue;
+            }
+            return Marshal.PtrToStringAnsi(cstr);
         }
 
         public object GetValue(string section, string key)

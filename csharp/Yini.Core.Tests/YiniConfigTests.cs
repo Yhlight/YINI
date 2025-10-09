@@ -24,6 +24,11 @@ map_val = { key1: ""value1"", key2: 100 }
 
 [Dynamic]
 level = Dyna(10)
+
+[SpecialTypes]
+player_color = color(255, 100, 50)
+spawn_point = Coord(10, -20, 5)
+texture_path = path(""textures/player.png"")
 ");
         }
 
@@ -182,6 +187,40 @@ level = Dyna(10)
             using (var newConfig = new YiniConfig(TestFileName))
             {
                 Assert.AreEqual(25, newConfig.GetInt("Dynamic", "level"));
+            }
+        }
+
+        [Test]
+        public void GetColor_ReturnsCorrectValue()
+        {
+            using (var config = new YiniConfig(TestFileName))
+            {
+                Color color = config.GetColor("SpecialTypes", "player_color");
+                Assert.AreEqual(255, color.r);
+                Assert.AreEqual(100, color.g);
+                Assert.AreEqual(50, color.b);
+            }
+        }
+
+        [Test]
+        public void GetCoord_ReturnsCorrectValue()
+        {
+            using (var config = new YiniConfig(TestFileName))
+            {
+                Coord coord = config.GetCoord("SpecialTypes", "spawn_point");
+                Assert.AreEqual(10, coord.x);
+                Assert.AreEqual(-20, coord.y);
+                Assert.AreEqual(5, coord.z);
+            }
+        }
+
+        [Test]
+        public void GetPath_ReturnsCorrectValue()
+        {
+            using (var config = new YiniConfig(TestFileName))
+            {
+                string path = config.GetPath("SpecialTypes", "texture_path");
+                Assert.AreEqual("textures/player.png", path);
             }
         }
     }

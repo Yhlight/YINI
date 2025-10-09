@@ -65,6 +65,18 @@ YINI_API int yini_get_int(YiniConfigHandle handle, const char* section, const ch
 YINI_API double yini_get_double(YiniConfigHandle handle, const char* section, const char* key, double default_value);
 YINI_API bool yini_get_bool(YiniConfigHandle handle, const char* section, const char* key, bool default_value);
 
+typedef struct {
+    int r, g, b;
+} YiniColor;
+
+typedef struct {
+    int x, y, z;
+} YiniCoord;
+
+YINI_API YiniColor yini_get_color(YiniConfigHandle handle, const char* section, const char* key, YiniColor default_value);
+YINI_API YiniCoord yini_get_coord(YiniConfigHandle handle, const char* section, const char* key, YiniCoord default_value);
+YINI_API const char* yini_get_path(YiniConfigHandle handle, const char* section, const char* key);
+
 YINI_API YiniValue* yini_get_value(YiniConfigHandle handle, const char* section, const char* key);
 YINI_API void yini_free_value(YiniValue* value);
 
