@@ -1,0 +1,98 @@
+{
+    "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+    "name": "YINI",
+    "scopeName": "source.yini",
+    "patterns": [
+        { "include": "#comments" },
+        { "include": "#sections" },
+        { "include": "#key-value-pairs" }
+    ],
+    "repository": {
+        "comments": {
+            "patterns": [
+                {
+                    "name": "comment.line.double-slash.yini",
+                    "match": "//.*"
+                },
+                {
+                    "name": "comment.block.yini",
+                    "begin": "/\\*",
+                    "end": "\\*/"
+                }
+            ]
+        },
+        "sections": {
+            "patterns": [
+                {
+                    "name": "entity.name.section.yini",
+                    "match": "^\\[([^\\]]+)\\]"
+                },
+                {
+                    "name": "keyword.control.special-section.yini",
+                    "match": "^\\[(#(define|include|schema))\\]"
+                }
+            ]
+        },
+        "key-value-pairs": {
+            "patterns": [
+                {
+                    "name": "variable.parameter.yini",
+                    "match": "^([^=\\s]+)\\s*(?==)"
+                },
+                {
+                    "name": "keyword.operator.assignment.yini",
+                    "match": "(=|\\+=)"
+                },
+                { "include": "#values" }
+            ]
+        },
+        "values": {
+            "patterns": [
+                {
+                    "name": "string.quoted.double.yini",
+                    "begin": "\"",
+                    "end": "\"",
+                    "patterns": [
+                        { "include": "#string-escapes" }
+                    ]
+                },
+                {
+                    "name": "constant.numeric.yini",
+                    "match": "\\b[0-9]+(\\.[0-9]+)?\\b"
+                },
+                {
+                    "name": "constant.language.boolean.yini",
+                    "match": "\\b(true|false)\\b"
+                },
+                {
+                    "name": "variable.other.macro.yini",
+                    "match": "@[a-zA-Z_][a-zA-Z0-9_]*"
+                },
+                {
+                    "name": "variable.other.environment.yini",
+                    "match": "\\$\\{[a-zA-Z_][a-zA-Z0-9_]*\\}"
+                },
+                {
+                    "name": "variable.other.cross-section.yini",
+                    "match": "@\\{[a-zA-Z_][a-zA-Z0-9_]*\\.[a-zA-Z_][a-zA-Z0-9_]*\\}"
+                },
+                {
+                    "name": "support.function.yini",
+                    "match": "\\b(Dyna|dyna|color|Color|Coord|coord|path|Path|List|list|Array|array)\\b"
+                },
+                {
+                    "name": "constant.other.color.yini",
+                    "match": "#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})"
+                }
+            ]
+        },
+        "string-escapes": {
+            "patterns": [
+                {
+                    "name": "constant.character.escape.yini",
+                    "match": "\\\\."
+                }
+            ]
+        }
+    }
+}

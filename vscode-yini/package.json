@@ -1,0 +1,25 @@
+{
+    "name": "yini-support",
+    "displayName": "YINI Support",
+    "description": "Syntax highlighting and language support for YINI.",
+    "version": "0.0.1",
+    "engines": {
+        "vscode": "^1.0.0"
+    },
+    "categories": [
+        "Programming Languages"
+    ],
+    "contributes": {
+        "languages": [{
+            "id": "yini",
+            "aliases": ["YINI", "yini"],
+            "extensions": [".yini", ".YINI"],
+            "configuration": "./language-configuration.json"
+        }],
+        "grammars": [{
+            "language": "yini",
+            "scopeName": "source.yini",
+            "path": "./syntaxes/yini.tmLanguage.json"
+        }]
+    }
+}

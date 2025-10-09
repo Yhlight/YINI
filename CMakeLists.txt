@@ -9,9 +9,21 @@ project(YINI)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+include(FetchContent)
+
+# Fetch nlohmann_json
+FetchContent_Declare(
+  nlohmann_json
+  GIT_REPOSITORY https://github.com/nlohmann/json.git
+  GIT_TAG v3.11.2
+)
+FetchContent_MakeAvailable(nlohmann_json)
+
 # Add subdirectories for the different components of the project
 add_subdirectory(src/Lexer)
 add_subdirectory(src/Parser)
+add_subdirectory(src/Ymeta)
+add_subdirectory(src/Interop)
 add_subdirectory(src/cli)
 
 # Add test directory

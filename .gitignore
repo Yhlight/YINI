@@ -28,3 +28,15 @@ CMakeCache.txt
 CMakeFiles/
 cmake_install.cmake
 Makefile
+
+# C# / .NET
+csharp/Yini.Core/bin/
+csharp/Yini.Core/obj/
+csharp/Yini.Core.Tests/bin/
+csharp/Yini.Core.Tests/obj/
+[Bb]in/
+[Oo]bj/
+*.user
+*.userosscache
+*.sln.docstates
+.vs/

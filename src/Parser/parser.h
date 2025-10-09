@@ -8,6 +8,7 @@
 #include <variant>
 #include <memory>
 #include <optional>
+#include <nlohmann/json.hpp>
 
 // --- Forward Declarations ---
 struct Array;
@@ -158,5 +159,16 @@ private:
     ConfigValue parse_factor();
     ConfigValue parse_primary();
 };
+
+// --- JSON Serialization ---
+void to_json(nlohmann::json& j, const ConfigValue& val);
+void to_json(nlohmann::json& j, const Array& a);
+void to_json(nlohmann::json& j, const Set& s);
+void to_json(nlohmann::json& j, const Map& m);
+void to_json(nlohmann::json& j, const CrossSectionRef& r);
+void to_json(nlohmann::json& j, const Color& c);
+void to_json(nlohmann::json& j, const Coord& c);
+void to_json(nlohmann::json& j, const Path& p);
+void to_json(nlohmann::json& j, const DynaValue& d);
 
 #endif // PARSER_H

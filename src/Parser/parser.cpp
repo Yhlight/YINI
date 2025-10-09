@@ -733,3 +733,79 @@ Config Parser::parseFile(const std::string& filepath) {
 const Schema& Parser::getSchema() const {
     return schema;
 }
+
+// --- JSON Serialization Implementations ---
+void to_json(nlohmann::json& j, const ConfigValue& val) {
+    std::visit([&j](const auto& v) {
+        using T = std::decay_t<decltype(v)>;
+        if constexpr (std::is_same_v<T, std::unique_ptr<Array>>) {
+            if (v) j = *v; else j = nullptr;
+        } else if constexpr (std::is_same_v<T, std::unique_ptr<Set>>) {
+            if (v) j = *v; else j = nullptr;
+        } else if constexpr (std::is_same_v<T, std::unique_ptr<Map>>) {
+            if (v) j = *v; else j = nullptr;
+        } else if constexpr (std::is_same_v<T, std::unique_ptr<DynaValue>>) {
+            if (v) j = *v; else j = nullptr;
+        }
+        else {
+            j = v;
+        }
+    }, val);
+}
+
+void to_json(nlohmann::json& j, const Array& a) {
+    j = nlohmann::json::array();
+    for (const auto& elem : a.elements) {
+        j.push_back(elem);
+    }
+}
+
+void to_json(nlohmann::json& j, const Set& s) {
+    j = nlohmann::json::array();
+    for (const auto& elem : s.elements) {
+        j.push_back(elem);
+    }
+}
+
+void to_json(nlohmann::json& j, const Map& m) {
+    j = nlohmann::json::object();
+    for (const auto& [key, value] : m.elements) {
+        j[key] = value;
+    }
+}
+
+void to_json(nlohmann::json& j, const CrossSectionRef& r) {
+    j = nlohmann::json{{"__type", "CrossSectionRef"}, {"section", r.section}, {"key", r.key}};
+}
+
+void to_json(nlohmann::json& j, const Color& c) {
+    j = nlohmann::json{{"__type", "Color"}, {"r", c.r}, {"g", c.g}, {"b", c.b}};
+}
+
+void to_json(nlohmann::json& j, const Coord& c) {
+    j = nlohmann::json{{"__type", "Coord"}, {"x", c.x}, {"y", c.y}, {"z", c.z}};
+}
+
+void to_json(nlohmann::json& j, const Path& p) {
+    j = nlohmann::json{{"__type", "Path"}, {"value", p.value}};
+}
+
+void to_json(nlohmann::json& j, const DynaValue& d) {
+    nlohmann::json val_json = nullptr;
+    if (d.value) {
+        to_json(val_json, *d.value);
+    }
+
+    nlohmann::json backup_json = nlohmann::json::array();
+    for (const auto& b : d.backup) {
+        nlohmann::json b_json;
+        to_json(b_json, *b);
+        backup_json.push_back(b_json);
+    }
+
+    j = nlohmann::json{
+        {"__type", "DynaValue"},
+        {"value", val_json},
+        {"backup", backup_json}
+    };
+}
