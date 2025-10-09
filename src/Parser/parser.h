@@ -136,20 +136,29 @@ public:
 
     Parser() = default;
     Parser(Lexer& lexer);
-    Config parse(const std::string& input);
-    Config parseFile(const std::string& filepath);
+    Config parse(const std::string& input, const std::string& base_dir = ".", bool validate_after_parse = true);
+    Config parseFile(const std::string& filepath, bool validate_after_parse = true);
     ConfigValue parseValue(const std::string& input);
     const Schema& getSchema() const;
     std::map<std::string, MacroDefinition> getMacroMap();
-    void validate(Config& config) const;
+    void validate(Config& config);
+    std::vector<std::string> getCompletions(const std::string& input, size_t cursor_pos);
+    std::optional<Token> findDefinition(const std::string& input, size_t cursor_pos);
 
 private:
+    struct BaseSectionInfo {
+        std::string name;
+        Token location;
+    };
+
     Lexer* lexer;
     Token currentToken;
     Config config;
     Schema schema;
-    std::map<std::string, std::vector<std::string>> inheritanceMap;
+    std::map<std::string, std::vector<BaseSectionInfo>> inheritanceMap;
     std::map<std::string, MacroDefinition> macroMap;
+    std::map<std::string, std::map<std::string, Token>> key_locations;
+    std::map<std::string, Token> section_locations;
 
     bool in_schema_mode = false;
     std::string current_schema_target_section;

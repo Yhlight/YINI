@@ -492,12 +492,12 @@ std::unique_ptr<Map> Parser::parseMap() {
 
 // --- Post-Processing ---
 void Parser::resolveInheritance(Config& config_ref) {
-    for (auto const& [derivedName, baseNames] : inheritanceMap) {
+    for (auto const& [derivedName, baseInfos] : inheritanceMap) {
         if (!config_ref.count(derivedName)) continue;
         ConfigSection mergedSection;
-        for (const auto& baseName : baseNames) {
-            if (config_ref.count(baseName)) {
-                const ConfigSection& baseSection = config_ref.at(baseName);
+        for (const auto& baseInfo : baseInfos) {
+            if (config_ref.count(baseInfo.name)) {
+                const ConfigSection& baseSection = config_ref.at(baseInfo.name);
                 for (const auto& [key, value] : baseSection) {
                     mergedSection[key] = deep_copy_value(value);
                 }
@@ -535,23 +535,48 @@ void Parser::resolveReferences(Config& config_ref) {
     }
 }
 
-void Parser::validate(Config& config) const {
+void Parser::validate(Config& config) {
     for (const auto& [section_name, rules] : this->schema) {
+        if (!config.count(section_name)) {
+            // Check if any rule in this section is required
+            bool is_required_section = false;
+            for (const auto& [key, rule] : rules) {
+                if (rule.required && rule.empty_behavior == 'e') {
+                    is_required_section = true;
+                    break;
+                }
+            }
+            if (is_required_section) {
+                 Token section_token = {TokenType::Identifier, section_name, 1, 1};
+                 if (this->section_locations.count(section_name)) {
+                    section_token = this->section_locations.at(section_name);
+                 }
+                 throw ParsingException("Missing required section: [" + section_name + "]", section_token.line, section_token.column);
+            }
+        }
+
         for (const auto& [key, rule] : rules) {
             if (!config.count(section_name) || !config.at(section_name).count(key)) {
                 if (rule.required) {
                     if (rule.empty_behavior == 'e') {
-                        throw std::runtime_error("Missing required key '" + key + "' in section [" + section_name + "]");
+                         throw std::runtime_error("Missing required key '" + key + "' in section [" + section_name + "]");
                     } else if (rule.empty_behavior == '=') {
                         if (rule.default_value.has_value()) {
                             config[section_name][key] = deep_copy_value(rule.default_value.value());
                         } else {
-                            throw std::runtime_error("Schema error: default value specified for '" + key + "' but no value provided.");
+                             throw std::runtime_error("Schema error: default value specified for '" + key + "' but no value provided.");
                         }
                     }
                 }
             } else {
                 auto& value = config.at(section_name).at(key);
+                Token key_token;
+                if (this->key_locations.count(section_name) && this->key_locations.at(section_name).count(key)) {
+                    key_token = this->key_locations.at(section_name).at(key);
+                } else {
+                    key_token = {TokenType::Identifier, key, 1, 1};
+                }
+
                 if (rule.type.has_value()) {
                     const auto& type_str = rule.type.value();
                     bool type_ok = false;
@@ -561,17 +586,17 @@ void Parser::validate(Config& config) const {
                     else if (type_str == "bool" && std::holds_alternative<bool>(value)) type_ok = true;
 
                     if (!type_ok) {
-                        throw std::runtime_error("Type mismatch for key '" + key + "'. Expected " + type_str);
+                        throw ParsingException("Type mismatch for key '" + key + "'. Expected " + type_str, key_token.line, key_token.column);
                     }
                 }
 
                 if (std::holds_alternative<int>(value) || std::holds_alternative<double>(value)) {
                     double numeric_value = std::holds_alternative<int>(value) ? static_cast<double>(std::get<int>(value)) : std::get<double>(value);
                     if (rule.min_val.has_value() && numeric_value < rule.min_val.value()) {
-                        throw std::runtime_error("Value for key '" + key + "' is below minimum of " + std::to_string(rule.min_val.value()));
+                        throw ParsingException("Value for key '" + key + "' is below minimum of " + std::to_string(rule.min_val.value()), key_token.line, key_token.column);
                     }
                     if (rule.max_val.has_value() && numeric_value > rule.max_val.value()) {
-                        throw std::runtime_error("Value for key '" + key + "' is above maximum of " + std::to_string(rule.max_val.value()));
+                        throw ParsingException("Value for key '" + key + "' is above maximum of " + std::to_string(rule.max_val.value()), key_token.line, key_token.column);
                     }
                 }
             }
@@ -590,15 +615,22 @@ void Parser::_parse(Lexer& lexer_ref, const std::string& current_dir) {
 
     while (currentToken.type != TokenType::EndOfFile) {
         if (currentToken.type == TokenType::LeftBracket) {
+            Token section_token = currentToken;
             nextToken();
             if (currentToken.type == TokenType::Identifier) {
                 currentSectionName = currentToken.value;
+                section_locations[currentSectionName] = section_token;
                 if (currentSectionName == "#schema") {
                     in_schema_mode = true;
                     currentSection = nullptr;
                 } else if (in_schema_mode) {
-                    current_schema_target_section = currentSectionName;
-                    currentSection = nullptr;
+                    if (schema.count(currentSectionName)) {
+                        in_schema_mode = false;
+                        currentSection = &this->config[currentSectionName];
+                    } else {
+                        current_schema_target_section = currentSectionName;
+                        currentSection = nullptr;
+                    }
                 } else {
                     in_schema_mode = false;
                     currentSection = &this->config[currentSectionName];
@@ -609,7 +641,8 @@ void Parser::_parse(Lexer& lexer_ref, const std::string& current_dir) {
                 if (!in_schema_mode && currentSectionName != "#define" && currentSectionName != "#include" && currentToken.type == TokenType::Colon) {
                     nextToken();
                     while (currentToken.type == TokenType::Identifier) {
-                        inheritanceMap[currentSectionName].push_back(currentToken.value);
+                        Token base_section_token = currentToken;
+                        inheritanceMap[currentSectionName].push_back({currentToken.value, base_section_token});
                         nextToken();
                         if (currentToken.type == TokenType::Comma) nextToken();
                         else break;
@@ -635,6 +668,7 @@ void Parser::_parse(Lexer& lexer_ref, const std::string& current_dir) {
                     macroMap[key] = {std::move(value), key_token.line, key_token.column};
                 } else {
                     (*currentSection)[key] = std::move(value);
+                    key_locations[currentSectionName][key] = key_token;
                 }
             }
         } else if (currentToken.type == TokenType::PlusEquals) {
@@ -683,18 +717,23 @@ void Parser::_parse(Lexer& lexer_ref, const std::string& current_dir) {
     }
 }
 
-Config Parser::parse(const std::string& input) {
+Config Parser::parse(const std::string& input, const std::string& base_dir, bool validate_after_parse) {
     this->config.clear();
     this->macroMap.clear();
     this->inheritanceMap.clear();
-    this->schema.clear();
+    // Do not clear schema
     this->in_schema_mode = false;
+    this->key_locations.clear();
+    this->section_locations.clear();
 
     Lexer lexer(input);
-    _parse(lexer, ".");
+    _parse(lexer, base_dir);
 
     resolveInheritance(this->config);
     resolveReferences(this->config);
+    if (validate_after_parse) {
+        validate(this->config);
+    }
 
     if (this->config.count("#define")) {
         this->config.erase("#define");
@@ -705,7 +744,7 @@ Config Parser::parse(const std::string& input) {
     return std::move(this->config);
 }
 
-Config Parser::parseFile(const std::string& filepath) {
+Config Parser::parseFile(const std::string& filepath, bool validate_after_parse) {
     std::ifstream file(filepath);
     if (!file) {
         throw std::runtime_error("Could not open file: " + filepath);
@@ -716,8 +755,10 @@ Config Parser::parseFile(const std::string& filepath) {
     this->config.clear();
     this->macroMap.clear();
     this->inheritanceMap.clear();
-    this->schema.clear();
+    // Do not clear schema
     this->in_schema_mode = false;
+    this->key_locations.clear();
+    this->section_locations.clear();
 
     std::filesystem::path fs_path(filepath);
     Lexer lexer(buffer.str());
@@ -725,6 +766,9 @@ Config Parser::parseFile(const std::string& filepath) {
 
     resolveInheritance(this->config);
     resolveReferences(this->config);
+    if (validate_after_parse) {
+        validate(this->config);
+    }
 
     if (this->config.count("#define")) {
         this->config.erase("#define");
@@ -749,6 +793,149 @@ const Schema& Parser::getSchema() const {
 
 std::map<std::string, Parser::MacroDefinition> Parser::getMacroMap() {
     return std::move(macroMap);
+}
+
+std::optional<Token> Parser::findDefinition(const std::string& input, size_t cursor_pos) {
+    // Reparse the document to build up the necessary maps.
+    // This is not the most efficient way, but it's the simplest for now.
+    try {
+        parse(input, ".", false);
+    } catch (const ParsingException& e) {
+        // Ignore parsing errors, as the user might be in the middle of typing.
+    }
+
+    // Find the token at the cursor position.
+    Lexer lexer(input);
+    Token target_token;
+    bool found = false;
+    while(true) {
+        Token t = lexer.nextToken();
+        if (t.type == TokenType::EndOfFile) break;
+        // A simple way to check if the cursor is within the token's bounds.
+        if (cursor_pos >= t.column && cursor_pos < t.column + t.value.length()) {
+             // A better check would be based on line and column from cursor position.
+             // This is a simplification.
+            target_token = t;
+            found = true;
+            break;
+        }
+    }
+
+    if (!found || target_token.type != TokenType::Identifier) {
+        return std::nullopt;
+    }
+
+    // Check if this token is a base section name in the inheritance map.
+    for (const auto& [derived_name, base_infos] : inheritanceMap) {
+        for (const auto& base_info : base_infos) {
+            if (base_info.location.line == target_token.line && base_info.location.column == target_token.column && base_info.name == target_token.value) {
+                // Found it. Now find the definition of this base section.
+                if (section_locations.count(base_info.name)) {
+                    return section_locations.at(base_info.name);
+                }
+            }
+        }
+    }
+
+    return std::nullopt;
+}
+
+std::vector<std::string> Parser::getCompletions(const std::string& input, size_t cursor_pos) {
+    std::vector<std::string> completions;
+    std::string text_before_cursor = input.substr(0, cursor_pos);
+
+    // Naive state tracking by walking backwards
+    std::string current_section;
+    size_t last_section_start = text_before_cursor.rfind('[');
+    size_t last_section_end = text_before_cursor.rfind(']');
+
+    if (last_section_start != std::string::npos && (last_section_end == std::string::npos || last_section_end < last_section_start)) {
+        // Inside `[...`, suggest section names
+        for (const auto& [name, rules] : schema) {
+            completions.push_back(name);
+        }
+        return completions;
+    }
+
+    if (last_section_start != std::string::npos) {
+        current_section = text_before_cursor.substr(last_section_start + 1, last_section_end - last_section_start - 1);
+    }
+
+    // Find the start of the current line
+    size_t line_start = text_before_cursor.rfind('\n');
+    if (line_start == std::string::npos) {
+        line_start = 0;
+    } else {
+        line_start++; // Move after the newline
+    }
+
+    std::string current_line_text = text_before_cursor.substr(line_start);
+
+    // Trim leading whitespace
+    size_t first_char = current_line_text.find_first_not_of(" \t");
+    if (first_char == std::string::npos) { // Empty or whitespace line
+        if (!current_section.empty()) {
+            // Suggest keys for the current section
+             if (schema.count(current_section)) {
+                for (const auto& [key, rule] : schema.at(current_section)) {
+                    completions.push_back(key);
+                }
+            }
+        }
+        // Suggest new sections
+        for (const auto& [name, rules] : schema) {
+            completions.push_back("[" + name + "]");
+        }
+        return completions;
+    }
+
+    current_line_text = current_line_text.substr(first_char);
+
+    if (current_line_text.empty() || current_line_text[0] == '[') {
+         // Suggest section names
+        for (const auto& [name, rules] : schema) {
+            completions.push_back(name);
+        }
+        return completions;
+    }
+
+    // Check if we are typing a key or a value
+    size_t equals_pos = current_line_text.find('=');
+    if (equals_pos == std::string::npos) {
+        // Typing a key
+        if (!current_section.empty() && schema.count(current_section)) {
+            for (const auto& [key, rule] : schema.at(current_section)) {
+                if (key.rfind(current_line_text, 0) == 0) { // starts with
+                    completions.push_back(key);
+                }
+            }
+        }
+    } else {
+        // Typing a value
+        std::string key_being_typed = current_line_text.substr(0, equals_pos);
+        // trim trailing space
+        size_t last_char = key_being_typed.find_last_not_of(" \t");
+        if(last_char != std::string::npos) {
+            key_being_typed = key_being_typed.substr(0, last_char + 1);
+        }
+
+
+        if (!current_section.empty() && schema.count(current_section) && schema.at(current_section).count(key_being_typed)) {
+            const auto& rule = schema.at(current_section).at(key_being_typed);
+            if (rule.type.has_value()) {
+                if (rule.type.value() == "bool") {
+                    completions.push_back("true");
+                    completions.push_back("false");
+                }
+                // Could add more type-specific suggestions here
+            }
+            if (rule.default_value.has_value()) {
+                completions.push_back(to_yini_string(rule.default_value.value()));
+            }
+        }
+    }
+
+    return completions;
 }
 
 // --- JSON Serialization Implementations ---

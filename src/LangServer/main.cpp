@@ -44,8 +44,16 @@ void send_notification(const std::string& method, const json& params) {
 void validate_document(const std::string& uri, const std::string& text) {
     std::vector<json> diagnostics;
     try {
+        // We need a way to get the file path from the URI
+        std::string file_path = uri;
+        if (file_path.rfind("file://", 0) == 0) {
+            file_path = file_path.substr(7);
+        }
+        std::filesystem::path p(file_path);
+        std::string base_dir = p.parent_path().string();
+
         Parser parser;
-        Config config = parser.parse(text);
+        Config config = parser.parse(text, base_dir); // Parse text content directly
         parser.validate(config);
         open_documents[uri] = {text, std::move(config), parser.getMacroMap()};
     } catch (const ParsingException& e) {

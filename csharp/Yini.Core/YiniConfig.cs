@@ -17,29 +17,33 @@ namespace Yini.Core
     }
 
     [StructLayout(LayoutKind.Explicit)]
-    internal struct YiniValue
+    internal struct YiniValueUnion
     {
         [FieldOffset(0)]
-        public YiniValueType Type;
-
-        [FieldOffset(8)]
         public IntPtr StringValue;
 
-        [FieldOffset(8)]
+        [FieldOffset(0)]
         public int IntValue;
 
-        [FieldOffset(8)]
+        [FieldOffset(0)]
         public double DoubleValue;
 
-        [FieldOffset(8)]
+        [FieldOffset(0)]
         [MarshalAs(UnmanagedType.I1)]
         public bool BoolValue;
 
-        [FieldOffset(8)]
+        [FieldOffset(0)]
         public IntPtr ArrayValue;
 
-        [FieldOffset(8)]
+        [FieldOffset(0)]
         public IntPtr MapValue;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct YiniValue
+    {
+        public YiniValueType Type;
+        public YiniValueUnion As;
     }
 
     [StructLayout(LayoutKind.Sequential)]
@@ -224,17 +228,17 @@ namespace Yini.Core
                 case YiniValueType.Null:
                     return null;
                 case YiniValueType.String:
-                    return Marshal.PtrToStringAnsi(value.StringValue);
+                    return Marshal.PtrToStringAnsi(value.As.StringValue);
                 case YiniValueType.Int:
-                    return value.IntValue;
+                    return value.As.IntValue;
                 case YiniValueType.Double:
-                    return value.DoubleValue;
+                    return value.As.DoubleValue;
                 case YiniValueType.Bool:
-                    return value.BoolValue;
+                    return value.As.BoolValue;
                 case YiniValueType.Array:
-                    return MarshalYiniArray(value.ArrayValue);
+                    return MarshalYiniArray(value.As.ArrayValue);
                 case YiniValueType.Map:
-                    return MarshalYiniMap(value.MapValue);
+                    return MarshalYiniMap(value.As.MapValue);
                 default:
                     throw new NotSupportedException($"Unsupported YiniValueType: {value.Type}");
             }

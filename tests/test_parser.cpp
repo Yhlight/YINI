@@ -274,7 +274,7 @@ TEST(ParserTest, FileInclusion) {
 TEST(ParserTest, SchemaParsing) {
     std::string filepath = "tests/schema.yini";
     Parser parser;
-    parser.parseFile(filepath);
+    parser.parseFile(filepath, false); // Don't validate a schema-only file
 
     const auto& schema = parser.getSchema();
 

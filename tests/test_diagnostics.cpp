@@ -22,3 +22,49 @@ key2 = = invalid_value
         FAIL() << "Expected a ParsingException, but a different exception was thrown.";
     }
 }
+
+TEST(DiagnosticsTest, SchemaViolation_TypeMismatch_ThrowsWithLocation) {
+    std::string input = R"(
+[#schema]
+[MySection]
+my_key = !, int
+
+[MySection]
+my_key = "this is a string"
+)";
+
+    Parser parser;
+    try {
+        parser.parse(input);
+        FAIL() << "Expected a ParsingException to be thrown.";
+    } catch (const ParsingException& e) {
+        EXPECT_EQ(e.getLine(), 7);
+        EXPECT_EQ(e.getColumn(), 1);
+        EXPECT_NE(std::string(e.what()).find("Type mismatch"), std::string::npos);
+    } catch (...) {
+        FAIL() << "Expected a ParsingException, but a different exception was thrown.";
+    }
+}
+
+TEST(DiagnosticsTest, SchemaViolation_RangeError_ThrowsWithLocation) {
+    std::string input = R"(
+[#schema]
+[MySection]
+my_key = !, int, min=10
+
+[MySection]
+my_key = 5
+)";
+
+    Parser parser;
+    try {
+        parser.parse(input);
+        FAIL() << "Expected a ParsingException to be thrown.";
+    } catch (const ParsingException& e) {
+        EXPECT_EQ(e.getLine(), 7);
+        EXPECT_EQ(e.getColumn(), 1);
+        EXPECT_NE(std::string(e.what()).find("below minimum"), std::string::npos);
+    } catch (...) {
+        FAIL() << "Expected a ParsingException, but a different exception was thrown.";
+    }
+}

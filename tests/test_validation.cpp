@@ -6,8 +6,8 @@ protected:
     Parser schema_parser;
 
     void SetUp() override {
-        // Load the schema once for all tests in this suite
-        schema_parser.parseFile("tests/schema.yini");
+        // Load the schema once for all tests in this suite, without validating it
+        schema_parser.parseFile("tests/schema.yini", false);
     }
 };
 

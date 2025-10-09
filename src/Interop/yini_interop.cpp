@@ -212,8 +212,10 @@ YiniValue* to_c_style_value(const ConfigValue& cpp_value) {
         using T = std::decay_t<decltype(v)>;
         if constexpr (std::is_same_v<T, std::string>) {
             c_value->type = YINI_TYPE_STRING;
-            char* str = new char[v.length() + 1];
-            strcpy(str, v.c_str());
+            const size_t len = v.length();
+            char* str = new char[len + 1];
+            strncpy(str, v.c_str(), len);
+            str[len] = '\0';
             c_value->as.string_value = str;
         } else if constexpr (std::is_same_v<T, int>) {
             c_value->type = YINI_TYPE_INT;
@@ -241,8 +243,10 @@ YiniValue* to_c_style_value(const ConfigValue& cpp_value) {
             size_t i = 0;
             for (const auto& [key, value] : v->elements) {
                 YiniMapEntry* entry = new YiniMapEntry();
-                char* c_key = new char[key.length() + 1];
-                strcpy(c_key, key.c_str());
+                const size_t key_len = key.length();
+                char* c_key = new char[key_len + 1];
+                strncpy(c_key, key.c_str(), key_len);
+                c_key[key_len] = '\0';
                 entry->key = c_key;
                 entry->value = to_c_style_value(value);
                 c_map->entries[i++] = entry;
