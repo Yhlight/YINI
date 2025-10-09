@@ -1,27 +1,10 @@
 # Build artifacts
 build/
-*.o
-*.a
+bin/
 *.so
-*.dll
+*.a
 *.exe
-*.out
-
-# YINI generated files
-*.ymeta
-*.YMETA
-YMETA/
-
-# Common temporary files
-*~
-.DS_Store
-Thumbs.db
-
-# IDE and editor files
-.vscode/
-.idea/
-*.swp
-*.swo
+*.dll
 
 # CMake files
 CMakeCache.txt
@@ -29,14 +12,11 @@ CMakeFiles/
 cmake_install.cmake
 Makefile
 
-# C# / .NET
-csharp/Yini.Core/bin/
-csharp/Yini.Core/obj/
-csharp/Yini.Core.Tests/bin/
-csharp/Yini.Core.Tests/obj/
-[Bb]in/
-[Oo]bj/
-*.user
-*.userosscache
-*.sln.docstates
-.vs/
+# Ymeta cache files
+*.ymeta
+
+# VSCode
+.vscode/
+
+# Rider
+.idea/

@@ -1,29 +1,38 @@
 import os
 import subprocess
 import sys
-
-def run_command(command):
-    """Executes a command and exits if it fails."""
-    try:
-        subprocess.run(command, check=True, shell=True)
-    except subprocess.CalledProcessError as e:
-        print(f"Error executing command: {' '.join(command)}\n{e}", file=sys.stderr)
-        sys.exit(1)
+import shutil
 
 def main():
-    """Configures and builds the project using CMake."""
-    # Create a build directory if it doesn't exist
+    """
+    Automates the CMake build process for the YINI project.
+    """
     build_dir = "build"
-    if not os.path.exists(build_dir):
-        os.makedirs(build_dir)
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    build_path = os.path.join(script_dir, build_dir)
 
-    # Configure the project with CMake
+    # 1. Create build directory
+    if not os.path.exists(build_path):
+        print(f"--- Creating build directory at: {build_path} ---")
+        os.makedirs(build_path)
+
+    # 2. Configure project with CMake
     print("--- Configuring project ---")
-    run_command(f"cmake -S . -B {build_dir}")
+    cmake_args = ["cmake", "-S", script_dir, "-B", build_path]
+    result = subprocess.run(cmake_args, check=False)
+    if result.returncode != 0:
+        print("CMake configuration failed.", file=sys.stderr)
+        sys.exit(1)
 
-    # Build the project
+    # 3. Build project
     print("--- Building project ---")
-    run_command(f"cmake --build {build_dir}")
+    build_args = ["cmake", "--build", build_path]
+    result = subprocess.run(build_args, check=False)
+    if result.returncode != 0:
+        print("Build failed.", file=sys.stderr)
+        sys.exit(1)
+
+    print("\nBuild completed successfully!")
 
 if __name__ == "__main__":
     main()
