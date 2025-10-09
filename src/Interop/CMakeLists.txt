@@ -5,6 +5,6 @@ target_include_directories(YiniInterop PUBLIC
     ${CMAKE_SOURCE_DIR}/src
 )
 
-target_link_libraries(YiniInterop PUBLIC YiniParser)
+target_link_libraries(YiniInterop PUBLIC YiniParser YmetaManager)
 
 install(TARGETS YiniInterop DESTINATION lib)

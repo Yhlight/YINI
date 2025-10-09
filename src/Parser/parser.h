@@ -131,6 +131,7 @@ public:
     Parser(Lexer& lexer);
     Config parse(const std::string& input);
     Config parseFile(const std::string& filepath);
+    ConfigValue parseValue(const std::string& input);
     const Schema& getSchema() const;
     void validate(Config& config) const;
 
@@ -170,5 +171,19 @@ void to_json(nlohmann::json& j, const Color& c);
 void to_json(nlohmann::json& j, const Coord& c);
 void to_json(nlohmann::json& j, const Path& p);
 void to_json(nlohmann::json& j, const DynaValue& d);
+
+// --- JSON Deserialization ---
+void from_json(const nlohmann::json& j, ConfigValue& val);
+void from_json(const nlohmann::json& j, Array& a);
+void from_json(const nlohmann::json& j, Set& s);
+void from_json(const nlohmann::json& j, Map& m);
+void from_json(const nlohmann::json& j, CrossSectionRef& r);
+void from_json(const nlohmann::json& j, Color& c);
+void from_json(const nlohmann::json& j, Coord& co);
+void from_json(const nlohmann::json& j, Path& p);
+void from_json(const nlohmann::json& j, DynaValue& d);
+
+// --- YINI String Serialization ---
+std::string to_yini_string(const ConfigValue& val);
 
 #endif // PARSER_H

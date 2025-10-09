@@ -9,6 +9,13 @@
     "categories": [
         "Programming Languages"
     ],
+    "main": "./extension.js",
+    "activationEvents": [
+        "onLanguage:yini"
+    ],
+    "dependencies": {
+        "vscode-languageclient": "^7.0.0"
+    },
     "contributes": {
         "languages": [{
             "id": "yini",

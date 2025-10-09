@@ -3,6 +3,8 @@
 #include "Parser/parser.h"
 #include <fstream>
 #include <nlohmann/json.hpp>
+#include <thread>
+#include <chrono>
 
 TEST(YmetaTest, DynaValueSerialization) {
     // 1. Setup: Create a config with a DynaValue
@@ -44,4 +46,89 @@ TEST(YmetaTest, DynaValueSerialization) {
     // 4. Teardown: Clean up the generated file
     ymeta_file.close();
     std::remove(ymeta_filepath.c_str());
+}
+
+TEST(YmetaTest, YmetaLoadingAndCacheInvalidation) {
+    std::string yini_filepath = "test_cache.yini";
+    std::string ymeta_filepath = "test_cache.ymeta";
+
+    // 1. Create a .yini and a .ymeta file
+    {
+        std::ofstream yini_file(yini_filepath);
+        yini_file << "[Cache]\nvalue = 1";
+    }
+    {
+        nlohmann::json j;
+        j["Cache"]["value"] = 1;
+        std::ofstream ymeta_file(ymeta_filepath);
+        ymeta_file << j.dump();
+    }
+
+    // Ensure ymeta is newer (sleep for a bit to ensure timestamp difference)
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    {
+        std::ofstream yini_file(yini_filepath, std::ios_base::app);
+        yini_file << "\n";
+    }
+     std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    {
+        std::ofstream ymeta_file(ymeta_filepath, std::ios_base::app);
+        ymeta_file << "\n";
+    }
+
+
+    // 2. Test loading from cache
+    YmetaManager ymeta_manager;
+    auto cached_config = ymeta_manager.read(yini_filepath);
+    ASSERT_TRUE(cached_config.has_value());
+    EXPECT_EQ(std::get<int>((*cached_config)["Cache"]["value"]), 1);
+
+    // 3. Test cache invalidation
+    // Make the .yini file newer than the .ymeta file
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    {
+        std::ofstream yini_file(yini_filepath, std::ios_base::app);
+        yini_file << "// updated";
+    }
+
+    auto stale_config = ymeta_manager.read(yini_filepath);
+    EXPECT_FALSE(stale_config.has_value());
+
+    // 4. Teardown
+    std::remove(yini_filepath.c_str());
+    std::remove(ymeta_filepath.c_str());
+}
+
+TEST(YmetaTest, YiniWriteBack) {
+    // 1. Setup: Create a config object
+    Config config;
+    auto& section = config["Test"];
+    section["my_string"] = "hello";
+    section["my_int"] = 123;
+    auto arr = std::make_unique<Array>();
+    arr->elements.push_back(1);
+    arr->elements.push_back("two");
+    section["my_array"] = std::move(arr);
+
+    // 2. Action: Write the config to a .yini file
+    std::string yini_filepath = "test_write_back.yini";
+    YmetaManager ymeta_manager;
+    ymeta_manager.write_yini(yini_filepath, config);
+
+    // 3. Verification: Read the file and check its content
+    std::ifstream yini_file(yini_filepath);
+    std::stringstream buffer;
+    buffer << yini_file.rdbuf();
+    std::string content = buffer.str();
+
+    std::string expected_content =
+        "[Test]\n"
+        "my_array = [1, \"two\"]\n"
+        "my_int = 123\n"
+        "my_string = \"hello\"\n\n";
+
+    EXPECT_EQ(content, expected_content);
+
+    // 4. Teardown
+    std::remove(yini_filepath.c_str());
 }

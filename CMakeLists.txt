@@ -24,6 +24,7 @@ add_subdirectory(src/Lexer)
 add_subdirectory(src/Parser)
 add_subdirectory(src/Ymeta)
 add_subdirectory(src/Interop)
+add_subdirectory(src/LangServer)
 add_subdirectory(src/cli)
 
 # Add test directory

@@ -730,6 +730,13 @@ Config Parser::parseFile(const std::string& filepath) {
     return std::move(this->config);
 }
 
+ConfigValue Parser::parseValue(const std::string& input) {
+    Lexer temp_lexer(input);
+    this->lexer = &temp_lexer;
+    nextToken();
+    return parse_expression();
+}
+
 const Schema& Parser::getSchema() const {
     return schema;
 }
@@ -808,4 +815,152 @@ void to_json(nlohmann::json& j, const DynaValue& d) {
         {"value", val_json},
         {"backup", backup_json}
     };
+}
+
+// --- JSON Deserialization Implementations ---
+void from_json(const nlohmann::json& j, DynaValue& d) {
+    if (j.contains("__type") && j["__type"] == "DynaValue") {
+        if (j.contains("value") && !j["value"].is_null()) {
+            d.value = std::make_unique<ConfigValue>(j["value"].get<ConfigValue>());
+        }
+        if (j.contains("backup") && j["backup"].is_array()) {
+            for (const auto& backup_item : j["backup"]) {
+                d.backup.push_back(std::make_unique<ConfigValue>(backup_item.get<ConfigValue>()));
+            }
+        }
+    }
+}
+
+void from_json(const nlohmann::json& j, Path& p) {
+    if (j.contains("__type") && j["__type"] == "Path") {
+        p.value = j.at("value").get<std::string>();
+    }
+}
+
+void from_json(const nlohmann::json& j, Coord& c) {
+    if (j.contains("__type") && j["__type"] == "Coord") {
+        c.x = j.at("x").get<int>();
+        c.y = j.at("y").get<int>();
+        c.z = j.at("z").get<int>();
+    }
+}
+
+void from_json(const nlohmann::json& j, Color& c) {
+    if (j.contains("__type") && j["__type"] == "Color") {
+        c.r = j.at("r").get<int>();
+        c.g = j.at("g").get<int>();
+        c.b = j.at("b").get<int>();
+    }
+}
+
+void from_json(const nlohmann::json& j, CrossSectionRef& r) {
+    if (j.contains("__type") && j["__type"] == "CrossSectionRef") {
+        r.section = j.at("section").get<std::string>();
+        r.key = j.at("key").get<std::string>();
+    }
+}
+
+void from_json(const nlohmann::json& j, Map& m) {
+    if (j.is_object()) {
+        for (auto it = j.begin(); it != j.end(); ++it) {
+            m.elements[it.key()] = it.value().get<ConfigValue>();
+        }
+    }
+}
+
+void from_json(const nlohmann::json& j, Set& s) {
+    if (j.is_array()) {
+        for (const auto& item : j) {
+            s.elements.push_back(item.get<ConfigValue>());
+        }
+    }
+}
+
+void from_json(const nlohmann::json& j, Array& a) {
+    if (j.is_array()) {
+        for (const auto& item : j) {
+            a.elements.push_back(item.get<ConfigValue>());
+        }
+    }
+}
+
+void from_json(const nlohmann::json& j, ConfigValue& val) {
+    if (j.is_string()) {
+        val = j.get<std::string>();
+    } else if (j.is_number_integer()) {
+        val = j.get<int>();
+    } else if (j.is_number_float()) {
+        val = j.get<double>();
+    } else if (j.is_boolean()) {
+        val = j.get<bool>();
+    } else if (j.is_array()) {
+        val = std::make_unique<Array>(j.get<Array>());
+    } else if (j.is_object()) {
+        if (j.contains("__type")) {
+            const std::string type = j["__type"];
+            if (type == "CrossSectionRef") val = j.get<CrossSectionRef>();
+            else if (type == "Color") val = j.get<Color>();
+            else if (type == "Coord") val = j.get<Coord>();
+            else if (type == "Path") val = j.get<Path>();
+            else if (type == "DynaValue") val = std::make_unique<DynaValue>(j.get<DynaValue>());
+            else val = std::make_unique<Map>(j.get<Map>()); // Default to Map if type is unknown
+        } else {
+            val = std::make_unique<Map>(j.get<Map>());
+        }
+    } else if (j.is_null()) {
+        // How to handle null? For now, maybe an empty string or a special null type if added later.
+        val = std::string();
+    }
+}
+
+// --- YINI String Serialization ---
+std::string to_yini_string(const ConfigValue& val) {
+    return std::visit([](const auto& v) -> std::string {
+        using T = std::decay_t<decltype(v)>;
+        std::stringstream ss;
+
+        if constexpr (std::is_same_v<T, std::string>) {
+            return "\"" + v + "\"";
+        } else if constexpr (std::is_same_v<T, int> || std::is_same_v<T, double>) {
+            return std::to_string(v);
+        } else if constexpr (std::is_same_v<T, bool>) {
+            return v ? "true" : "false";
+        } else if constexpr (std::is_same_v<T, std::unique_ptr<Array>>) {
+            ss << "[";
+            for (size_t i = 0; i < v->elements.size(); ++i) {
+                ss << to_yini_string(v->elements[i]) << (i == v->elements.size() - 1 ? "" : ", ");
+            }
+            ss << "]";
+            return ss.str();
+        } else if constexpr (std::is_same_v<T, std::unique_ptr<Set>>) {
+            ss << "(";
+            for (size_t i = 0; i < v->elements.size(); ++i) {
+                ss << to_yini_string(v->elements[i]) << (i == v->elements.size() - 1 ? "" : ", ");
+            }
+            ss << ")";
+            return ss.str();
+        } else if constexpr (std::is_same_v<T, std::unique_ptr<Map>>) {
+            ss << "{";
+            size_t i = 0;
+            for (const auto& [key, value] : v->elements) {
+                ss << key << ": " << to_yini_string(value) << (i++ == v->elements.size() - 1 ? "" : ", ");
+            }
+            ss << "}";
+            return ss.str();
+        } else if constexpr (std::is_same_v<T, CrossSectionRef>) {
+            return "@{" + v.section + "." + v.key + "}";
+        } else if constexpr (std::is_same_v<T, Color>) {
+            return "color(" + std::to_string(v.r) + ", " + std::to_string(v.g) + ", " + std::to_string(v.b) + ")";
+        } else if constexpr (std::is_same_v<T, Coord>) {
+            return "Coord(" + std::to_string(v.x) + ", " + std::to_string(v.y) + ", " + std::to_string(v.z) + ")";
+        } else if constexpr (std::is_same_v<T, Path>) {
+            return "path(\"" + v.value + "\")";
+        } else if constexpr (std::is_same_v<T, std::unique_ptr<DynaValue>>) {
+            if (v && v->value) {
+                return "Dyna(" + to_yini_string(*v->value) + ")";
+            }
+            return "Dyna(null)";
+        }
+        return "null"; // Should not happen for valid ConfigValue
+    }, val);
 }
