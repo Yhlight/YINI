@@ -33,6 +33,8 @@ namespace Yini.Core
                     else if (_value is int i) _config.SetInt(_section, _key, i);
                     else if (_value is double d) _config.SetDouble(_section, _key, d);
                     else if (_value is bool b) _config.SetBool(_section, _key, b);
+
+                    _config.MarkAsDirty();
                 }
             }
         }

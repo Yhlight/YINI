@@ -2,6 +2,7 @@
 #define PARSER_H
 
 #include "lexer.h"
+#include "ParsingException.h"
 #include <string>
 #include <vector>
 #include <map>
@@ -127,12 +128,19 @@ using Config = std::map<std::string, ConfigSection>;
 // --- Parser Class ---
 class Parser {
 public:
+    struct MacroDefinition {
+        ConfigValue value;
+        size_t line;
+        size_t column;
+    };
+
     Parser() = default;
     Parser(Lexer& lexer);
     Config parse(const std::string& input);
     Config parseFile(const std::string& filepath);
     ConfigValue parseValue(const std::string& input);
     const Schema& getSchema() const;
+    std::map<std::string, MacroDefinition> getMacroMap();
     void validate(Config& config) const;
 
 private:
@@ -141,7 +149,8 @@ private:
     Config config;
     Schema schema;
     std::map<std::string, std::vector<std::string>> inheritanceMap;
-    std::map<std::string, ConfigValue> macroMap;
+    std::map<std::string, MacroDefinition> macroMap;
+
     bool in_schema_mode = false;
     std::string current_schema_target_section;
 

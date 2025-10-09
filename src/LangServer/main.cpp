@@ -12,6 +12,7 @@ using json = nlohmann::json;
 struct DocumentState {
     std::string text;
     Config config;
+    std::map<std::string, Parser::MacroDefinition> macroMap;
 };
 std::map<std::string, DocumentState> open_documents;
 
@@ -46,7 +47,21 @@ void validate_document(const std::string& uri, const std::string& text) {
         Parser parser;
         Config config = parser.parse(text);
         parser.validate(config);
-        open_documents[uri] = {text, std::move(config)}; // Store document text and config
+        open_documents[uri] = {text, std::move(config), parser.getMacroMap()};
+    } catch (const ParsingException& e) {
+        size_t line = e.getLine() > 0 ? e.getLine() - 1 : 0;
+        size_t col = e.getColumn() > 0 ? e.getColumn() - 1 : 0;
+        diagnostics.push_back({
+            {"range", {
+                {"start", {{"line", line}, {"character", col}}},
+                {"end", {{"line", line}, {"character", col + 1}}}
+            }},
+            {"severity", 1}, // Error
+            {"source", "yini"},
+            {"message", e.what()}
+        });
+        open_documents.erase(uri);
+        open_documents[uri].text = text;
     } catch (const std::exception& e) {
         diagnostics.push_back({
             {"range", {
@@ -57,7 +72,6 @@ void validate_document(const std::string& uri, const std::string& text) {
             {"source", "yini"},
             {"message", e.what()}
         });
-        // Even on error, store the text so we have it for other operations
         open_documents.erase(uri);
         open_documents[uri].text = text;
     }
@@ -120,10 +134,49 @@ int main() {
                             {"hoverProvider", true},
                             {"completionProvider", {
                                 {"triggerCharacters", {"[", ".", "@"}}
-                            }}
+                            }},
+                            {"definitionProvider", true}
                         };
                         send_response(id, {{"capabilities", capabilities}});
-                    } else if (method == "textDocument/completion") {
+                    } else if (method == "textDocument/definition") {
+                        std::string uri = request["params"]["textDocument"]["uri"];
+                        if (open_documents.count(uri)) {
+                            const auto& state = open_documents.at(uri);
+                            int line = request["params"]["position"]["line"];
+                            int character = request["params"]["position"]["character"];
+
+                            Lexer lexer(state.text);
+                            std::vector<Token> tokens = lexer.allTokens();
+
+                            Token* found_token = nullptr;
+                            for (auto& token : tokens) {
+                                if (token.type == TokenType::Identifier &&
+                                    token.line == static_cast<size_t>(line + 1) &&
+                                    token.column <= static_cast<size_t>(character + 1) &&
+                                    static_cast<size_t>(character + 1) < token.column + token.value.length()) {
+                                    found_token = &token;
+                                    break;
+                                }
+                            }
+
+                            if (found_token && state.macroMap.count(found_token->value)) {
+                                const auto& def = state.macroMap.at(found_token->value);
+                                json location = {
+                                    {"uri", uri},
+                                    {"range", {
+                                        {"start", {{"line", def.line - 1}, {"character", def.column - 1}}},
+                                        {"end", {{"line", def.line - 1}, {"character", def.column - 1 + found_token->value.length()}}}
+                                    }}
+                                };
+                                send_response(id, location);
+                            } else {
+                                send_response(id, nullptr);
+                            }
+                        } else {
+                            send_response(id, nullptr);
+                        }
+                    }
+                    else if (method == "textDocument/completion") {
                         std::string uri = request["params"]["textDocument"]["uri"];
                         json position = request["params"]["position"];
                         std::vector<json> completions;

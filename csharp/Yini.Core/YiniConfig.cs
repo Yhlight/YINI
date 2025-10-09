@@ -76,7 +76,13 @@ namespace Yini.Core
 
         private IntPtr _handle;
         private bool _disposed = false;
+        private bool _isDirty = false;
         private readonly string _filepath;
+
+        internal void MarkAsDirty()
+        {
+            _isDirty = true;
+        }
 
         [DllImport(LibName, EntryPoint = "yini_parse_file", CallingConvention = CallingConvention.Cdecl)]
         private static extern IntPtr YiniParseFile(string filepath);
@@ -280,6 +286,10 @@ namespace Yini.Core
             {
                 if (_handle != IntPtr.Zero)
                 {
+                    if (_isDirty)
+                    {
+                        Save();
+                    }
                     YiniFreeConfig(_handle);
                     _handle = IntPtr.Zero;
                 }

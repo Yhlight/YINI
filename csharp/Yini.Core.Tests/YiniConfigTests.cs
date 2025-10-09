@@ -167,5 +167,22 @@ level = Dyna(10)
                 Assert.AreEqual(10, reloadedDynaLevel.Backups[0]);
             }
         }
+
+        [Test]
+        public void DynaValue_AutoSavesOnDispose()
+        {
+            // Act: Modify the value within a using scope, which will trigger Dispose
+            using (var config = new YiniConfig(TestFileName))
+            {
+                DynaValue<int> dynaLevel = config.GetDyna<int>("Dynamic", "level");
+                dynaLevel.Value = 25;
+            }
+
+            // Assert: Verify the change was persisted after Dispose was called
+            using (var newConfig = new YiniConfig(TestFileName))
+            {
+                Assert.AreEqual(25, newConfig.GetInt("Dynamic", "level"));
+            }
+        }
     }
 }

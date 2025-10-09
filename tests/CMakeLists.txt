@@ -9,7 +9,7 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(googletest)
 
 # Create the test executable
-add_executable(yini_tests test_lexer.cpp test_parser.cpp test_validation.cpp test_cli.cpp test_ymeta.cpp test_repl.cpp)
+add_executable(yini_tests test_lexer.cpp test_parser.cpp test_validation.cpp test_cli.cpp test_ymeta.cpp test_repl.cpp test_diagnostics.cpp)
 
 # Link the test executable against GoogleTest
 target_link_libraries(yini_tests GTest::gtest_main)

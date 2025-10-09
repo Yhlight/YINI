@@ -124,7 +124,7 @@ ConfigValue deep_copy_value(const ConfigValue& val) {
 }
 
 // --- Arithmetic Helper ---
-ConfigValue apply_op(const ConfigValue& left, const ConfigValue& right, TokenType op) {
+ConfigValue apply_op(const ConfigValue& left, const ConfigValue& right, const Token& op) {
     if ((std::holds_alternative<int>(left) || std::holds_alternative<double>(left)) &&
         (std::holds_alternative<int>(right) || std::holds_alternative<double>(right)))
     {
@@ -132,28 +132,28 @@ ConfigValue apply_op(const ConfigValue& left, const ConfigValue& right, TokenTyp
         if (is_double) {
             double val_l = std::holds_alternative<double>(left) ? std::get<double>(left) : static_cast<double>(std::get<int>(left));
             double val_r = std::holds_alternative<double>(right) ? std::get<double>(right) : static_cast<double>(std::get<int>(right));
-            switch (op) {
+            switch (op.type) {
                 case TokenType::Plus: return val_l + val_r;
                 case TokenType::Minus: return val_l - val_r;
                 case TokenType::Star: return val_l * val_r;
-                case TokenType::Slash: if (val_r == 0) throw std::runtime_error("Division by zero"); return val_l / val_r;
-                default: throw std::runtime_error("Invalid operator for doubles");
+                case TokenType::Slash: if (val_r == 0) throw ParsingException("Division by zero", op.line, op.column); return val_l / val_r;
+                default: throw ParsingException("Invalid operator for doubles", op.line, op.column);
             }
         } else {
             int val_l = std::get<int>(left);
             int val_r = std::get<int>(right);
-            switch (op) {
+            switch (op.type) {
                 case TokenType::Plus: return val_l + val_r;
                 case TokenType::Minus: return val_l - val_r;
                 case TokenType::Star: return val_l * val_r;
-                case TokenType::Slash: if (val_r == 0) throw std::runtime_error("Division by zero"); return val_l / val_r; // Integer division
-                case TokenType::Percent: if (val_r == 0) throw std::runtime_error("Modulo by zero"); return val_l % val_r;
-                default: throw std::runtime_error("Invalid operator for integers");
+                case TokenType::Slash: if (val_r == 0) throw ParsingException("Division by zero", op.line, op.column); return val_l / val_r; // Integer division
+                case TokenType::Percent: if (val_r == 0) throw ParsingException("Modulo by zero", op.line, op.column); return val_l % val_r;
+                default: throw ParsingException("Invalid operator for integers", op.line, op.column);
             }
         }
     }
 
-    throw std::runtime_error("Invalid operands for arithmetic operation");
+    throw ParsingException("Invalid operands for arithmetic operation", op.line, op.column);
 }
 
 
@@ -170,17 +170,17 @@ void Parser::expect(TokenType type) {
     if (currentToken.type == type) {
         nextToken();
     } else {
-        throw std::runtime_error("Unexpected token");
+        throw ParsingException("Unexpected token", currentToken.line, currentToken.column);
     }
 }
 
 SchemaRule Parser::parseSchemaRule() {
     SchemaRule rule;
 
-    auto get_numeric_value = [](const ConfigValue& val) -> double {
+    auto get_numeric_value = [&](const ConfigValue& val) -> double {
         if (std::holds_alternative<int>(val)) return static_cast<double>(std::get<int>(val));
         if (std::holds_alternative<double>(val)) return std::get<double>(val);
-        throw std::runtime_error("min/max value must be a number");
+        throw ParsingException("min/max value must be a number", currentToken.line, currentToken.column);
     };
 
     while (true) {
@@ -238,7 +238,7 @@ ConfigValue Parser::parse_term() {
         Token op = currentToken;
         nextToken();
         ConfigValue right = parse_factor();
-        result = apply_op(result, right, op.type);
+        result = apply_op(result, right, op);
     }
     return result;
 }
@@ -249,12 +249,13 @@ ConfigValue Parser::parse_factor() {
         Token op = currentToken;
         nextToken();
         ConfigValue right = parse_primary();
-        result = apply_op(result, right, op.type);
+        result = apply_op(result, right, op);
     }
     return result;
 }
 
 ConfigValue Parser::parse_primary() {
+    Token start_token = currentToken;
     if (currentToken.type == TokenType::Minus) {
         nextToken(); // consume '-'
         ConfigValue operand = parse_primary();
@@ -264,7 +265,7 @@ ConfigValue Parser::parse_primary() {
         if (std::holds_alternative<double>(operand)) {
             return -std::get<double>(operand);
         }
-        throw std::runtime_error("Unary minus can only be applied to numbers.");
+        throw ParsingException("Unary minus can only be applied to numbers.", start_token.line, start_token.column);
     }
     if (currentToken.type == TokenType::Plus) {
         nextToken(); // consume '+'
@@ -275,8 +276,12 @@ ConfigValue Parser::parse_primary() {
         case TokenType::Number: {
             std::string value = currentToken.value;
             nextToken();
-            if (value.find('.') != std::string::npos) return std::stod(value);
-            else return std::stoi(value);
+            try {
+                if (value.find('.') != std::string::npos) return std::stod(value);
+                else return std::stoi(value);
+            } catch (const std::invalid_argument& e) {
+                throw ParsingException("Invalid number format: " + value, start_token.line, start_token.column);
+            }
         }
         case TokenType::String: {
             std::string value = currentToken.value;
@@ -321,28 +326,28 @@ ConfigValue Parser::parse_primary() {
              nextToken(); // consume '@'
             if (currentToken.type == TokenType::LeftBrace) {
                 nextToken();
-                if (currentToken.type != TokenType::Identifier) throw std::runtime_error("Expected section name in reference");
+                if (currentToken.type != TokenType::Identifier) throw ParsingException("Expected section name in reference", currentToken.line, currentToken.column);
                 std::string sectionName = currentToken.value;
                 nextToken();
                 expect(TokenType::Dot);
-                if (currentToken.type != TokenType::Identifier) throw std::runtime_error("Expected key name in reference");
+                if (currentToken.type != TokenType::Identifier) throw ParsingException("Expected key name in reference", currentToken.line, currentToken.column);
                 std::string keyName = currentToken.value;
                 nextToken();
                 expect(TokenType::RightBrace);
                 return CrossSectionRef{sectionName, keyName};
             } else {
-                if (currentToken.type != TokenType::Identifier) throw std::runtime_error("Expected identifier after '@'");
+                if (currentToken.type != TokenType::Identifier) throw ParsingException("Expected identifier after '@'", currentToken.line, currentToken.column);
                 std::string macroName = currentToken.value;
                 nextToken();
-                if (macroMap.count(macroName)) return deep_copy_value(macroMap.at(macroName));
-                throw std::runtime_error("Undefined macro: " + macroName);
+                if (macroMap.count(macroName)) return deep_copy_value(macroMap.at(macroName).value);
+                throw ParsingException("Undefined macro: " + macroName, start_token.line, start_token.column);
             }
         }
         case TokenType::Dollar: {
             nextToken(); // consume '$'
             expect(TokenType::LeftBrace);
             if (currentToken.type != TokenType::Identifier) {
-                throw std::runtime_error("Expected environment variable name inside ${...}");
+                throw ParsingException("Expected environment variable name inside ${...}", currentToken.line, currentToken.column);
             }
             std::string varName = currentToken.value;
             nextToken(); // consume identifier
@@ -350,7 +355,7 @@ ConfigValue Parser::parse_primary() {
 
             const char* env_val_cstr = getenv(varName.c_str());
             if (!env_val_cstr) {
-                throw std::runtime_error("Environment variable not set: " + varName);
+                throw ParsingException("Environment variable not set: " + varName, start_token.line, start_token.column);
             }
             std::string env_val(env_val_cstr);
             Lexer temp_lexer(env_val);
@@ -362,14 +367,14 @@ ConfigValue Parser::parse_primary() {
             if (id.rfind("#", 0) == 0) { // Starts with #
                 nextToken(); // consume identifier
                 std::string hex = id.substr(1);
-                if (hex.length() != 6) throw std::runtime_error("Invalid hex color code length: " + hex);
+                if (hex.length() != 6) throw ParsingException("Invalid hex color code length: " + hex, start_token.line, start_token.column);
                 try {
                     int r = std::stoi(hex.substr(0, 2), nullptr, 16);
                     int g = std::stoi(hex.substr(2, 2), nullptr, 16);
                     int b = std::stoi(hex.substr(4, 2), nullptr, 16);
                     return Color{r, g, b};
                 } catch (const std::invalid_argument& e) {
-                    throw std::runtime_error("Invalid hex character in color code: " + hex);
+                    throw ParsingException("Invalid hex character in color code: " + hex, start_token.line, start_token.column);
                 }
             }
             if (id == "List" || id == "list" || id == "Array" || id == "array") {
@@ -415,7 +420,7 @@ ConfigValue Parser::parse_primary() {
             if (id == "path" || id == "Path") {
                 nextToken();
                 expect(TokenType::LeftParen);
-                if (currentToken.type != TokenType::String) throw std::runtime_error("path() expects a string literal");
+                if (currentToken.type != TokenType::String) throw ParsingException("path() expects a string literal", currentToken.line, currentToken.column);
                 std::string path_val = currentToken.value;
                 nextToken();
                 expect(TokenType::RightParen);
@@ -430,7 +435,7 @@ ConfigValue Parser::parse_primary() {
                 return dyna_val;
             }
         }
-        default: throw std::runtime_error("Unexpected value token: " + currentToken.value);
+        default: throw ParsingException("Unexpected value token: " + currentToken.value, currentToken.line, currentToken.column);
     }
 }
 
@@ -471,7 +476,7 @@ std::unique_ptr<Map> Parser::parseMap() {
     auto map = std::make_unique<Map>();
     if (currentToken.type != TokenType::RightBrace) {
         while (true) {
-            if (currentToken.type != TokenType::Identifier) throw std::runtime_error("Expected identifier for map key");
+            if (currentToken.type != TokenType::Identifier) throw ParsingException("Expected identifier for map key", currentToken.line, currentToken.column);
             std::string key = currentToken.value;
             nextToken();
             expect(TokenType::Colon);
@@ -611,33 +616,34 @@ void Parser::_parse(Lexer& lexer_ref, const std::string& current_dir) {
                     }
                 }
             } else {
-                throw std::runtime_error("Unexpected token inside brackets at top level.");
+                throw ParsingException("Unexpected token inside brackets at top level.", currentToken.line, currentToken.column);
             }
         } else if (currentToken.type == TokenType::Identifier) {
-            if (!currentSection && !in_schema_mode) throw std::runtime_error("Key-value pair outside of a section");
+            if (!currentSection && !in_schema_mode) throw ParsingException("Key-value pair outside of a section", currentToken.line, currentToken.column);
 
-            std::string key = currentToken.value;
+            Token key_token = currentToken;
+            std::string key = key_token.value;
             nextToken();
             expect(TokenType::Equals);
 
             if (in_schema_mode) {
-                if (current_schema_target_section.empty()) throw std::runtime_error("Schema rule defined without a section target");
+                if (current_schema_target_section.empty()) throw ParsingException("Schema rule defined without a section target", currentToken.line, currentToken.column);
                 schema[current_schema_target_section][key] = parseSchemaRule();
             } else {
                 ConfigValue value = parse_expression();
                 if (currentSectionName == "#define") {
-                    macroMap[key] = std::move(value);
+                    macroMap[key] = {std::move(value), key_token.line, key_token.column};
                 } else {
                     (*currentSection)[key] = std::move(value);
                 }
             }
         } else if (currentToken.type == TokenType::PlusEquals) {
-            if (!currentSection) throw std::runtime_error("Quick registration outside of a section");
+            if (!currentSection) throw ParsingException("Quick registration outside of a section", currentToken.line, currentToken.column);
             nextToken();
 
             if(currentSectionName == "#include") {
                 if (currentToken.type != TokenType::String) {
-                    throw std::runtime_error("Expected quoted filename for include.");
+                    throw ParsingException("Expected quoted filename for include.", currentToken.line, currentToken.column);
                 }
                 std::string filename = currentToken.value;
                 nextToken();
@@ -650,7 +656,7 @@ void Parser::_parse(Lexer& lexer_ref, const std::string& current_dir) {
                 std::string full_path = (current_path / file_path).string();
 
                 std::ifstream file(full_path);
-                if (!file) throw std::runtime_error("Could not open included file: " + full_path);
+                if (!file) throw ParsingException("Could not open included file: " + full_path, currentToken.line, currentToken.column);
                 std::stringstream buffer;
                 buffer << file.rdbuf();
                 Lexer included_lexer(buffer.str());
@@ -661,7 +667,7 @@ void Parser::_parse(Lexer& lexer_ref, const std::string& current_dir) {
                 this->currentToken = saved_token;
             } else {
                 if (currentSectionName == "#define") {
-                     throw std::runtime_error("Quick registration is not allowed in [#define] section");
+                     throw ParsingException("Quick registration is not allowed in [#define] section", currentToken.line, currentToken.column);
                 }
                 ConfigValue& registrationList = (*currentSection)[""];
                 if (!std::holds_alternative<std::unique_ptr<Array>>(registrationList)) {
@@ -671,8 +677,8 @@ void Parser::_parse(Lexer& lexer_ref, const std::string& current_dir) {
                 arr->elements.push_back(parse_expression());
             }
         }
-        else {
-            nextToken();
+        else if (currentToken.type != TokenType::EndOfFile) {
+            throw ParsingException("Unexpected token at top level.", currentToken.line, currentToken.column);
         }
     }
 }
@@ -741,9 +747,13 @@ const Schema& Parser::getSchema() const {
     return schema;
 }
 
+std::map<std::string, Parser::MacroDefinition> Parser::getMacroMap() {
+    return std::move(macroMap);
+}
+
 // --- JSON Serialization Implementations ---
 void to_json(nlohmann::json& j, const ConfigValue& val) {
-    std::visit([&j](const auto& v) {
+    std::visit([&j](const auto& v) -> void {
         using T = std::decay_t<decltype(v)>;
         if constexpr (std::is_same_v<T, std::unique_ptr<Array>>) {
             if (v) j = *v; else j = nullptr;
