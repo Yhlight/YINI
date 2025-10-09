@@ -113,6 +113,9 @@ namespace Yini.Core
         [DllImport(LibName, EntryPoint = "yini_get_path", CallingConvention = CallingConvention.Cdecl)]
         private static extern IntPtr YiniGetPathInternal(IntPtr handle, string section, string key);
 
+        [DllImport(LibName, EntryPoint = "yini_free_string", CallingConvention = CallingConvention.Cdecl)]
+        private static extern void YiniFreeString(IntPtr str);
+
         [DllImport(LibName, EntryPoint = "yini_free_config", CallingConvention = CallingConvention.Cdecl)]
         private static extern void YiniFreeConfig(IntPtr handle);
 
@@ -204,7 +207,14 @@ namespace Yini.Core
             {
                 return defaultValue;
             }
-            return Marshal.PtrToStringAnsi(cstr);
+            try
+            {
+                return Marshal.PtrToStringAnsi(cstr);
+            }
+            finally
+            {
+                YiniFreeString(cstr);
+            }
         }
 
         public object GetValue(string section, string key)

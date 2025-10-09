@@ -176,10 +176,17 @@ const char* yini_get_path(YiniConfigHandle handle, const char* section, const ch
     if (config->count(section) && (*config)[section].count(key)) {
         const auto& value_variant = (*config)[section][key];
         if (std::holds_alternative<Path>(value_variant)) {
-            return std::get<Path>(value_variant).value.c_str();
+            const std::string& path_str = std::get<Path>(value_variant).value;
+            char* c_str = new char[path_str.length() + 1];
+            strcpy(c_str, path_str.c_str());
+            return c_str;
         }
     }
     return nullptr;
+}
+
+void yini_free_string(const char* str) {
+    delete[] str;
 }
 
 

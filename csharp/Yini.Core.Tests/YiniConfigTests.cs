@@ -196,9 +196,7 @@ texture_path = path(""textures/player.png"")
             using (var config = new YiniConfig(TestFileName))
             {
                 Color color = config.GetColor("SpecialTypes", "player_color");
-                Assert.AreEqual(255, color.r);
-                Assert.AreEqual(100, color.g);
-                Assert.AreEqual(50, color.b);
+                Assert.AreEqual(new Color { r = 255, g = 100, b = 50 }, color);
             }
         }
 
@@ -208,9 +206,7 @@ texture_path = path(""textures/player.png"")
             using (var config = new YiniConfig(TestFileName))
             {
                 Coord coord = config.GetCoord("SpecialTypes", "spawn_point");
-                Assert.AreEqual(10, coord.x);
-                Assert.AreEqual(-20, coord.y);
-                Assert.AreEqual(5, coord.z);
+                Assert.AreEqual(new Coord { x = 10, y = -20, z = 5 }, coord);
             }
         }
 
@@ -237,9 +233,7 @@ texture_path = path(""textures/player.png"")
             using (var newConfig = new YiniConfig(TestFileName))
             {
                 Color result = newConfig.GetColor("SpecialTypes", "player_color");
-                Assert.AreEqual(newColor.r, result.r);
-                Assert.AreEqual(newColor.g, result.g);
-                Assert.AreEqual(newColor.b, result.b);
+                Assert.AreEqual(newColor, result);
             }
         }
 
@@ -256,9 +250,7 @@ texture_path = path(""textures/player.png"")
             using (var newConfig = new YiniConfig(TestFileName))
             {
                 Coord result = newConfig.GetCoord("SpecialTypes", "spawn_point");
-                Assert.AreEqual(newCoord.x, result.x);
-                Assert.AreEqual(newCoord.y, result.y);
-                Assert.AreEqual(newCoord.z, result.z);
+                Assert.AreEqual(newCoord, result);
             }
         }
 

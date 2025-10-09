@@ -1,4 +1,3 @@
-using System;
 using System.Runtime.InteropServices;
 
 namespace Yini.Core
@@ -9,6 +8,30 @@ namespace Yini.Core
         public int r;
         public int g;
         public int b;
+
+        public override bool Equals(object obj)
+        {
+            if (obj is Color other)
+            {
+                return r == other.r && g == other.g && b == other.b;
+            }
+            return false;
+        }
+
+        public override int GetHashCode()
+        {
+            return r.GetHashCode() ^ g.GetHashCode() ^ b.GetHashCode();
+        }
+
+        public static bool operator ==(Color left, Color right)
+        {
+            return left.Equals(right);
+        }
+
+        public static bool operator !=(Color left, Color right)
+        {
+            return !(left == right);
+        }
     }
 
     [StructLayout(LayoutKind.Sequential)]
@@ -17,29 +40,29 @@ namespace Yini.Core
         public int x;
         public int y;
         public int z;
-    }
 
-    [StructLayout(LayoutKind.Sequential)]
-    public struct Path
-    {
-        /// <summary>
-        /// A pointer to a C-style string (const char*).
-        /// Do not access directly; use the GetValue() method.
-        /// </summary>
-        internal IntPtr value_ptr;
-
-        public string GetValue()
+        public override bool Equals(object obj)
         {
-            if (value_ptr == IntPtr.Zero)
+            if (obj is Coord other)
             {
-                return null;
+                return x == other.x && y == other.y && z == other.z;
             }
-            return Marshal.PtrToStringAnsi(value_ptr);
+            return false;
         }
 
-        public override string ToString()
+        public override int GetHashCode()
         {
-            return GetValue();
+            return x.GetHashCode() ^ y.GetHashCode() ^ z.GetHashCode();
+        }
+
+        public static bool operator ==(Coord left, Coord right)
+        {
+            return left.Equals(right);
+        }
+
+        public static bool operator !=(Coord left, Coord right)
+        {
+            return !(left == right);
         }
     }
 }

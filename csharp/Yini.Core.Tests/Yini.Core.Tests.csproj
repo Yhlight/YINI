@@ -21,10 +21,16 @@
     <ProjectReference Include="..\Yini.Core\Yini.Core.csproj" />
   </ItemGroup>
 
+  <PropertyGroup>
+    <NativeLibName Condition="$([MSBuild]::IsOSPlatform('Linux'))">libYiniInterop.so</NativeLibName>
+    <NativeLibName Condition="$([MSBuild]::IsOSPlatform('Windows'))">YiniInterop.dll</NativeLibName>
+    <NativeLibName Condition="$([MSBuild]::IsOSPlatform('OSX'))">libYiniInterop.dylib</NativeLibName>
+  </PropertyGroup>
+
   <Target Name="CopyNativeLibrary" AfterTargets="Build">
-    <Message Text="Copying native YiniInterop library..." Importance="high" />
+    <Message Text="Copying native YiniInterop library: $(NativeLibName)" Importance="high" />
     <Copy
-      SourceFiles="../../build/src/Interop/libYiniInterop.so"
+      SourceFiles="../../build/src/Interop/$(NativeLibName)"
       DestinationFolder="$(OutDir)"
       SkipUnchangedFiles="true"
     />
