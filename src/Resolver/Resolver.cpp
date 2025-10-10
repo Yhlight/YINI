@@ -15,7 +15,7 @@ Resolver::Resolver(const std::vector<std::unique_ptr<AST::Stmt>>& statements, Ym
 {
 }
 
-std::map<std::string, std::any> Resolver::resolve()
+Resolver::ResolvedConfig Resolver::resolve()
 {
     // First pass: collect all section definitions
     for (const auto& stmt : m_statements)
@@ -146,11 +146,9 @@ void Resolver::visit_section(AST::SectionStmt* stmt)
         {
             visit_section(m_sections[parent_name]);
             // Copy resolved values from parent
-            for (auto const& [key, val] : m_resolved_config) {
-                std::string parent_prefix = parent_name + ".";
-                if (key.rfind(parent_prefix, 0) == 0) { // starts_with
-                    std::string new_key = stmt->name.lexeme + "." + key.substr(parent_prefix.length());
-                    m_resolved_config[new_key] = val;
+            if(m_resolved_config.count(parent_name)) {
+                for (auto const& [key, val] : m_resolved_config.at(parent_name)) {
+                    m_resolved_config[stmt->name.lexeme][key] = val;
                 }
             }
         }
@@ -205,24 +203,26 @@ void Resolver::visit_include(AST::IncludeStmt* stmt)
 
 void Resolver::visit_key_value(AST::KeyValueStmt* stmt)
 {
-    std::string key = m_current_section.empty() ? stmt->key.lexeme : m_current_section + "." + stmt->key.lexeme;
+    std::string section_name = m_current_section.empty() ? "" : m_current_section;
+    std::string key = stmt->key.lexeme;
+    std::string full_key = section_name.empty() ? key : section_name + "." + key;
 
     if (auto* dyna_expr = dynamic_cast<AST::DynaExpr*>(stmt->value.get()))
     {
-        if (m_ymeta_manager.has_value(key))
+        if (m_ymeta_manager.has_value(full_key))
         {
-            m_resolved_config[key] = m_ymeta_manager.get_value(key);
+            m_resolved_config[section_name][key] = m_ymeta_manager.get_value(full_key);
         }
         else
         {
             std::any value = resolve_expression(dyna_expr->expression.get());
-            m_ymeta_manager.set_value(key, value);
-            m_resolved_config[key] = value;
+            m_ymeta_manager.set_value(full_key, value);
+            m_resolved_config[section_name][key] = value;
         }
     }
     else
     {
-        m_resolved_config[key] = resolve_expression(stmt->value.get());
+        m_resolved_config[section_name][key] = resolve_expression(stmt->value.get());
     }
 }
 
@@ -343,12 +343,14 @@ std::any Resolver::visit_grouping(AST::GroupingExpr* expr)
 
 std::any Resolver::visit_cross_section_ref(AST::CrossSectionRefExpr* expr)
 {
-    std::string key = expr->section.lexeme + "." + expr->key.lexeme;
-    if (m_resolved_config.find(key) == m_resolved_config.end())
+    std::string section = expr->section.lexeme;
+    std::string key = expr->key.lexeme;
+    if (m_resolved_config.find(section) == m_resolved_config.end() ||
+        m_resolved_config.at(section).find(key) == m_resolved_config.at(section).end())
     {
-        throw std::runtime_error("Error at line " + std::to_string(expr->section.line) + ", column " + std::to_string(expr->section.column) + ": Undefined cross-section reference: " + key);
+        throw std::runtime_error("Error at line " + std::to_string(expr->section.line) + ", column " + std::to_string(expr->section.column) + ": Undefined cross-section reference: " + section + "." + key);
     }
-    return m_resolved_config[key];
+    return m_resolved_config.at(section).at(key);
 }
 
 std::any Resolver::visit_env_var_ref(AST::EnvVarRefExpr* expr)
@@ -369,8 +371,8 @@ void Resolver::visit_quick_reg(AST::QuickRegStmt* stmt)
     }
 
     int index = m_quick_reg_indices[m_current_section]++;
-    std::string key = m_current_section + "." + std::to_string(index);
-    m_resolved_config[key] = resolve_expression(stmt->value.get());
+    std::string key = std::to_string(index);
+    m_resolved_config[m_current_section][key] = resolve_expression(stmt->value.get());
 }
 
 std::any Resolver::visit_path(AST::PathExpr* expr)

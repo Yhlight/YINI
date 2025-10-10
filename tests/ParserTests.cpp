@@ -487,3 +487,56 @@ TEST(ParserTests, ParsesQuickRegistration)
     auto reg2 = dynamic_cast<YINI::AST::QuickRegStmt*>(section->statements[1].get());
     ASSERT_NE(reg2, nullptr);
 }
+
+TEST(ParserTests, ParsesSchemaSection)
+{
+    std::string source = "[#schema]\n"
+                         "[Visual]\n"
+                         "width = !, int, =1280\n"
+                         "height = ?, int";
+    YINI::Lexer lexer(source);
+    auto tokens = lexer.scan_tokens();
+    YINI::Parser parser(tokens);
+    auto ast = parser.parse();
+
+    ASSERT_EQ(ast.size(), 1);
+    auto schema_stmt = dynamic_cast<YINI::AST::SchemaStmt*>(ast[0].get());
+    ASSERT_NE(schema_stmt, nullptr);
+    ASSERT_EQ(schema_stmt->sections.size(), 1);
+
+    auto schema_section = schema_stmt->sections[0].get();
+    ASSERT_NE(schema_section, nullptr);
+    EXPECT_EQ(schema_section->name.lexeme, "Visual");
+    ASSERT_EQ(schema_section->rules.size(), 2);
+
+    EXPECT_EQ(schema_section->rules[0]->key.lexeme, "width");
+    // Note: The current parser implementation concatenates all rule tokens into a single string.
+    // This will be revisited when the validator is implemented.
+    EXPECT_EQ(std::get<std::string>(schema_section->rules[0]->rules.literal), "!,int,=1280");
+
+    EXPECT_EQ(schema_section->rules[1]->key.lexeme, "height");
+    EXPECT_EQ(std::get<std::string>(schema_section->rules[1]->rules.literal), "?,int");
+}
+
+TEST(ParserTests, ParsesMultipleSchemaSections)
+{
+    std::string source = "[#schema]\n"
+                         "[Visual]\n"
+                         "width = !, int\n"
+                         "[#schema]\n"
+                         "[Audio]\n"
+                         "volume = ?, float";
+    YINI::Lexer lexer(source);
+    auto tokens = lexer.scan_tokens();
+    YINI::Parser parser(tokens);
+    auto ast = parser.parse();
+
+    ASSERT_EQ(ast.size(), 2);
+    auto schema_stmt1 = dynamic_cast<YINI::AST::SchemaStmt*>(ast[0].get());
+    ASSERT_NE(schema_stmt1, nullptr);
+    ASSERT_EQ(schema_stmt1->sections.size(), 1);
+
+    auto schema_stmt2 = dynamic_cast<YINI::AST::SchemaStmt*>(ast[1].get());
+    ASSERT_NE(schema_stmt2, nullptr);
+    ASSERT_EQ(schema_stmt2->sections.size(), 1);
+}

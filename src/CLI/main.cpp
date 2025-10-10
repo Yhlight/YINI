@@ -27,8 +27,23 @@ static void run_file(const char* path) {
         YINI::YmetaManager ymeta_manager;
         ymeta_manager.load(path);
         YINI::Resolver resolver(ast, ymeta_manager);
-        auto resolved_config = resolver.resolve();
-        YINI::Validator validator(resolved_config, ast);
+        auto nested_config = resolver.resolve();
+
+        // Flatten the map for the validator
+        std::map<std::string, std::any> flat_config;
+        for (const auto& [section_name, section_map] : nested_config) {
+            if (section_name.empty()) {
+                for (const auto& [key, value] : section_map) {
+                    flat_config[key] = value;
+                }
+            } else {
+                for (const auto& [key, value] : section_map) {
+                    flat_config[section_name + "." + key] = value;
+                }
+            }
+        }
+
+        YINI::Validator validator(flat_config, ast);
         validator.validate();
         ymeta_manager.save(path);
         std::cout << "Validation completed successfully." << std::endl;
@@ -55,8 +70,23 @@ static void run_prompt() {
             auto ast = parser.parse();
             // Note: .ymeta load/save doesn't make sense for REPL without a file context
             YINI::Resolver resolver(ast, ymeta_manager);
-            auto resolved_config = resolver.resolve();
-            YINI::Validator validator(resolved_config, ast);
+            auto nested_config = resolver.resolve();
+
+            // Flatten the map for the validator
+            std::map<std::string, std::any> flat_config;
+            for (const auto& [section_name, section_map] : nested_config) {
+                if (section_name.empty()) {
+                    for (const auto& [key, value] : section_map) {
+                        flat_config[key] = value;
+                    }
+                } else {
+                    for (const auto& [key, value] : section_map) {
+                        flat_config[section_name + "." + key] = value;
+                    }
+                }
+            }
+
+            YINI::Validator validator(flat_config, ast);
             validator.validate();
              std::cout << "Validation completed successfully." << std::endl;
         } catch (const std::runtime_error& e) {

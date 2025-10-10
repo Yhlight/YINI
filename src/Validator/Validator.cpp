@@ -1,4 +1,5 @@
 #include "Validator.h"
+#include "YiniTypes.h"
 #include <sstream>
 #include <iostream>
 
@@ -85,7 +86,18 @@ ValidationRule Validator::parse_rule(const std::string& rule_string) {
         } else if (segment.rfind("max=", 0) == 0) {
             rule.max = std::stod(segment.substr(4));
         } else {
-            rule.type = segment;
+            size_t start_bracket = segment.find('[');
+            if (start_bracket != std::string::npos) {
+                size_t end_bracket = segment.find(']');
+                if (end_bracket != std::string::npos) {
+                    rule.type = segment.substr(0, start_bracket);
+                    rule.inner_type = segment.substr(start_bracket + 1, end_bracket - start_bracket - 1);
+                } else {
+                    rule.type = segment;
+                }
+            } else {
+                rule.type = segment;
+            }
         }
     }
     return rule;
@@ -110,7 +122,11 @@ void Validator::validate_rule(const std::string& key, const ValidationRule& rule
         }
         else
         {
-            return; // Optional key is missing, nothing to do.
+            if (rule.error_on_empty)
+            {
+                m_errors.push_back("Optional key '" + key + "' with 'error on empty' rule is missing.");
+            }
+            return; // Optional key is missing, nothing to do unless 'e' is specified.
         }
     }
 
@@ -124,15 +140,45 @@ void Validator::validate_rule(const std::string& key, const ValidationRule& rule
         bool type_ok = false;
         if ((type_str == "int" || type_str == "float") && value.type() == typeid(double)) {
             type_ok = true;
-        } else if (type_str == "string" && value.type() == typeid(std::string)) {
+        } else if ((type_str == "string" || type_str == "path") && value.type() == typeid(std::string)) {
             type_ok = true;
         } else if (type_str == "bool" && value.type() == typeid(bool)) {
+            type_ok = true;
+        } else if ((type_str == "array" || type_str == "list" || type_str == "set") && value.type() == typeid(std::vector<std::any>)) {
+            type_ok = true;
+        } else if (type_str == "map" && value.type() == typeid(std::map<std::string, std::any>)) {
+            type_ok = true;
+        } else if (type_str == "color" && value.type() == typeid(ResolvedColor)) {
+            type_ok = true;
+        } else if (type_str == "coord" && value.type() == typeid(ResolvedCoord)) {
             type_ok = true;
         }
 
         if (!type_ok) {
-            m_errors.push_back("Key '" + key + "' has incorrect type. Expected " + type_str + ".");
+            m_errors.push_back("Key '" + key + "' has incorrect type. Expected " + type_str + " but found " + value.type().name() + ".");
             return; // Stop validation if type is wrong
+        }
+
+        // Step 2b: Inner type validation for containers
+        if (rule.inner_type.has_value() && value.type() == typeid(std::vector<std::any>)) {
+            const auto& container = std::any_cast<const std::vector<std::any>&>(value);
+            const std::string& inner_type_str = rule.inner_type.value();
+            for (const auto& element : container) {
+                bool inner_type_ok = false;
+                if ((inner_type_str == "int" || inner_type_str == "float") && element.type() == typeid(double)) {
+                    inner_type_ok = true;
+                } else if (inner_type_str == "string" && element.type() == typeid(std::string)) {
+                    inner_type_ok = true;
+                } else if (inner_type_str == "bool" && element.type() == typeid(bool)) {
+                    inner_type_ok = true;
+                }
+                // ... can be extended for nested containers etc.
+
+                if (!inner_type_ok) {
+                    m_errors.push_back("Key '" + key + "' has element with incorrect type. Expected " + inner_type_str + ".");
+                    // Don't return, just report all invalid elements
+                }
+            }
         }
     }
 

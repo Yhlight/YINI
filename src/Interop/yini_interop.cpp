@@ -38,7 +38,20 @@ namespace YINI
 
             m_ymeta_manager.load(file_path);
             Resolver resolver(ast, m_ymeta_manager);
-            m_resolved_config = resolver.resolve();
+            auto nested_config = resolver.resolve();
+
+            // Flatten the map for the interop layer and validator
+            for (const auto& [section_name, section_map] : nested_config) {
+                if (section_name.empty()) {
+                    for (const auto& [key, value] : section_map) {
+                        m_resolved_config[key] = value;
+                    }
+                } else {
+                    for (const auto& [key, value] : section_map) {
+                        m_resolved_config[section_name + "." + key] = value;
+                    }
+                }
+            }
 
             Validator validator(m_resolved_config, ast);
             validator.validate();

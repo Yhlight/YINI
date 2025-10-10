@@ -14,6 +14,7 @@ struct ValidationRule
 {
     bool is_required = false;
     std::optional<std::string> type;
+    std::optional<std::string> inner_type;
     std::optional<std::any> default_value;
     std::optional<double> min;
     std::optional<double> max;

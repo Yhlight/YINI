@@ -6,6 +6,24 @@
 #include <any>
 #include <cstdlib>
 
+// Helper function to flatten the resolved config for validator tests
+static std::map<std::string, std::any> flatten_config(const YINI::Resolver::ResolvedConfig& nested_config) {
+    std::map<std::string, std::any> flat_config;
+    for (const auto& [section_name, section_map] : nested_config) {
+        if (section_name.empty()) {
+            for (const auto& [key, value] : section_map) {
+                flat_config[key] = value;
+            }
+        } else {
+            for (const auto& [key, value] : section_map) {
+                flat_config[section_name + "." + key] = value;
+            }
+        }
+    }
+    return flat_config;
+}
+
+
 TEST(ValidatorTests, ThrowsOnMissingRequiredKey)
 {
     std::string source = "[#schema]\n[MyConfig]\nmy_key = !\n\n[MyConfig]\n";
@@ -15,7 +33,89 @@ TEST(ValidatorTests, ThrowsOnMissingRequiredKey)
     auto ast = parser.parse();
     YINI::YmetaManager ymeta_manager;
     YINI::Resolver resolver(ast, ymeta_manager);
-    auto config = resolver.resolve();
+    auto nested_config = resolver.resolve();
+    auto config = flatten_config(nested_config);
+    YINI::Validator validator(config, ast);
+
+    EXPECT_THROW(validator.validate(), std::runtime_error);
+}
+
+TEST(ValidatorTests, PassesWithCorrectArrayIntType)
+{
+    std::string source = "[#schema]\n[MyConfig]\nmy_key = !, array[int]\n\n[MyConfig]\nmy_key = [1, 2, 3]";
+    YINI::Lexer lexer(source);
+    auto tokens = lexer.scan_tokens();
+    YINI::Parser parser(tokens);
+    auto ast = parser.parse();
+    YINI::YmetaManager ymeta_manager;
+    YINI::Resolver resolver(ast, ymeta_manager);
+    auto nested_config = resolver.resolve();
+    auto config = flatten_config(nested_config);
+    YINI::Validator validator(config, ast);
+
+    EXPECT_NO_THROW(validator.validate());
+}
+
+TEST(ValidatorTests, ThrowsOnArrayIntTypeMismatch)
+{
+    std::string source = "[#schema]\n[MyConfig]\nmy_key = !, array[int]\n\n[MyConfig]\nmy_key = [1, \"two\"]";
+    YINI::Lexer lexer(source);
+    auto tokens = lexer.scan_tokens();
+    YINI::Parser parser(tokens);
+    auto ast = parser.parse();
+    YINI::YmetaManager ymeta_manager;
+    YINI::Resolver resolver(ast, ymeta_manager);
+    auto nested_config = resolver.resolve();
+    auto config = flatten_config(nested_config);
+    YINI::Validator validator(config, ast);
+
+    EXPECT_THROW(validator.validate(), std::runtime_error);
+}
+
+
+TEST(ValidatorTests, PassesWithCorrectArrayType)
+{
+    std::string source = "[#schema]\n[MyConfig]\nmy_key = !, array\n\n[MyConfig]\nmy_key = [1, 2, 3]";
+    YINI::Lexer lexer(source);
+    auto tokens = lexer.scan_tokens();
+    YINI::Parser parser(tokens);
+    auto ast = parser.parse();
+    YINI::YmetaManager ymeta_manager;
+    YINI::Resolver resolver(ast, ymeta_manager);
+    auto nested_config = resolver.resolve();
+    auto config = flatten_config(nested_config);
+    YINI::Validator validator(config, ast);
+
+    EXPECT_NO_THROW(validator.validate());
+}
+
+TEST(ValidatorTests, ThrowsOnArrayTypeMismatch)
+{
+    std::string source = "[#schema]\n[MyConfig]\nmy_key = !, array\n\n[MyConfig]\nmy_key = 123";
+    YINI::Lexer lexer(source);
+    auto tokens = lexer.scan_tokens();
+    YINI::Parser parser(tokens);
+    auto ast = parser.parse();
+    YINI::YmetaManager ymeta_manager;
+    YINI::Resolver resolver(ast, ymeta_manager);
+    auto nested_config = resolver.resolve();
+    auto config = flatten_config(nested_config);
+    YINI::Validator validator(config, ast);
+
+    EXPECT_THROW(validator.validate(), std::runtime_error);
+}
+
+TEST(ValidatorTests, ThrowsOnMissingOptionalKeyWithErrorOnEmpty)
+{
+    std::string source = "[#schema]\n[MyConfig]\nmy_key = ?, int, e\n\n[MyConfig]\n";
+    YINI::Lexer lexer(source);
+    auto tokens = lexer.scan_tokens();
+    YINI::Parser parser(tokens);
+    auto ast = parser.parse();
+    YINI::YmetaManager ymeta_manager;
+    YINI::Resolver resolver(ast, ymeta_manager);
+    auto nested_config = resolver.resolve();
+    auto config = flatten_config(nested_config);
     YINI::Validator validator(config, ast);
 
     EXPECT_THROW(validator.validate(), std::runtime_error);
@@ -30,7 +130,8 @@ TEST(ValidatorTests, PassesWithRequiredKeyPresent)
     auto ast = parser.parse();
     YINI::YmetaManager ymeta_manager;
     YINI::Resolver resolver(ast, ymeta_manager);
-    auto config = resolver.resolve();
+    auto nested_config = resolver.resolve();
+    auto config = flatten_config(nested_config);
     YINI::Validator validator(config, ast);
 
     EXPECT_NO_THROW(validator.validate());
@@ -45,7 +146,8 @@ TEST(ValidatorTests, ThrowsOnTypeMismatch)
     auto ast = parser.parse();
     YINI::YmetaManager ymeta_manager;
     YINI::Resolver resolver(ast, ymeta_manager);
-    auto config = resolver.resolve();
+    auto nested_config = resolver.resolve();
+    auto config = flatten_config(nested_config);
     YINI::Validator validator(config, ast);
 
     EXPECT_THROW(validator.validate(), std::runtime_error);
@@ -60,7 +162,8 @@ TEST(ValidatorTests, AssignsDefaultValue)
     auto ast = parser.parse();
     YINI::YmetaManager ymeta_manager;
     YINI::Resolver resolver(ast, ymeta_manager);
-    auto config = resolver.resolve();
+    auto nested_config = resolver.resolve();
+    auto config = flatten_config(nested_config);
     YINI::Validator validator(config, ast);
 
     EXPECT_NO_THROW(validator.validate());
@@ -77,7 +180,8 @@ TEST(ValidatorTests, ThrowsOnRangeViolation)
     auto ast = parser.parse();
     YINI::YmetaManager ymeta_manager;
     YINI::Resolver resolver(ast, ymeta_manager);
-    auto config = resolver.resolve();
+    auto nested_config = resolver.resolve();
+    auto config = flatten_config(nested_config);
     YINI::Validator validator(config, ast);
 
     EXPECT_THROW(validator.validate(), std::runtime_error);
