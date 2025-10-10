@@ -1,23 +1,37 @@
 # CMake
-build/
+/build/
 CMakeCache.txt
 CMakeFiles/
 cmake_install.cmake
 Makefile
+*.cmake
+
+# C++
+*.o
+*.a
+*.so
+*.dll
+*.exe
 
 # YINI
 *.ymeta
 *.YMETA
 
-# Visual Studio
+# C#
+/csharp/Yini.Core/bin/
+/csharp/Yini.Core/obj/
+/csharp/tests/Yini.Core.Tests/bin/
+/csharp/tests/Yini.Core.Tests/obj/
+*.csproj.user
 *.sln
-*.vcxproj
-*.vcxproj.filters
-*.vcxproj.user
+*.suo
 
-# Binaries
-*.exe
-*.dll
-*.so
-*.a
-*.lib
+# VSCode
+.vscode/
+*.vsix
+
+# Other
+*.log
+*.tmp
+*.bak
+*.swp

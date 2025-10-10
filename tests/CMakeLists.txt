@@ -10,7 +10,6 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(googletest)
 
 add_executable(lexer_tests LexerTests.cpp)
-
 target_link_libraries(lexer_tests PRIVATE Lexer gtest_main)
 target_include_directories(lexer_tests PRIVATE ../src)
 add_test(NAME lexer_tests COMMAND $<TARGET_FILE:lexer_tests>)
@@ -24,6 +23,16 @@ add_executable(resolver_tests ResolverTests.cpp)
 target_link_libraries(resolver_tests PRIVATE Resolver Parser Lexer gtest_main)
 target_include_directories(resolver_tests PRIVATE ../src)
 add_test(NAME resolver_tests COMMAND $<TARGET_FILE:resolver_tests>)
+
+add_executable(validator_tests ValidatorTests.cpp)
+target_link_libraries(validator_tests PRIVATE Validator Resolver Parser Lexer gtest_main)
+target_include_directories(validator_tests PRIVATE ../src)
+add_test(NAME validator_tests COMMAND $<TARGET_FILE:validator_tests>)
+
+add_executable(ymeta_manager_tests YmetaManagerTests.cpp)
+target_link_libraries(ymeta_manager_tests PRIVATE YmetaManager gtest_main)
+target_include_directories(ymeta_manager_tests PRIVATE ../src)
+add_test(NAME ymeta_manager_tests COMMAND $<TARGET_FILE:ymeta_manager_tests>)
 
 file(COPY
     "include_test.yini"

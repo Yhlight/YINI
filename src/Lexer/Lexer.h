@@ -31,5 +31,6 @@ private:
     int m_start = 0;
     int m_current = 0;
     int m_line = 1;
+    int m_line_start = 0;
 };
 }

@@ -12,11 +12,12 @@ TEST(ResolverTests, ResolvesMacro)
     auto tokens = lexer.scan_tokens();
     YINI::Parser parser(tokens);
     auto ast = parser.parse();
-    YINI::Resolver resolver(ast);
+    YINI::YmetaManager ymeta_manager;
+    YINI::Resolver resolver(ast, ymeta_manager);
     auto config = resolver.resolve();
 
     ASSERT_EQ(config.count("MyConfig.value"), 1);
-    ASSERT_EQ(std::any_cast<std::string>(config["MyConfig.value"]), "hello world");
+    EXPECT_EQ(std::any_cast<std::string>(config["MyConfig.value"]), "hello world");
 }
 
 TEST(ResolverTests, ThrowsOnUndefinedMacro)
@@ -26,9 +27,15 @@ TEST(ResolverTests, ThrowsOnUndefinedMacro)
     auto tokens = lexer.scan_tokens();
     YINI::Parser parser(tokens);
     auto ast = parser.parse();
-    YINI::Resolver resolver(ast);
+    YINI::YmetaManager ymeta_manager;
+    YINI::Resolver resolver(ast, ymeta_manager);
 
-    EXPECT_THROW(resolver.resolve(), std::runtime_error);
+    try {
+        resolver.resolve();
+        FAIL() << "Expected std::runtime_error";
+    } catch (const std::runtime_error& e) {
+        EXPECT_NE(std::string(e.what()).find("Error at line 2"), std::string::npos);
+    }
 }
 
 TEST(ResolverTests, ResolvesSet)
@@ -38,11 +45,13 @@ TEST(ResolverTests, ResolvesSet)
     auto tokens = lexer.scan_tokens();
     YINI::Parser parser(tokens);
     auto ast = parser.parse();
-    YINI::Resolver resolver(ast);
+    YINI::YmetaManager ymeta_manager;
+    YINI::Resolver resolver(ast, ymeta_manager);
     auto config = resolver.resolve();
 
     ASSERT_EQ(config.count("MySet.values"), 1);
     auto set_any = config["MySet.values"];
+    ASSERT_EQ(set_any.type(), typeid(std::vector<std::any>));
     auto set_vec = std::any_cast<std::vector<std::any>>(set_any);
     ASSERT_EQ(set_vec.size(), 3);
     EXPECT_EQ(std::any_cast<double>(set_vec[0]), 1.0);
@@ -57,7 +66,8 @@ TEST(ResolverTests, ResolvesCrossSectionReference)
     auto tokens = lexer.scan_tokens();
     YINI::Parser parser(tokens);
     auto ast = parser.parse();
-    YINI::Resolver resolver(ast);
+    YINI::YmetaManager ymeta_manager;
+    YINI::Resolver resolver(ast, ymeta_manager);
     auto config = resolver.resolve();
 
     ASSERT_EQ(config.count("Target.ref"), 1);
@@ -71,15 +81,18 @@ TEST(ResolverTests, ResolvesMap)
     auto tokens = lexer.scan_tokens();
     YINI::Parser parser(tokens);
     auto ast = parser.parse();
-    YINI::Resolver resolver(ast);
+    YINI::YmetaManager ymeta_manager;
+    YINI::Resolver resolver(ast, ymeta_manager);
     auto config = resolver.resolve();
 
     ASSERT_EQ(config.count("MyMap.data"), 1);
     auto map_any = config["MyMap.data"];
     auto map_val = std::any_cast<std::map<std::string, std::any>>(map_any);
     ASSERT_EQ(map_val.size(), 2);
-    EXPECT_EQ(std::any_cast<std::string>(map_val["key1"]), "value1");
-    EXPECT_EQ(std::any_cast<double>(map_val["key2"]), 123.0);
+    ASSERT_EQ(map_val.count("key1"), 1);
+    EXPECT_EQ(std::any_cast<std::string>(map_val.at("key1")), "value1");
+    ASSERT_EQ(map_val.count("key2"), 1);
+    EXPECT_EQ(std::any_cast<double>(map_val.at("key2")), 123.0);
 }
 
 TEST(ResolverTests, ResolvesHexColor)
@@ -89,11 +102,13 @@ TEST(ResolverTests, ResolvesHexColor)
     auto tokens = lexer.scan_tokens();
     YINI::Parser parser(tokens);
     auto ast = parser.parse();
-    YINI::Resolver resolver(ast);
+    YINI::YmetaManager ymeta_manager;
+    YINI::Resolver resolver(ast, ymeta_manager);
     auto config = resolver.resolve();
 
     ASSERT_EQ(config.count("Colors.my_color"), 1);
     auto color_any = config["Colors.my_color"];
+    ASSERT_EQ(color_any.type(), typeid(YINI::ResolvedColor));
     auto color_val = std::any_cast<YINI::ResolvedColor>(color_any);
     EXPECT_EQ(color_val.r, 255);
     EXPECT_EQ(color_val.g, 192);
@@ -107,11 +122,13 @@ TEST(ResolverTests, ResolvesRgbColor)
     auto tokens = lexer.scan_tokens();
     YINI::Parser parser(tokens);
     auto ast = parser.parse();
-    YINI::Resolver resolver(ast);
+    YINI::YmetaManager ymeta_manager;
+    YINI::Resolver resolver(ast, ymeta_manager);
     auto config = resolver.resolve();
 
     ASSERT_EQ(config.count("Colors.my_color"), 1);
     auto color_any = config["Colors.my_color"];
+    ASSERT_EQ(color_any.type(), typeid(YINI::ResolvedColor));
     auto color_val = std::any_cast<YINI::ResolvedColor>(color_any);
     EXPECT_EQ(color_val.r, 255);
     EXPECT_EQ(color_val.g, 192);
@@ -125,11 +142,13 @@ TEST(ResolverTests, ResolvesCoord2D)
     auto tokens = lexer.scan_tokens();
     YINI::Parser parser(tokens);
     auto ast = parser.parse();
-    YINI::Resolver resolver(ast);
+    YINI::YmetaManager ymeta_manager;
+    YINI::Resolver resolver(ast, ymeta_manager);
     auto config = resolver.resolve();
 
     ASSERT_EQ(config.count("Coords.pos"), 1);
     auto coord_any = config["Coords.pos"];
+    ASSERT_EQ(coord_any.type(), typeid(YINI::ResolvedCoord));
     auto coord_val = std::any_cast<YINI::ResolvedCoord>(coord_any);
     EXPECT_EQ(std::any_cast<double>(coord_val.x), 10.0);
     EXPECT_EQ(std::any_cast<double>(coord_val.y), 20.0);
@@ -143,16 +162,53 @@ TEST(ResolverTests, ResolvesCoord3D)
     auto tokens = lexer.scan_tokens();
     YINI::Parser parser(tokens);
     auto ast = parser.parse();
-    YINI::Resolver resolver(ast);
+    YINI::YmetaManager ymeta_manager;
+    YINI::Resolver resolver(ast, ymeta_manager);
     auto config = resolver.resolve();
 
     ASSERT_EQ(config.count("Coords.pos"), 1);
     auto coord_any = config["Coords.pos"];
+    ASSERT_EQ(coord_any.type(), typeid(YINI::ResolvedCoord));
     auto coord_val = std::any_cast<YINI::ResolvedCoord>(coord_any);
     EXPECT_EQ(std::any_cast<double>(coord_val.x), 10.0);
     EXPECT_EQ(std::any_cast<double>(coord_val.y), 20.0);
     ASSERT_EQ(coord_val.z.has_value(), true);
     EXPECT_EQ(std::any_cast<double>(coord_val.z), 30.0);
+}
+
+TEST(ResolverTests, ResolvesDynaValue)
+{
+    YINI::YmetaManager ymeta_manager;
+
+    // First run: resolve and cache the initial value
+    std::string source1 = "[MyConfig]\nvalue = Dyna(123)";
+    YINI::Lexer lexer1(source1);
+    auto tokens1 = lexer1.scan_tokens();
+    YINI::Parser parser1(tokens1);
+    auto ast1 = parser1.parse();
+    YINI::Resolver resolver1(ast1, ymeta_manager);
+    auto config1 = resolver1.resolve();
+
+    ASSERT_EQ(config1.count("MyConfig.value"), 1);
+    EXPECT_EQ(std::any_cast<double>(config1["MyConfig.value"]), 123.0);
+    EXPECT_TRUE(ymeta_manager.has_value("MyConfig.value"));
+
+    // Second run: value should be loaded from ymeta, not from the source
+    std::string source2 = "[MyConfig]\nvalue = Dyna(456)";
+    YINI::Lexer lexer2(source2);
+    auto tokens2 = lexer2.scan_tokens();
+    YINI::Parser parser2(tokens2);
+    auto ast2 = parser2.parse();
+    YINI::Resolver resolver2(ast2, ymeta_manager);
+    auto config2 = resolver2.resolve();
+
+    ASSERT_EQ(config2.count("MyConfig.value"), 1);
+    EXPECT_EQ(std::any_cast<double>(config2["MyConfig.value"]), 123.0); // Should still be the old value
+
+    // Update the value and check backup
+    ymeta_manager.set_value("MyConfig.value", 789.0);
+    EXPECT_TRUE(ymeta_manager.has_value("MyConfig.value"));
+    EXPECT_EQ(std::any_cast<double>(ymeta_manager.get_value("MyConfig.value")), 789.0);
 }
 
 TEST(ResolverTests, ResolvesEnvVarReference)
@@ -169,7 +225,8 @@ TEST(ResolverTests, ResolvesEnvVarReference)
     auto tokens = lexer.scan_tokens();
     YINI::Parser parser(tokens);
     auto ast = parser.parse();
-    YINI::Resolver resolver(ast);
+    YINI::YmetaManager ymeta_manager;
+    YINI::Resolver resolver(ast, ymeta_manager);
     auto config = resolver.resolve();
 
     ASSERT_EQ(config.count("Config.value"), 1);
@@ -190,7 +247,8 @@ TEST(ResolverTests, ResolvesInclude)
     auto tokens = lexer.scan_tokens();
     YINI::Parser parser(tokens);
     auto ast = parser.parse();
-    YINI::Resolver resolver(ast);
+    YINI::YmetaManager ymeta_manager;
+    YINI::Resolver resolver(ast, ymeta_manager);
     auto config = resolver.resolve();
 
     ASSERT_EQ(config.count("IncludedSection.included_key"), 1);
@@ -210,7 +268,8 @@ TEST(ResolverTests, ResolvesArithmetic)
     auto tokens = lexer.scan_tokens();
     YINI::Parser parser(tokens);
     auto ast = parser.parse();
-    YINI::Resolver resolver(ast);
+    YINI::YmetaManager ymeta_manager;
+    YINI::Resolver resolver(ast, ymeta_manager);
     auto config = resolver.resolve();
 
     ASSERT_EQ(config.count("Config.value"), 1);
@@ -224,11 +283,63 @@ TEST(ResolverTests, ResolvesGroupedArithmetic)
     auto tokens = lexer.scan_tokens();
     YINI::Parser parser(tokens);
     auto ast = parser.parse();
-    YINI::Resolver resolver(ast);
+    YINI::YmetaManager ymeta_manager;
+    YINI::Resolver resolver(ast, ymeta_manager);
     auto config = resolver.resolve();
 
     ASSERT_EQ(config.count("Config.value"), 1);
     ASSERT_EQ(std::any_cast<double>(config["Config.value"]), 9.0);
+}
+
+TEST(ResolverTests, ResolvesPath)
+{
+    std::string source = "[MyConfig]\nmy_path = path(\"/usr/local/bin\")";
+    YINI::Lexer lexer(source);
+    auto tokens = lexer.scan_tokens();
+    YINI::Parser parser(tokens);
+    auto ast = parser.parse();
+    YINI::YmetaManager ymeta_manager;
+    YINI::Resolver resolver(ast, ymeta_manager);
+    auto config = resolver.resolve();
+
+    ASSERT_EQ(config.count("MyConfig.my_path"), 1);
+    EXPECT_EQ(std::any_cast<std::string>(config["MyConfig.my_path"]), "/usr/local/bin");
+}
+
+TEST(ResolverTests, ResolvesList)
+{
+    std::string source = "[MyConfig]\nmy_list = list(1, \"two\")";
+    YINI::Lexer lexer(source);
+    auto tokens = lexer.scan_tokens();
+    YINI::Parser parser(tokens);
+    auto ast = parser.parse();
+    YINI::YmetaManager ymeta_manager;
+    YINI::Resolver resolver(ast, ymeta_manager);
+    auto config = resolver.resolve();
+
+    ASSERT_EQ(config.count("MyConfig.my_list"), 1);
+    auto list_any = config["MyConfig.my_list"];
+    auto list_vec = std::any_cast<std::vector<std::any>>(list_any);
+    ASSERT_EQ(list_vec.size(), 2);
+    EXPECT_EQ(std::any_cast<double>(list_vec[0]), 1.0);
+    EXPECT_EQ(std::any_cast<std::string>(list_vec[1]), "two");
+}
+
+TEST(ResolverTests, ResolvesQuickRegistration)
+{
+    std::string source = "[MyReg]\n+= 1\n+= \"two\"";
+    YINI::Lexer lexer(source);
+    auto tokens = lexer.scan_tokens();
+    YINI::Parser parser(tokens);
+    auto ast = parser.parse();
+    YINI::YmetaManager ymeta_manager;
+    YINI::Resolver resolver(ast, ymeta_manager);
+    auto config = resolver.resolve();
+
+    ASSERT_EQ(config.count("MyReg.0"), 1);
+    EXPECT_EQ(std::any_cast<double>(config["MyReg.0"]), 1.0);
+    ASSERT_EQ(config.count("MyReg.1"), 1);
+    EXPECT_EQ(std::any_cast<std::string>(config["MyReg.1"]), "two");
 }
 
 TEST(ResolverTests, ThrowsOnDivisionByZero)
@@ -238,7 +349,13 @@ TEST(ResolverTests, ThrowsOnDivisionByZero)
     auto tokens = lexer.scan_tokens();
     YINI::Parser parser(tokens);
     auto ast = parser.parse();
-    YINI::Resolver resolver(ast);
+    YINI::YmetaManager ymeta_manager;
+    YINI::Resolver resolver(ast, ymeta_manager);
 
-    EXPECT_THROW(resolver.resolve(), std::runtime_error);
+    try {
+        resolver.resolve();
+        FAIL() << "Expected std::runtime_error";
+    } catch (const std::runtime_error& e) {
+        EXPECT_NE(std::string(e.what()).find("Error at line 2"), std::string::npos);
+    }
 }

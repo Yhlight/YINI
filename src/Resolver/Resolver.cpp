@@ -10,8 +10,8 @@
 namespace YINI
 {
 
-Resolver::Resolver(const std::vector<std::unique_ptr<AST::Stmt>>& statements)
-    : m_statements(statements)
+Resolver::Resolver(const std::vector<std::unique_ptr<AST::Stmt>>& statements, YmetaManager& ymeta_manager)
+    : m_statements(statements), m_ymeta_manager(ymeta_manager)
 {
 }
 
@@ -41,6 +41,10 @@ void Resolver::resolve_statement(AST::Stmt* stmt)
     else if (auto* kv_stmt = dynamic_cast<AST::KeyValueStmt*>(stmt))
     {
         visit_key_value(kv_stmt);
+    }
+    else if (auto* qr_stmt = dynamic_cast<AST::QuickRegStmt*>(stmt))
+    {
+        visit_quick_reg(qr_stmt);
     }
 }
 
@@ -93,6 +97,14 @@ std::any Resolver::resolve_expression(AST::Expr* expr)
     else if (auto* env_var_ref_expr = dynamic_cast<AST::EnvVarRefExpr*>(expr))
     {
         return visit_env_var_ref(env_var_ref_expr);
+    }
+    else if (auto* path_expr = dynamic_cast<AST::PathExpr*>(expr))
+    {
+        return visit_path(path_expr);
+    }
+    else if (auto* list_expr = dynamic_cast<AST::ListExpr*>(expr))
+    {
+        return visit_list(list_expr);
     }
     throw std::runtime_error("Unknown expression type.");
 }
@@ -150,7 +162,24 @@ void Resolver::visit_include(AST::IncludeStmt* stmt)
 void Resolver::visit_key_value(AST::KeyValueStmt* stmt)
 {
     std::string key = m_current_section.empty() ? stmt->key.lexeme : m_current_section + "." + stmt->key.lexeme;
-    m_resolved_config[key] = resolve_expression(stmt->value.get());
+
+    if (auto* dyna_expr = dynamic_cast<AST::DynaExpr*>(stmt->value.get()))
+    {
+        if (m_ymeta_manager.has_value(key))
+        {
+            m_resolved_config[key] = m_ymeta_manager.get_value(key);
+        }
+        else
+        {
+            std::any value = resolve_expression(dyna_expr->expression.get());
+            m_ymeta_manager.set_value(key, value);
+            m_resolved_config[key] = value;
+        }
+    }
+    else
+    {
+        m_resolved_config[key] = resolve_expression(stmt->value.get());
+    }
 }
 
 std::any Resolver::visit_literal(AST::LiteralExpr* expr)
@@ -226,7 +255,7 @@ std::any Resolver::visit_macro(AST::MacroExpr* expr)
 {
     if (m_macros.find(expr->name.lexeme) == m_macros.end())
     {
-        throw std::runtime_error("Undefined macro: " + expr->name.lexeme);
+        throw std::runtime_error("Error at line " + std::to_string(expr->name.line) + ", column " + std::to_string(expr->name.column) + ": Undefined macro: " + expr->name.lexeme);
     }
     return resolve_expression(m_macros[expr->name.lexeme]);
 }
@@ -247,16 +276,20 @@ std::any Resolver::visit_binary(AST::BinaryExpr* expr)
             case TokenType::MINUS: return left_val - right_val;
             case TokenType::STAR: return left_val * right_val;
             case TokenType::SLASH:
-                if (right_val == 0) throw std::runtime_error("Division by zero.");
+                if (right_val == 0) {
+                    throw std::runtime_error("Error at line " + std::to_string(expr->op.line) + ", column " + std::to_string(expr->op.column) + ": Division by zero.");
+                }
                 return left_val / right_val;
             case TokenType::PERCENT:
-                if (right_val == 0) throw std::runtime_error("Division by zero.");
+                if (right_val == 0) {
+                    throw std::runtime_error("Error at line " + std::to_string(expr->op.line) + ", column " + std::to_string(expr->op.column) + ": Division by zero.");
+                }
                 return fmod(left_val, right_val);
             default: break;
         }
     }
 
-    throw std::runtime_error("Operands must be numbers for arithmetic operations.");
+    throw std::runtime_error("Error at line " + std::to_string(expr->op.line) + ", column " + std::to_string(expr->op.column) + ": Operands must be numbers for arithmetic operations.");
 }
 
 std::any Resolver::visit_grouping(AST::GroupingExpr* expr)
@@ -269,7 +302,7 @@ std::any Resolver::visit_cross_section_ref(AST::CrossSectionRefExpr* expr)
     std::string key = expr->section.lexeme + "." + expr->key.lexeme;
     if (m_resolved_config.find(key) == m_resolved_config.end())
     {
-        throw std::runtime_error("Undefined cross-section reference: " + key);
+        throw std::runtime_error("Error at line " + std::to_string(expr->section.line) + ", column " + std::to_string(expr->section.column) + ": Undefined cross-section reference: " + key);
     }
     return m_resolved_config[key];
 }
@@ -282,6 +315,33 @@ std::any Resolver::visit_env_var_ref(AST::EnvVarRefExpr* expr)
         return std::string(""); // Return empty string if not found
     }
     return std::string(value);
+}
+
+void Resolver::visit_quick_reg(AST::QuickRegStmt* stmt)
+{
+    if (m_current_section.empty())
+    {
+        throw std::runtime_error("Quick registration '+=' can only be used inside a section.");
+    }
+
+    int index = m_quick_reg_indices[m_current_section]++;
+    std::string key = m_current_section + "." + std::to_string(index);
+    m_resolved_config[key] = resolve_expression(stmt->value.get());
+}
+
+std::any Resolver::visit_path(AST::PathExpr* expr)
+{
+    return expr->path;
+}
+
+std::any Resolver::visit_list(AST::ListExpr* expr)
+{
+    std::vector<std::any> elements;
+    for (const auto& element : expr->elements)
+    {
+        elements.push_back(resolve_expression(element.get()));
+    }
+    return elements;
 }
 
 } // namespace YINI

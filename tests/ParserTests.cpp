@@ -53,7 +53,12 @@ TEST(ParserTests, ThrowsErrorOnMissingBracket)
     auto tokens = lexer.scan_tokens();
     YINI::Parser parser(tokens);
 
-    EXPECT_THROW(parser.parse(), std::runtime_error);
+    try {
+        parser.parse();
+        FAIL() << "Expected std::runtime_error";
+    } catch (const std::runtime_error& e) {
+        EXPECT_NE(std::string(e.what()).find("Error at line 1"), std::string::npos);
+    }
 }
 
 TEST(ParserTests, ParsesBooleanLiterals)
@@ -201,4 +206,82 @@ TEST(ParserTests, ParsesMacroReference)
     auto macro_expr = dynamic_cast<YINI::AST::MacroExpr*>(keyValue->value.get());
     ASSERT_NE(macro_expr, nullptr);
     EXPECT_EQ(macro_expr->name.lexeme, "some_macro");
+}
+
+TEST(ParserTests, ParsesDynaExpression)
+{
+    std::string source = "[MyConfig]\nvalue = Dyna(123)";
+    YINI::Lexer lexer(source);
+    auto tokens = lexer.scan_tokens();
+    YINI::Parser parser(tokens);
+    auto ast = parser.parse();
+
+    ASSERT_EQ(ast.size(), 1);
+    auto section = dynamic_cast<YINI::AST::SectionStmt*>(ast[0].get());
+    ASSERT_NE(section, nullptr);
+    auto keyValue = dynamic_cast<YINI::AST::KeyValueStmt*>(section->statements[0].get());
+    ASSERT_NE(keyValue, nullptr);
+
+    auto dyna_expr = dynamic_cast<YINI::AST::DynaExpr*>(keyValue->value.get());
+    ASSERT_NE(dyna_expr, nullptr);
+    auto literal_expr = dynamic_cast<YINI::AST::LiteralExpr*>(dyna_expr->expression.get());
+    ASSERT_NE(literal_expr, nullptr);
+    EXPECT_EQ(std::get<double>(literal_expr->value.literal), 123);
+}
+
+TEST(ParserTests, ParsesPathExpression)
+{
+    std::string source = "[MyConfig]\nmy_path = path(\"/usr/local/bin\")";
+    YINI::Lexer lexer(source);
+    auto tokens = lexer.scan_tokens();
+    YINI::Parser parser(tokens);
+    auto ast = parser.parse();
+
+    ASSERT_EQ(ast.size(), 1);
+    auto section = dynamic_cast<YINI::AST::SectionStmt*>(ast[0].get());
+    ASSERT_NE(section, nullptr);
+    auto keyValue = dynamic_cast<YINI::AST::KeyValueStmt*>(section->statements[0].get());
+    ASSERT_NE(keyValue, nullptr);
+
+    auto path_expr = dynamic_cast<YINI::AST::PathExpr*>(keyValue->value.get());
+    ASSERT_NE(path_expr, nullptr);
+    EXPECT_EQ(path_expr->path, "/usr/local/bin");
+}
+
+TEST(ParserTests, ParsesListExpression)
+{
+    std::string source = "[MyConfig]\nmy_list = list(1, \"two\")";
+    YINI::Lexer lexer(source);
+    auto tokens = lexer.scan_tokens();
+    YINI::Parser parser(tokens);
+    auto ast = parser.parse();
+
+    ASSERT_EQ(ast.size(), 1);
+    auto section = dynamic_cast<YINI::AST::SectionStmt*>(ast[0].get());
+    ASSERT_NE(section, nullptr);
+    auto keyValue = dynamic_cast<YINI::AST::KeyValueStmt*>(section->statements[0].get());
+    ASSERT_NE(keyValue, nullptr);
+
+    auto list_expr = dynamic_cast<YINI::AST::ListExpr*>(keyValue->value.get());
+    ASSERT_NE(list_expr, nullptr);
+    ASSERT_EQ(list_expr->elements.size(), 2);
+}
+
+TEST(ParserTests, ParsesQuickRegistration)
+{
+    std::string source = "[MyReg]\n+= 1\n+= \"two\"";
+    YINI::Lexer lexer(source);
+    auto tokens = lexer.scan_tokens();
+    YINI::Parser parser(tokens);
+    auto ast = parser.parse();
+
+    ASSERT_EQ(ast.size(), 1);
+    auto section = dynamic_cast<YINI::AST::SectionStmt*>(ast[0].get());
+    ASSERT_NE(section, nullptr);
+    ASSERT_EQ(section->statements.size(), 2);
+
+    auto reg1 = dynamic_cast<YINI::AST::QuickRegStmt*>(section->statements[0].get());
+    ASSERT_NE(reg1, nullptr);
+    auto reg2 = dynamic_cast<YINI::AST::QuickRegStmt*>(section->statements[1].get());
+    ASSERT_NE(reg2, nullptr);
 }

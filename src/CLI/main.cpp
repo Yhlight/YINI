@@ -5,22 +5,8 @@
 #include "Lexer/Lexer.h"
 #include "Parser/Parser.h"
 #include "Resolver/Resolver.h"
-
-static void run(const std::string& source) {
-    YINI::Lexer lexer(source);
-    auto tokens = lexer.scan_tokens();
-    YINI::Parser parser(tokens);
-    try {
-        auto ast = parser.parse();
-        YINI::Resolver resolver(ast);
-        auto resolved_config = resolver.resolve();
-        // For now, we just check for resolution errors.
-        // In the future, we would use the resolved config.
-        std::cout << "Resolution completed successfully." << std::endl;
-    } catch (const std::runtime_error& e) {
-        std::cerr << "Error: " << e.what() << std::endl;
-    }
-}
+#include "Ymeta/YmetaManager.h"
+#include "Validator/Validator.h"
 
 static void run_file(const char* path) {
     std::ifstream file(path);
@@ -31,18 +17,51 @@ static void run_file(const char* path) {
 
     std::stringstream buffer;
     buffer << file.rdbuf();
-    run(buffer.str());
+    std::string source = buffer.str();
+
+    YINI::Lexer lexer(source);
+    auto tokens = lexer.scan_tokens();
+    YINI::Parser parser(tokens);
+    try {
+        auto ast = parser.parse();
+        YINI::YmetaManager ymeta_manager;
+        ymeta_manager.load(path);
+        YINI::Resolver resolver(ast, ymeta_manager);
+        auto resolved_config = resolver.resolve();
+        YINI::Validator validator(resolved_config, ast);
+        validator.validate();
+        ymeta_manager.save(path);
+        std::cout << "Validation completed successfully." << std::endl;
+    } catch (const std::runtime_error& e) {
+        std::cerr << "Error: " << e.what() << std::endl;
+    }
 }
 
 static void run_prompt() {
     std::string line;
+    YINI::YmetaManager ymeta_manager; // A single manager for the REPL session
     for (;;) {
         std::cout << "> ";
         if (!std::getline(std::cin, line)) {
             std::cout << std::endl;
             break;
         }
-        run(line);
+        if (line.empty()) continue;
+
+        YINI::Lexer lexer(line);
+        auto tokens = lexer.scan_tokens();
+        YINI::Parser parser(tokens);
+        try {
+            auto ast = parser.parse();
+            // Note: .ymeta load/save doesn't make sense for REPL without a file context
+            YINI::Resolver resolver(ast, ymeta_manager);
+            auto resolved_config = resolver.resolve();
+            YINI::Validator validator(resolved_config, ast);
+            validator.validate();
+             std::cout << "Validation completed successfully." << std::endl;
+        } catch (const std::runtime_error& e) {
+            std::cerr << "Error: " << e.what() << std::endl;
+        }
     }
 }
 

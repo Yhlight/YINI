@@ -47,5 +47,6 @@ struct Token
     std::string lexeme;
     std::variant<std::string, double> literal;
     int line;
+    int column;
 };
 }

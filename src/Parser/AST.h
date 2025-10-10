@@ -64,15 +64,15 @@ struct BinaryExpr : public Expr
     std::unique_ptr<Expr> right;
 };
 
+struct GroupingExpr : public Expr
+{
+    std::unique_ptr<Expr> expression;
+};
+
 struct KeyValueStmt : public Stmt
 {
     Token key;
     std::unique_ptr<Expr> value;
-};
-
-struct GroupingExpr : public Expr
-{
-    std::unique_ptr<Expr> expression;
 };
 
 struct SectionStmt : public Stmt
@@ -106,6 +106,43 @@ struct CrossSectionRefExpr : public Expr
 struct EnvVarRefExpr : public Expr
 {
     Token name;
+};
+
+struct DynaExpr : public Expr
+{
+    std::unique_ptr<Expr> expression;
+};
+
+struct PathExpr : public Expr
+{
+    std::string path;
+};
+
+struct ListExpr : public Expr
+{
+    std::vector<std::unique_ptr<Expr>> elements;
+};
+
+struct QuickRegStmt : public Stmt
+{
+    std::unique_ptr<Expr> value;
+};
+
+struct SchemaRuleStmt : public Stmt
+{
+    Token key;
+    Token rules;
+};
+
+struct SchemaSectionStmt : public Stmt
+{
+    Token name;
+    std::vector<std::unique_ptr<SchemaRuleStmt>> rules;
+};
+
+struct SchemaStmt : public Stmt
+{
+    std::vector<std::unique_ptr<SchemaSectionStmt>> sections;
 };
 
 } // namespace AST

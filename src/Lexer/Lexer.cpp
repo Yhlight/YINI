@@ -36,7 +36,7 @@ std::vector<Token> Lexer::scan_tokens()
         scan_token();
     }
 
-    m_tokens.push_back({TokenType::END_OF_FILE, "", {}, m_line});
+    m_tokens.push_back({TokenType::END_OF_FILE, "", {}, m_line, 0});
     return m_tokens;
 }
 
@@ -122,6 +122,7 @@ void Lexer::scan_token()
 
     case '\n':
         m_line++;
+        m_line_start = m_current;
         break;
 
     case '"': string(); break;
@@ -137,7 +138,6 @@ void Lexer::scan_token()
         }
         else
         {
-            // std::cout << "Unexpected character: " << c << " at line " << m_line << std::endl;
             add_token(TokenType::UNKNOWN);
         }
         break;
@@ -157,7 +157,8 @@ void Lexer::add_token(TokenType type)
 void Lexer::add_token(TokenType type, const std::variant<std::string, double>& literal)
 {
     std::string text = m_source.substr(m_start, m_current - m_start);
-    m_tokens.push_back({type, text, literal, m_line});
+    int column = m_start - m_line_start + 1;
+    m_tokens.push_back({type, text, literal, m_line, column});
 }
 
 bool Lexer::match(char expected)
@@ -191,15 +192,12 @@ void Lexer::string()
 
     if (is_at_end())
     {
-        // Unterminated string.
         add_token(TokenType::UNKNOWN);
         return;
     }
 
-    // The closing ".
     advance();
 
-    // Trim the surrounding quotes.
     std::string value = m_source.substr(m_start + 1, m_current - m_start - 2);
     add_token(TokenType::STRING, value);
 }
@@ -208,10 +206,8 @@ void Lexer::number()
 {
     while (isdigit(peek())) advance();
 
-    // Look for a fractional part.
     if (peek() == '.' && isdigit(peek_next()))
     {
-        // Consume the "."
         advance();
 
         while (isdigit(peek())) advance();

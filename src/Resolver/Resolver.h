@@ -1,29 +1,21 @@
 #pragma once
 
 #include "Parser/AST.h"
+#include "Ymeta/YmetaManager.h"
 #include <vector>
 #include <memory>
 #include <string>
 #include <map>
 #include <any>
+#include "YiniTypes.h"
 
 namespace YINI
 {
 
-struct ResolvedColor
-{
-    uint8_t r, g, b;
-};
-
-struct ResolvedCoord
-{
-    std::any x, y, z;
-};
-
 class Resolver
 {
 public:
-    Resolver(const std::vector<std::unique_ptr<AST::Stmt>>& statements);
+    Resolver(const std::vector<std::unique_ptr<AST::Stmt>>& statements, YmetaManager& ymeta_manager);
     std::map<std::string, std::any> resolve();
 
 private:
@@ -34,6 +26,7 @@ private:
     void visit_section(AST::SectionStmt* stmt);
     void visit_include(AST::IncludeStmt* stmt);
     void visit_key_value(AST::KeyValueStmt* stmt);
+    void visit_quick_reg(AST::QuickRegStmt* stmt);
 
     std::any visit_literal(AST::LiteralExpr* expr);
     std::any visit_bool(AST::BoolExpr* expr);
@@ -47,10 +40,14 @@ private:
     std::any visit_grouping(AST::GroupingExpr* expr);
     std::any visit_cross_section_ref(AST::CrossSectionRefExpr* expr);
     std::any visit_env_var_ref(AST::EnvVarRefExpr* expr);
+    std::any visit_path(AST::PathExpr* expr);
+    std::any visit_list(AST::ListExpr* expr);
 
     const std::vector<std::unique_ptr<AST::Stmt>>& m_statements;
+    YmetaManager& m_ymeta_manager;
     std::map<std::string, AST::Expr*> m_macros;
     std::map<std::string, std::any> m_resolved_config;
+    std::map<std::string, int> m_quick_reg_indices;
     std::string m_current_section;
 };
 

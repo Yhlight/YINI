@@ -22,13 +22,20 @@ std::unique_ptr<AST::Stmt> Parser::declaration()
 {
     if (match({TokenType::LEFT_BRACKET})) {
         if (match({TokenType::HASH})) {
-            Token keyword = consume(TokenType::IDENTIFIER, "Expect 'define' or 'include' keyword.");
+            Token keyword = consume(TokenType::IDENTIFIER, "Expect 'define', 'include', or 'schema' keyword.");
             if (keyword.lexeme == "define") {
                 return define_section_declaration();
             } else if (keyword.lexeme == "include") {
                 return include_section_declaration();
-            } else {
-                throw std::runtime_error("Unknown directive '#" + keyword.lexeme + "'.");
+            } else if (keyword.lexeme == "schema") {
+                return schema_declaration();
+            }
+            else {
+                Token error_token = peek();
+                std::string error_message = "Error at line " + std::to_string(error_token.line) +
+                                            ", column " + std::to_string(error_token.column) +
+                                            ": Unknown directive '#" + keyword.lexeme + "'.";
+                throw std::runtime_error(error_message);
             }
         }
         return section_declaration();
@@ -54,7 +61,11 @@ std::unique_ptr<AST::Stmt> Parser::section_declaration()
 
     while (!check(TokenType::LEFT_BRACKET) && !is_at_end())
     {
-        section->statements.push_back(key_value_statement());
+        if (peek().type == TokenType::PLUS_EQUAL) {
+            section->statements.push_back(quick_reg_statement());
+        } else {
+            section->statements.push_back(key_value_statement());
+        }
     }
 
     return section;
@@ -88,6 +99,55 @@ std::unique_ptr<AST::Stmt> Parser::include_section_declaration()
     return include_stmt;
 }
 
+std::unique_ptr<AST::Stmt> Parser::schema_declaration()
+{
+    consume(TokenType::RIGHT_BRACKET, "Expect ']' after '#schema'.");
+    auto schema = std::make_unique<AST::SchemaStmt>();
+
+    // A [#schema] directive applies to the next section.
+    if (peek().type == TokenType::LEFT_BRACKET)
+    {
+        schema->sections.push_back(schema_section_declaration());
+    }
+
+    return schema;
+}
+
+std::unique_ptr<AST::SchemaSectionStmt> Parser::schema_section_declaration()
+{
+    consume(TokenType::LEFT_BRACKET, "Expect '[' to start a schema section.");
+    Token name = consume(TokenType::IDENTIFIER, "Expect section name in schema.");
+    consume(TokenType::RIGHT_BRACKET, "Expect ']' after schema section name.");
+
+    auto schema_section = std::make_unique<AST::SchemaSectionStmt>();
+    schema_section->name = name;
+
+    while (!is_at_end() && peek().type != TokenType::LEFT_BRACKET)
+    {
+        schema_section->rules.push_back(schema_rule_statement());
+    }
+
+    return schema_section;
+}
+
+std::unique_ptr<AST::SchemaRuleStmt> Parser::schema_rule_statement()
+{
+    Token key = consume(TokenType::IDENTIFIER, "Expect key for schema rule.");
+    consume(TokenType::EQUAL, "Expect '=' after schema rule key.");
+
+    std::string rule_string;
+    int line = peek().line;
+    while (!is_at_end() && peek().line == line) {
+        rule_string += advance().lexeme;
+    }
+
+    auto rule_stmt = std::make_unique<AST::SchemaRuleStmt>();
+    rule_stmt->key = key;
+    rule_stmt->rules = {TokenType::STRING, rule_string, rule_string, line};
+
+    return rule_stmt;
+}
+
 std::unique_ptr<AST::KeyValueStmt> Parser::key_value_statement()
 {
     Token key = consume(TokenType::IDENTIFIER, "Expect key.");
@@ -98,6 +158,15 @@ std::unique_ptr<AST::KeyValueStmt> Parser::key_value_statement()
     stmt->key = key;
     stmt->value = std::move(value);
 
+    return stmt;
+}
+
+std::unique_ptr<AST::QuickRegStmt> Parser::quick_reg_statement()
+{
+    consume(TokenType::PLUS_EQUAL, "Expect '+=' for quick registration.");
+    auto value = expression();
+    auto stmt = std::make_unique<AST::QuickRegStmt>();
+    stmt->value = std::move(value);
     return stmt;
 }
 
@@ -167,7 +236,11 @@ std::unique_ptr<AST::Expr> Parser::primary()
         auto color_expr = std::make_unique<AST::ColorExpr>();
         std::string hex_str = previous().lexeme.substr(1); // remove '#'
         if (hex_str.length() != 6) {
-            throw std::runtime_error("Invalid hex color format. Must be 6 hex digits.");
+            Token error_token = previous();
+            std::string error_message = "Error at line " + std::to_string(error_token.line) +
+                                        ", column " + std::to_string(error_token.column) +
+                                        ": Invalid hex color format. Must be 6 hex digits.";
+            throw std::runtime_error(error_message);
         }
         try {
             unsigned long value = std::stoul(hex_str, nullptr, 16);
@@ -175,9 +248,17 @@ std::unique_ptr<AST::Expr> Parser::primary()
             color_expr->g = (value >> 8) & 0xFF;
             color_expr->b = value & 0xFF;
         } catch (const std::invalid_argument& e) {
-            throw std::runtime_error("Invalid hex color value.");
+            Token error_token = previous();
+            std::string error_message = "Error at line " + std::to_string(error_token.line) +
+                                        ", column " + std::to_string(error_token.column) +
+                                        ": Invalid hex color value.";
+            throw std::runtime_error(error_message);
         } catch (const std::out_of_range& e) {
-            throw std::runtime_error("Hex color value out of range.");
+            Token error_token = previous();
+            std::string error_message = "Error at line " + std::to_string(error_token.line) +
+                                        ", column " + std::to_string(error_token.column) +
+                                        ": Hex color value out of range.";
+            throw std::runtime_error(error_message);
         }
         return color_expr;
     }
@@ -210,12 +291,24 @@ std::unique_ptr<AST::Expr> Parser::primary()
         return map();
     }
 
+    if (match({TokenType::DYNA})) {
+        return dyna();
+    }
+
     if (match({TokenType::COLOR})) {
         return color();
     }
 
     if (match({TokenType::COORD})) {
         return coord();
+    }
+
+    if (match({TokenType::PATH})) {
+        return path();
+    }
+
+    if (match({TokenType::LIST})) {
+        return list();
     }
 
     if (match({TokenType::AT})) {
@@ -245,8 +338,11 @@ std::unique_ptr<AST::Expr> Parser::primary()
         return ref;
     }
 
-    // For now, we'll just throw an error for unsupported expressions.
-    throw std::runtime_error("Expect expression.");
+    Token error_token = peek();
+    std::string error_message = "Error at line " + std::to_string(error_token.line) +
+                                ", column " + std::to_string(error_token.column) +
+                                ": Expect expression.";
+    throw std::runtime_error(error_message);
 }
 
 std::unique_ptr<AST::Expr> Parser::array() {
@@ -316,6 +412,39 @@ std::unique_ptr<AST::Expr> Parser::coord() {
     return coord_expr;
 }
 
+std::unique_ptr<AST::Expr> Parser::dyna() {
+    consume(TokenType::LEFT_PAREN, "Expect '(' after 'Dyna' keyword.");
+    auto expr = expression();
+    consume(TokenType::RIGHT_PAREN, "Expect ')' after Dyna expression.");
+    auto dyna_expr = std::make_unique<AST::DynaExpr>();
+    dyna_expr->expression = std::move(expr);
+    return dyna_expr;
+}
+
+std::unique_ptr<AST::Expr> Parser::path()
+{
+    consume(TokenType::LEFT_PAREN, "Expect '(' after 'path' keyword.");
+    auto path_expr = std::make_unique<AST::PathExpr>();
+    if (peek().type == TokenType::STRING) {
+        path_expr->path = std::get<std::string>(consume(TokenType::STRING, "Expect path string.").literal);
+    }
+    consume(TokenType::RIGHT_PAREN, "Expect ')' after path.");
+    return path_expr;
+}
+
+std::unique_ptr<AST::Expr> Parser::list()
+{
+    consume(TokenType::LEFT_PAREN, "Expect '(' after 'list' keyword.");
+    auto list_expr = std::make_unique<AST::ListExpr>();
+    if (!check(TokenType::RIGHT_PAREN)) {
+        do {
+            list_expr->elements.push_back(expression());
+        } while (match({TokenType::COMMA}));
+    }
+    consume(TokenType::RIGHT_PAREN, "Expect ')' after list elements.");
+    return list_expr;
+}
+
 bool Parser::match(const std::vector<TokenType>& types)
 {
     for (TokenType type : types)
@@ -332,7 +461,12 @@ bool Parser::match(const std::vector<TokenType>& types)
 Token Parser::consume(TokenType type, const std::string& message)
 {
     if (check(type)) return advance();
-    throw std::runtime_error(message);
+
+    Token error_token = peek();
+    std::string error_message = "Error at line " + std::to_string(error_token.line) +
+                                ", column " + std::to_string(error_token.column) +
+                                ": " + message;
+    throw std::runtime_error(error_message);
 }
 
 bool Parser::check(TokenType type)
@@ -355,6 +489,12 @@ bool Parser::is_at_end()
 Token Parser::peek()
 {
     return m_tokens[m_current];
+}
+
+Token Parser::peek_next()
+{
+    if (m_current + 1 >= m_tokens.size()) return m_tokens.back();
+    return m_tokens[m_current + 1];
 }
 
 Token Parser::previous()

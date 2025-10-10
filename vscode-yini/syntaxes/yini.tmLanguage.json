@@ -1,0 +1,94 @@
+{
+    "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+    "name": "YINI",
+    "scopeName": "source.yini",
+    "patterns": [
+        { "include": "#comments" },
+        { "include": "#sections" },
+        { "include": "#key_value_pairs" }
+    ],
+    "repository": {
+        "comments": {
+            "patterns": [
+                {
+                    "name": "comment.line.double-slash.yini",
+                    "match": "//.*"
+                },
+                {
+                    "name": "comment.block.yini",
+                    "begin": "/\\*",
+                    "end": "\\*/"
+                }
+            ]
+        },
+        "sections": {
+            "patterns": [
+                {
+                    "name": "entity.name.section.yini",
+                    "begin": "\\[",
+                    "end": "\\]",
+                    "patterns": [
+                        {
+                            "name": "keyword.control.directive.yini",
+                            "match": "#(define|include|schema)"
+                        },
+                        {
+                            "name": "entity.other.inherited-class.yini",
+                            "match": "\\b[a-zA-Z_][a-zA-Z0-9_]*\\b"
+                        }
+                    ]
+                }
+            ]
+        },
+        "key_value_pairs": {
+            "patterns": [
+                {
+                    "name": "variable.parameter.yini",
+                    "match": "\\b[a-zA-Z_][a-zA-Z0-9_]*\\b(?=\\s*=)"
+                },
+                {
+                    "name": "keyword.operator.assignment.yini",
+                    "match": "(=|\\+=)"
+                },
+                { "include": "#values" }
+            ]
+        },
+        "values": {
+            "patterns": [
+                {
+                    "name": "string.quoted.double.yini",
+                    "begin": "\"",
+                    "end": "\""
+                },
+                {
+                    "name": "constant.numeric.yini",
+                    "match": "\\b[0-9]+(\\.[0-9]+)?\\b"
+                },
+                {
+                    "name": "constant.language.boolean.yini",
+                    "match": "\\b(true|false)\\b"
+                },
+                {
+                    "name": "keyword.other.yini",
+                    "match": "\\b(Dyna|color|coord|path|list|array)\\b"
+                },
+                {
+                    "name": "variable.other.macro.yini",
+                    "match": "@[a-zA-Z_][a-zA-Z0-9_]*"
+                },
+                {
+                    "name": "variable.other.env.yini",
+                    "match": "\\$\\{[a-zA-Z_][a-zA-Z0-9_]*\\}"
+                },
+                {
+                    "name": "variable.other.cross-section.yini",
+                    "match": "@\\{[a-zA-Z_][a-zA-Z0-9_]*\\.[a-zA-Z_][a-zA-Z0-9_]*\\}"
+                },
+                {
+                    "name": "constant.other.color.hex.yini",
+                    "match": "#[0-9a-fA-F]{6}"
+                }
+            ]
+        }
+    }
+}

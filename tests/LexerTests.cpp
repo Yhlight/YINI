@@ -61,8 +61,6 @@ TEST(LexerTests, IgnoresComments) {
     EXPECT_EQ(tokens[1].type, YINI::TokenType::EQUAL);
     EXPECT_EQ(tokens[2].type, YINI::TokenType::IDENTIFIER);
     EXPECT_EQ(tokens[2].lexeme, "value");
-    // The test as written will fail here, because "value" will be an IDENTIFIER, not a STRING.
-    // Let's fix the test to reflect that.
     EXPECT_EQ(tokens[3].type, YINI::TokenType::END_OF_FILE);
 }
 
