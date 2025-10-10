@@ -27,6 +27,16 @@ struct LiteralExpr : public Expr
     Token value;
 };
 
+struct BoolExpr : public Expr
+{
+    bool value;
+};
+
+struct ArrayExpr : public Expr
+{
+    std::vector<std::unique_ptr<Expr>> elements;
+};
+
 struct BinaryExpr : public Expr
 {
     std::unique_ptr<Expr> left;
@@ -43,6 +53,7 @@ struct KeyValueStmt : public Stmt
 struct SectionStmt : public Stmt
 {
     Token name;
+    std::vector<Token> parent_sections;
     std::vector<std::unique_ptr<Stmt>> statements;
 };
 

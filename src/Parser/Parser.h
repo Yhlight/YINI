@@ -19,6 +19,7 @@ private:
     std::unique_ptr<AST::Stmt> key_value_statement();
     std::unique_ptr<AST::Expr> expression();
     std::unique_ptr<AST::Expr> primary();
+    std::unique_ptr<AST::Expr> array();
 
     bool match(const std::vector<TokenType>& types);
     Token consume(TokenType type, const std::string& message);

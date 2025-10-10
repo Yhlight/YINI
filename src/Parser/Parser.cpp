@@ -33,10 +33,18 @@ std::unique_ptr<AST::Stmt> Parser::declaration()
 std::unique_ptr<AST::Stmt> Parser::section_declaration()
 {
     Token name = consume(TokenType::IDENTIFIER, "Expect section name.");
-    consume(TokenType::RIGHT_BRACKET, "Expect ']' after section name.");
 
     auto section = std::make_unique<AST::SectionStmt>();
     section->name = name;
+
+    if (match({TokenType::COLON}))
+    {
+        do {
+            section->parent_sections.push_back(consume(TokenType::IDENTIFIER, "Expect parent section name."));
+        } while (match({TokenType::COMMA}));
+    }
+
+    consume(TokenType::RIGHT_BRACKET, "Expect ']' after section declaration.");
 
     while (!check(TokenType::LEFT_BRACKET) && !is_at_end())
     {
@@ -66,6 +74,18 @@ std::unique_ptr<AST::Expr> Parser::expression()
 
 std::unique_ptr<AST::Expr> Parser::primary()
 {
+    if (match({TokenType::TRUE})) {
+        auto bool_expr = std::make_unique<AST::BoolExpr>();
+        bool_expr->value = true;
+        return bool_expr;
+    }
+
+    if (match({TokenType::FALSE})) {
+        auto bool_expr = std::make_unique<AST::BoolExpr>();
+        bool_expr->value = false;
+        return bool_expr;
+    }
+
     if (match({TokenType::STRING, TokenType::NUMBER}))
     {
         auto literal = std::make_unique<AST::LiteralExpr>();
@@ -73,8 +93,23 @@ std::unique_ptr<AST::Expr> Parser::primary()
         return literal;
     }
 
+    if (match({TokenType::LEFT_BRACKET})) {
+        return array();
+    }
+
     // For now, we'll just throw an error for unsupported expressions.
     throw std::runtime_error("Expect expression.");
+}
+
+std::unique_ptr<AST::Expr> Parser::array() {
+    auto array_expr = std::make_unique<AST::ArrayExpr>();
+    if (!check(TokenType::RIGHT_BRACKET)) {
+        do {
+            array_expr->elements.push_back(expression());
+        } while (match({TokenType::COMMA}));
+    }
+    consume(TokenType::RIGHT_BRACKET, "Expect ']' after array elements.");
+    return array_expr;
 }
 
 bool Parser::match(const std::vector<TokenType>& types)
