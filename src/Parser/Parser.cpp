@@ -22,7 +22,14 @@ std::unique_ptr<AST::Stmt> Parser::declaration()
 {
     if (match({TokenType::LEFT_BRACKET})) {
         if (match({TokenType::HASH})) {
-            return define_section_declaration();
+            Token keyword = consume(TokenType::IDENTIFIER, "Expect 'define' or 'include' keyword.");
+            if (keyword.lexeme == "define") {
+                return define_section_declaration();
+            } else if (keyword.lexeme == "include") {
+                return include_section_declaration();
+            } else {
+                throw std::runtime_error("Unknown directive '#" + keyword.lexeme + "'.");
+            }
         }
         return section_declaration();
     }
@@ -55,10 +62,6 @@ std::unique_ptr<AST::Stmt> Parser::section_declaration()
 
 std::unique_ptr<AST::Stmt> Parser::define_section_declaration()
 {
-    Token define_keyword = consume(TokenType::IDENTIFIER, "Expect 'define' keyword.");
-    if (define_keyword.lexeme != "define") {
-        throw std::runtime_error("Expect 'define' keyword after '[#'.");
-    }
     consume(TokenType::RIGHT_BRACKET, "Expect ']' after '#define'.");
 
     auto define_section = std::make_unique<AST::DefineSectionStmt>();
@@ -69,6 +72,20 @@ std::unique_ptr<AST::Stmt> Parser::define_section_declaration()
     }
 
     return define_section;
+}
+
+std::unique_ptr<AST::Stmt> Parser::include_section_declaration()
+{
+    consume(TokenType::RIGHT_BRACKET, "Expect ']' after '#include'.");
+
+    auto include_stmt = std::make_unique<AST::IncludeStmt>();
+
+    while (match({TokenType::PLUS_EQUAL}))
+    {
+        include_stmt->paths.push_back(expression());
+    }
+
+    return include_stmt;
 }
 
 std::unique_ptr<AST::KeyValueStmt> Parser::key_value_statement()
@@ -86,7 +103,43 @@ std::unique_ptr<AST::KeyValueStmt> Parser::key_value_statement()
 
 std::unique_ptr<AST::Expr> Parser::expression()
 {
-    return primary();
+    return term();
+}
+
+std::unique_ptr<AST::Expr> Parser::term()
+{
+    auto expr = factor();
+
+    while (match({TokenType::MINUS, TokenType::PLUS}))
+    {
+        Token op = previous();
+        auto right = factor();
+        auto new_expr = std::make_unique<AST::BinaryExpr>();
+        new_expr->left = std::move(expr);
+        new_expr->op = op;
+        new_expr->right = std::move(right);
+        expr = std::move(new_expr);
+    }
+
+    return expr;
+}
+
+std::unique_ptr<AST::Expr> Parser::factor()
+{
+    auto expr = primary();
+
+    while (match({TokenType::SLASH, TokenType::STAR, TokenType::PERCENT}))
+    {
+        Token op = previous();
+        auto right = primary();
+        auto new_expr = std::make_unique<AST::BinaryExpr>();
+        new_expr->left = std::move(expr);
+        new_expr->op = op;
+        new_expr->right = std::move(right);
+        expr = std::move(new_expr);
+    }
+
+    return expr;
 }
 
 std::unique_ptr<AST::Expr> Parser::primary()
@@ -134,7 +187,23 @@ std::unique_ptr<AST::Expr> Parser::primary()
     }
 
     if (match({TokenType::LEFT_PAREN})) {
-        return set();
+        auto expr = expression();
+        if (match({TokenType::COMMA})) {
+            auto set_expr = std::make_unique<AST::SetExpr>();
+            set_expr->elements.push_back(std::move(expr));
+            if (!check(TokenType::RIGHT_PAREN)) {
+                do {
+                    set_expr->elements.push_back(expression());
+                } while (match({TokenType::COMMA}));
+            }
+            consume(TokenType::RIGHT_PAREN, "Expect ')' after set elements.");
+            return set_expr;
+        } else {
+            consume(TokenType::RIGHT_PAREN, "Expect ')' after expression.");
+            auto grouping_expr = std::make_unique<AST::GroupingExpr>();
+            grouping_expr->expression = std::move(expr);
+            return grouping_expr;
+        }
     }
 
     if (match({TokenType::LEFT_BRACE})) {
@@ -150,10 +219,30 @@ std::unique_ptr<AST::Expr> Parser::primary()
     }
 
     if (match({TokenType::AT})) {
-        Token name = consume(TokenType::IDENTIFIER, "Expect macro name after '@'.");
-        auto macro = std::make_unique<AST::MacroExpr>();
-        macro->name = name;
-        return macro;
+        if (match({TokenType::LEFT_BRACE})) {
+            Token section = consume(TokenType::IDENTIFIER, "Expect section name for cross-reference.");
+            consume(TokenType::DOT, "Expect '.' between section and key.");
+            Token key = consume(TokenType::IDENTIFIER, "Expect key for cross-reference.");
+            consume(TokenType::RIGHT_BRACE, "Expect '}' to close cross-reference.");
+            auto ref = std::make_unique<AST::CrossSectionRefExpr>();
+            ref->section = section;
+            ref->key = key;
+            return ref;
+        } else {
+            Token name = consume(TokenType::IDENTIFIER, "Expect macro name after '@'.");
+            auto macro = std::make_unique<AST::MacroExpr>();
+            macro->name = name;
+            return macro;
+        }
+    }
+
+    if (match({TokenType::DOLLAR})) {
+        consume(TokenType::LEFT_BRACE, "Expect '{' after '$'.");
+        Token name = consume(TokenType::IDENTIFIER, "Expect environment variable name.");
+        consume(TokenType::RIGHT_BRACE, "Expect '}' to close environment variable reference.");
+        auto ref = std::make_unique<AST::EnvVarRefExpr>();
+        ref->name = name;
+        return ref;
     }
 
     // For now, we'll just throw an error for unsupported expressions.

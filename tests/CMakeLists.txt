@@ -19,3 +19,14 @@ add_executable(parser_tests ParserTests.cpp)
 target_link_libraries(parser_tests PRIVATE Parser Lexer gtest_main)
 target_include_directories(parser_tests PRIVATE ../src)
 add_test(NAME parser_tests COMMAND $<TARGET_FILE:parser_tests>)
+
+add_executable(resolver_tests ResolverTests.cpp)
+target_link_libraries(resolver_tests PRIVATE Resolver Parser Lexer gtest_main)
+target_include_directories(resolver_tests PRIVATE ../src)
+add_test(NAME resolver_tests COMMAND $<TARGET_FILE:resolver_tests>)
+
+file(COPY
+    "include_test.yini"
+    "main_include_test.yini"
+    DESTINATION ${CMAKE_CURRENT_BINARY_DIR}
+)

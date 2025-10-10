@@ -1,0 +1,3 @@
+[IncludedSection]
+included_key = "this value is from the included file"
+another_key = 123

@@ -4,6 +4,7 @@
 #include <string>
 #include "Lexer/Lexer.h"
 #include "Parser/Parser.h"
+#include "Resolver/Resolver.h"
 
 static void run(const std::string& source) {
     YINI::Lexer lexer(source);
@@ -11,11 +12,13 @@ static void run(const std::string& source) {
     YINI::Parser parser(tokens);
     try {
         auto ast = parser.parse();
-        // For now, we just check for parsing errors.
-        // In the future, we would process the AST.
-        std::cout << "Parsing completed successfully." << std::endl;
+        YINI::Resolver resolver(ast);
+        auto resolved_config = resolver.resolve();
+        // For now, we just check for resolution errors.
+        // In the future, we would use the resolved config.
+        std::cout << "Resolution completed successfully." << std::endl;
     } catch (const std::runtime_error& e) {
-        std::cerr << "Parsing error: " << e.what() << std::endl;
+        std::cerr << "Error: " << e.what() << std::endl;
     }
 }
 

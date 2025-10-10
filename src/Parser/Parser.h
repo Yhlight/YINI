@@ -17,8 +17,11 @@ private:
     std::unique_ptr<AST::Stmt> declaration();
     std::unique_ptr<AST::Stmt> section_declaration();
     std::unique_ptr<AST::Stmt> define_section_declaration();
+    std::unique_ptr<AST::Stmt> include_section_declaration();
     std::unique_ptr<AST::KeyValueStmt> key_value_statement();
     std::unique_ptr<AST::Expr> expression();
+    std::unique_ptr<AST::Expr> term();
+    std::unique_ptr<AST::Expr> factor();
     std::unique_ptr<AST::Expr> primary();
     std::unique_ptr<AST::Expr> array();
     std::unique_ptr<AST::Expr> set();

@@ -70,6 +70,11 @@ struct KeyValueStmt : public Stmt
     std::unique_ptr<Expr> value;
 };
 
+struct GroupingExpr : public Expr
+{
+    std::unique_ptr<Expr> expression;
+};
+
 struct SectionStmt : public Stmt
 {
     Token name;
@@ -82,7 +87,23 @@ struct DefineSectionStmt : public Stmt
     std::vector<std::unique_ptr<KeyValueStmt>> definitions;
 };
 
+struct IncludeStmt : public Stmt
+{
+    std::vector<std::unique_ptr<Expr>> paths;
+};
+
 struct MacroExpr : public Expr
+{
+    Token name;
+};
+
+struct CrossSectionRefExpr : public Expr
+{
+    Token section;
+    Token key;
+};
+
+struct EnvVarRefExpr : public Expr
 {
     Token name;
 };

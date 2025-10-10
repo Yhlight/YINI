@@ -10,6 +10,7 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
 add_subdirectory(src/Lexer)
 add_subdirectory(src/Parser)
+add_subdirectory(src/Resolver)
 add_subdirectory(src/CLI)
 
 enable_testing()
