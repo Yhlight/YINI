@@ -33,9 +33,6 @@ enum class TokenType
     // Comments
     SLASH_SLASH, SLASH_STAR, STAR_SLASH,
 
-    // Sections
-    SECTION,
-
     // Others
     END_OF_FILE,
     UNKNOWN

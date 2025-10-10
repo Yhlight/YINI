@@ -72,3 +72,16 @@ TEST(LexerTests, HandlesUnterminatedBlockComment) {
     ASSERT_EQ(tokens.size(), 1);
     EXPECT_EQ(tokens[0].type, YINI::TokenType::END_OF_FILE);
 }
+
+TEST(LexerTests, TokenizesSection) {
+    std::string source = "[Section]";
+    YINI::Lexer lexer(source);
+    std::vector<YINI::Token> tokens = lexer.scan_tokens();
+
+    ASSERT_EQ(tokens.size(), 4);
+    EXPECT_EQ(tokens[0].type, YINI::TokenType::LEFT_BRACKET);
+    EXPECT_EQ(tokens[1].type, YINI::TokenType::IDENTIFIER);
+    EXPECT_EQ(tokens[1].lexeme, "Section");
+    EXPECT_EQ(tokens[2].type, YINI::TokenType::RIGHT_BRACKET);
+    EXPECT_EQ(tokens[3].type, YINI::TokenType::END_OF_FILE);
+}

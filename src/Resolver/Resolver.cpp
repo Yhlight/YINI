@@ -17,6 +17,16 @@ Resolver::Resolver(const std::vector<std::unique_ptr<AST::Stmt>>& statements, Ym
 
 std::map<std::string, std::any> Resolver::resolve()
 {
+    // First pass: collect all section definitions
+    for (const auto& stmt : m_statements)
+    {
+        if (auto* section_stmt = dynamic_cast<AST::SectionStmt*>(stmt.get()))
+        {
+            m_sections[section_stmt->name.lexeme] = section_stmt;
+        }
+    }
+
+    // Second pass: resolve all statements
     for (const auto& stmt : m_statements)
     {
         resolve_statement(stmt.get());
@@ -119,12 +129,46 @@ void Resolver::visit_define_section(AST::DefineSectionStmt* stmt)
 
 void Resolver::visit_section(AST::SectionStmt* stmt)
 {
+    if (m_resolved_sections.count(stmt->name.lexeme)) {
+        return; // Already resolved
+    }
+
+    if (m_resolving_stack.count(stmt->name.lexeme)) {
+        throw std::runtime_error("Circular inheritance detected for section: " + stmt->name.lexeme);
+    }
+
+    m_resolving_stack.insert(stmt->name.lexeme);
+
+    for (const auto& parent_name_token : stmt->parent_sections)
+    {
+        std::string parent_name = parent_name_token.lexeme;
+        if (m_sections.count(parent_name))
+        {
+            visit_section(m_sections[parent_name]);
+            // Copy resolved values from parent
+            for (auto const& [key, val] : m_resolved_config) {
+                std::string parent_prefix = parent_name + ".";
+                if (key.rfind(parent_prefix, 0) == 0) { // starts_with
+                    std::string new_key = stmt->name.lexeme + "." + key.substr(parent_prefix.length());
+                    m_resolved_config[new_key] = val;
+                }
+            }
+        }
+        else
+        {
+            throw std::runtime_error("Undefined parent section: " + parent_name);
+        }
+    }
+
     m_current_section = stmt->name.lexeme;
     for (const auto& statement : stmt->statements)
     {
         resolve_statement(statement.get());
     }
     m_current_section.clear();
+
+    m_resolving_stack.erase(stmt->name.lexeme);
+    m_resolved_sections.insert(stmt->name.lexeme);
 }
 
 void Resolver::visit_include(AST::IncludeStmt* stmt)

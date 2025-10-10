@@ -7,6 +7,7 @@
 #include <string>
 #include <map>
 #include <any>
+#include <set>
 #include "YiniTypes.h"
 
 namespace YINI
@@ -46,9 +47,12 @@ private:
     const std::vector<std::unique_ptr<AST::Stmt>>& m_statements;
     YmetaManager& m_ymeta_manager;
     std::map<std::string, AST::Expr*> m_macros;
+    std::map<std::string, AST::SectionStmt*> m_sections;
     std::map<std::string, std::any> m_resolved_config;
     std::map<std::string, int> m_quick_reg_indices;
     std::string m_current_section;
+    std::set<std::string> m_resolved_sections;
+    std::set<std::string> m_resolving_stack;
 };
 
 } // namespace YINI

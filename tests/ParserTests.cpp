@@ -3,6 +3,48 @@
 #include "Parser/Parser.h"
 #include "Parser/AST.h"
 
+TEST(ParserTests, ParsesEmptyInput)
+{
+    std::string source = "";
+    YINI::Lexer lexer(source);
+    auto tokens = lexer.scan_tokens();
+    YINI::Parser parser(tokens);
+    auto ast = parser.parse();
+
+    ASSERT_EQ(ast.size(), 0);
+}
+
+TEST(ParserTests, ParsesTopLevelKeyValue)
+{
+    std::string source = "key = \"value\"";
+    YINI::Lexer lexer(source);
+    auto tokens = lexer.scan_tokens();
+    YINI::Parser parser(tokens);
+    auto ast = parser.parse();
+
+    ASSERT_EQ(ast.size(), 1);
+    auto keyValue = dynamic_cast<YINI::AST::KeyValueStmt*>(ast[0].get());
+    ASSERT_NE(keyValue, nullptr);
+    EXPECT_EQ(keyValue->key.lexeme, "key");
+}
+
+TEST(ParserTests, ParsesMultipleSections)
+{
+    std::string source = "[Section1]\nkey1 = 1\n[Section2]\nkey2 = 2";
+    YINI::Lexer lexer(source);
+    auto tokens = lexer.scan_tokens();
+    YINI::Parser parser(tokens);
+    auto ast = parser.parse();
+
+    ASSERT_EQ(ast.size(), 2);
+    auto section1 = dynamic_cast<YINI::AST::SectionStmt*>(ast[0].get());
+    ASSERT_NE(section1, nullptr);
+    EXPECT_EQ(section1->name.lexeme, "Section1");
+    auto section2 = dynamic_cast<YINI::AST::SectionStmt*>(ast[1].get());
+    ASSERT_NE(section2, nullptr);
+    EXPECT_EQ(section2->name.lexeme, "Section2");
+}
+
 TEST(ParserTests, ParsesSectionWithKeyValue)
 {
     std::string source = "[TestSection]\nkey = \"value\"";
@@ -44,6 +86,24 @@ TEST(ParserTests, ParsesNumberLiteral)
     auto literal = dynamic_cast<YINI::AST::LiteralExpr*>(keyValue->value.get());
     ASSERT_NE(literal, nullptr);
     EXPECT_EQ(std::get<double>(literal->value.literal), 123);
+}
+
+TEST(ParserTests, ParsesFloatLiteral)
+{
+    std::string source = "[Floats]\nvalue = 3.14";
+    YINI::Lexer lexer(source);
+    auto tokens = lexer.scan_tokens();
+    YINI::Parser parser(tokens);
+    auto ast = parser.parse();
+
+    ASSERT_EQ(ast.size(), 1);
+    auto section = dynamic_cast<YINI::AST::SectionStmt*>(ast[0].get());
+    ASSERT_NE(section, nullptr);
+    auto keyValue = dynamic_cast<YINI::AST::KeyValueStmt*>(section->statements[0].get());
+    ASSERT_NE(keyValue, nullptr);
+    auto literal = dynamic_cast<YINI::AST::LiteralExpr*>(keyValue->value.get());
+    ASSERT_NE(literal, nullptr);
+    EXPECT_EQ(std::get<double>(literal->value.literal), 3.14);
 }
 
 TEST(ParserTests, ThrowsErrorOnMissingBracket)
@@ -137,6 +197,148 @@ TEST(ParserTests, ParsesEmptyArray)
     auto array_expr = dynamic_cast<YINI::AST::ArrayExpr*>(keyValue->value.get());
     ASSERT_NE(array_expr, nullptr);
     EXPECT_EQ(array_expr->elements.size(), 0);
+}
+
+TEST(ParserTests, ParsesSet)
+{
+    std::string source = "[Sets]\nmy_set = (1, \"two\", true)\nsingle_element_set = (\"one\",)";
+    YINI::Lexer lexer(source);
+    auto tokens = lexer.scan_tokens();
+    YINI::Parser parser(tokens);
+    auto ast = parser.parse();
+
+    ASSERT_EQ(ast.size(), 1);
+    auto section = dynamic_cast<YINI::AST::SectionStmt*>(ast[0].get());
+    ASSERT_NE(section, nullptr);
+    ASSERT_EQ(section->statements.size(), 2);
+
+    auto kv1 = dynamic_cast<YINI::AST::KeyValueStmt*>(section->statements[0].get());
+    ASSERT_NE(kv1, nullptr);
+    auto set_expr = dynamic_cast<YINI::AST::SetExpr*>(kv1->value.get());
+    ASSERT_NE(set_expr, nullptr);
+    ASSERT_EQ(set_expr->elements.size(), 3);
+
+    auto kv2 = dynamic_cast<YINI::AST::KeyValueStmt*>(section->statements[1].get());
+    ASSERT_NE(kv2, nullptr);
+    auto single_element_set_expr = dynamic_cast<YINI::AST::SetExpr*>(kv2->value.get());
+    ASSERT_NE(single_element_set_expr, nullptr);
+    ASSERT_EQ(single_element_set_expr->elements.size(), 1);
+}
+
+TEST(ParserTests, ParsesMap)
+{
+    std::string source = "[Maps]\nmy_map = {key1: 1, key2: \"value2\"}";
+    YINI::Lexer lexer(source);
+    auto tokens = lexer.scan_tokens();
+    YINI::Parser parser(tokens);
+    auto ast = parser.parse();
+
+    ASSERT_EQ(ast.size(), 1);
+    auto section = dynamic_cast<YINI::AST::SectionStmt*>(ast[0].get());
+    ASSERT_NE(section, nullptr);
+    ASSERT_EQ(section->statements.size(), 1);
+
+    auto kv = dynamic_cast<YINI::AST::KeyValueStmt*>(section->statements[0].get());
+    ASSERT_NE(kv, nullptr);
+    auto map_expr = dynamic_cast<YINI::AST::MapExpr*>(kv->value.get());
+    ASSERT_NE(map_expr, nullptr);
+    ASSERT_EQ(map_expr->elements.size(), 2);
+    EXPECT_EQ(map_expr->elements[0].first.lexeme, "key1");
+    EXPECT_EQ(map_expr->elements[1].first.lexeme, "key2");
+}
+
+TEST(ParserTests, ParsesColor)
+{
+    std::string source = "[Colors]\nhex_color = #FF0000\nrgb_color = color(0, 255, 0)";
+    YINI::Lexer lexer(source);
+    auto tokens = lexer.scan_tokens();
+    YINI::Parser parser(tokens);
+    auto ast = parser.parse();
+
+    ASSERT_EQ(ast.size(), 1);
+    auto section = dynamic_cast<YINI::AST::SectionStmt*>(ast[0].get());
+    ASSERT_NE(section, nullptr);
+    ASSERT_EQ(section->statements.size(), 2);
+
+    // Test hex color
+    auto kv1 = dynamic_cast<YINI::AST::KeyValueStmt*>(section->statements[0].get());
+    ASSERT_NE(kv1, nullptr);
+    auto hex_color_expr = dynamic_cast<YINI::AST::ColorExpr*>(kv1->value.get());
+    ASSERT_NE(hex_color_expr, nullptr);
+    EXPECT_EQ(hex_color_expr->r, 255);
+    EXPECT_EQ(hex_color_expr->g, 0);
+    EXPECT_EQ(hex_color_expr->b, 0);
+
+    // Test rgb color
+    auto kv2 = dynamic_cast<YINI::AST::KeyValueStmt*>(section->statements[1].get());
+    ASSERT_NE(kv2, nullptr);
+    auto rgb_color_expr = dynamic_cast<YINI::AST::ColorExpr*>(kv2->value.get());
+    ASSERT_NE(rgb_color_expr, nullptr);
+    EXPECT_EQ(rgb_color_expr->r, 0);
+    EXPECT_EQ(rgb_color_expr->g, 255);
+    EXPECT_EQ(rgb_color_expr->b, 0);
+}
+
+TEST(ParserTests, ParsesCoord)
+{
+    std::string source = "[Coordinates]\ncoord2d = coord(10, 20)\ncoord3d = coord(1, 2, 3.5)";
+    YINI::Lexer lexer(source);
+    auto tokens = lexer.scan_tokens();
+    YINI::Parser parser(tokens);
+    auto ast = parser.parse();
+
+    ASSERT_EQ(ast.size(), 1);
+    auto section = dynamic_cast<YINI::AST::SectionStmt*>(ast[0].get());
+    ASSERT_NE(section, nullptr);
+    ASSERT_EQ(section->statements.size(), 2);
+
+    // Test 2D coordinate
+    auto kv1 = dynamic_cast<YINI::AST::KeyValueStmt*>(section->statements[0].get());
+    ASSERT_NE(kv1, nullptr);
+    auto coord2d_expr = dynamic_cast<YINI::AST::CoordExpr*>(kv1->value.get());
+    ASSERT_NE(coord2d_expr, nullptr);
+    auto x2d = dynamic_cast<YINI::AST::LiteralExpr*>(coord2d_expr->x.get());
+    ASSERT_NE(x2d, nullptr);
+    EXPECT_EQ(std::get<double>(x2d->value.literal), 10);
+    auto y2d = dynamic_cast<YINI::AST::LiteralExpr*>(coord2d_expr->y.get());
+    ASSERT_NE(y2d, nullptr);
+    EXPECT_EQ(std::get<double>(y2d->value.literal), 20);
+    EXPECT_EQ(coord2d_expr->z, nullptr);
+
+
+    // Test 3D coordinate
+    auto kv2 = dynamic_cast<YINI::AST::KeyValueStmt*>(section->statements[1].get());
+    ASSERT_NE(kv2, nullptr);
+    auto coord3d_expr = dynamic_cast<YINI::AST::CoordExpr*>(kv2->value.get());
+    ASSERT_NE(coord3d_expr, nullptr);
+    auto x3d = dynamic_cast<YINI::AST::LiteralExpr*>(coord3d_expr->x.get());
+    ASSERT_NE(x3d, nullptr);
+    EXPECT_EQ(std::get<double>(x3d->value.literal), 1);
+    auto y3d = dynamic_cast<YINI::AST::LiteralExpr*>(coord3d_expr->y.get());
+    ASSERT_NE(y3d, nullptr);
+    EXPECT_EQ(std::get<double>(y3d->value.literal), 2);
+    auto z3d = dynamic_cast<YINI::AST::LiteralExpr*>(coord3d_expr->z.get());
+    ASSERT_NE(z3d, nullptr);
+    EXPECT_EQ(std::get<double>(z3d->value.literal), 3.5);
+}
+
+TEST(ParserTests, ParsesExplicitArray)
+{
+    std::string source = "[Arrays]\nmy_array = array(1, \"two\")";
+    YINI::Lexer lexer(source);
+    auto tokens = lexer.scan_tokens();
+    YINI::Parser parser(tokens);
+    auto ast = parser.parse();
+
+    ASSERT_EQ(ast.size(), 1);
+    auto section = dynamic_cast<YINI::AST::SectionStmt*>(ast[0].get());
+    ASSERT_NE(section, nullptr);
+    auto keyValue = dynamic_cast<YINI::AST::KeyValueStmt*>(section->statements[0].get());
+    ASSERT_NE(keyValue, nullptr);
+
+    auto array_expr = dynamic_cast<YINI::AST::ArrayExpr*>(keyValue->value.get());
+    ASSERT_NE(array_expr, nullptr);
+    ASSERT_EQ(array_expr->elements.size(), 2);
 }
 
 TEST(ParserTests, ParsesSectionWithSingleInheritance)

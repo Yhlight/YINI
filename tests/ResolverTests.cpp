@@ -38,6 +38,78 @@ TEST(ResolverTests, ThrowsOnUndefinedMacro)
     }
 }
 
+TEST(ResolverTests, ResolvesSingleInheritance)
+{
+    std::string source = "[Parent]\nkey1 = \"value1\"\n\n[Child : Parent]\nkey2 = \"value2\"";
+    YINI::Lexer lexer(source);
+    auto tokens = lexer.scan_tokens();
+    YINI::Parser parser(tokens);
+    auto ast = parser.parse();
+    YINI::YmetaManager ymeta_manager;
+    YINI::Resolver resolver(ast, ymeta_manager);
+    auto config = resolver.resolve();
+
+    ASSERT_EQ(config.count("Child.key1"), 1);
+    EXPECT_EQ(std::any_cast<std::string>(config["Child.key1"]), "value1");
+    ASSERT_EQ(config.count("Child.key2"), 1);
+    EXPECT_EQ(std::any_cast<std::string>(config["Child.key2"]), "value2");
+}
+
+TEST(ResolverTests, ResolvesMultipleInheritance)
+{
+    std::string source = "[Parent1]\nkey1 = \"p1\"\nkey2 = \"p1\"\n\n[Parent2]\nkey2 = \"p2\"\n\n[Child : Parent1, Parent2]\nkey3 = \"c\"";
+    YINI::Lexer lexer(source);
+    auto tokens = lexer.scan_tokens();
+    YINI::Parser parser(tokens);
+    auto ast = parser.parse();
+    YINI::YmetaManager ymeta_manager;
+    YINI::Resolver resolver(ast, ymeta_manager);
+    auto config = resolver.resolve();
+
+    ASSERT_EQ(config.count("Child.key1"), 1);
+    EXPECT_EQ(std::any_cast<std::string>(config["Child.key1"]), "p1");
+    ASSERT_EQ(config.count("Child.key2"), 1);
+    EXPECT_EQ(std::any_cast<std::string>(config["Child.key2"]), "p2"); // Parent2 overrides Parent1
+    ASSERT_EQ(config.count("Child.key3"), 1);
+    EXPECT_EQ(std::any_cast<std::string>(config["Child.key3"]), "c");
+}
+
+TEST(ResolverTests, ResolvesInheritanceWithOverride)
+{
+    std::string source = "[Parent]\nkey1 = \"parent\"\nkey2 = \"parent\"\n\n[Child : Parent]\nkey2 = \"child\"";
+    YINI::Lexer lexer(source);
+    auto tokens = lexer.scan_tokens();
+    YINI::Parser parser(tokens);
+    auto ast = parser.parse();
+    YINI::YmetaManager ymeta_manager;
+    YINI::Resolver resolver(ast, ymeta_manager);
+    auto config = resolver.resolve();
+
+    ASSERT_EQ(config.count("Child.key1"), 1);
+    EXPECT_EQ(std::any_cast<std::string>(config["Child.key1"]), "parent");
+    ASSERT_EQ(config.count("Child.key2"), 1);
+    EXPECT_EQ(std::any_cast<std::string>(config["Child.key2"]), "child"); // Child overrides Parent
+}
+
+TEST(ResolverTests, ResolvesMultiLevelInheritance)
+{
+    std::string source = "[Grandparent]\nkey1 = \"gp\"\nkey2 = \"gp\"\n\n[Parent : Grandparent]\nkey2 = \"p\"\n\n[Child : Parent]\nkey3 = \"c\"";
+    YINI::Lexer lexer(source);
+    auto tokens = lexer.scan_tokens();
+    YINI::Parser parser(tokens);
+    auto ast = parser.parse();
+    YINI::YmetaManager ymeta_manager;
+    YINI::Resolver resolver(ast, ymeta_manager);
+    auto config = resolver.resolve();
+
+    ASSERT_EQ(config.count("Child.key1"), 1);
+    EXPECT_EQ(std::any_cast<std::string>(config["Child.key1"]), "gp");
+    ASSERT_EQ(config.count("Child.key2"), 1);
+    EXPECT_EQ(std::any_cast<std::string>(config["Child.key2"]), "p");
+    ASSERT_EQ(config.count("Child.key3"), 1);
+    EXPECT_EQ(std::any_cast<std::string>(config["Child.key3"]), "c");
+}
+
 TEST(ResolverTests, ResolvesSet)
 {
     std::string source = "[MySet]\nvalues = (1, \"two\", 3.0)";
