@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Parser/AST.h"
+#include "Parser/ASTVisitor.h"
 #include "Ymeta/YmetaManager.h"
 #include <vector>
 #include <memory>
@@ -12,36 +13,39 @@
 namespace YINI
 {
 
-class Resolver
+class Resolver : public AST::ASTVisitor
 {
 public:
     Resolver(const std::vector<std::unique_ptr<AST::Stmt>>& statements, YmetaManager& ymeta_manager);
     std::map<std::string, std::any> resolve();
 
 private:
-    void resolve_statement(AST::Stmt* stmt);
-    std::any resolve_expression(AST::Expr* expr);
+    // Visitor methods for expressions
+    std::any visitLiteralExpr(AST::LiteralExpr* expr) override;
+    std::any visitBoolExpr(AST::BoolExpr* expr) override;
+    std::any visitArrayExpr(AST::ArrayExpr* expr) override;
+    std::any visitSetExpr(AST::SetExpr* expr) override;
+    std::any visitMapExpr(AST::MapExpr* expr) override;
+    std::any visitColorExpr(AST::ColorExpr* expr) override;
+    std::any visitCoordExpr(AST::CoordExpr* expr) override;
+    std::any visitBinaryExpr(AST::BinaryExpr* expr) override;
+    std::any visitGroupingExpr(AST::GroupingExpr* expr) override;
+    std::any visitMacroExpr(AST::MacroExpr* expr) override;
+    std::any visitCrossSectionRefExpr(AST::CrossSectionRefExpr* expr) override;
+    std::any visitEnvVarRefExpr(AST::EnvVarRefExpr* expr) override;
+    std::any visitDynaExpr(AST::DynaExpr* expr) override;
+    std::any visitPathExpr(AST::PathExpr* expr) override;
+    std::any visitListExpr(AST::ListExpr* expr) override;
 
-    void visit_define_section(AST::DefineSectionStmt* stmt);
-    void visit_section(AST::SectionStmt* stmt);
-    void visit_include(AST::IncludeStmt* stmt);
-    void visit_key_value(AST::KeyValueStmt* stmt);
-    void visit_quick_reg(AST::QuickRegStmt* stmt);
-
-    std::any visit_literal(AST::LiteralExpr* expr);
-    std::any visit_bool(AST::BoolExpr* expr);
-    std::any visit_array(AST::ArrayExpr* expr);
-    std::any visit_set(AST::SetExpr* expr);
-    std::any visit_map(AST::MapExpr* expr);
-    std::any visit_color(AST::ColorExpr* expr);
-    std::any visit_coord(AST::CoordExpr* expr);
-    std::any visit_macro(AST::MacroExpr* expr);
-    std::any visit_binary(AST::BinaryExpr* expr);
-    std::any visit_grouping(AST::GroupingExpr* expr);
-    std::any visit_cross_section_ref(AST::CrossSectionRefExpr* expr);
-    std::any visit_env_var_ref(AST::EnvVarRefExpr* expr);
-    std::any visit_path(AST::PathExpr* expr);
-    std::any visit_list(AST::ListExpr* expr);
+    // Visitor methods for statements
+    void visitKeyValueStmt(AST::KeyValueStmt* stmt) override;
+    void visitSectionStmt(AST::SectionStmt* stmt) override;
+    void visitDefineSectionStmt(AST::DefineSectionStmt* stmt) override;
+    void visitIncludeStmt(AST::IncludeStmt* stmt) override;
+    void visitQuickRegStmt(AST::QuickRegStmt* stmt) override;
+    void visitSchemaRuleStmt(AST::SchemaRuleStmt* stmt) override;
+    void visitSchemaSectionStmt(AST::SchemaSectionStmt* stmt) override;
+    void visitSchemaStmt(AST::SchemaStmt* stmt) override;
 
     const std::vector<std::unique_ptr<AST::Stmt>>& m_statements;
     YmetaManager& m_ymeta_manager;

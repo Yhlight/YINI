@@ -19,97 +19,12 @@ std::map<std::string, std::any> Resolver::resolve()
 {
     for (const auto& stmt : m_statements)
     {
-        resolve_statement(stmt.get());
+        stmt->accept(this);
     }
     return m_resolved_config;
 }
 
-void Resolver::resolve_statement(AST::Stmt* stmt)
-{
-    if (auto* define_stmt = dynamic_cast<AST::DefineSectionStmt*>(stmt))
-    {
-        visit_define_section(define_stmt);
-    }
-    else if (auto* section_stmt = dynamic_cast<AST::SectionStmt*>(stmt))
-    {
-        visit_section(section_stmt);
-    }
-    else if (auto* include_stmt = dynamic_cast<AST::IncludeStmt*>(stmt))
-    {
-        visit_include(include_stmt);
-    }
-    else if (auto* kv_stmt = dynamic_cast<AST::KeyValueStmt*>(stmt))
-    {
-        visit_key_value(kv_stmt);
-    }
-    else if (auto* qr_stmt = dynamic_cast<AST::QuickRegStmt*>(stmt))
-    {
-        visit_quick_reg(qr_stmt);
-    }
-}
-
-std::any Resolver::resolve_expression(AST::Expr* expr)
-{
-    if (auto* literal_expr = dynamic_cast<AST::LiteralExpr*>(expr))
-    {
-        return visit_literal(literal_expr);
-    }
-    else if (auto* bool_expr = dynamic_cast<AST::BoolExpr*>(expr))
-    {
-        return visit_bool(bool_expr);
-    }
-    else if (auto* array_expr = dynamic_cast<AST::ArrayExpr*>(expr))
-    {
-        return visit_array(array_expr);
-    }
-    else if (auto* set_expr = dynamic_cast<AST::SetExpr*>(expr))
-    {
-        return visit_set(set_expr);
-    }
-    else if (auto* map_expr = dynamic_cast<AST::MapExpr*>(expr))
-    {
-        return visit_map(map_expr);
-    }
-    else if (auto* color_expr = dynamic_cast<AST::ColorExpr*>(expr))
-    {
-        return visit_color(color_expr);
-    }
-    else if (auto* coord_expr = dynamic_cast<AST::CoordExpr*>(expr))
-    {
-        return visit_coord(coord_expr);
-    }
-    else if (auto* macro_expr = dynamic_cast<AST::MacroExpr*>(expr))
-    {
-        return visit_macro(macro_expr);
-    }
-    else if (auto* binary_expr = dynamic_cast<AST::BinaryExpr*>(expr))
-    {
-        return visit_binary(binary_expr);
-    }
-    else if (auto* grouping_expr = dynamic_cast<AST::GroupingExpr*>(expr))
-    {
-        return visit_grouping(grouping_expr);
-    }
-    else if (auto* cs_ref_expr = dynamic_cast<AST::CrossSectionRefExpr*>(expr))
-    {
-        return visit_cross_section_ref(cs_ref_expr);
-    }
-    else if (auto* env_var_ref_expr = dynamic_cast<AST::EnvVarRefExpr*>(expr))
-    {
-        return visit_env_var_ref(env_var_ref_expr);
-    }
-    else if (auto* path_expr = dynamic_cast<AST::PathExpr*>(expr))
-    {
-        return visit_path(path_expr);
-    }
-    else if (auto* list_expr = dynamic_cast<AST::ListExpr*>(expr))
-    {
-        return visit_list(list_expr);
-    }
-    throw std::runtime_error("Unknown expression type.");
-}
-
-void Resolver::visit_define_section(AST::DefineSectionStmt* stmt)
+void Resolver::visitDefineSectionStmt(AST::DefineSectionStmt* stmt)
 {
     for (const auto& definition : stmt->definitions)
     {
@@ -117,21 +32,21 @@ void Resolver::visit_define_section(AST::DefineSectionStmt* stmt)
     }
 }
 
-void Resolver::visit_section(AST::SectionStmt* stmt)
+void Resolver::visitSectionStmt(AST::SectionStmt* stmt)
 {
     m_current_section = stmt->name.lexeme;
     for (const auto& statement : stmt->statements)
     {
-        resolve_statement(statement.get());
+        statement->accept(this);
     }
     m_current_section.clear();
 }
 
-void Resolver::visit_include(AST::IncludeStmt* stmt)
+void Resolver::visitIncludeStmt(AST::IncludeStmt* stmt)
 {
     for (const auto& path_expr : stmt->paths)
     {
-        std::any path_any = resolve_expression(path_expr.get());
+        std::any path_any = path_expr->accept(this);
         if (path_any.type() != typeid(std::string))
         {
             throw std::runtime_error("Include path must be a string.");
@@ -154,12 +69,12 @@ void Resolver::visit_include(AST::IncludeStmt* stmt)
 
         for (const auto& included_stmt : included_ast)
         {
-            resolve_statement(included_stmt.get());
+            included_stmt->accept(this);
         }
     }
 }
 
-void Resolver::visit_key_value(AST::KeyValueStmt* stmt)
+void Resolver::visitKeyValueStmt(AST::KeyValueStmt* stmt)
 {
     std::string key = m_current_section.empty() ? stmt->key.lexeme : m_current_section + "." + stmt->key.lexeme;
 
@@ -171,18 +86,45 @@ void Resolver::visit_key_value(AST::KeyValueStmt* stmt)
         }
         else
         {
-            std::any value = resolve_expression(dyna_expr->expression.get());
+            std::any value = dyna_expr->expression->accept(this);
             m_ymeta_manager.set_value(key, value);
             m_resolved_config[key] = value;
         }
     }
     else
     {
-        m_resolved_config[key] = resolve_expression(stmt->value.get());
+        m_resolved_config[key] = stmt->value->accept(this);
     }
 }
 
-std::any Resolver::visit_literal(AST::LiteralExpr* expr)
+void Resolver::visitQuickRegStmt(AST::QuickRegStmt* stmt)
+{
+    if (m_current_section.empty())
+    {
+        throw std::runtime_error("Quick registration '+=' can only be used inside a section.");
+    }
+
+    int index = m_quick_reg_indices[m_current_section]++;
+    std::string key = m_current_section + "." + std::to_string(index);
+    m_resolved_config[key] = stmt->value->accept(this);
+}
+
+void Resolver::visitSchemaRuleStmt(AST::SchemaRuleStmt* stmt)
+{
+    // The resolver does not handle schema validation.
+}
+
+void Resolver::visitSchemaSectionStmt(AST::SchemaSectionStmt* stmt)
+{
+    // The resolver does not handle schema validation.
+}
+
+void Resolver::visitSchemaStmt(AST::SchemaStmt* stmt)
+{
+    // The resolver does not handle schema validation.
+}
+
+std::any Resolver::visitLiteralExpr(AST::LiteralExpr* expr)
 {
     if (std::holds_alternative<std::string>(expr->value.literal))
     {
@@ -195,42 +137,42 @@ std::any Resolver::visit_literal(AST::LiteralExpr* expr)
     return {}; // Should not be reached
 }
 
-std::any Resolver::visit_bool(AST::BoolExpr* expr)
+std::any Resolver::visitBoolExpr(AST::BoolExpr* expr)
 {
     return expr->value;
 }
 
-std::any Resolver::visit_array(AST::ArrayExpr* expr)
+std::any Resolver::visitArrayExpr(AST::ArrayExpr* expr)
 {
     std::vector<std::any> elements;
     for (const auto& element : expr->elements)
     {
-        elements.push_back(resolve_expression(element.get()));
+        elements.push_back(element->accept(this));
     }
     return elements;
 }
 
-std::any Resolver::visit_set(AST::SetExpr* expr)
+std::any Resolver::visitSetExpr(AST::SetExpr* expr)
 {
     std::vector<std::any> elements;
     for (const auto& element : expr->elements)
     {
-        elements.push_back(resolve_expression(element.get()));
+        elements.push_back(element->accept(this));
     }
     return elements;
 }
 
-std::any Resolver::visit_map(AST::MapExpr* expr)
+std::any Resolver::visitMapExpr(AST::MapExpr* expr)
 {
     std::map<std::string, std::any> elements;
     for (const auto& element : expr->elements)
     {
-        elements[element.first.lexeme] = resolve_expression(element.second.get());
+        elements[element.first.lexeme] = element.second->accept(this);
     }
     return elements;
 }
 
-std::any Resolver::visit_color(AST::ColorExpr* expr)
+std::any Resolver::visitColorExpr(AST::ColorExpr* expr)
 {
     ResolvedColor color;
     color.r = expr->r;
@@ -239,31 +181,31 @@ std::any Resolver::visit_color(AST::ColorExpr* expr)
     return color;
 }
 
-std::any Resolver::visit_coord(AST::CoordExpr* expr)
+std::any Resolver::visitCoordExpr(AST::CoordExpr* expr)
 {
     ResolvedCoord coord;
-    coord.x = resolve_expression(expr->x.get());
-    coord.y = resolve_expression(expr->y.get());
+    coord.x = expr->x->accept(this);
+    coord.y = expr->y->accept(this);
     if (expr->z)
     {
-        coord.z = resolve_expression(expr->z.get());
+        coord.z = expr->z->accept(this);
     }
     return coord;
 }
 
-std::any Resolver::visit_macro(AST::MacroExpr* expr)
+std::any Resolver::visitMacroExpr(AST::MacroExpr* expr)
 {
     if (m_macros.find(expr->name.lexeme) == m_macros.end())
     {
         throw std::runtime_error("Error at line " + std::to_string(expr->name.line) + ", column " + std::to_string(expr->name.column) + ": Undefined macro: " + expr->name.lexeme);
     }
-    return resolve_expression(m_macros[expr->name.lexeme]);
+    return m_macros[expr->name.lexeme]->accept(this);
 }
 
-std::any Resolver::visit_binary(AST::BinaryExpr* expr)
+std::any Resolver::visitBinaryExpr(AST::BinaryExpr* expr)
 {
-    std::any left = resolve_expression(expr->left.get());
-    std::any right = resolve_expression(expr->right.get());
+    std::any left = expr->left->accept(this);
+    std::any right = expr->right->accept(this);
 
     if (left.type() == typeid(double) && right.type() == typeid(double))
     {
@@ -292,12 +234,12 @@ std::any Resolver::visit_binary(AST::BinaryExpr* expr)
     throw std::runtime_error("Error at line " + std::to_string(expr->op.line) + ", column " + std::to_string(expr->op.column) + ": Operands must be numbers for arithmetic operations.");
 }
 
-std::any Resolver::visit_grouping(AST::GroupingExpr* expr)
+std::any Resolver::visitGroupingExpr(AST::GroupingExpr* expr)
 {
-    return resolve_expression(expr->expression.get());
+    return expr->expression->accept(this);
 }
 
-std::any Resolver::visit_cross_section_ref(AST::CrossSectionRefExpr* expr)
+std::any Resolver::visitCrossSectionRefExpr(AST::CrossSectionRefExpr* expr)
 {
     std::string key = expr->section.lexeme + "." + expr->key.lexeme;
     if (m_resolved_config.find(key) == m_resolved_config.end())
@@ -307,7 +249,7 @@ std::any Resolver::visit_cross_section_ref(AST::CrossSectionRefExpr* expr)
     return m_resolved_config[key];
 }
 
-std::any Resolver::visit_env_var_ref(AST::EnvVarRefExpr* expr)
+std::any Resolver::visitEnvVarRefExpr(AST::EnvVarRefExpr* expr)
 {
     const char* value = std::getenv(expr->name.lexeme.c_str());
     if (value == nullptr)
@@ -317,29 +259,22 @@ std::any Resolver::visit_env_var_ref(AST::EnvVarRefExpr* expr)
     return std::string(value);
 }
 
-void Resolver::visit_quick_reg(AST::QuickRegStmt* stmt)
+std::any Resolver::visitDynaExpr(AST::DynaExpr* expr)
 {
-    if (m_current_section.empty())
-    {
-        throw std::runtime_error("Quick registration '+=' can only be used inside a section.");
-    }
-
-    int index = m_quick_reg_indices[m_current_section]++;
-    std::string key = m_current_section + "." + std::to_string(index);
-    m_resolved_config[key] = resolve_expression(stmt->value.get());
+    return expr->expression->accept(this);
 }
 
-std::any Resolver::visit_path(AST::PathExpr* expr)
+std::any Resolver::visitPathExpr(AST::PathExpr* expr)
 {
     return expr->path;
 }
 
-std::any Resolver::visit_list(AST::ListExpr* expr)
+std::any Resolver::visitListExpr(AST::ListExpr* expr)
 {
     std::vector<std::any> elements;
     for (const auto& element : expr->elements)
     {
-        elements.push_back(resolve_expression(element.get()));
+        elements.push_back(element->accept(this));
     }
     return elements;
 }
