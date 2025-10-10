@@ -1,149 +1,230 @@
-# YINI Language Specification
+## YINI配置文件
+常规的INI必然无法支持我们的游戏的开发  
+为此，我进行了语法的扩展  
+我们使用.yini或.YINI作为配置文件的后缀  
 
-YINI is a modern configuration language designed to be a powerful and flexible replacement for traditional INI files, especially in game development contexts. It extends the simple key-value structure of INI with advanced features like data types, inheritance, and dynamic values.
+## 注释
+在YINI中，使用//和/* */进行注释  
 
-## File Extension
-YINI files use the `.yini` or `.YINI` extension.
+## 继承
+现在你可以在配置块头部处使用:继承其他的配置块  
 
-## Basic Syntax
+```YINI
+[Config]
+key1 = value1
+key2 = value2
 
-### Comments
-YINI supports C-style comments:
--   **Single-line comments**: Start with `//` and continue to the end of the line.
--   **Block comments**: Start with `/*` and end with `*/`.
+[Config2]
+key3 = value3
+key4 = value4
 
-```yini
-// This is a single-line comment.
-key = value /* This is a block comment. */
+[Config3] : Config, Config2
+```
+按照顺序，继承其中的键值对，后继承的配置块覆盖前继承或已经存在的键值对  
+
+## 快捷注册
+在游戏开发中，配置文件往往管理着游戏中某一个物件的注册表  
+这些注册表通常需要使用使用明确的序号表示索引，这极其影响开发效率  
+现在你可以使用`+=`来快捷注册  
+
+```YINI
+[Reg]
++= value1
++= value2
++= value3
 ```
 
-### Sections
-Configuration is organized into sections, denoted by a name enclosed in square brackets `[]`.
+### 值
+YINI并不将所有的配置值作为字符串  
+而是根据游戏所需要的值类型，直接将其转换为对应的值类型  
+YINI支持多种值类型  
+分别为  
+- 整数  ->  123  
+- 浮点数  ->  3.14  
+- 布尔值  ->  true/false  
+- 字符串  ->  "value"  
+- 数组  ->  [1, 2, 3]  
+    - 二维数组使用  ->  [[1, 2], [3, 4]]  
+- 集合 -> (value, value, value3)  
+            - (value, ) 只有一个元素集合需要需要添加逗号  
+- 结构体  ->  {key: value}  // 我不觉得使用一个Map来存储一个对组是一件好事，数量太少了，浪费性能  
+- Map(对组的集合)  ->  {key1: value1, key2: value2}  
+- 颜色  ->  #RRGGBB / color(255, 192, 203) / Color(255, 192, 203)  
+- 坐标  ->  Coord(x, y) / Coord(x, y, z) / coord(x, y) / coord(x, y, z)  
+- 路径  ->  path() / Path()  
+- 链表  ->  List(1, 2, 3) / list(1, 2, 3)  // 默认情况下，[] 表示数组，为了解决不能使用链表的问题，这里引入了显性的表示  
+- 数组  ->  Array(1, 2, 3) / array(1, 2, 3)  
+(更多类型正在添加中)  
 
-```yini
-[Graphics]
+#### 动态
+原生INI中，键值对只能是静态的，不变的  
+YINI中，你可以使用Dyna() / dyna()封装键值  
+这个键会在随游戏动态更新，Dyna()具有实时更新以及缓存更新两种更新方式  
+两者配合使用，不可选  
+当键值被修改时，键值会被写进YMETA文件之中  
+在游戏退出时，或游戏重新启动时，会从YMETA文件中提取键值，然后更新YINI文件  
+Dyna()需要包装值进行使用  
+
+```YINI
+[Config]
+key = Dyna(1)  // 这个键会随游戏而动态更新
+```
+
+##### backup
+为了防止Dyna()错误覆写了键值，YMETA(YINI元数据，详细见下文)文件会缓存Dyna()的键的键值，缓存次数不超过五次  
+
+### 算术运算
+YINI支持常见的算术运算  
+包括 + - * / %  
+可以使用括号进行优先级的控制  
+仅限于基本数据类型  
+算术运算仅支持宏与基本数据类型的运算  
+
+### 宏定义和变量引用
+[#define]
+你可以在[#define]之中定义宏  
+然后在代码中使用@name引用  
+
+```YINI
+[#define]
+name = value
+
+[UI]
+UIName = @name
+```
+
+### 文件关联
+现在，你可以使用[#include]关联其他文件  
+这些文件将根据顺序决定覆写顺序  
+[#include]无需使用path，直接写路径即可  
+
+```YINI
+[#include]
++= file1.yini
++= file2.yini
++= file3.yini
+```
+
+按照顺序，合并同名的配置块(不存在的添加，存在的覆写)，[#define]块也遵守这样的行为  
+
+### 配置块验证
+你可以使用[#schema]对配置块进行验证  
+验证块通常会在生成YMETA文件之前进行  
+确保你的文件之中包含此配置块  
+
+验证条件有下述形式  
+是否必须  
+必须(!)，可选(?)  
+
+键值类型  
+int, float, bool, string, array, list, map, color, coord, path  
+可以指定容器的容纳类型array[int], array[array[int]]  
+
+空值行为  
+忽略(~)，赋予值(=)，抛出错误(e)  
+
+范围验证  
+min=, max=  
+范围为[min, max]  
+
+使用方式如下，`!, int, =1280`  
+不写其中的某一个选项则是忽略此类型的验证  
+
+```YINI
+[#schema]
+[Visual]
+width = !, int, =1280, min=800, max=1920
+height = ?, int  // 不进行空值验证
+fps = ?, int, =60
+isOld = !, bool, e
+
+[Config]
+
+[#schema]
+[Audio]
+volume = !, float, =1.0
+music = ?, bool, =true
+```
+
+#### 实践
+一般情况下，不建议在同一个文件之中将验证块与配置块放一起  
+而是应该分开  
+
+schema.yini  
+```YINI
+[#schema]
+[Visual]
+width = !, int, =1280, min=800, max=1920
+height = ?, int
+fps = ?, int, =60
+isOld = !, bool, e
+```
+
+config.yini  
+```YINI
+[#include]
++= schema.yini  // 引用schema
+
+[Visual]
 width = 1920
 height = 1080
+fps = 60
+isOld = true
 ```
 
-### Key-Value Pairs
-Within a section, configuration is defined as key-value pairs, separated by an equals sign `=`.
+### 环境变量
+YINI支持环境变量，你可以使用${name}引用环境变量  
 
-```yini
-[Audio]
-volume = 1.0
+```YINI
+[Visual]
+width = ${WIDTH}
+height = ${HEIGHT}
 ```
 
-## Advanced Features
+### 横截面引用
+YINI支持横截面引用，你可以使用@{name}引用横截面变量  
 
-### Inheritance
-A section can inherit from one or more parent sections, inheriting their key-value pairs. Values from later parents in the list will override earlier ones, and values in the child section will override all inherited values.
-
-```yini
-[BaseConfig]
-quality = "high"
-
-[Graphics] : BaseConfig
-fullscreen = true
-```
-
-### Quick Registration
-For creating lists of values without explicit keys, YINI provides a quick registration operator `+=`. The keys will be auto-incremented integers starting from 0 for each section.
-
-```yini
-[Registry]
-+= "first_item"
-+= "second_item" // key will be "1"
-```
-
-### Data Types
-YINI supports a rich set of data types:
--   **Integer**: `123`
--   **Float**: `3.14`
--   **Boolean**: `true` or `false`
--   **String**: `"hello world"`
--   **Array**: `[1, 2, 3]` (A standard, indexable array)
--   **List**: `list(1, "two", 3.0)` (An explicitly declared list)
--   **Set**: `(1, "two", 3.0)` (A collection of unique values)
--   **Map**: `{key1: "value1", key2: 123}` (A collection of key-value pairs)
--   **Color**: Can be defined in hex (`#RRGGBB`) or RGB function style (`color(255, 192, 203)`).
--   **Coordinate**: `coord(10, 20)` for 2D or `coord(10, 20, 30)` for 3D.
--   **Path**: `path("/usr/local/bin")`
-
-### Dynamic Values and YMETA Caching
-YINI supports dynamic values that can be updated during runtime. These values are wrapped in the `Dyna()` function.
-
-```yini
-[Player]
-health = Dyna(100)
-```
-When a YINI file is loaded, a corresponding `.ymeta` file is created to cache the state of dynamic values. This allows their state to persist across sessions. The `.ymeta` file also stores up to five previous values for each dynamic key as a backup.
-
-### Arithmetic Operations
-YINI supports arithmetic operations (`+`, `-`, `*`, `/`, `%`) on numeric values. Standard operator precedence is respected, and parentheses `()` can be used to control the order of evaluation.
-
-```yini
-[Calculations]
-result = (10 + 5) * 2
-```
-
-## Directives
-Directives are special sections that provide meta-functionality.
-
-### Macro Definitions (`[#define]`)
-Macros can be defined in a `[#define]` section and referenced elsewhere using the `@` symbol.
-
-```yini
-[#define]
-default_width = 800
-
-[Graphics]
-width = @default_width
-```
-
-### File Includes (`[#include]`)
-YINI files can include other YINI files to merge configurations. The `+=` operator is used to specify the paths to include.
-
-```yini
-[#include]
-+= "base_settings.yini"
-+= "user_overrides.yini"
-```
-
-### Schema Validation (`[#schema]`)
-A schema can be defined to validate the structure and values of a configuration section.
-
-```yini
-[#schema]
-[Graphics]
-width = !, int, min=800, max=3840, =1920
-height = !, int, min=600, max=2160, =1080
-vsync = ?, bool, =true
-```
-**Validation Rules:**
--   **Required/Optional**: `!` (required), `?` (optional).
--   **Type**: `int`, `float`, `bool`, `string`, etc.
--   **Default Value**: `=value` (e.g., `=1920`).
--   **Range**: `min=value`, `max=value`.
--   **Empty Behavior**: `e` (error on empty), `~` (ignore on empty).
-
-## References
-
-### Cross-Section References
-Values from other sections can be referenced using the `@{Section.key}` syntax.
-
-```yini
-[Display]
+```YINI
+[Config]
 width = 1920
+height = 1080
 
-[Game]
-render_width = @{Display.width}
+[Visual]
+width = @{Config.width}
+height = @{Config.height}
 ```
 
-### Environment Variable References
-Environment variables can be referenced using the `${VAR_NAME}` syntax.
+### YMETA
+在程序加载YINI文件之后，会为每一个YINI文件生成一个YMETA文件  
+YMETA缓存着YINI文件中所有的信息，避免重复加载  
+YMETA使用.ymeta，.YMETA作为后缀  
 
-```yini
-[System]
-user_home = "${HOME}"
-```
+对于具有动态值DYNA()的YMETA文件，它们会在游戏中持续存在，其他则不会  
+
+### CLI
+虽然YINI是一门简单的编程语言，但也具有相关的CLI工具  
+CLI工具需要采用阻塞式运行，意思是，CLI需要存在事件主进程事件循环，持续交互  
+CLI工具主要用来编译与反编译YMETA文件，以及检查是否语法错误  
+
+### 项目开发建议
+#### 架构设计
+状态机 + 策略模式 / 递归下降  
+
+#### 项目命名规范
+基本数据类型，常规函数  ->  蛇形命名法  
+类的成员变量(基本数据类型)  ->  蛇形命名法  
+类的成员变量(非基本数据类型)  ->  小驼峰命名法  
+类的成员函数  ->  小驼峰命名法  
+与类有关的变量  ->  小驼峰命名法  
+数据结构  ->  大驼峰命名法  
+
+#### 代码风格
+括号风格  ->  Allman  
+
+#### 目录结构
+YINI
+    |- src
+        |- Lexer
+        |- Parser
+        |- CLI
+    |- docs
