@@ -34,6 +34,11 @@ target_link_libraries(ymeta_manager_tests PRIVATE YmetaManager gtest_main)
 target_include_directories(ymeta_manager_tests PRIVATE ../src)
 add_test(NAME ymeta_manager_tests COMMAND $<TARGET_FILE:ymeta_manager_tests>)
 
+add_executable(interop_tests InteropTests.cpp)
+target_link_libraries(interop_tests PRIVATE gtest_main YiniInterop)
+target_include_directories(interop_tests PRIVATE ../src)
+add_test(NAME interop_tests COMMAND $<TARGET_FILE:interop_tests>)
+
 file(COPY
     "include_test.yini"
     "main_include_test.yini"

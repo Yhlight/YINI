@@ -14,6 +14,19 @@
 #include <any>
 #include <cstring>
 
+namespace
+{
+    // Use a thread-local variable to store the last error message.
+    // This makes the error handling mechanism thread-safe.
+    thread_local std::string last_error_message;
+
+    // Helper function to set the last error message.
+    void set_last_error(const std::string& message)
+    {
+        last_error_message = message;
+    }
+}
+
 namespace YINI
 {
     class Config
@@ -55,14 +68,21 @@ YINI_API void* yini_create_from_file(const char* file_path)
 {
     try
     {
+        // Clear any previous error messages.
+        set_last_error("");
         YINI::Config* config = new YINI::Config(file_path);
         return static_cast<void*>(config);
     }
     catch (const std::exception& e)
     {
-        std::cerr << "Error creating YINI config: " << e.what() << std::endl;
+        set_last_error(e.what());
         return nullptr;
     }
+}
+
+YINI_API const char* yini_get_last_error()
+{
+    return last_error_message.c_str();
 }
 
 YINI_API void yini_destroy(void* handle)

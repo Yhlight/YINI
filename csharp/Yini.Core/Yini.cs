@@ -11,6 +11,15 @@ namespace Yini.Core
         [DllImport(LibName, EntryPoint = "yini_create_from_file", CallingConvention = CallingConvention.Cdecl)]
         public static extern IntPtr YiniCreateFromFile(string filePath);
 
+        [DllImport(LibName, EntryPoint = "yini_get_last_error", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr YiniGetLastError();
+
+        public static string GetLastError()
+        {
+            IntPtr cstr = YiniGetLastError();
+            return cstr == IntPtr.Zero ? "" : Marshal.PtrToStringAnsi(cstr);
+        }
+
         [DllImport(LibName, EntryPoint = "yini_destroy", CallingConvention = CallingConvention.Cdecl)]
         public static extern void YiniDestroy(IntPtr handle);
 
@@ -79,6 +88,11 @@ namespace Yini.Core
         }
     }
 
+    public class YiniException : Exception
+    {
+        public YiniException(string message) : base(message) { }
+    }
+
     public class YiniConfig : IDisposable
     {
         private IntPtr m_handle;
@@ -89,7 +103,8 @@ namespace Yini.Core
             m_handle = NativeMethods.YiniCreateFromFile(filePath);
             if (m_handle == IntPtr.Zero)
             {
-                throw new Exception("Failed to create YINI config.");
+                string errorMessage = NativeMethods.GetLastError();
+                throw new YiniException($"Failed to create YINI config: {errorMessage}");
             }
         }
 

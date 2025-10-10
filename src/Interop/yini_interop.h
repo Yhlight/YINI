@@ -9,6 +9,7 @@
 extern "C" {
 
     YINI_API void* yini_create_from_file(const char* file_path);
+    YINI_API const char* yini_get_last_error();
     YINI_API void yini_destroy(void* handle);
 
     YINI_API bool yini_get_int(void* handle, const char* key, int* out_value);
