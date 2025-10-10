@@ -88,16 +88,32 @@ namespace Yini.Core
         }
     }
 
+    /// <summary>
+    /// Represents errors that occur during YINI configuration processing.
+    /// </summary>
     public class YiniException : Exception
     {
+        /// <summary>
+        /// Initializes a new instance of the <see cref="YiniException"/> class with a specified error message.
+        /// </summary>
+        /// <param name="message">The message that describes the error.</param>
         public YiniException(string message) : base(message) { }
     }
 
+    /// <summary>
+    /// Provides a managed interface to a YINI configuration file.
+    /// This class handles the lifetime of the native YINI handle and provides methods to access configuration values.
+    /// </summary>
     public class YiniConfig : IDisposable
     {
         private IntPtr m_handle;
         private bool m_disposed = false;
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="YiniConfig"/> class by loading and parsing a YINI file.
+        /// </summary>
+        /// <param name="filePath">The path to the .yini file.</param>
+        /// <exception cref="YiniException">Thrown if the native library fails to load or parse the file.</exception>
         public YiniConfig(string filePath)
         {
             m_handle = NativeMethods.YiniCreateFromFile(filePath);
@@ -108,26 +124,54 @@ namespace Yini.Core
             }
         }
 
+        /// <summary>
+        /// Retrieves an integer value for a specified key.
+        /// </summary>
+        /// <param name="key">The key of the value to retrieve (e.g., "Section.key").</param>
+        /// <param name="value">When this method returns, contains the integer value associated with the specified key, if the key is found; otherwise, the default value for the type of the value parameter. This parameter is passed uninitialized.</param>
+        /// <returns><c>true</c> if the configuration contains an element with the specified key; otherwise, <c>false</c>.</returns>
         public bool GetInt(string key, out int value)
         {
             return NativeMethods.YiniGetInt(m_handle, key, out value);
         }
 
+        /// <summary>
+        /// Retrieves a double-precision floating-point number for a specified key.
+        /// </summary>
+        /// <param name="key">The key of the value to retrieve (e.g., "Section.key").</param>
+        /// <param name="value">When this method returns, contains the double value associated with the specified key, if the key is found; otherwise, the default value for the type of the value parameter. This parameter is passed uninitialized.</param>
+        /// <returns><c>true</c> if the configuration contains an element with the specified key; otherwise, <c>false</c>.</returns>
         public bool GetDouble(string key, out double value)
         {
             return NativeMethods.YiniGetDouble(m_handle, key, out value);
         }
 
+        /// <summary>
+        /// Retrieves a boolean value for a specified key.
+        /// </summary>
+        /// <param name="key">The key of the value to retrieve (e.g., "Section.key").</param>
+        /// <param name="value">When this method returns, contains the boolean value associated with the specified key, if the key is found; otherwise, the default value for the type of the value parameter. This parameter is passed uninitialized.</param>
+        /// <returns><c>true</c> if the configuration contains an element with the specified key; otherwise, <c>false</c>.</returns>
         public bool GetBool(string key, out bool value)
         {
             return NativeMethods.YiniGetBool(m_handle, key, out value);
         }
 
+        /// <summary>
+        /// Retrieves a string value for a specified key.
+        /// </summary>
+        /// <param name="key">The key of the value to retrieve (e.g., "Section.key").</param>
+        /// <returns>The string value associated with the specified key, or <c>null</c> if the key is not found.</returns>
         public string GetString(string key)
         {
             return NativeMethods.GetString(m_handle, key);
         }
 
+        /// <summary>
+        /// Retrieves an array of integers for a specified key.
+        /// </summary>
+        /// <param name="key">The key of the array to retrieve.</param>
+        /// <returns>An array of integers, or <c>null</c> if the key is not found or the value is not an array.</returns>
         public int[] GetIntArray(string key)
         {
             int size = NativeMethods.YiniGetArraySize(m_handle, key);
@@ -140,6 +184,11 @@ namespace Yini.Core
             return result;
         }
 
+        /// <summary>
+        /// Retrieves an array of doubles for a specified key.
+        /// </summary>
+        /// <param name="key">The key of the array to retrieve.</param>
+        /// <returns>An array of doubles, or <c>null</c> if the key is not found or the value is not an array.</returns>
         public double[] GetDoubleArray(string key)
         {
             int size = NativeMethods.YiniGetArraySize(m_handle, key);
@@ -152,6 +201,11 @@ namespace Yini.Core
             return result;
         }
 
+        /// <summary>
+        /// Retrieves an array of booleans for a specified key.
+        /// </summary>
+        /// <param name="key">The key of the array to retrieve.</param>
+        /// <returns>An array of booleans, or <c>null</c> if the key is not found or the value is not an array.</returns>
         public bool[] GetBoolArray(string key)
         {
             int size = NativeMethods.YiniGetArraySize(m_handle, key);
@@ -164,6 +218,11 @@ namespace Yini.Core
             return result;
         }
 
+        /// <summary>
+        /// Retrieves an array of strings for a specified key.
+        /// </summary>
+        /// <param name="key">The key of the array to retrieve.</param>
+        /// <returns>An array of strings, or <c>null</c> if the key is not found or the value is not an array.</returns>
         public string[] GetStringArray(string key)
         {
             int size = NativeMethods.YiniGetArraySize(m_handle, key);
@@ -176,12 +235,19 @@ namespace Yini.Core
             return result;
         }
 
+        /// <summary>
+        /// Releases all resources used by the <see cref="YiniConfig"/> object.
+        /// </summary>
         public void Dispose()
         {
             Dispose(true);
             GC.SuppressFinalize(this);
         }
 
+        /// <summary>
+        /// Releases the unmanaged resources used by the <see cref="YiniConfig"/> and optionally releases the managed resources.
+        /// </summary>
+        /// <param name="disposing"><c>true</c> to release both managed and unmanaged resources; <c>false</c> to release only unmanaged resources.</param>
         protected virtual void Dispose(bool disposing)
         {
             if (!m_disposed)
@@ -195,6 +261,9 @@ namespace Yini.Core
             }
         }
 
+        /// <summary>
+        /// Finalizer for the YiniConfig class.
+        /// </summary>
         ~YiniConfig()
         {
             Dispose(false);
