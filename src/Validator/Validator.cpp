@@ -1,12 +1,13 @@
 #include "Validator.h"
 #include "YiniTypes.h"
+#include "Resolver/Resolver.h"
 #include <sstream>
 #include <iostream>
 
 namespace YINI
 {
 
-Validator::Validator(std::map<std::string, std::any>& resolved_config, const std::vector<std::unique_ptr<AST::Stmt>>& statements)
+Validator::Validator(Resolver::ResolvedConfig& resolved_config, const std::vector<std::unique_ptr<AST::Stmt>>& statements)
     : m_resolved_config(resolved_config)
 {
     collect_schemas(statements);
@@ -18,7 +19,7 @@ void Validator::validate()
     {
         for (const auto& section : schema->sections)
         {
-            validate_section(section->name.lexeme, section.get());
+            validate_section(section.get());
         }
     }
 
@@ -45,12 +46,12 @@ void Validator::collect_schemas(const std::vector<std::unique_ptr<AST::Stmt>>& s
     }
 }
 
-void Validator::validate_section(const std::string& section_name, const AST::SchemaSectionStmt* schema_section)
+void Validator::validate_section(const AST::SchemaSectionStmt* schema_section)
 {
     for (const auto& rule_stmt : schema_section->rules)
     {
-        ValidationRule rule = parse_rule(rule_stmt->rules.lexeme);
-        validate_rule(section_name + "." + rule_stmt->key.lexeme, rule);
+        ValidationRule rule = parse_rule(std::get<std::string>(rule_stmt->rules.literal));
+        validate_rule(schema_section->name.lexeme, rule_stmt->key.lexeme, rule);
     }
 }
 
@@ -103,20 +104,20 @@ ValidationRule Validator::parse_rule(const std::string& rule_string) {
     return rule;
 }
 
-void Validator::validate_rule(const std::string& key, const ValidationRule& rule)
+void Validator::validate_rule(const std::string& section_name, const std::string& key, const ValidationRule& rule)
 {
     // Step 1: Handle missing keys and apply defaults
-    if (!m_resolved_config.count(key))
+    if (!m_resolved_config.count(section_name) || !m_resolved_config.at(section_name).count(key))
     {
         if (rule.is_required)
         {
             if (rule.default_value.has_value())
             {
-                m_resolved_config[key] = rule.default_value.value();
+                m_resolved_config[section_name][key] = rule.default_value.value();
             }
             else
             {
-                m_errors.push_back("Required key '" + key + "' is missing.");
+                m_errors.push_back("Required key '" + section_name + "." + key + "' is missing.");
                 return; // No value to validate
             }
         }
@@ -124,14 +125,14 @@ void Validator::validate_rule(const std::string& key, const ValidationRule& rule
         {
             if (rule.error_on_empty)
             {
-                m_errors.push_back("Optional key '" + key + "' with 'error on empty' rule is missing.");
+                m_errors.push_back("Optional key '" + section_name + "." + key + "' with 'error on empty' rule is missing.");
             }
             return; // Optional key is missing, nothing to do unless 'e' is specified.
         }
     }
 
     // Now the key is guaranteed to exist.
-    const auto& value = m_resolved_config.at(key);
+    const auto& value = m_resolved_config.at(section_name).at(key);
 
     // Step 2: Type validation
     if (rule.type.has_value())
@@ -155,7 +156,7 @@ void Validator::validate_rule(const std::string& key, const ValidationRule& rule
         }
 
         if (!type_ok) {
-            m_errors.push_back("Key '" + key + "' has incorrect type. Expected " + type_str + " but found " + value.type().name() + ".");
+            m_errors.push_back("Key '" + section_name + "." + key + "' has incorrect type. Expected " + type_str + " but found " + value.type().name() + ".");
             return; // Stop validation if type is wrong
         }
 
@@ -175,7 +176,7 @@ void Validator::validate_rule(const std::string& key, const ValidationRule& rule
                 // ... can be extended for nested containers etc.
 
                 if (!inner_type_ok) {
-                    m_errors.push_back("Key '" + key + "' has element with incorrect type. Expected " + inner_type_str + ".");
+                    m_errors.push_back("Key '" + section_name + "." + key + "' has element with incorrect type. Expected " + inner_type_str + ".");
                     // Don't return, just report all invalid elements
                 }
             }
@@ -188,11 +189,11 @@ void Validator::validate_rule(const std::string& key, const ValidationRule& rule
         double numeric_value = std::any_cast<double>(value);
         if (rule.min.has_value() && numeric_value < rule.min.value())
         {
-            m_errors.push_back("Key '" + key + "' value " + std::to_string(numeric_value) + " is less than min " + std::to_string(rule.min.value()) + ".");
+            m_errors.push_back("Key '" + section_name + "." + key + "' value " + std::to_string(numeric_value) + " is less than min " + std::to_string(rule.min.value()) + ".");
         }
         if (rule.max.has_value() && numeric_value > rule.max.value())
         {
-            m_errors.push_back("Key '" + key + "' value " + std::to_string(numeric_value) + " is greater than max " + std::to_string(rule.max.value()) + ".");
+            m_errors.push_back("Key '" + section_name + "." + key + "' value " + std::to_string(numeric_value) + " is greater than max " + std::to_string(rule.max.value()) + ".");
         }
     }
 }

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Parser/AST.h"
+#include "Resolver/Resolver.h"
 #include <string>
 #include <vector>
 #include <map>
@@ -24,16 +25,16 @@ struct ValidationRule
 class Validator
 {
 public:
-    Validator(std::map<std::string, std::any>& resolved_config, const std::vector<std::unique_ptr<AST::Stmt>>& statements);
+    Validator(Resolver::ResolvedConfig& resolved_config, const std::vector<std::unique_ptr<AST::Stmt>>& statements);
     void validate();
 
 private:
     void collect_schemas(const std::vector<std::unique_ptr<AST::Stmt>>& statements);
     ValidationRule parse_rule(const std::string& rule_string);
-    void validate_section(const std::string& section_name, const AST::SchemaSectionStmt* schema_section);
-    void validate_rule(const std::string& key, const ValidationRule& rule);
+    void validate_section(const AST::SchemaSectionStmt* schema_section);
+    void validate_rule(const std::string& section_name, const std::string& key, const ValidationRule& rule);
 
-    std::map<std::string, std::any>& m_resolved_config;
+    Resolver::ResolvedConfig& m_resolved_config;
     std::vector<const AST::SchemaStmt*> m_schemas;
     std::vector<std::string> m_errors;
 };

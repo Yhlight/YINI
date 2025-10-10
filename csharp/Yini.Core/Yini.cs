@@ -1,8 +1,25 @@
 using System;
 using System.Runtime.InteropServices;
+using System.Text;
+using System.Collections.Generic;
 
 namespace Yini.Core
 {
+    // --- Structs for complex types ---
+    [StructLayout(LayoutKind.Sequential)]
+    public struct YiniColor
+    {
+        public byte r, g, b;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct YiniCoord
+    {
+        public double x, y, z;
+        [MarshalAs(UnmanagedType.I1)]
+        public bool has_z;
+    }
+
     internal static class NativeMethods
     {
         private const string LibName = "YiniInterop";
@@ -22,27 +39,43 @@ namespace Yini.Core
         [DllImport(LibName, EntryPoint = "yini_get_bool", CallingConvention = CallingConvention.Cdecl)]
         public static extern bool YiniGetBool(IntPtr handle, string key, out bool outValue);
 
-        [DllImport(LibName, EntryPoint = "yini_get_string", CallingConvention = CallingConvention.Cdecl)]
-        private static extern IntPtr YiniGetString(IntPtr handle, string key);
+        [DllImport(LibName, EntryPoint = "yini_get_string_length", CallingConvention = CallingConvention.Cdecl)]
+        public static extern int YiniGetStringLength(IntPtr handle, string key);
 
-        [DllImport(LibName, EntryPoint = "yini_free_string", CallingConvention = CallingConvention.Cdecl)]
-        public static extern void YiniFreeString(IntPtr str);
+        [DllImport(LibName, EntryPoint = "yini_get_string", CallingConvention = CallingConvention.Cdecl)]
+        public static extern int YiniGetString(IntPtr handle, string key, StringBuilder buffer, int bufferSize);
+
+        [DllImport(LibName, EntryPoint = "yini_get_color", CallingConvention = CallingConvention.Cdecl)]
+        public static extern bool YiniGetColor(IntPtr handle, string key, out YiniColor outValue);
+
+        [DllImport(LibName, EntryPoint = "yini_get_coord", CallingConvention = CallingConvention.Cdecl)]
+        public static extern bool YiniGetCoord(IntPtr handle, string key, out YiniCoord outValue);
+
+        [DllImport(LibName, EntryPoint = "yini_get_array_size", CallingConvention = CallingConvention.Cdecl)]
+        public static extern int YiniGetArraySize(IntPtr handle, string key);
+
+        [DllImport(LibName, EntryPoint = "yini_get_array_item_as_string_length", CallingConvention = CallingConvention.Cdecl)]
+        public static extern int YiniGetArrayItemAsStringLength(IntPtr handle, string key, int index);
+
+        [DllImport(LibName, EntryPoint = "yini_get_array_item_as_string", CallingConvention = CallingConvention.Cdecl)]
+        public static extern int YiniGetArrayItemAsString(IntPtr handle, string key, int index, StringBuilder buffer, int bufferSize);
 
         public static string GetString(IntPtr handle, string key)
         {
-            IntPtr cstr = YiniGetString(handle, key);
-            if (cstr == IntPtr.Zero)
-            {
-                return null;
-            }
-            try
-            {
-                return Marshal.PtrToStringAnsi(cstr);
-            }
-            finally
-            {
-                YiniFreeString(cstr);
-            }
+            int length = YiniGetStringLength(handle, key);
+            if (length < 0) return null;
+            StringBuilder buffer = new StringBuilder(length + 1);
+            YiniGetString(handle, key, buffer, buffer.Capacity);
+            return buffer.ToString();
+        }
+
+        public static string GetArrayItemAsString(IntPtr handle, string key, int index)
+        {
+            int length = YiniGetArrayItemAsStringLength(handle, key, index);
+            if (length < 0) return null;
+            StringBuilder buffer = new StringBuilder(length + 1);
+            YiniGetArrayItemAsString(handle, key, index, buffer, buffer.Capacity);
+            return buffer.ToString();
         }
     }
 
@@ -78,6 +111,31 @@ namespace Yini.Core
         public string GetString(string key)
         {
             return NativeMethods.GetString(m_handle, key);
+        }
+
+        public bool GetColor(string key, out YiniColor value)
+        {
+            return NativeMethods.YiniGetColor(m_handle, key, out value);
+        }
+
+        public bool GetCoord(string key, out YiniCoord value)
+        {
+            return NativeMethods.YiniGetCoord(m_handle, key, out value);
+        }
+
+        public string[] GetStringArray(string key)
+        {
+            int size = NativeMethods.YiniGetArraySize(m_handle, key);
+            if (size < 0)
+            {
+                return null;
+            }
+            var result = new string[size];
+            for (int i = 0; i < size; i++)
+            {
+                result[i] = NativeMethods.GetArrayItemAsString(m_handle, key, i);
+            }
+            return result;
         }
 
         public void Dispose()

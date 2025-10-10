@@ -73,6 +73,9 @@ TEST(LexerTests, HandlesUnterminatedBlockComment) {
     EXPECT_EQ(tokens[0].type, YINI::TokenType::END_OF_FILE);
 }
 
+// This test confirms that the lexer correctly tokenizes a section header
+// into a sequence of three tokens: LEFT_BRACKET, IDENTIFIER, and RIGHT_BRACKET.
+// The parser is responsible for consuming this sequence and constructing a SectionStmt.
 TEST(LexerTests, TokenizesSection) {
     std::string source = "[Section]";
     YINI::Lexer lexer(source);

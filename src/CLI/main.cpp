@@ -29,21 +29,7 @@ static void run_file(const char* path) {
         YINI::Resolver resolver(ast, ymeta_manager);
         auto nested_config = resolver.resolve();
 
-        // Flatten the map for the validator
-        std::map<std::string, std::any> flat_config;
-        for (const auto& [section_name, section_map] : nested_config) {
-            if (section_name.empty()) {
-                for (const auto& [key, value] : section_map) {
-                    flat_config[key] = value;
-                }
-            } else {
-                for (const auto& [key, value] : section_map) {
-                    flat_config[section_name + "." + key] = value;
-                }
-            }
-        }
-
-        YINI::Validator validator(flat_config, ast);
+        YINI::Validator validator(nested_config, ast);
         validator.validate();
         ymeta_manager.save(path);
         std::cout << "Validation completed successfully." << std::endl;
@@ -72,21 +58,7 @@ static void run_prompt() {
             YINI::Resolver resolver(ast, ymeta_manager);
             auto nested_config = resolver.resolve();
 
-            // Flatten the map for the validator
-            std::map<std::string, std::any> flat_config;
-            for (const auto& [section_name, section_map] : nested_config) {
-                if (section_name.empty()) {
-                    for (const auto& [key, value] : section_map) {
-                        flat_config[key] = value;
-                    }
-                } else {
-                    for (const auto& [key, value] : section_map) {
-                        flat_config[section_name + "." + key] = value;
-                    }
-                }
-            }
-
-            YINI::Validator validator(flat_config, ast);
+            YINI::Validator validator(nested_config, ast);
             validator.validate();
              std::cout << "Validation completed successfully." << std::endl;
         } catch (const std::runtime_error& e) {
