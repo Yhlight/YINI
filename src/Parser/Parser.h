@@ -28,7 +28,6 @@ private:
     std::unique_ptr<AST::Expr> factor();
     std::unique_ptr<AST::Expr> primary();
     std::unique_ptr<AST::Expr> array();
-    std::unique_ptr<AST::Expr> explicit_array();
     std::unique_ptr<AST::Expr> set();
     std::unique_ptr<AST::Expr> map();
     std::unique_ptr<AST::Expr> color();

@@ -21,82 +21,6 @@ TEST(ValidatorTests, ThrowsOnMissingRequiredKey)
     EXPECT_THROW(validator.validate(), std::runtime_error);
 }
 
-TEST(ValidatorTests, PassesWithCorrectArrayIntType)
-{
-    std::string source = "[#schema]\n[MyConfig]\nmy_key = !, array[int]\n\n[MyConfig]\nmy_key = [1, 2, 3]";
-    YINI::Lexer lexer(source);
-    auto tokens = lexer.scan_tokens();
-    YINI::Parser parser(tokens);
-    auto ast = parser.parse();
-    YINI::YmetaManager ymeta_manager;
-    YINI::Resolver resolver(ast, ymeta_manager);
-    auto config = resolver.resolve();
-    YINI::Validator validator(config, ast);
-
-    EXPECT_NO_THROW(validator.validate());
-}
-
-TEST(ValidatorTests, ThrowsOnArrayIntTypeMismatch)
-{
-    std::string source = "[#schema]\n[MyConfig]\nmy_key = !, array[int]\n\n[MyConfig]\nmy_key = [1, \"two\"]";
-    YINI::Lexer lexer(source);
-    auto tokens = lexer.scan_tokens();
-    YINI::Parser parser(tokens);
-    auto ast = parser.parse();
-    YINI::YmetaManager ymeta_manager;
-    YINI::Resolver resolver(ast, ymeta_manager);
-    auto config = resolver.resolve();
-    YINI::Validator validator(config, ast);
-
-    EXPECT_THROW(validator.validate(), std::runtime_error);
-}
-
-
-TEST(ValidatorTests, PassesWithCorrectArrayType)
-{
-    std::string source = "[#schema]\n[MyConfig]\nmy_key = !, array\n\n[MyConfig]\nmy_key = [1, 2, 3]";
-    YINI::Lexer lexer(source);
-    auto tokens = lexer.scan_tokens();
-    YINI::Parser parser(tokens);
-    auto ast = parser.parse();
-    YINI::YmetaManager ymeta_manager;
-    YINI::Resolver resolver(ast, ymeta_manager);
-    auto config = resolver.resolve();
-    YINI::Validator validator(config, ast);
-
-    EXPECT_NO_THROW(validator.validate());
-}
-
-TEST(ValidatorTests, ThrowsOnArrayTypeMismatch)
-{
-    std::string source = "[#schema]\n[MyConfig]\nmy_key = !, array\n\n[MyConfig]\nmy_key = 123";
-    YINI::Lexer lexer(source);
-    auto tokens = lexer.scan_tokens();
-    YINI::Parser parser(tokens);
-    auto ast = parser.parse();
-    YINI::YmetaManager ymeta_manager;
-    YINI::Resolver resolver(ast, ymeta_manager);
-    auto config = resolver.resolve();
-    YINI::Validator validator(config, ast);
-
-    EXPECT_THROW(validator.validate(), std::runtime_error);
-}
-
-TEST(ValidatorTests, ThrowsOnMissingOptionalKeyWithErrorOnEmpty)
-{
-    std::string source = "[#schema]\n[MyConfig]\nmy_key = ?, int, e\n\n[MyConfig]\n";
-    YINI::Lexer lexer(source);
-    auto tokens = lexer.scan_tokens();
-    YINI::Parser parser(tokens);
-    auto ast = parser.parse();
-    YINI::YmetaManager ymeta_manager;
-    YINI::Resolver resolver(ast, ymeta_manager);
-    auto config = resolver.resolve();
-    YINI::Validator validator(config, ast);
-
-    EXPECT_THROW(validator.validate(), std::runtime_error);
-}
-
 TEST(ValidatorTests, PassesWithRequiredKeyPresent)
 {
     std::string source = "[#schema]\n[MyConfig]\nmy_key = !\n\n[MyConfig]\nmy_key = 123";
@@ -140,9 +64,8 @@ TEST(ValidatorTests, AssignsDefaultValue)
     YINI::Validator validator(config, ast);
 
     EXPECT_NO_THROW(validator.validate());
-    ASSERT_TRUE(config.count("MyConfig"));
-    ASSERT_EQ(config["MyConfig"].count("my_key"), 1);
-    EXPECT_EQ(std::any_cast<double>(config["MyConfig"]["my_key"]), 42.0);
+    ASSERT_EQ(config.count("MyConfig.my_key"), 1);
+    EXPECT_EQ(std::any_cast<double>(config["MyConfig.my_key"]), 42.0);
 }
 
 TEST(ValidatorTests, ThrowsOnRangeViolation)

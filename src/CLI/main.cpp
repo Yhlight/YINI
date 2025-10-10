@@ -27,9 +27,8 @@ static void run_file(const char* path) {
         YINI::YmetaManager ymeta_manager;
         ymeta_manager.load(path);
         YINI::Resolver resolver(ast, ymeta_manager);
-        auto nested_config = resolver.resolve();
-
-        YINI::Validator validator(nested_config, ast);
+        auto resolved_config = resolver.resolve();
+        YINI::Validator validator(resolved_config, ast);
         validator.validate();
         ymeta_manager.save(path);
         std::cout << "Validation completed successfully." << std::endl;
@@ -56,9 +55,8 @@ static void run_prompt() {
             auto ast = parser.parse();
             // Note: .ymeta load/save doesn't make sense for REPL without a file context
             YINI::Resolver resolver(ast, ymeta_manager);
-            auto nested_config = resolver.resolve();
-
-            YINI::Validator validator(nested_config, ast);
+            auto resolved_config = resolver.resolve();
+            YINI::Validator validator(resolved_config, ast);
             validator.validate();
              std::cout << "Validation completed successfully." << std::endl;
         } catch (const std::runtime_error& e) {

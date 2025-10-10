@@ -16,9 +16,8 @@ TEST(ResolverTests, ResolvesMacro)
     YINI::Resolver resolver(ast, ymeta_manager);
     auto config = resolver.resolve();
 
-    ASSERT_TRUE(config.count("MyConfig"));
-    ASSERT_EQ(config["MyConfig"].count("value"), 1);
-    EXPECT_EQ(std::any_cast<std::string>(config["MyConfig"]["value"]), "hello world");
+    ASSERT_EQ(config.count("MyConfig.value"), 1);
+    EXPECT_EQ(std::any_cast<std::string>(config["MyConfig.value"]), "hello world");
 }
 
 TEST(ResolverTests, ThrowsOnUndefinedMacro)
@@ -39,82 +38,6 @@ TEST(ResolverTests, ThrowsOnUndefinedMacro)
     }
 }
 
-TEST(ResolverTests, ResolvesSingleInheritance)
-{
-    std::string source = "[Parent]\nkey1 = \"value1\"\n\n[Child : Parent]\nkey2 = \"value2\"";
-    YINI::Lexer lexer(source);
-    auto tokens = lexer.scan_tokens();
-    YINI::Parser parser(tokens);
-    auto ast = parser.parse();
-    YINI::YmetaManager ymeta_manager;
-    YINI::Resolver resolver(ast, ymeta_manager);
-    auto config = resolver.resolve();
-
-    ASSERT_TRUE(config.count("Child"));
-    ASSERT_EQ(config["Child"].count("key1"), 1);
-    EXPECT_EQ(std::any_cast<std::string>(config["Child"]["key1"]), "value1");
-    ASSERT_EQ(config["Child"].count("key2"), 1);
-    EXPECT_EQ(std::any_cast<std::string>(config["Child"]["key2"]), "value2");
-}
-
-TEST(ResolverTests, ResolvesMultipleInheritance)
-{
-    std::string source = "[Parent1]\nkey1 = \"p1\"\nkey2 = \"p1\"\n\n[Parent2]\nkey2 = \"p2\"\n\n[Child : Parent1, Parent2]\nkey3 = \"c\"";
-    YINI::Lexer lexer(source);
-    auto tokens = lexer.scan_tokens();
-    YINI::Parser parser(tokens);
-    auto ast = parser.parse();
-    YINI::YmetaManager ymeta_manager;
-    YINI::Resolver resolver(ast, ymeta_manager);
-    auto config = resolver.resolve();
-
-    ASSERT_TRUE(config.count("Child"));
-    ASSERT_EQ(config["Child"].count("key1"), 1);
-    EXPECT_EQ(std::any_cast<std::string>(config["Child"]["key1"]), "p1");
-    ASSERT_EQ(config["Child"].count("key2"), 1);
-    EXPECT_EQ(std::any_cast<std::string>(config["Child"]["key2"]), "p2"); // Parent2 overrides Parent1
-    ASSERT_EQ(config["Child"].count("key3"), 1);
-    EXPECT_EQ(std::any_cast<std::string>(config["Child"]["key3"]), "c");
-}
-
-TEST(ResolverTests, ResolvesInheritanceWithOverride)
-{
-    std::string source = "[Parent]\nkey1 = \"parent\"\nkey2 = \"parent\"\n\n[Child : Parent]\nkey2 = \"child\"";
-    YINI::Lexer lexer(source);
-    auto tokens = lexer.scan_tokens();
-    YINI::Parser parser(tokens);
-    auto ast = parser.parse();
-    YINI::YmetaManager ymeta_manager;
-    YINI::Resolver resolver(ast, ymeta_manager);
-    auto config = resolver.resolve();
-
-    ASSERT_TRUE(config.count("Child"));
-    ASSERT_EQ(config["Child"].count("key1"), 1);
-    EXPECT_EQ(std::any_cast<std::string>(config["Child"]["key1"]), "parent");
-    ASSERT_EQ(config["Child"].count("key2"), 1);
-    EXPECT_EQ(std::any_cast<std::string>(config["Child"]["key2"]), "child"); // Child overrides Parent
-}
-
-TEST(ResolverTests, ResolvesMultiLevelInheritance)
-{
-    std::string source = "[Grandparent]\nkey1 = \"gp\"\nkey2 = \"gp\"\n\n[Parent : Grandparent]\nkey2 = \"p\"\n\n[Child : Parent]\nkey3 = \"c\"";
-    YINI::Lexer lexer(source);
-    auto tokens = lexer.scan_tokens();
-    YINI::Parser parser(tokens);
-    auto ast = parser.parse();
-    YINI::YmetaManager ymeta_manager;
-    YINI::Resolver resolver(ast, ymeta_manager);
-    auto config = resolver.resolve();
-
-    ASSERT_TRUE(config.count("Child"));
-    ASSERT_EQ(config["Child"].count("key1"), 1);
-    EXPECT_EQ(std::any_cast<std::string>(config["Child"]["key1"]), "gp");
-    ASSERT_EQ(config["Child"].count("key2"), 1);
-    EXPECT_EQ(std::any_cast<std::string>(config["Child"]["key2"]), "p");
-    ASSERT_EQ(config["Child"].count("key3"), 1);
-    EXPECT_EQ(std::any_cast<std::string>(config["Child"]["key3"]), "c");
-}
-
 TEST(ResolverTests, ResolvesSet)
 {
     std::string source = "[MySet]\nvalues = (1, \"two\", 3.0)";
@@ -126,9 +49,8 @@ TEST(ResolverTests, ResolvesSet)
     YINI::Resolver resolver(ast, ymeta_manager);
     auto config = resolver.resolve();
 
-    ASSERT_TRUE(config.count("MySet"));
-    ASSERT_EQ(config["MySet"].count("values"), 1);
-    auto set_any = config["MySet"]["values"];
+    ASSERT_EQ(config.count("MySet.values"), 1);
+    auto set_any = config["MySet.values"];
     ASSERT_EQ(set_any.type(), typeid(std::vector<std::any>));
     auto set_vec = std::any_cast<std::vector<std::any>>(set_any);
     ASSERT_EQ(set_vec.size(), 3);
@@ -148,9 +70,8 @@ TEST(ResolverTests, ResolvesCrossSectionReference)
     YINI::Resolver resolver(ast, ymeta_manager);
     auto config = resolver.resolve();
 
-    ASSERT_TRUE(config.count("Target"));
-    ASSERT_EQ(config["Target"].count("ref"), 1);
-    EXPECT_EQ(std::any_cast<std::string>(config["Target"]["ref"]), "hello");
+    ASSERT_EQ(config.count("Target.ref"), 1);
+    EXPECT_EQ(std::any_cast<std::string>(config["Target.ref"]), "hello");
 }
 
 TEST(ResolverTests, ResolvesMap)
@@ -164,9 +85,8 @@ TEST(ResolverTests, ResolvesMap)
     YINI::Resolver resolver(ast, ymeta_manager);
     auto config = resolver.resolve();
 
-    ASSERT_TRUE(config.count("MyMap"));
-    ASSERT_EQ(config["MyMap"].count("data"), 1);
-    auto map_any = config["MyMap"]["data"];
+    ASSERT_EQ(config.count("MyMap.data"), 1);
+    auto map_any = config["MyMap.data"];
     auto map_val = std::any_cast<std::map<std::string, std::any>>(map_any);
     ASSERT_EQ(map_val.size(), 2);
     ASSERT_EQ(map_val.count("key1"), 1);
@@ -186,9 +106,8 @@ TEST(ResolverTests, ResolvesHexColor)
     YINI::Resolver resolver(ast, ymeta_manager);
     auto config = resolver.resolve();
 
-    ASSERT_TRUE(config.count("Colors"));
-    ASSERT_EQ(config["Colors"].count("my_color"), 1);
-    auto color_any = config["Colors"]["my_color"];
+    ASSERT_EQ(config.count("Colors.my_color"), 1);
+    auto color_any = config["Colors.my_color"];
     ASSERT_EQ(color_any.type(), typeid(YINI::ResolvedColor));
     auto color_val = std::any_cast<YINI::ResolvedColor>(color_any);
     EXPECT_EQ(color_val.r, 255);
@@ -207,9 +126,8 @@ TEST(ResolverTests, ResolvesRgbColor)
     YINI::Resolver resolver(ast, ymeta_manager);
     auto config = resolver.resolve();
 
-    ASSERT_TRUE(config.count("Colors"));
-    ASSERT_EQ(config["Colors"].count("my_color"), 1);
-    auto color_any = config["Colors"]["my_color"];
+    ASSERT_EQ(config.count("Colors.my_color"), 1);
+    auto color_any = config["Colors.my_color"];
     ASSERT_EQ(color_any.type(), typeid(YINI::ResolvedColor));
     auto color_val = std::any_cast<YINI::ResolvedColor>(color_any);
     EXPECT_EQ(color_val.r, 255);
@@ -228,9 +146,8 @@ TEST(ResolverTests, ResolvesCoord2D)
     YINI::Resolver resolver(ast, ymeta_manager);
     auto config = resolver.resolve();
 
-    ASSERT_TRUE(config.count("Coords"));
-    ASSERT_EQ(config["Coords"].count("pos"), 1);
-    auto coord_any = config["Coords"]["pos"];
+    ASSERT_EQ(config.count("Coords.pos"), 1);
+    auto coord_any = config["Coords.pos"];
     ASSERT_EQ(coord_any.type(), typeid(YINI::ResolvedCoord));
     auto coord_val = std::any_cast<YINI::ResolvedCoord>(coord_any);
     EXPECT_EQ(std::any_cast<double>(coord_val.x), 10.0);
@@ -249,9 +166,8 @@ TEST(ResolverTests, ResolvesCoord3D)
     YINI::Resolver resolver(ast, ymeta_manager);
     auto config = resolver.resolve();
 
-    ASSERT_TRUE(config.count("Coords"));
-    ASSERT_EQ(config["Coords"].count("pos"), 1);
-    auto coord_any = config["Coords"]["pos"];
+    ASSERT_EQ(config.count("Coords.pos"), 1);
+    auto coord_any = config["Coords.pos"];
     ASSERT_EQ(coord_any.type(), typeid(YINI::ResolvedCoord));
     auto coord_val = std::any_cast<YINI::ResolvedCoord>(coord_any);
     EXPECT_EQ(std::any_cast<double>(coord_val.x), 10.0);
@@ -273,9 +189,8 @@ TEST(ResolverTests, ResolvesDynaValue)
     YINI::Resolver resolver1(ast1, ymeta_manager);
     auto config1 = resolver1.resolve();
 
-    ASSERT_TRUE(config1.count("MyConfig"));
-    ASSERT_EQ(config1["MyConfig"].count("value"), 1);
-    EXPECT_EQ(std::any_cast<double>(config1["MyConfig"]["value"]), 123.0);
+    ASSERT_EQ(config1.count("MyConfig.value"), 1);
+    EXPECT_EQ(std::any_cast<double>(config1["MyConfig.value"]), 123.0);
     EXPECT_TRUE(ymeta_manager.has_value("MyConfig.value"));
 
     // Second run: value should be loaded from ymeta, not from the source
@@ -287,9 +202,8 @@ TEST(ResolverTests, ResolvesDynaValue)
     YINI::Resolver resolver2(ast2, ymeta_manager);
     auto config2 = resolver2.resolve();
 
-    ASSERT_TRUE(config2.count("MyConfig"));
-    ASSERT_EQ(config2["MyConfig"].count("value"), 1);
-    EXPECT_EQ(std::any_cast<double>(config2["MyConfig"]["value"]), 123.0); // Should still be the old value
+    ASSERT_EQ(config2.count("MyConfig.value"), 1);
+    EXPECT_EQ(std::any_cast<double>(config2["MyConfig.value"]), 123.0); // Should still be the old value
 
     // Update the value and check backup
     ymeta_manager.set_value("MyConfig.value", 789.0);
@@ -315,9 +229,8 @@ TEST(ResolverTests, ResolvesEnvVarReference)
     YINI::Resolver resolver(ast, ymeta_manager);
     auto config = resolver.resolve();
 
-    ASSERT_TRUE(config.count("Config"));
-    ASSERT_EQ(config["Config"].count("value"), 1);
-    EXPECT_EQ(std::any_cast<std::string>(config["Config"]["value"]), "hello from env");
+    ASSERT_EQ(config.count("Config.value"), 1);
+    EXPECT_EQ(std::any_cast<std::string>(config["Config.value"]), "hello from env");
 
     // Clean up the environment variable
 #ifdef _WIN32
@@ -338,16 +251,14 @@ TEST(ResolverTests, ResolvesInclude)
     YINI::Resolver resolver(ast, ymeta_manager);
     auto config = resolver.resolve();
 
-    ASSERT_TRUE(config.count("IncludedSection"));
-    ASSERT_EQ(config["IncludedSection"].count("included_key"), 1);
-    EXPECT_EQ(std::any_cast<std::string>(config["IncludedSection"]["included_key"]), "this value is from the included file");
+    ASSERT_EQ(config.count("IncludedSection.included_key"), 1);
+    EXPECT_EQ(std::any_cast<std::string>(config["IncludedSection.included_key"]), "this value is from the included file");
 
-    ASSERT_EQ(config["IncludedSection"].count("another_key"), 1);
-    EXPECT_EQ(std::any_cast<double>(config["IncludedSection"]["another_key"]), 123.0);
+    ASSERT_EQ(config.count("IncludedSection.another_key"), 1);
+    EXPECT_EQ(std::any_cast<double>(config["IncludedSection.another_key"]), 123.0);
 
-    ASSERT_TRUE(config.count("MainSection"));
-    ASSERT_EQ(config["MainSection"].count("main_key"), 1);
-    EXPECT_EQ(std::any_cast<std::string>(config["MainSection"]["main_key"]), "this is from the main file");
+    ASSERT_EQ(config.count("MainSection.main_key"), 1);
+    EXPECT_EQ(std::any_cast<std::string>(config["MainSection.main_key"]), "this is from the main file");
 }
 
 TEST(ResolverTests, ResolvesArithmetic)
@@ -361,9 +272,8 @@ TEST(ResolverTests, ResolvesArithmetic)
     YINI::Resolver resolver(ast, ymeta_manager);
     auto config = resolver.resolve();
 
-    ASSERT_TRUE(config.count("Config"));
-    ASSERT_EQ(config["Config"].count("value"), 1);
-    ASSERT_EQ(std::any_cast<double>(config["Config"]["value"]), 7.0);
+    ASSERT_EQ(config.count("Config.value"), 1);
+    ASSERT_EQ(std::any_cast<double>(config["Config.value"]), 7.0);
 }
 
 TEST(ResolverTests, ResolvesGroupedArithmetic)
@@ -377,9 +287,8 @@ TEST(ResolverTests, ResolvesGroupedArithmetic)
     YINI::Resolver resolver(ast, ymeta_manager);
     auto config = resolver.resolve();
 
-    ASSERT_TRUE(config.count("Config"));
-    ASSERT_EQ(config["Config"].count("value"), 1);
-    ASSERT_EQ(std::any_cast<double>(config["Config"]["value"]), 9.0);
+    ASSERT_EQ(config.count("Config.value"), 1);
+    ASSERT_EQ(std::any_cast<double>(config["Config.value"]), 9.0);
 }
 
 TEST(ResolverTests, ResolvesPath)
@@ -393,9 +302,8 @@ TEST(ResolverTests, ResolvesPath)
     YINI::Resolver resolver(ast, ymeta_manager);
     auto config = resolver.resolve();
 
-    ASSERT_TRUE(config.count("MyConfig"));
-    ASSERT_EQ(config["MyConfig"].count("my_path"), 1);
-    EXPECT_EQ(std::any_cast<std::string>(config["MyConfig"]["my_path"]), "/usr/local/bin");
+    ASSERT_EQ(config.count("MyConfig.my_path"), 1);
+    EXPECT_EQ(std::any_cast<std::string>(config["MyConfig.my_path"]), "/usr/local/bin");
 }
 
 TEST(ResolverTests, ResolvesList)
@@ -409,9 +317,8 @@ TEST(ResolverTests, ResolvesList)
     YINI::Resolver resolver(ast, ymeta_manager);
     auto config = resolver.resolve();
 
-    ASSERT_TRUE(config.count("MyConfig"));
-    ASSERT_EQ(config["MyConfig"].count("my_list"), 1);
-    auto list_any = config["MyConfig"]["my_list"];
+    ASSERT_EQ(config.count("MyConfig.my_list"), 1);
+    auto list_any = config["MyConfig.my_list"];
     auto list_vec = std::any_cast<std::vector<std::any>>(list_any);
     ASSERT_EQ(list_vec.size(), 2);
     EXPECT_EQ(std::any_cast<double>(list_vec[0]), 1.0);
@@ -429,11 +336,10 @@ TEST(ResolverTests, ResolvesQuickRegistration)
     YINI::Resolver resolver(ast, ymeta_manager);
     auto config = resolver.resolve();
 
-    ASSERT_TRUE(config.count("MyReg"));
-    ASSERT_EQ(config["MyReg"].count("0"), 1);
-    EXPECT_EQ(std::any_cast<double>(config["MyReg"]["0"]), 1.0);
-    ASSERT_EQ(config["MyReg"].count("1"), 1);
-    EXPECT_EQ(std::any_cast<std::string>(config["MyReg"]["1"]), "two");
+    ASSERT_EQ(config.count("MyReg.0"), 1);
+    EXPECT_EQ(std::any_cast<double>(config["MyReg.0"]), 1.0);
+    ASSERT_EQ(config.count("MyReg.1"), 1);
+    EXPECT_EQ(std::any_cast<std::string>(config["MyReg.1"]), "two");
 }
 
 TEST(ResolverTests, ThrowsOnDivisionByZero)

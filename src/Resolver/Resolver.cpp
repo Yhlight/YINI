@@ -15,18 +15,8 @@ Resolver::Resolver(const std::vector<std::unique_ptr<AST::Stmt>>& statements, Ym
 {
 }
 
-Resolver::ResolvedConfig Resolver::resolve()
+std::map<std::string, std::any> Resolver::resolve()
 {
-    // First pass: collect all section definitions
-    for (const auto& stmt : m_statements)
-    {
-        if (auto* section_stmt = dynamic_cast<AST::SectionStmt*>(stmt.get()))
-        {
-            m_sections[section_stmt->name.lexeme] = section_stmt;
-        }
-    }
-
-    // Second pass: resolve all statements
     for (const auto& stmt : m_statements)
     {
         resolve_statement(stmt.get());
@@ -129,44 +119,12 @@ void Resolver::visit_define_section(AST::DefineSectionStmt* stmt)
 
 void Resolver::visit_section(AST::SectionStmt* stmt)
 {
-    if (m_resolved_sections.count(stmt->name.lexeme)) {
-        return; // Already resolved
-    }
-
-    if (m_resolving_stack.count(stmt->name.lexeme)) {
-        throw std::runtime_error("Circular inheritance detected for section: " + stmt->name.lexeme);
-    }
-
-    m_resolving_stack.insert(stmt->name.lexeme);
-
-    for (const auto& parent_name_token : stmt->parent_sections)
-    {
-        std::string parent_name = parent_name_token.lexeme;
-        if (m_sections.count(parent_name))
-        {
-            visit_section(m_sections[parent_name]);
-            // Copy resolved values from parent
-            if(m_resolved_config.count(parent_name)) {
-                for (auto const& [key, val] : m_resolved_config.at(parent_name)) {
-                    m_resolved_config[stmt->name.lexeme][key] = val;
-                }
-            }
-        }
-        else
-        {
-            throw std::runtime_error("Undefined parent section: " + parent_name);
-        }
-    }
-
     m_current_section = stmt->name.lexeme;
     for (const auto& statement : stmt->statements)
     {
         resolve_statement(statement.get());
     }
     m_current_section.clear();
-
-    m_resolving_stack.erase(stmt->name.lexeme);
-    m_resolved_sections.insert(stmt->name.lexeme);
 }
 
 void Resolver::visit_include(AST::IncludeStmt* stmt)
@@ -203,26 +161,24 @@ void Resolver::visit_include(AST::IncludeStmt* stmt)
 
 void Resolver::visit_key_value(AST::KeyValueStmt* stmt)
 {
-    std::string section_name = m_current_section.empty() ? "" : m_current_section;
-    std::string key = stmt->key.lexeme;
-    std::string full_key = section_name.empty() ? key : section_name + "." + key;
+    std::string key = m_current_section.empty() ? stmt->key.lexeme : m_current_section + "." + stmt->key.lexeme;
 
     if (auto* dyna_expr = dynamic_cast<AST::DynaExpr*>(stmt->value.get()))
     {
-        if (m_ymeta_manager.has_value(full_key))
+        if (m_ymeta_manager.has_value(key))
         {
-            m_resolved_config[section_name][key] = m_ymeta_manager.get_value(full_key);
+            m_resolved_config[key] = m_ymeta_manager.get_value(key);
         }
         else
         {
             std::any value = resolve_expression(dyna_expr->expression.get());
-            m_ymeta_manager.set_value(full_key, value);
-            m_resolved_config[section_name][key] = value;
+            m_ymeta_manager.set_value(key, value);
+            m_resolved_config[key] = value;
         }
     }
     else
     {
-        m_resolved_config[section_name][key] = resolve_expression(stmt->value.get());
+        m_resolved_config[key] = resolve_expression(stmt->value.get());
     }
 }
 
@@ -343,14 +299,12 @@ std::any Resolver::visit_grouping(AST::GroupingExpr* expr)
 
 std::any Resolver::visit_cross_section_ref(AST::CrossSectionRefExpr* expr)
 {
-    std::string section = expr->section.lexeme;
-    std::string key = expr->key.lexeme;
-    if (m_resolved_config.find(section) == m_resolved_config.end() ||
-        m_resolved_config.at(section).find(key) == m_resolved_config.at(section).end())
+    std::string key = expr->section.lexeme + "." + expr->key.lexeme;
+    if (m_resolved_config.find(key) == m_resolved_config.end())
     {
-        throw std::runtime_error("Error at line " + std::to_string(expr->section.line) + ", column " + std::to_string(expr->section.column) + ": Undefined cross-section reference: " + section + "." + key);
+        throw std::runtime_error("Error at line " + std::to_string(expr->section.line) + ", column " + std::to_string(expr->section.column) + ": Undefined cross-section reference: " + key);
     }
-    return m_resolved_config.at(section).at(key);
+    return m_resolved_config[key];
 }
 
 std::any Resolver::visit_env_var_ref(AST::EnvVarRefExpr* expr)
@@ -371,8 +325,8 @@ void Resolver::visit_quick_reg(AST::QuickRegStmt* stmt)
     }
 
     int index = m_quick_reg_indices[m_current_section]++;
-    std::string key = std::to_string(index);
-    m_resolved_config[m_current_section][key] = resolve_expression(stmt->value.get());
+    std::string key = m_current_section + "." + std::to_string(index);
+    m_resolved_config[key] = resolve_expression(stmt->value.get());
 }
 
 std::any Resolver::visit_path(AST::PathExpr* expr)
