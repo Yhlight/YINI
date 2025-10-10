@@ -27,6 +27,9 @@ enum class TokenType
     // Special
     HASH, AT, DOLLAR, TILDE, QUESTION,
 
+    // Literals
+    HEX_COLOR,
+
     // Comments
     SLASH_SLASH, SLASH_STAR, STAR_SLASH,
 

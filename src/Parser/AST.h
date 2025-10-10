@@ -37,6 +37,26 @@ struct ArrayExpr : public Expr
     std::vector<std::unique_ptr<Expr>> elements;
 };
 
+struct SetExpr : public Expr
+{
+    std::vector<std::unique_ptr<Expr>> elements;
+};
+
+struct MapExpr : public Expr
+{
+    std::vector<std::pair<Token, std::unique_ptr<Expr>>> elements;
+};
+
+struct ColorExpr : public Expr
+{
+    uint8_t r, g, b;
+};
+
+struct CoordExpr : public Expr
+{
+    std::unique_ptr<Expr> x, y, z;
+};
+
 struct BinaryExpr : public Expr
 {
     std::unique_ptr<Expr> left;
@@ -55,6 +75,16 @@ struct SectionStmt : public Stmt
     Token name;
     std::vector<Token> parent_sections;
     std::vector<std::unique_ptr<Stmt>> statements;
+};
+
+struct DefineSectionStmt : public Stmt
+{
+    std::vector<std::unique_ptr<KeyValueStmt>> definitions;
+};
+
+struct MacroExpr : public Expr
+{
+    Token name;
 };
 
 } // namespace AST

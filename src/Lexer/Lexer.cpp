@@ -1,6 +1,7 @@
 #include "Lexer.h"
 #include <iostream>
 #include <map>
+#include <cctype>
 
 namespace YINI
 {
@@ -98,7 +99,16 @@ void Lexer::scan_token()
             add_token(TokenType::SLASH);
         }
         break;
-    case '#': add_token(TokenType::HASH); break;
+    case '#':
+        if (is_hex_color()) {
+            for (int i = 0; i < 6; ++i) {
+                advance();
+            }
+            add_token(TokenType::HEX_COLOR);
+        } else {
+            add_token(TokenType::HASH);
+        }
+        break;
     case '@': add_token(TokenType::AT); break;
     case '$': add_token(TokenType::DOLLAR); break;
     case '~': add_token(TokenType::TILDE); break;
@@ -221,6 +231,22 @@ void Lexer::identifier()
         type = keywords[text];
     }
     add_token(type);
+}
+
+bool Lexer::is_hex_color() {
+    if (m_source.length() - m_current < 6) return false;
+
+    for (int i = 0; i < 6; ++i) {
+        if (!isxdigit(m_source[m_current + i])) {
+            return false;
+        }
+    }
+
+    if (m_source.length() > m_current + 6 && isalnum(m_source[m_current + 6])) {
+        return false;
+    }
+
+    return true;
 }
 
 bool Lexer::is_at_end()

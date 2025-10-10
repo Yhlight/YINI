@@ -24,6 +24,7 @@ private:
     void number();
     void identifier();
     bool is_at_end();
+    bool is_hex_color();
 
     std::string m_source;
     std::vector<Token> m_tokens;

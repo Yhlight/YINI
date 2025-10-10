@@ -167,3 +167,162 @@ TEST(ParserTests, ParsesSectionWithMultipleInheritance)
     EXPECT_EQ(section->parent_sections[1].lexeme, "Parent2");
     EXPECT_EQ(section->parent_sections[2].lexeme, "Parent3");
 }
+
+TEST(ParserTests, ParsesSet)
+{
+    std::string source = "[MySet]\nvalues = (1, \"two\", 3.0)";
+    YINI::Lexer lexer(source);
+    auto tokens = lexer.scan_tokens();
+    YINI::Parser parser(tokens);
+    auto ast = parser.parse();
+
+    ASSERT_EQ(ast.size(), 1);
+    auto section = dynamic_cast<YINI::AST::SectionStmt*>(ast[0].get());
+    ASSERT_NE(section, nullptr);
+    auto keyValue = dynamic_cast<YINI::AST::KeyValueStmt*>(section->statements[0].get());
+    ASSERT_NE(keyValue, nullptr);
+
+    auto set_expr = dynamic_cast<YINI::AST::SetExpr*>(keyValue->value.get());
+    ASSERT_NE(set_expr, nullptr);
+    ASSERT_EQ(set_expr->elements.size(), 3);
+}
+
+TEST(ParserTests, ParsesMap)
+{
+    std::string source = "[MyMap]\ndata = {key1: \"value1\", key2: 123}";
+    YINI::Lexer lexer(source);
+    auto tokens = lexer.scan_tokens();
+    YINI::Parser parser(tokens);
+    auto ast = parser.parse();
+
+    ASSERT_EQ(ast.size(), 1);
+    auto section = dynamic_cast<YINI::AST::SectionStmt*>(ast[0].get());
+    ASSERT_NE(section, nullptr);
+    auto keyValue = dynamic_cast<YINI::AST::KeyValueStmt*>(section->statements[0].get());
+    ASSERT_NE(keyValue, nullptr);
+
+    auto map_expr = dynamic_cast<YINI::AST::MapExpr*>(keyValue->value.get());
+    ASSERT_NE(map_expr, nullptr);
+    ASSERT_EQ(map_expr->elements.size(), 2);
+    EXPECT_EQ(map_expr->elements[0].first.lexeme, "key1");
+    EXPECT_EQ(map_expr->elements[1].first.lexeme, "key2");
+}
+
+TEST(ParserTests, ParsesHexColor)
+{
+    std::string source = "[Colors]\nmy_color = #FFC0CB";
+    YINI::Lexer lexer(source);
+    auto tokens = lexer.scan_tokens();
+    YINI::Parser parser(tokens);
+    auto ast = parser.parse();
+
+    ASSERT_EQ(ast.size(), 1);
+    auto section = dynamic_cast<YINI::AST::SectionStmt*>(ast[0].get());
+    ASSERT_NE(section, nullptr);
+    auto keyValue = dynamic_cast<YINI::AST::KeyValueStmt*>(section->statements[0].get());
+    ASSERT_NE(keyValue, nullptr);
+
+    auto color_expr = dynamic_cast<YINI::AST::ColorExpr*>(keyValue->value.get());
+    ASSERT_NE(color_expr, nullptr);
+    EXPECT_EQ(color_expr->r, 255);
+    EXPECT_EQ(color_expr->g, 192);
+    EXPECT_EQ(color_expr->b, 203);
+}
+
+TEST(ParserTests, ParsesRgbColor)
+{
+    std::string source = "[Colors]\nmy_color = color(255, 192, 203)";
+    YINI::Lexer lexer(source);
+    auto tokens = lexer.scan_tokens();
+    YINI::Parser parser(tokens);
+    auto ast = parser.parse();
+
+    ASSERT_EQ(ast.size(), 1);
+    auto section = dynamic_cast<YINI::AST::SectionStmt*>(ast[0].get());
+    ASSERT_NE(section, nullptr);
+    auto keyValue = dynamic_cast<YINI::AST::KeyValueStmt*>(section->statements[0].get());
+    ASSERT_NE(keyValue, nullptr);
+
+    auto color_expr = dynamic_cast<YINI::AST::ColorExpr*>(keyValue->value.get());
+    ASSERT_NE(color_expr, nullptr);
+    EXPECT_EQ(color_expr->r, 255);
+    EXPECT_EQ(color_expr->g, 192);
+    EXPECT_EQ(color_expr->b, 203);
+}
+
+TEST(ParserTests, ParsesCoord2D)
+{
+    std::string source = "[Coords]\npos = coord(10, 20)";
+    YINI::Lexer lexer(source);
+    auto tokens = lexer.scan_tokens();
+    YINI::Parser parser(tokens);
+    auto ast = parser.parse();
+
+    ASSERT_EQ(ast.size(), 1);
+    auto section = dynamic_cast<YINI::AST::SectionStmt*>(ast[0].get());
+    ASSERT_NE(section, nullptr);
+    auto keyValue = dynamic_cast<YINI::AST::KeyValueStmt*>(section->statements[0].get());
+    ASSERT_NE(keyValue, nullptr);
+
+    auto coord_expr = dynamic_cast<YINI::AST::CoordExpr*>(keyValue->value.get());
+    ASSERT_NE(coord_expr, nullptr);
+    ASSERT_NE(coord_expr->x, nullptr);
+    ASSERT_NE(coord_expr->y, nullptr);
+    ASSERT_EQ(coord_expr->z, nullptr);
+}
+
+TEST(ParserTests, ParsesCoord3D)
+{
+    std::string source = "[Coords]\npos = coord(10, 20, 30)";
+    YINI::Lexer lexer(source);
+    auto tokens = lexer.scan_tokens();
+    YINI::Parser parser(tokens);
+    auto ast = parser.parse();
+
+    ASSERT_EQ(ast.size(), 1);
+    auto section = dynamic_cast<YINI::AST::SectionStmt*>(ast[0].get());
+    ASSERT_NE(section, nullptr);
+    auto keyValue = dynamic_cast<YINI::AST::KeyValueStmt*>(section->statements[0].get());
+    ASSERT_NE(keyValue, nullptr);
+
+    auto coord_expr = dynamic_cast<YINI::AST::CoordExpr*>(keyValue->value.get());
+    ASSERT_NE(coord_expr, nullptr);
+    ASSERT_NE(coord_expr->x, nullptr);
+    ASSERT_NE(coord_expr->y, nullptr);
+    ASSERT_NE(coord_expr->z, nullptr);
+}
+
+TEST(ParserTests, ParsesDefineSection)
+{
+    std::string source = "[#define]\nname = \"YINI\"\nversion = 1";
+    YINI::Lexer lexer(source);
+    auto tokens = lexer.scan_tokens();
+    YINI::Parser parser(tokens);
+    auto ast = parser.parse();
+
+    ASSERT_EQ(ast.size(), 1);
+    auto define_section = dynamic_cast<YINI::AST::DefineSectionStmt*>(ast[0].get());
+    ASSERT_NE(define_section, nullptr);
+    ASSERT_EQ(define_section->definitions.size(), 2);
+    EXPECT_EQ(define_section->definitions[0]->key.lexeme, "name");
+    EXPECT_EQ(define_section->definitions[1]->key.lexeme, "version");
+}
+
+TEST(ParserTests, ParsesMacroReference)
+{
+    std::string source = "[MyConfig]\nvalue = @some_macro";
+    YINI::Lexer lexer(source);
+    auto tokens = lexer.scan_tokens();
+    YINI::Parser parser(tokens);
+    auto ast = parser.parse();
+
+    ASSERT_EQ(ast.size(), 1);
+    auto section = dynamic_cast<YINI::AST::SectionStmt*>(ast[0].get());
+    ASSERT_NE(section, nullptr);
+    auto keyValue = dynamic_cast<YINI::AST::KeyValueStmt*>(section->statements[0].get());
+    ASSERT_NE(keyValue, nullptr);
+
+    auto macro_expr = dynamic_cast<YINI::AST::MacroExpr*>(keyValue->value.get());
+    ASSERT_NE(macro_expr, nullptr);
+    EXPECT_EQ(macro_expr->name.lexeme, "some_macro");
+}
