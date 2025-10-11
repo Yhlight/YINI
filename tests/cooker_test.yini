@@ -1,0 +1,16 @@
+[#define]
+default_speed = 10.5
+
+[Test]
+intValue = 123
+doubleValue = 45.67
+boolValue = true
+stringValue = "hello ybin"
+colorValue = #FFC0CB
+speed = @default_speed
+
+[Arrays]
+int_array = [1, 2, 3]
+double_array = [1.1, 2.2, 3.3]
+bool_array = [true, false, true]
+string_array = ["one", "two", "three"]

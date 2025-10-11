@@ -47,5 +47,11 @@ add_test(NAME interop_tests COMMAND $<TARGET_FILE:interop_tests>)
 file(COPY
     "include_test.yini"
     "main_include_test.yini"
+    "cooker_test.yini"
     DESTINATION ${CMAKE_CURRENT_BINARY_DIR}
 )
+
+add_executable(cooker_loader_tests CookerLoaderTests.cpp)
+target_link_libraries(cooker_loader_tests PRIVATE gtest_main YiniInterop)
+target_include_directories(cooker_loader_tests PRIVATE ../src)
+add_test(NAME cooker_loader_tests COMMAND $<TARGET_FILE:cooker_loader_tests>)

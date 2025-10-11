@@ -2,11 +2,216 @@
 #include <fstream>
 #include <sstream>
 #include <string>
+#include <vector>
+#include <map>
+#include <functional>
+#include <variant>
+
 #include "Lexer/Lexer.h"
 #include "Parser/Parser.h"
 #include "Resolver/Resolver.h"
 #include "Ymeta/YmetaManager.h"
 #include "Validator/Validator.h"
+#include "Loader/YbinV2Format.h"
+#include "YiniTypes.h"
+
+// Helper class to build the string table
+class StringTableBuilder {
+public:
+    uint32_t add(const std::string& s) {
+        if (m_offsets.count(s)) {
+            return m_offsets[s];
+        }
+        uint32_t offset = m_blob.size();
+        m_blob.append(s).push_back('\0');
+        m_offsets[s] = offset;
+        return offset;
+    }
+
+    const std::string& get_blob() const {
+        return m_blob;
+    }
+
+private:
+    std::map<std::string, uint32_t> m_offsets;
+    std::string m_blob;
+};
+
+// Helper class to build the data table, ensuring alignment
+class DataTableBuilder {
+public:
+    uint32_t add(const void* data, size_t size, size_t alignment = 8) {
+        // Add padding to ensure alignment
+        size_t current_offset = m_blob.size();
+        size_t padding = (alignment - (current_offset % alignment)) % alignment;
+        m_blob.insert(m_blob.end(), padding, 0);
+
+        uint32_t offset = m_blob.size();
+        const char* bytes = static_cast<const char*>(data);
+        m_blob.insert(m_blob.end(), bytes, bytes + size);
+        return offset;
+    }
+
+    template<typename T>
+    uint32_t add(const T& value) {
+        return add(&value, sizeof(T), alignof(T));
+    }
+
+    const std::vector<char>& get_blob() const {
+        return m_blob;
+    }
+
+private:
+    std::vector<char> m_blob;
+};
+
+
+static YINI::YbinV2::ValueType get_array_value_type(const std::vector<std::any>& arr) {
+    if (arr.empty()) return YINI::YbinV2::ValueType::Null; // Or a specific empty array type
+
+    const std::type_info& first_type = arr.front().type();
+    if (first_type == typeid(double)) return YINI::YbinV2::ValueType::ArrayDouble;
+    if (first_type == typeid(bool)) return YINI::YbinV2::ValueType::ArrayBool;
+    if (first_type == typeid(std::string)) return YINI::YbinV2::ValueType::ArrayString;
+
+    // Yini only supports doubles in number literals, so we check for double
+    // which can represent integers as well.
+    return YINI::YbinV2::ValueType::Null; // Unsupported array type
+}
+
+static void run_cook(const std::string& output_path, const std::vector<std::string>& input_paths) {
+    std::map<std::string, std::any> combined_config;
+
+    // 1. Parse and resolve all input files, merging them
+    for (const auto& path : input_paths) {
+        std::ifstream file(path);
+        if (!file.is_open()) {
+            throw std::runtime_error("Could not open input file: " + path);
+        }
+        std::stringstream buffer;
+        buffer << file.rdbuf();
+        std::string source = buffer.str();
+
+        YINI::Lexer lexer(source);
+        auto tokens = lexer.scan_tokens();
+        YINI::Parser parser(tokens);
+        auto ast = parser.parse();
+
+        // Use a dummy YmetaManager for cooking
+        YINI::YmetaManager ymeta_manager;
+        YINI::Resolver resolver(ast, ymeta_manager);
+        auto resolved_config = resolver.resolve();
+
+        // Merge into the combined config
+        combined_config.insert(resolved_config.begin(), resolved_config.end());
+    }
+
+    // 2. Build the data structures for the ybin file
+    StringTableBuilder string_table;
+    DataTableBuilder data_table;
+    std::vector<YINI::YbinV2::HashTableEntry> entries;
+
+    for (const auto& pair : combined_config) {
+        const std::string& key = pair.first;
+        const std::any& value = pair.second;
+
+        YINI::YbinV2::HashTableEntry entry;
+        entry.key_hash = std::hash<std::string>{}(key);
+        entry.key_offset = string_table.add(key);
+        entry.next_entry_index = 0xFFFFFFFF; // Sentinel for end of chain
+
+        const auto& type = value.type();
+
+        if (type == typeid(double)) {
+            entry.value_type = YINI::YbinV2::ValueType::Double;
+            entry.value_offset = data_table.add(std::any_cast<double>(value));
+        } else if (type == typeid(bool)) {
+            entry.value_type = YINI::YbinV2::ValueType::Bool;
+            // Store bool directly in offset
+            entry.value_offset = std::any_cast<bool>(value) ? 1 : 0;
+        } else if (type == typeid(std::string)) {
+            entry.value_type = YINI::YbinV2::ValueType::String;
+            entry.value_offset = string_table.add(std::any_cast<std::string>(value));
+        } else if (type == typeid(YINI::ResolvedColor)) {
+            entry.value_type = YINI::YbinV2::ValueType::Color;
+            auto c = std::any_cast<YINI::ResolvedColor>(value);
+            YINI::YbinV2::ColorData cdata{c.r, c.g, c.b};
+            entry.value_offset = data_table.add(cdata);
+        } else if (type == typeid(std::vector<std::any>)) {
+            const auto& arr = std::any_cast<std::vector<std::any>>(value);
+            entry.value_type = get_array_value_type(arr);
+
+            YINI::YbinV2::ArrayData array_header{ (uint32_t)arr.size() };
+            uint32_t header_offset = data_table.add(array_header);
+            entry.value_offset = header_offset;
+
+            if (entry.value_type == YINI::YbinV2::ValueType::ArrayDouble) {
+                 for(const auto& item : arr) data_table.add(std::any_cast<double>(item));
+            } else if (entry.value_type == YINI::YbinV2::ValueType::ArrayBool) {
+                 for(const auto& item : arr) data_table.add(std::any_cast<bool>(item));
+            } else if (entry.value_type == YINI::YbinV2::ValueType::ArrayString) {
+                 for(const auto& item : arr) {
+                    uint32_t str_offset = string_table.add(std::any_cast<std::string>(item));
+                    data_table.add(str_offset);
+                 }
+            }
+        }
+        else {
+            entry.value_type = YINI::YbinV2::ValueType::Null;
+            entry.value_offset = 0;
+        }
+
+        if (entry.value_type != YINI::YbinV2::ValueType::Null) {
+            entries.push_back(entry);
+        }
+    }
+
+    // 3. Build the hash table buckets
+    size_t bucket_count = entries.size() * 1.5;
+    if (bucket_count == 0) bucket_count = 1;
+    std::vector<uint32_t> buckets(bucket_count, 0xFFFFFFFF);
+
+    for (uint32_t i = 0; i < entries.size(); ++i) {
+        uint32_t bucket_index = entries[i].key_hash % bucket_count;
+        if (buckets[bucket_index] == 0xFFFFFFFF) {
+            buckets[bucket_index] = i;
+        } else {
+            // Prepend to the chain
+            entries[i].next_entry_index = buckets[bucket_index];
+            buckets[bucket_index] = i;
+        }
+    }
+
+    // 4. Write everything to the file
+    std::ofstream out(output_path, std::ios::binary);
+    if (!out) {
+        throw std::runtime_error("Could not open output file for writing: " + output_path);
+    }
+
+    YINI::YbinV2::FileHeader header;
+    header.magic = YINI::YbinV2::YBIN_V2_MAGIC;
+    header.version = 2;
+    header.entries_count = entries.size();
+    header.hash_table_size = buckets.size();
+
+    uint32_t current_offset = sizeof(YINI::YbinV2::FileHeader);
+    header.hash_table_offset = current_offset;
+    current_offset += buckets.size() * sizeof(uint32_t);
+    header.entries_offset = current_offset;
+    current_offset += entries.size() * sizeof(YINI::YbinV2::HashTableEntry);
+    header.data_table_offset = current_offset;
+    current_offset += data_table.get_blob().size();
+    header.string_table_offset = current_offset;
+
+    out.write(reinterpret_cast<const char*>(&header), sizeof(header));
+    out.write(reinterpret_cast<const char*>(buckets.data()), buckets.size() * sizeof(uint32_t));
+    out.write(reinterpret_cast<const char*>(entries.data()), entries.size() * sizeof(YINI::YbinV2::HashTableEntry));
+    out.write(data_table.get_blob().data(), data_table.get_blob().size());
+    out.write(string_table.get_blob().data(), string_table.get_blob().size());
+
+    std::cout << "Successfully cooked " << entries.size() << " entries to " << output_path << std::endl;
+}
+
 
 static void run_file(const char* path) {
     std::ifstream file(path);
@@ -131,7 +336,30 @@ static void run_file(const char* path, std::map<std::string, std::any>& config_c
 }
 
 int main(int argc, char* argv[]) {
-    if (argc > 2) {
+    if (argc > 1 && std::string(argv[1]) == "cook") {
+        std::string output_path;
+        std::vector<std::string> input_paths;
+        for (int i = 2; i < argc; ++i) {
+            std::string arg = argv[i];
+            if (arg == "-o" && i + 1 < argc) {
+                output_path = argv[++i];
+            } else {
+                input_paths.push_back(arg);
+            }
+        }
+
+        if (output_path.empty() || input_paths.empty()) {
+            std::cerr << "Usage: yini cook -o <output.ybin> <input1.yini> [input2.yini]..." << std::endl;
+            return 64;
+        }
+
+        try {
+            run_cook(output_path, input_paths);
+        } catch (const std::runtime_error& e) {
+            std::cerr << "Error during cooking: " << e.what() << std::endl;
+            return 1;
+        }
+    } else if (argc > 2 && (std::string(argv[1]) != "cook")) {
         std::cout << "Usage: yini [script]" << std::endl;
         return 64; // EX_USAGE
     } else if (argc == 2) {
