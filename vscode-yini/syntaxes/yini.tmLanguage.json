@@ -22,16 +22,23 @@
             ]
         },
         "sections": {
+            "begin": "\\[",
+            "end": "\\]",
+            "name": "meta.section.yini",
             "patterns": [
                 {
+                    "name": "keyword.control.directive.yini",
+                    "match": "#(define|include|schema)"
+                },
+                {
                     "name": "entity.name.section.yini",
-                    "begin": "\\[",
-                    "end": "\\]",
+                    "match": "\\b[a-zA-Z_][a-zA-Z0-9_]*\\b"
+                },
+                {
+                    "begin": ":",
+                    "end": "(?=\\])",
+                    "name": "meta.inheritance.yini",
                     "patterns": [
-                        {
-                            "name": "keyword.control.directive.yini",
-                            "match": "#(define|include|schema)"
-                        },
                         {
                             "name": "entity.other.inherited-class.yini",
                             "match": "\\b[a-zA-Z_][a-zA-Z0-9_]*\\b"
