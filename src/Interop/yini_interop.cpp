@@ -4,7 +4,7 @@
 #include "Resolver/Resolver.h"
 #include "Validator/Validator.h"
 #include "Ymeta/YmetaManager.h"
-#include "Loader/YbinV2Format.h"
+#include "Loader/YbinFormat.h"
 #include "Utils/Endian.h"
 #include "YiniTypes.h"
 #include "lz4.h"
@@ -42,7 +42,7 @@ namespace
 
 namespace YINI
 {
-    // A class to manage a loaded .ybin V2 file via memory mapping
+    // A class to manage a loaded .ybin file via memory mapping
     class YbinData
     {
     public:
@@ -95,7 +95,7 @@ namespace YINI
             const char* base = static_cast<const char*>(m_mapped_memory);
 
             // Read and convert header from little-endian
-            const auto* raw_header = reinterpret_cast<const YbinV2::FileHeader*>(base);
+            const auto* raw_header = reinterpret_cast<const Ybin::FileHeader*>(base);
             m_header.magic = Utils::le32toh(raw_header->magic);
             m_header.version = Utils::le32toh(raw_header->version);
             m_header.hash_table_offset = Utils::le32toh(raw_header->hash_table_offset);
@@ -110,12 +110,12 @@ namespace YINI
             m_header.string_table_uncompressed_size = Utils::le32toh(raw_header->string_table_uncompressed_size);
 
 
-            if (m_header.magic != YbinV2::YBIN_V2_MAGIC || m_header.version != 2) {
+            if (m_header.magic != Ybin::YBIN_MAGIC || m_header.version != 2) {
                 throw std::runtime_error("Invalid or unsupported .ybin file format.");
             }
 
             m_raw_buckets = reinterpret_cast<const uint32_t*>(base + m_header.hash_table_offset);
-            m_raw_entries = reinterpret_cast<const YbinV2::HashTableEntry*>(base + m_header.entries_offset);
+            m_raw_entries = reinterpret_cast<const Ybin::HashTableEntry*>(base + m_header.entries_offset);
 
             // Decompress data and string tables
             m_data_table_storage.resize(m_header.data_table_uncompressed_size);
@@ -176,17 +176,17 @@ namespace YINI
         }
 
     private:
-        std::any decode_value(const YbinV2::HashTableEntry& raw_entry) const {
-            YbinV2::ValueType value_type = raw_entry.value_type;
+        std::any decode_value(const Ybin::HashTableEntry& raw_entry) const {
+            Ybin::ValueType value_type = raw_entry.value_type;
             uint32_t value_offset = Utils::le32toh(raw_entry.value_offset);
 
             switch(value_type) {
-                case YbinV2::ValueType::Int64: {
+                case Ybin::ValueType::Int64: {
                     int64_t val;
                     memcpy(&val, m_data_table + value_offset, sizeof(int64_t));
                     return Utils::le64toh(val);
                 }
-                case YbinV2::ValueType::Double: {
+                case Ybin::ValueType::Double: {
                     double val;
                     memcpy(&val, m_data_table + value_offset, sizeof(double));
                     uint64_t as_int;
@@ -195,37 +195,37 @@ namespace YINI
                     memcpy(&val, &as_int, sizeof(double));
                     return val;
                 }
-                case YbinV2::ValueType::Bool:
+                case Ybin::ValueType::Bool:
                     return value_offset != 0;
-                case YbinV2::ValueType::String:
+                case Ybin::ValueType::String:
                     return std::string(m_string_table + value_offset);
-                case YbinV2::ValueType::Color: {
-                    auto c = reinterpret_cast<const YbinV2::ColorData*>(m_data_table + value_offset);
+                case Ybin::ValueType::Color: {
+                    auto c = reinterpret_cast<const Ybin::ColorData*>(m_data_table + value_offset);
                     return ResolvedColor{c->r, c->g, c->b};
                 }
-                case YbinV2::ValueType::ArrayInt:
-                case YbinV2::ValueType::ArrayDouble:
-                case YbinV2::ValueType::ArrayBool:
-                case YbinV2::ValueType::ArrayString: {
-                    const auto* raw_arr_header = reinterpret_cast<const YbinV2::ArrayData*>(m_data_table + value_offset);
+                case Ybin::ValueType::ArrayInt:
+                case Ybin::ValueType::ArrayDouble:
+                case Ybin::ValueType::ArrayBool:
+                case Ybin::ValueType::ArrayString: {
+                    const auto* raw_arr_header = reinterpret_cast<const Ybin::ArrayData*>(m_data_table + value_offset);
                     uint32_t count = Utils::le32toh(raw_arr_header->count);
                     std::vector<std::any> result;
                     result.reserve(count);
 
-                    uint32_t header_end_addr = value_offset + sizeof(YINI::YbinV2::ArrayData);
+                    uint32_t header_end_addr = value_offset + sizeof(YINI::Ybin::ArrayData);
                     size_t element_alignment = 1;
-                    if (value_type == YbinV2::ValueType::ArrayInt) element_alignment = alignof(int64_t);
-                    else if (value_type == YbinV2::ValueType::ArrayDouble) element_alignment = alignof(double);
-                    else if (value_type == YbinV2::ValueType::ArrayBool) element_alignment = alignof(bool);
-                    else if (value_type == YbinV2::ValueType::ArrayString) element_alignment = alignof(uint32_t);
+                    if (value_type == Ybin::ValueType::ArrayInt) element_alignment = alignof(int64_t);
+                    else if (value_type == Ybin::ValueType::ArrayDouble) element_alignment = alignof(double);
+                    else if (value_type == Ybin::ValueType::ArrayBool) element_alignment = alignof(bool);
+                    else if (value_type == Ybin::ValueType::ArrayString) element_alignment = alignof(uint32_t);
 
                     size_t padding = (element_alignment - (header_end_addr % element_alignment)) % element_alignment;
                     const void* arr_start = m_data_table + header_end_addr + padding;
 
-                    if (value_type == YbinV2::ValueType::ArrayInt) {
+                    if (value_type == Ybin::ValueType::ArrayInt) {
                         const int64_t* items = static_cast<const int64_t*>(arr_start);
                         for(uint32_t i=0; i < count; ++i) result.push_back(Utils::le64toh(items[i]));
-                    } else if (value_type == YbinV2::ValueType::ArrayDouble) {
+                    } else if (value_type == Ybin::ValueType::ArrayDouble) {
                         const uint64_t* items = static_cast<const uint64_t*>(arr_start);
                         for(uint32_t i=0; i < count; ++i) {
                              double val;
@@ -237,7 +237,7 @@ namespace YINI
                              memcpy(&val, &as_int, sizeof(double));
                              result.push_back(val);
                         }
-                    } else if (value_type == YbinV2::ValueType::ArrayBool) {
+                    } else if (value_type == Ybin::ValueType::ArrayBool) {
                         const bool* items = static_cast<const bool*>(arr_start);
                         for(uint32_t i=0; i < count; ++i) result.push_back(items[i]);
                     } else { // ArrayString
@@ -259,9 +259,9 @@ namespace YINI
         HANDLE m_file_handle = NULL;
         HANDLE m_mapping_handle = NULL;
 #endif
-        YbinV2::FileHeader m_header;
+        Ybin::FileHeader m_header;
         const uint32_t* m_raw_buckets = nullptr;
-        const YbinV2::HashTableEntry* m_raw_entries = nullptr;
+        const Ybin::HashTableEntry* m_raw_entries = nullptr;
         const char* m_data_table = nullptr;
         const char* m_string_table = nullptr;
         std::vector<char> m_data_table_storage;

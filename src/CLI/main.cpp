@@ -14,7 +14,7 @@
 #include "Resolver/Resolver.h"
 #include "Ymeta/YmetaManager.h"
 #include "Validator/Validator.h"
-#include "Loader/YbinV2Format.h"
+#include "Loader/YbinFormat.h"
 #include "Utils/Endian.h"
 #include "YiniTypes.h"
 
@@ -86,8 +86,8 @@ bool is_integer_value(double d, int64_t& out_int) {
 }
 
 
-static YINI::YbinV2::ValueType get_array_value_type(const std::vector<std::any>& arr) {
-    if (arr.empty()) return YINI::YbinV2::ValueType::Null; // Or a specific empty array type
+static YINI::Ybin::ValueType get_array_value_type(const std::vector<std::any>& arr) {
+    if (arr.empty()) return YINI::Ybin::ValueType::Null; // Or a specific empty array type
 
     const std::type_info& first_type = arr.front().type();
 
@@ -101,14 +101,14 @@ static YINI::YbinV2::ValueType get_array_value_type(const std::vector<std::any>&
                 break;
             }
         }
-        if (all_integers) return YINI::YbinV2::ValueType::ArrayInt;
-        return YINI::YbinV2::ValueType::ArrayDouble;
+        if (all_integers) return YINI::Ybin::ValueType::ArrayInt;
+        return YINI::Ybin::ValueType::ArrayDouble;
     }
 
-    if (first_type == typeid(bool)) return YINI::YbinV2::ValueType::ArrayBool;
-    if (first_type == typeid(std::string)) return YINI::YbinV2::ValueType::ArrayString;
+    if (first_type == typeid(bool)) return YINI::Ybin::ValueType::ArrayBool;
+    if (first_type == typeid(std::string)) return YINI::Ybin::ValueType::ArrayString;
 
-    return YINI::YbinV2::ValueType::Null; // Unsupported array type
+    return YINI::Ybin::ValueType::Null; // Unsupported array type
 }
 
 static void run_cook(const std::string& output_path, const std::vector<std::string>& input_paths) {
@@ -141,13 +141,13 @@ static void run_cook(const std::string& output_path, const std::vector<std::stri
     // 2. Build the data structures for the ybin file
     StringTableBuilder string_table;
     DataTableBuilder data_table;
-    std::vector<YINI::YbinV2::HashTableEntry> entries;
+    std::vector<YINI::Ybin::HashTableEntry> entries;
 
     for (const auto& pair : combined_config) {
         const std::string& key = pair.first;
         const std::any& value = pair.second;
 
-        YINI::YbinV2::HashTableEntry entry;
+        YINI::Ybin::HashTableEntry entry;
         entry.key_hash = std::hash<std::string>{}(key);
         entry.key_offset = string_table.add(key);
         entry.next_entry_index = 0xFFFFFFFF; // Sentinel for end of chain
@@ -156,41 +156,41 @@ static void run_cook(const std::string& output_path, const std::vector<std::stri
         int64_t int_val;
 
         if (type == typeid(double) && is_integer_value(std::any_cast<double>(value), int_val)) {
-            entry.value_type = YINI::YbinV2::ValueType::Int64;
+            entry.value_type = YINI::Ybin::ValueType::Int64;
             entry.value_offset = data_table.add(int_val);
         } else if (type == typeid(double)) {
-            entry.value_type = YINI::YbinV2::ValueType::Double;
+            entry.value_type = YINI::Ybin::ValueType::Double;
             entry.value_offset = data_table.add(std::any_cast<double>(value));
         } else if (type == typeid(bool)) {
-            entry.value_type = YINI::YbinV2::ValueType::Bool;
+            entry.value_type = YINI::Ybin::ValueType::Bool;
             // Store bool directly in offset
             entry.value_offset = std::any_cast<bool>(value) ? 1 : 0;
         } else if (type == typeid(std::string)) {
-            entry.value_type = YINI::YbinV2::ValueType::String;
+            entry.value_type = YINI::Ybin::ValueType::String;
             entry.value_offset = string_table.add(std::any_cast<std::string>(value));
         } else if (type == typeid(YINI::ResolvedColor)) {
-            entry.value_type = YINI::YbinV2::ValueType::Color;
+            entry.value_type = YINI::Ybin::ValueType::Color;
             auto c = std::any_cast<YINI::ResolvedColor>(value);
-            YINI::YbinV2::ColorData cdata{c.r, c.g, c.b};
+            YINI::Ybin::ColorData cdata{c.r, c.g, c.b};
             entry.value_offset = data_table.add(cdata);
         } else if (type == typeid(std::vector<std::any>)) {
             const auto& arr = std::any_cast<std::vector<std::any>>(value);
             entry.value_type = get_array_value_type(arr);
 
-            YINI::YbinV2::ArrayData array_header{ (uint32_t)arr.size() };
+            YINI::Ybin::ArrayData array_header{ (uint32_t)arr.size() };
             uint32_t header_offset = data_table.add(array_header);
             entry.value_offset = header_offset;
 
-            if (entry.value_type == YINI::YbinV2::ValueType::ArrayInt) {
+            if (entry.value_type == YINI::Ybin::ValueType::ArrayInt) {
                 for(const auto& item : arr) {
                      is_integer_value(std::any_cast<double>(item), int_val);
                      data_table.add(int_val);
                 }
-            } else if (entry.value_type == YINI::YbinV2::ValueType::ArrayDouble) {
+            } else if (entry.value_type == YINI::Ybin::ValueType::ArrayDouble) {
                  for(const auto& item : arr) data_table.add(std::any_cast<double>(item));
-            } else if (entry.value_type == YINI::YbinV2::ValueType::ArrayBool) {
+            } else if (entry.value_type == YINI::Ybin::ValueType::ArrayBool) {
                  for(const auto& item : arr) data_table.add(std::any_cast<bool>(item));
-            } else if (entry.value_type == YINI::YbinV2::ValueType::ArrayString) {
+            } else if (entry.value_type == YINI::Ybin::ValueType::ArrayString) {
                  for(const auto& item : arr) {
                     uint32_t str_offset = string_table.add(std::any_cast<std::string>(item));
                     data_table.add(str_offset);
@@ -198,11 +198,11 @@ static void run_cook(const std::string& output_path, const std::vector<std::stri
             }
         }
         else {
-            entry.value_type = YINI::YbinV2::ValueType::Null;
+            entry.value_type = YINI::Ybin::ValueType::Null;
             entry.value_offset = 0;
         }
 
-        if (entry.value_type != YINI::YbinV2::ValueType::Null) {
+        if (entry.value_type != YINI::Ybin::ValueType::Null) {
             entries.push_back(entry);
         }
     }
@@ -245,8 +245,8 @@ static void run_cook(const std::string& output_path, const std::vector<std::stri
         throw std::runtime_error("Could not open output file for writing: " + output_path);
     }
 
-    YINI::YbinV2::FileHeader header;
-    header.magic = YINI::Utils::htole32(YINI::YbinV2::YBIN_V2_MAGIC);
+    YINI::Ybin::FileHeader header;
+    header.magic = YINI::Utils::htole32(YINI::Ybin::YBIN_MAGIC);
     header.version = YINI::Utils::htole32(2);
     header.entries_count = YINI::Utils::htole32(entries.size());
     header.hash_table_size = YINI::Utils::htole32(buckets.size());
@@ -256,11 +256,11 @@ static void run_cook(const std::string& output_path, const std::vector<std::stri
     header.string_table_compressed_size = YINI::Utils::htole32(string_compressed_size);
 
 
-    uint32_t current_offset = sizeof(YINI::YbinV2::FileHeader);
+    uint32_t current_offset = sizeof(YINI::Ybin::FileHeader);
     header.hash_table_offset = YINI::Utils::htole32(current_offset);
     current_offset += buckets.size() * sizeof(uint32_t);
     header.entries_offset = YINI::Utils::htole32(current_offset);
-    current_offset += entries.size() * sizeof(YINI::YbinV2::HashTableEntry);
+    current_offset += entries.size() * sizeof(YINI::Ybin::HashTableEntry);
     header.data_table_offset = YINI::Utils::htole32(current_offset);
     current_offset += compressed_data.size();
     header.string_table_offset = YINI::Utils::htole32(current_offset);

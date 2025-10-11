@@ -3,11 +3,11 @@
 
 namespace YINI
 {
-namespace YbinV2
+namespace Ybin
 {
 
-// Define a magic number to identify .ybin V2 files
-constexpr uint32_t YBIN_V2_MAGIC = 0x59424932; // "YBI2"
+// Define a magic number to identify .ybin files
+constexpr uint32_t YBIN_MAGIC = 0x5942494E; // "YBIN"
 
 // Enum to represent the different types of values we can store
 enum class ValueType : uint8_t
@@ -30,7 +30,7 @@ enum class ValueType : uint8_t
 #pragma pack(push, 1)
 struct FileHeader
 {
-    uint32_t magic;           // Must be YBIN_V2_MAGIC
+    uint32_t magic;           // Must be YBIN_MAGIC
     uint32_t version;         // Version number, e.g., 2
     uint32_t hash_table_offset; // Offset from the start of the file to the hash table buckets
     uint32_t hash_table_size;   // Number of buckets in the hash table
@@ -87,5 +87,5 @@ struct CoordData
 #pragma pack(pop)
 
 
-} // namespace YbinV2
+} // namespace Ybin
 } // namespace YINI
