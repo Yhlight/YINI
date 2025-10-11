@@ -26,10 +26,6 @@
     <ProjectReference Include="..\..\Yini.Core\Yini.Core.csproj" />
   </ItemGroup>
 
-  <Target Name="CopyNativeBinaries" AfterTargets="Build">
-    <Copy SourceFiles="..\..\..\build\bin\yini" DestinationFolder="$(OutputPath)" />
-  </Target>
-
   <PropertyGroup>
     <NativeLib>libYiniInterop</NativeLib>
     <NativeLib Condition="$([MSBuild]::IsOSPlatform('Windows'))">$(NativeLib).dll</NativeLib>

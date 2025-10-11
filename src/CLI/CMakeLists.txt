@@ -1,4 +1,4 @@
-add_executable(yini main.cpp Cooker.cpp)
+add_executable(yini main.cpp)
 
 target_link_libraries(yini PRIVATE Lexer Parser Resolver Validator YmetaManager)
 

@@ -24,13 +24,4 @@ extern "C" {
     YINI_API bool yini_get_array_item_as_double(void* handle, const char* key, int index, double* out_value);
     YINI_API bool yini_get_array_item_as_bool(void* handle, const char* key, int index, bool* out_value);
     YINI_API const char* yini_get_array_item_as_string(void* handle, const char* key, int index);
-
-    // --- Ybin Loader API ---
-    YINI_API void* yini_load_cooked_asset(const char* file_path);
-    YINI_API void yini_destroy_cooked_asset(void* asset_handle);
-
-    YINI_API bool yini_cooked_get_int(void* asset_handle, const char* section, const char* key, int* out_value);
-    YINI_API bool yini_cooked_get_double(void* asset_handle, const char* section, const char* key, double* out_value);
-    YINI_API bool yini_cooked_get_bool(void* asset_handle, const char* section, const char* key, bool* out_value);
-    YINI_API const char* yini_cooked_get_string(void* asset_handle, const char* section, const char* key);
 }
