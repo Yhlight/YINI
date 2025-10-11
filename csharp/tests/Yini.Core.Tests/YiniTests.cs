@@ -27,38 +27,17 @@ stringValue = ""hello world""
 
             using (var config = new YiniConfig(TestFileName))
             {
-                Assert.True(config.GetInt("TestSection.intValue", out int intValue));
-                Assert.Equal(123, intValue);
-
-                Assert.True(config.GetDouble("TestSection.doubleValue", out double doubleValue));
-                Assert.Equal(45.67, doubleValue);
-
-                Assert.True(config.GetBool("TestSection.boolValue", out bool boolValue));
-                Assert.True(boolValue);
-
-                string stringValue = config.GetString("TestSection.stringValue");
-                Assert.Equal("hello world", stringValue);
-            }
-
-            File.Delete(TestFileName);
-        }
-
-        [Fact]
-        public void TestGetValues_NullableOverloads()
-        {
-            CreateTestFile();
-
-            using (var config = new YiniConfig(TestFileName))
-            {
                 // Test for existing keys
                 Assert.Equal(123, config.GetInt("TestSection.intValue"));
                 Assert.Equal(45.67, config.GetDouble("TestSection.doubleValue"));
                 Assert.True(config.GetBool("TestSection.boolValue"));
+                Assert.Equal("hello world", config.GetString("TestSection.stringValue"));
 
                 // Test for non-existent keys
                 Assert.Null(config.GetInt("TestSection.nonExistentInt"));
                 Assert.Null(config.GetDouble("TestSection.nonExistentDouble"));
                 Assert.Null(config.GetBool("TestSection.nonExistentBool"));
+                Assert.Null(config.GetString("TestSection.nonExistentString"));
             }
 
             File.Delete(TestFileName);

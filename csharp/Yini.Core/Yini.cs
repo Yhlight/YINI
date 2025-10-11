@@ -130,6 +130,7 @@ namespace Yini.Core
         /// <param name="key">The key of the value to retrieve (e.g., "Section.key").</param>
         /// <param name="value">When this method returns, contains the integer value associated with the specified key, if the key is found; otherwise, the default value for the type of the value parameter. This parameter is passed uninitialized.</param>
         /// <returns><c>true</c> if the configuration contains an element with the specified key; otherwise, <c>false</c>.</returns>
+        [Obsolete("This method is obsolete. Use the nullable GetInt(string key) overload instead.")]
         public bool GetInt(string key, out int value)
         {
             return NativeMethods.YiniGetInt(m_handle, key, out value);
@@ -156,6 +157,7 @@ namespace Yini.Core
         /// <param name="key">The key of the value to retrieve (e.g., "Section.key").</param>
         /// <param name="value">When this method returns, contains the double value associated with the specified key, if the key is found; otherwise, the default value for the type of the value parameter. This parameter is passed uninitialized.</param>
         /// <returns><c>true</c> if the configuration contains an element with the specified key; otherwise, <c>false</c>.</returns>
+        [Obsolete("This method is obsolete. Use the nullable GetDouble(string key) overload instead.")]
         public bool GetDouble(string key, out double value)
         {
             return NativeMethods.YiniGetDouble(m_handle, key, out value);
@@ -176,6 +178,7 @@ namespace Yini.Core
         /// <param name="key">The key of the value to retrieve (e.g., "Section.key").</param>
         /// <param name="value">When this method returns, contains the boolean value associated with the specified key, if the key is found; otherwise, the default value for the type of the value parameter. This parameter is passed uninitialized.</param>
         /// <returns><c>true</c> if the configuration contains an element with the specified key; otherwise, <c>false</c>.</returns>
+        [Obsolete("This method is obsolete. Use the nullable GetBool(string key) overload instead.")]
         public bool GetBool(string key, out bool value)
         {
             return NativeMethods.YiniGetBool(m_handle, key, out value);
