@@ -1,1 +1,0 @@
-cmd_Release/yini_validator.node := ln -f "Release/obj.target/yini_validator.node" "Release/yini_validator.node" 2>/dev/null || (rm -rf "Release/yini_validator.node" && cp -af "Release/obj.target/yini_validator.node" "Release/yini_validator.node")

@@ -206,6 +206,73 @@ YMETA使用.ymeta，.YMETA作为后缀
 CLI工具需要采用阻塞式运行，意思是，CLI需要存在事件主进程事件循环，持续交互  
 CLI工具主要用来编译与反编译YMETA文件，以及检查是否语法错误  
 
+### 综合示例 (Examples)
+下面的示例展示了如何结合使用多种YINI功能 (继承、宏、模式验证和多样的数据类型) 来创建一个更复杂和健壮的游戏配置。
+
+#### 示例：定义怪物模板和具体的怪物类型
+
+在这个场景中，我们首先定义一个 schema 文件来确保所有怪物都有共同的属性，然后我们创建一个基础的怪物 "template"，最后定义两个继承自该模板的具体怪物。
+
+**`schemas/monsters.yini`**
+```YINI
+[#schema]
+[BaseMonster]
+name = !, string, e
+health = !, int, min=1
+mana = ?, int, =0
+speed = !, float
+abilities = ?, array[string]
+
+[Goblin]
+loots = !, array[string]
+
+[Dragon]
+fire_breath_damage = !, int, min=50
+```
+
+**`configs/monsters.yini`**
+```YINI
+[#include]
++= "../schemas/monsters.yini"
+
+[#define]
+common_loot = "gold coins"
+
+// 基础怪物模板 (不会直接在游戏中使用)
+[BaseMonster]
+name = "Unnamed Monster"
+health = 100
+speed = 5.0
+abilities = ["attack", "block"]
+
+// 一个具体的怪物类型，继承自基础模板
+[Goblin] : BaseMonster
+name = "Goblin Grunt"
+health = 50
+speed = 7.5
+abilities = ["attack", "dodge"]
+loots = [@common_loot, "rusty dagger"]
+
+// 另一个具体的怪物类型，具有独特的属性
+[Dragon] : BaseMonster
+name = "Ancient Dragon"
+health = 2000
+speed = 15.0
+abilities = ["attack", "fly", "fire_breath"]
+fire_breath_damage = 100
+```
+
+在这个示例中：
+- **`[#include]`** 用于首先加载 schema 以确保后续的配置块都将被验证。
+- **`[#define]`** 定义了一个通用的宏 `@common_loot`，它可以在多个地方被重用。
+- **继承** 被用来创建一个 `Goblin` 和一个 `Dragon`，它们都继承了 `BaseMonster` 的基本属性。注意 `[Goblin]` 和 `[Dragon]` 如何覆写了 `name` 和 `health` 等属性。
+- **数据类型** 展示了字符串 (`string`)，整数 (`int`)，浮点数 (`float`) 和字符串数组 (`array[string]`) 的使用。
+- **Schema 验证** 将确保：
+  - `Goblin` 必须有一个 `loots` 数组。
+  - `Dragon` 必须有一个 `fire_breath_damage` 并且其值不能小于50。
+  - 所有怪物都必须有 `name`, `health` 和 `speed`。
+  - 如果 `mana` 没有被提供，它将默认为0。
+
 ### 项目开发建议
 #### 架构设计
 状态机 + 策略模式 / 递归下降  
