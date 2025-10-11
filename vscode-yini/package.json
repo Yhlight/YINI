@@ -10,9 +10,6 @@
         "Programming Languages"
     ],
     "main": "./src/extension.js",
-    "scripts": {
-        "install": "echo \"No native modules to rebuild.\""
-    },
     "activationEvents": [
         "onLanguage:yini"
     ],
@@ -39,6 +36,6 @@
         ]
     },
     "dependencies": {
-        "vscode-languageclient": "^9.0.1"
+        "node-addon-api": "^8.5.0"
     }
 }

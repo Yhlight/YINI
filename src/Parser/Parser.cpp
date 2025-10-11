@@ -4,9 +4,15 @@
 #include <vector>
 #include <sstream>
 #include <algorithm>
+#include <set>
 
 namespace YINI
 {
+
+static std::set<TokenType> key_keywords = {
+    TokenType::TRUE, TokenType::FALSE, TokenType::COLOR, TokenType::COORD,
+    TokenType::PATH, TokenType::LIST, TokenType::ARRAY, TokenType::DYNA
+};
 
 // Helper to trim whitespace from both ends of a string
 static void trim(std::string &s) {
@@ -197,7 +203,17 @@ std::unique_ptr<AST::SchemaRuleStmt> Parser::schema_rule_statement()
 
 std::unique_ptr<AST::KeyValueStmt> Parser::key_value_statement()
 {
-    Token key = consume(TokenType::IDENTIFIER, "Expect key.");
+    Token key;
+    if (check(TokenType::IDENTIFIER) || key_keywords.count(peek().type)) {
+        key = advance();
+    } else {
+        Token error_token = peek();
+        std::string error_message = "Error at line " + std::to_string(error_token.line) +
+                                    ", column " + std::to_string(error_token.column) +
+                                    ": Expect key.";
+        throw std::runtime_error(error_message);
+    }
+
     consume(TokenType::EQUAL, "Expect '=' after key.");
     auto value = expression();
 

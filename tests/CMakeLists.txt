@@ -24,6 +24,11 @@ target_link_libraries(resolver_tests PRIVATE Resolver Parser Lexer gtest_main)
 target_include_directories(resolver_tests PRIVATE ../src)
 add_test(NAME resolver_tests COMMAND $<TARGET_FILE:resolver_tests>)
 
+add_executable(parser_bug_tests ParserBugTests.cpp)
+target_link_libraries(parser_bug_tests PRIVATE gtest_main Parser Lexer)
+target_include_directories(parser_bug_tests PRIVATE ../src)
+add_test(NAME parser_bug_tests COMMAND $<TARGET_FILE:parser_bug_tests>)
+
 add_executable(validator_tests ValidatorTests.cpp)
 target_link_libraries(validator_tests PRIVATE Validator Resolver Parser Lexer gtest_main)
 target_include_directories(validator_tests PRIVATE ../src)
