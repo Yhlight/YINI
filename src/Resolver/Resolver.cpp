@@ -204,9 +204,19 @@ void Resolver::visitQuickRegStmt(AST::QuickRegStmt* stmt)
         throw std::runtime_error("Quick registration '+=' can only be used inside a section.");
     }
 
-    // Quick registration keys are based on the number of existing keys in the current section's data.
-    int index = m_current_section_data->size();
-    std::string key = std::to_string(index);
+    int max_index = -1;
+    for (const auto& pair : *m_current_section_data) {
+        try {
+            int current_key = std::stoi(pair.first);
+            if (current_key > max_index) {
+                max_index = current_key;
+            }
+        } catch (const std::invalid_argument&) {
+            // Ignore keys that are not integers
+        }
+    }
+
+    std::string key = std::to_string(max_index + 1);
     (*m_current_section_data)[key] = stmt->value->accept(this);
 }
 

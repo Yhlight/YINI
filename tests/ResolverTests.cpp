@@ -319,6 +319,31 @@ TEST(ResolverTests, ResolvesArithmetic)
     ASSERT_EQ(std::any_cast<double>(config["Config.value"]), 7.0);
 }
 
+TEST(ResolverTests, HandlesQuickRegistrationWithInheritance) {
+    std::string source = R"(
+[Parent]
+0 = "zero"
+1 = "one"
+
+[Child] : Parent
++= "two"
+)";
+    YINI::Lexer lexer(source);
+    auto tokens = lexer.scan_tokens();
+    YINI::Parser parser(tokens);
+    auto ast = parser.parse();
+    YINI::YmetaManager ymeta_manager;
+    YINI::Resolver resolver(ast, ymeta_manager);
+    auto config = resolver.resolve();
+
+    // The bug is that the resolver will generate a key "0" for "two", overwriting the inherited value.
+    // The correct behavior is to generate a key "2".
+    ASSERT_TRUE(config.count("Child.2"));
+    ASSERT_EQ(std::any_cast<std::string>(config["Child.2"]), "two");
+    ASSERT_TRUE(config.count("Child.0"));
+    ASSERT_EQ(std::any_cast<std::string>(config["Child.0"]), "zero");
+}
+
 TEST(ResolverTests, ResolvesGroupedArithmetic)
 {
     std::string source = "[Config]\nvalue = (1 + 2) * 3"; // 3 * 3 = 9
