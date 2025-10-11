@@ -37,9 +37,14 @@ static void run_file(const char* path) {
     }
 }
 
+// Forward declaration for the new run_file overload
+static void run_file(const char* path, std::map<std::string, std::any>& config_context, YINI::YmetaManager& ymeta_manager);
+
 static void run_prompt() {
     std::string line;
-    YINI::YmetaManager ymeta_manager; // A single manager for the REPL session
+    YINI::YmetaManager ymeta_manager;
+    std::map<std::string, std::any> config_context;
+
     for (;;) {
         std::cout << "> ";
         if (!std::getline(std::cin, line)) {
@@ -48,20 +53,80 @@ static void run_prompt() {
         }
         if (line.empty()) continue;
 
-        YINI::Lexer lexer(line);
-        auto tokens = lexer.scan_tokens();
-        YINI::Parser parser(tokens);
-        try {
-            auto ast = parser.parse();
-            // Note: .ymeta load/save doesn't make sense for REPL without a file context
-            YINI::Resolver resolver(ast, ymeta_manager);
-            auto resolved_config = resolver.resolve();
-            YINI::Validator validator(resolved_config, ast);
-            validator.validate();
-             std::cout << "Validation completed successfully." << std::endl;
-        } catch (const std::runtime_error& e) {
-            std::cerr << "Error: " << e.what() << std::endl;
+        if (line.rfind(".load ", 0) == 0) {
+            std::string path = line.substr(6);
+            config_context.clear();
+            ymeta_manager = YINI::YmetaManager();
+            run_file(path.c_str(), config_context, ymeta_manager);
+        } else if (line.rfind(".get ", 0) == 0) {
+            std::string key = line.substr(5);
+            if (config_context.count(key)) {
+                // This is a simplified output. A real implementation would handle different types.
+                try {
+                    if (config_context[key].type() == typeid(double)) {
+                        std::cout << std::any_cast<double>(config_context[key]) << std::endl;
+                    } else if (config_context[key].type() == typeid(std::string)) {
+                        std::cout << std::any_cast<std::string>(config_context[key]) << std::endl;
+                    } else if (config_context[key].type() == typeid(bool)) {
+                        std::cout << (std::any_cast<bool>(config_context[key]) ? "true" : "false") << std::endl;
+                    } else {
+                         std::cout << "[complex type]" << std::endl;
+                    }
+                } catch (const std::bad_any_cast& e) {
+                     std::cerr << "Error: Could not cast value." << std::endl;
+                }
+            } else {
+                std::cout << "null" << std::endl;
+            }
+        } else if (line == ".exit" || line == ".quit") {
+            break;
         }
+        else
+        {
+             try {
+                YINI::Lexer lexer(line);
+                auto tokens = lexer.scan_tokens();
+                YINI::Parser parser(tokens);
+                auto ast = parser.parse();
+                YINI::Resolver resolver(ast, ymeta_manager);
+                auto temp_config = resolver.resolve();
+                // We don't merge this into the main context, just validate it.
+                YINI::Validator validator(temp_config, ast);
+                validator.validate();
+                std::cout << "Snippet validated successfully." << std::endl;
+            } catch (const std::runtime_error& e) {
+                std::cerr << "Error: " << e.what() << std::endl;
+            }
+        }
+    }
+}
+
+// Overload run_file to work with an existing context for the REPL
+static void run_file(const char* path, std::map<std::string, std::any>& config_context, YINI::YmetaManager& ymeta_manager) {
+    std::ifstream file(path);
+    if (!file.is_open()) {
+        std::cerr << "Error: Could not open file '" << path << "'" << std::endl;
+        return;
+    }
+
+    std::stringstream buffer;
+    buffer << file.rdbuf();
+    std::string source = buffer.str();
+
+    YINI::Lexer lexer(source);
+    auto tokens = lexer.scan_tokens();
+    YINI::Parser parser(tokens);
+    try {
+        auto ast = parser.parse();
+        ymeta_manager.load(path);
+        YINI::Resolver resolver(ast, ymeta_manager);
+        config_context = resolver.resolve(); // Load into the provided context
+        YINI::Validator validator(config_context, ast);
+        validator.validate();
+        ymeta_manager.save(path);
+        std::cout << "File '" << path << "' loaded and validated." << std::endl;
+    } catch (const std::runtime_error& e) {
+        std::cerr << "Error: " << e.what() << std::endl;
     }
 }
 
