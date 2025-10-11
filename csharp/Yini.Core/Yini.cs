@@ -135,6 +135,21 @@ namespace Yini.Core
             return NativeMethods.YiniGetInt(m_handle, key, out value);
         }
 
+
+        /// <summary>
+        /// Retrieves an integer value for a specified key.
+        /// </summary>
+        /// <param name="key">The key of the value to retrieve (e.g., "Section.key").</param>
+        /// <returns>The integer value associated with the specified key, or <c>null</c> if the key is not found.</returns>
+        public int? GetInt(string key)
+        {
+            if (NativeMethods.YiniGetInt(m_handle, key, out int value))
+            {
+                return value;
+            }
+            return null;
+        }
+
         /// <summary>
         /// Retrieves a double-precision floating-point number for a specified key.
         /// </summary>
@@ -146,6 +161,15 @@ namespace Yini.Core
             return NativeMethods.YiniGetDouble(m_handle, key, out value);
         }
 
+        public double? GetDouble(string key)
+        {
+            if (NativeMethods.YiniGetDouble(m_handle, key, out double value))
+            {
+                return value;
+            }
+            return null;
+        }
+
         /// <summary>
         /// Retrieves a boolean value for a specified key.
         /// </summary>
@@ -155,6 +179,15 @@ namespace Yini.Core
         public bool GetBool(string key, out bool value)
         {
             return NativeMethods.YiniGetBool(m_handle, key, out value);
+        }
+
+        public bool? GetBool(string key)
+        {
+            if (NativeMethods.YiniGetBool(m_handle, key, out bool value))
+            {
+                return value;
+            }
+            return null;
         }
 
         /// <summary>

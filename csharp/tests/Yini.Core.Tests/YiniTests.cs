@@ -42,5 +42,26 @@ stringValue = ""hello world""
 
             File.Delete(TestFileName);
         }
+
+        [Fact]
+        public void TestGetValues_NullableOverloads()
+        {
+            CreateTestFile();
+
+            using (var config = new YiniConfig(TestFileName))
+            {
+                // Test for existing keys
+                Assert.Equal(123, config.GetInt("TestSection.intValue"));
+                Assert.Equal(45.67, config.GetDouble("TestSection.doubleValue"));
+                Assert.True(config.GetBool("TestSection.boolValue"));
+
+                // Test for non-existent keys
+                Assert.Null(config.GetInt("TestSection.nonExistentInt"));
+                Assert.Null(config.GetDouble("TestSection.nonExistentDouble"));
+                Assert.Null(config.GetBool("TestSection.nonExistentBool"));
+            }
+
+            File.Delete(TestFileName);
+        }
     }
 }
