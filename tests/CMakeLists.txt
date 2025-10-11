@@ -50,3 +50,8 @@ target_link_libraries(cooker_tests PRIVATE gtest_main Loader)
 target_sources(cooker_tests PRIVATE ../src/CLI/Cooker.cpp)
 target_include_directories(cooker_tests PRIVATE ../src)
 add_test(NAME cooker_tests COMMAND $<TARGET_FILE:cooker_tests>)
+
+add_executable(advanced_resolver_tests AdvancedResolverTests.cpp)
+target_link_libraries(advanced_resolver_tests PRIVATE gtest_main Resolver Parser Lexer Validator YmetaManager)
+target_include_directories(advanced_resolver_tests PRIVATE ../src)
+add_test(NAME advanced_resolver_tests COMMAND $<TARGET_FILE:advanced_resolver_tests>)
