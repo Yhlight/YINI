@@ -112,7 +112,7 @@ struct DefineSectionStmt : public Stmt
 struct IncludeStmt : public Stmt
 {
     std::vector<std::unique_ptr<Expr>> paths;
-    void accept(ASTVisitor* visitor) override { visitor->visitIncludeStmt(this); }
+    void accept(ASTVisitor* visitor) override { visitor->visitIncludeStmt(this, false); } // Default to not collection mode
 };
 
 struct MacroExpr : public Expr

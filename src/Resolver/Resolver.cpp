@@ -17,32 +17,126 @@ Resolver::Resolver(const std::vector<std::unique_ptr<AST::Stmt>>& statements, Ym
 
 std::map<std::string, std::any> Resolver::resolve()
 {
-    for (const auto& stmt : m_statements)
+    // First pass: collect all section definitions and macros from the root and included files.
+    collect_declarations(m_statements);
+
+    // Second pass: resolve each section, handling inheritance.
+    for (const auto& pair : m_section_nodes)
     {
-        stmt->accept(this);
+        resolve_section(pair.first);
     }
+
+    // Third pass: flatten the resolved per-section data into the final config map.
+    for (const auto& section_pair : m_resolved_sections_data)
+    {
+        const std::string& section_name = section_pair.first;
+        const auto& section_data = section_pair.second;
+        for (const auto& value_pair : section_data)
+        {
+            const std::string& key = value_pair.first;
+            const std::any& value = value_pair.second;
+            m_resolved_config[section_name + "." + key] = value;
+        }
+    }
+
     return m_resolved_config;
+}
+
+void Resolver::collect_declarations(const std::vector<std::unique_ptr<AST::Stmt>>& statements)
+{
+    for (const auto& stmt : statements)
+    {
+        if (auto* define_stmt = dynamic_cast<AST::DefineSectionStmt*>(stmt.get()))
+        {
+            for (const auto& definition : define_stmt->definitions)
+            {
+                m_macros[definition->key.lexeme] = definition->value.get();
+            }
+        }
+        else if (auto* section_stmt = dynamic_cast<AST::SectionStmt*>(stmt.get()))
+        {
+            const std::string& name = section_stmt->name.lexeme;
+            if (m_section_nodes.find(name) == m_section_nodes.end())
+            {
+                m_section_nodes[name] = section_stmt;
+            }
+            else
+            {
+                // Merge statements if the section is defined multiple times.
+                m_section_nodes[name]->statements.insert(
+                    m_section_nodes[name]->statements.end(),
+                    std::make_move_iterator(section_stmt->statements.begin()),
+                    std::make_move_iterator(section_stmt->statements.end())
+                );
+            }
+        }
+        else if (auto* include_stmt = dynamic_cast<AST::IncludeStmt*>(stmt.get()))
+        {
+            visitIncludeStmt(include_stmt, true); // Pass true to indicate collection mode.
+        }
+    }
+}
+
+std::map<std::string, std::any> Resolver::resolve_section(const std::string& section_name)
+{
+    // If already resolved, return the cached data.
+    if (m_resolved_sections_data.count(section_name))
+    {
+        return m_resolved_sections_data[section_name];
+    }
+
+    // Check for circular dependencies.
+    if (m_resolving_stack.count(section_name))
+    {
+        throw std::runtime_error("Circular inheritance detected involving section: " + section_name);
+    }
+
+    if (m_section_nodes.find(section_name) == m_section_nodes.end())
+    {
+        throw std::runtime_error("Reference to undefined section: " + section_name);
+    }
+
+    m_resolving_stack.insert(section_name);
+
+    m_current_section_name = section_name; // Set context for DynaExpr
+    AST::SectionStmt* section_stmt = m_section_nodes[section_name];
+    std::map<std::string, std::any> section_data;
+
+    // Resolve and merge parent sections first.
+    for (const auto& parent_token : section_stmt->parent_sections)
+    {
+        const std::string& parent_name = parent_token.lexeme;
+        auto parent_data = resolve_section(parent_name);
+        for (const auto& pair : parent_data)
+        {
+            section_data[pair.first] = pair.second;
+        }
+    }
+
+    // Resolve this section's own key-value pairs, overriding any from parents.
+    m_current_section_data = &section_data;
+    for (const auto& statement : section_stmt->statements)
+    {
+        statement->accept(this);
+    }
+    m_current_section_data = nullptr;
+
+    m_resolving_stack.erase(section_name);
+    m_resolved_sections_data[section_name] = section_data;
+    return section_data;
 }
 
 void Resolver::visitDefineSectionStmt(AST::DefineSectionStmt* stmt)
 {
-    for (const auto& definition : stmt->definitions)
-    {
-        m_macros[definition->key.lexeme] = definition->value.get();
-    }
+    // This is handled in the collection pass.
 }
 
 void Resolver::visitSectionStmt(AST::SectionStmt* stmt)
 {
-    m_current_section = stmt->name.lexeme;
-    for (const auto& statement : stmt->statements)
-    {
-        statement->accept(this);
-    }
-    m_current_section.clear();
+    // This is handled by the resolve_section method.
 }
 
-void Resolver::visitIncludeStmt(AST::IncludeStmt* stmt)
+void Resolver::visitIncludeStmt(AST::IncludeStmt* stmt, bool collection_mode)
 {
     for (const auto& path_expr : stmt->paths)
     {
@@ -67,46 +161,53 @@ void Resolver::visitIncludeStmt(AST::IncludeStmt* stmt)
         Parser parser(tokens);
         auto included_ast = parser.parse();
 
-        for (const auto& included_stmt : included_ast)
+        if (collection_mode)
         {
-            included_stmt->accept(this);
+            collect_declarations(included_ast);
+            m_included_asts.push_back(std::move(included_ast));
         }
+        // else: includes are fully processed during the collection pass,
+        // so there's nothing to do during the resolution pass.
     }
 }
 
 void Resolver::visitKeyValueStmt(AST::KeyValueStmt* stmt)
 {
-    std::string key = m_current_section.empty() ? stmt->key.lexeme : m_current_section + "." + stmt->key.lexeme;
+    if (!m_current_section_data) return; // Should not happen during the resolution pass.
+
+    std::string key = stmt->key.lexeme;
+    std::string full_key = m_current_section_name + "." + key;
 
     if (auto* dyna_expr = dynamic_cast<AST::DynaExpr*>(stmt->value.get()))
     {
-        if (m_ymeta_manager.has_value(key))
+        if (m_ymeta_manager.has_value(full_key))
         {
-            m_resolved_config[key] = m_ymeta_manager.get_value(key);
+            (*m_current_section_data)[key] = m_ymeta_manager.get_value(full_key);
         }
         else
         {
             std::any value = dyna_expr->expression->accept(this);
-            m_ymeta_manager.set_value(key, value);
-            m_resolved_config[key] = value;
+            m_ymeta_manager.set_value(full_key, value);
+            (*m_current_section_data)[key] = value;
         }
     }
     else
     {
-        m_resolved_config[key] = stmt->value->accept(this);
+        (*m_current_section_data)[key] = stmt->value->accept(this);
     }
 }
 
 void Resolver::visitQuickRegStmt(AST::QuickRegStmt* stmt)
 {
-    if (m_current_section.empty())
+    if (!m_current_section_data)
     {
         throw std::runtime_error("Quick registration '+=' can only be used inside a section.");
     }
 
-    int index = m_quick_reg_indices[m_current_section]++;
-    std::string key = m_current_section + "." + std::to_string(index);
-    m_resolved_config[key] = stmt->value->accept(this);
+    // Quick registration keys are based on the number of existing keys in the current section's data.
+    int index = m_current_section_data->size();
+    std::string key = std::to_string(index);
+    (*m_current_section_data)[key] = stmt->value->accept(this);
 }
 
 void Resolver::visitSchemaRuleStmt(AST::SchemaRuleStmt* stmt)
@@ -261,12 +362,18 @@ std::any Resolver::visitGroupingExpr(AST::GroupingExpr* expr)
 
 std::any Resolver::visitCrossSectionRefExpr(AST::CrossSectionRefExpr* expr)
 {
-    std::string key = expr->section.lexeme + "." + expr->key.lexeme;
-    if (m_resolved_config.find(key) == m_resolved_config.end())
+    const std::string& section_name = expr->section.lexeme;
+    const std::string& key = expr->key.lexeme;
+
+    // Resolve the referenced section if it hasn't been already.
+    resolve_section(section_name);
+
+    const auto& section_data = m_resolved_sections_data.at(section_name);
+    if (section_data.find(key) == section_data.end())
     {
-        throw std::runtime_error("Error at line " + std::to_string(expr->section.line) + ", column " + std::to_string(expr->section.column) + ": Undefined cross-section reference: " + key);
+        throw std::runtime_error("Error at line " + std::to_string(expr->key.line) + ", column " + std::to_string(expr->key.column) + ": Undefined key '" + key + "' in section '" + section_name + "'.");
     }
-    return m_resolved_config[key];
+    return section_data.at(key);
 }
 
 std::any Resolver::visitEnvVarRefExpr(AST::EnvVarRefExpr* expr)
@@ -281,6 +388,9 @@ std::any Resolver::visitEnvVarRefExpr(AST::EnvVarRefExpr* expr)
 
 std::any Resolver::visitDynaExpr(AST::DynaExpr* expr)
 {
+    // DynaExpr needs to know the fully resolved key to interact with YmetaManager.
+    // This logic is now implicitly handled by visitKeyValueStmt, as DynaExpr
+    // is just a wrapper. The value resolution happens there.
     return expr->expression->accept(this);
 }
 

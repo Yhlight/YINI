@@ -24,6 +24,29 @@ TEST(LexerTests, TokenizesSingleTokens) {
     EXPECT_EQ(tokens[13].type, YINI::TokenType::END_OF_FILE);
 }
 
+TEST(LexerTests, IgnoresComments)
+{
+    std::string source = R"(// This is a comment.
+[Section] // Another comment
+key = /* block comment */ value
+/*
+  multi-line
+*/
+)";
+    YINI::Lexer lexer(source);
+    auto tokens = lexer.scan_tokens();
+
+    // Expecting [ Section ] key = value EOF
+    ASSERT_EQ(tokens.size(), 7);
+    EXPECT_EQ(tokens[0].type, YINI::TokenType::LEFT_BRACKET);
+    EXPECT_EQ(tokens[1].type, YINI::TokenType::IDENTIFIER);
+    EXPECT_EQ(tokens[2].type, YINI::TokenType::RIGHT_BRACKET);
+    EXPECT_EQ(tokens[3].type, YINI::TokenType::IDENTIFIER);
+    EXPECT_EQ(tokens[4].type, YINI::TokenType::EQUAL);
+    EXPECT_EQ(tokens[5].type, YINI::TokenType::IDENTIFIER);
+    EXPECT_EQ(tokens[6].type, YINI::TokenType::END_OF_FILE);
+}
+
 TEST(LexerTests, TokenizesAssignment) {
     std::string source = "key = \"value\"";
     YINI::Lexer lexer(source);
@@ -49,20 +72,6 @@ TEST(LexerTests, TokenizesKeywords) {
     EXPECT_EQ(tokens[3].type, YINI::TokenType::END_OF_FILE);
 }
 
-TEST(LexerTests, IgnoresComments) {
-    std::string source = "// this is a comment\n"
-                         "key = value /* this is another comment */";
-    YINI::Lexer lexer(source);
-    std::vector<YINI::Token> tokens = lexer.scan_tokens();
-
-    ASSERT_EQ(tokens.size(), 4);
-    EXPECT_EQ(tokens[0].type, YINI::TokenType::IDENTIFIER);
-    EXPECT_EQ(tokens[0].lexeme, "key");
-    EXPECT_EQ(tokens[1].type, YINI::TokenType::EQUAL);
-    EXPECT_EQ(tokens[2].type, YINI::TokenType::IDENTIFIER);
-    EXPECT_EQ(tokens[2].lexeme, "value");
-    EXPECT_EQ(tokens[3].type, YINI::TokenType::END_OF_FILE);
-}
 
 TEST(LexerTests, HandlesUnterminatedBlockComment) {
     std::string source = "/* this is an unterminated comment";

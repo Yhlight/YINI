@@ -37,6 +37,27 @@ TEST(ValidatorTests, HandlesOptionalKeyNotPresent)
     ASSERT_EQ(config.count("MyConfig.my_key"), 0);
 }
 
+TEST(ValidatorTests, ValidatesContainerTypes)
+{
+    std::string source = R"([#schema]
+[MyConfig]
+my_array = !, array[int]
+
+[MyConfig]
+my_array = [1, 2, "three"])"; // "three" is not an int
+
+    YINI::Lexer lexer(source);
+    auto tokens = lexer.scan_tokens();
+    YINI::Parser parser(tokens);
+    auto ast = parser.parse();
+    YINI::YmetaManager ymeta_manager;
+    YINI::Resolver resolver(ast, ymeta_manager);
+    auto config = resolver.resolve();
+    YINI::Validator validator(config, ast);
+
+    EXPECT_THROW(validator.validate(), std::runtime_error);
+}
+
 TEST(ValidatorTests, PassesWithRequiredKeyPresent)
 {
     std::string source = "[#schema]\n[MyConfig]\nmy_key = !\n\n[MyConfig]\nmy_key = 123";

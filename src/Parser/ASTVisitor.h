@@ -62,7 +62,7 @@ public:
     virtual void visitKeyValueStmt(KeyValueStmt* stmt) = 0;
     virtual void visitSectionStmt(SectionStmt* stmt) = 0;
     virtual void visitDefineSectionStmt(DefineSectionStmt* stmt) = 0;
-    virtual void visitIncludeStmt(IncludeStmt* stmt) = 0;
+    virtual void visitIncludeStmt(IncludeStmt* stmt, bool collection_mode) = 0;
     virtual void visitQuickRegStmt(QuickRegStmt* stmt) = 0;
     virtual void visitSchemaRuleStmt(SchemaRuleStmt* stmt) = 0;
     virtual void visitSchemaSectionStmt(SchemaSectionStmt* stmt) = 0;

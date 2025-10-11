@@ -36,6 +36,7 @@ private:
     std::unique_ptr<AST::Expr> dyna();
     std::unique_ptr<AST::Expr> path();
     std::unique_ptr<AST::Expr> list();
+    std::unique_ptr<AST::Expr> array_func();
 
     bool match(const std::vector<TokenType>& types);
     Token consume(TokenType type, const std::string& message);

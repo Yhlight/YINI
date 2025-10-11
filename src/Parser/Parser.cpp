@@ -326,6 +326,10 @@ std::unique_ptr<AST::Expr> Parser::primary()
         return list();
     }
 
+    if (match({TokenType::ARRAY})) {
+        return array_func();
+    }
+
     if (match({TokenType::AT})) {
         if (match({TokenType::LEFT_BRACE})) {
             Token section = consume(TokenType::IDENTIFIER, "Expect section name for cross-reference.");
@@ -458,6 +462,19 @@ std::unique_ptr<AST::Expr> Parser::list()
     }
     consume(TokenType::RIGHT_PAREN, "Expect ')' after list elements.");
     return list_expr;
+}
+
+std::unique_ptr<AST::Expr> Parser::array_func()
+{
+    consume(TokenType::LEFT_PAREN, "Expect '(' after 'array' keyword.");
+    auto array_expr = std::make_unique<AST::ArrayExpr>();
+    if (!check(TokenType::RIGHT_PAREN)) {
+        do {
+            array_expr->elements.push_back(expression());
+        } while (match({TokenType::COMMA}));
+    }
+    consume(TokenType::RIGHT_PAREN, "Expect ')' after array elements.");
+    return array_expr;
 }
 
 bool Parser::match(const std::vector<TokenType>& types)

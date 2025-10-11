@@ -285,3 +285,46 @@ TEST(ParserTests, ParsesQuickRegistration)
     auto reg2 = dynamic_cast<YINI::AST::QuickRegStmt*>(section->statements[1].get());
     ASSERT_NE(reg2, nullptr);
 }
+
+TEST(ParserTests, ParsesArrayFuncSyntax)
+{
+    std::string source = "[MySection]\nmy_array = array(1, \"two\")";
+    YINI::Lexer lexer(source);
+    auto tokens = lexer.scan_tokens();
+    YINI::Parser parser(tokens);
+    auto ast = parser.parse();
+
+    ASSERT_EQ(ast.size(), 1);
+    auto* section = dynamic_cast<YINI::AST::SectionStmt*>(ast[0].get());
+    ASSERT_NE(section, nullptr);
+    ASSERT_EQ(section->statements.size(), 1);
+    auto* array_stmt = dynamic_cast<YINI::AST::KeyValueStmt*>(section->statements[0].get());
+    ASSERT_NE(array_stmt, nullptr);
+    ASSERT_NE(dynamic_cast<YINI::AST::ArrayExpr*>(array_stmt->value.get()), nullptr);
+}
+
+TEST(ParserTests, Parses2DArray)
+{
+    std::string source = "[MySection]\nmy_array = [[1, 2], [3, 4]]";
+    YINI::Lexer lexer(source);
+    auto tokens = lexer.scan_tokens();
+    YINI::Parser parser(tokens);
+    auto ast = parser.parse();
+
+    ASSERT_EQ(ast.size(), 1);
+    auto* section = dynamic_cast<YINI::AST::SectionStmt*>(ast[0].get());
+    ASSERT_NE(section, nullptr);
+    auto* kv = dynamic_cast<YINI::AST::KeyValueStmt*>(section->statements[0].get());
+    ASSERT_NE(kv, nullptr);
+    auto* array_expr = dynamic_cast<YINI::AST::ArrayExpr*>(kv->value.get());
+    ASSERT_NE(array_expr, nullptr);
+    ASSERT_EQ(array_expr->elements.size(), 2);
+
+    auto* sub_array1 = dynamic_cast<YINI::AST::ArrayExpr*>(array_expr->elements[0].get());
+    ASSERT_NE(sub_array1, nullptr);
+    ASSERT_EQ(sub_array1->elements.size(), 2);
+
+    auto* sub_array2 = dynamic_cast<YINI::AST::ArrayExpr*>(array_expr->elements[1].get());
+    ASSERT_NE(sub_array2, nullptr);
+    ASSERT_EQ(sub_array2->elements.size(), 2);
+}

@@ -53,6 +53,34 @@ TEST(ResolverTests, ResolvesComplexArithmetic)
     ASSERT_EQ(std::any_cast<double>(config["Config.value"]), -5.0);
 }
 
+TEST(ResolverTests, ResolvesSectionInheritance)
+{
+    std::string source = R"([Parent]
+key1 = "value1"
+key2 = "original_value"
+
+[Child : Parent]
+key2 = "overridden_value"
+key3 = "value3")";
+
+    YINI::Lexer lexer(source);
+    auto tokens = lexer.scan_tokens();
+    YINI::Parser parser(tokens);
+    auto ast = parser.parse();
+    YINI::YmetaManager ymeta_manager;
+    YINI::Resolver resolver(ast, ymeta_manager);
+    auto config = resolver.resolve();
+
+    ASSERT_EQ(config.count("Child.key1"), 1);
+    EXPECT_EQ(std::any_cast<std::string>(config["Child.key1"]), "value1");
+
+    ASSERT_EQ(config.count("Child.key2"), 1);
+    EXPECT_EQ(std::any_cast<std::string>(config["Child.key2"]), "overridden_value");
+
+    ASSERT_EQ(config.count("Child.key3"), 1);
+    EXPECT_EQ(std::any_cast<std::string>(config["Child.key3"]), "value3");
+}
+
 TEST(ResolverTests, ResolvesSet)
 {
     std::string source = "[MySet]\nvalues = (1, \"two\", 3.0)";
