@@ -29,6 +29,7 @@ Makefile
 # VSCode
 .vscode/
 *.vsix
+node_modules/
 
 # Other
 *.log

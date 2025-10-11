@@ -1,4 +1,8 @@
 const vscode = require('vscode');
+const path = require('path');
+
+// --- Load the native addon ---
+const validator = require(path.join(__dirname, '../build/Release/yini_validator.node'));
 
 const keywords = [
     'Dyna', 'color', 'coord', 'path', 'list', 'array', 'true', 'false'
@@ -33,8 +37,54 @@ function parseYiniDocument(document) {
     return sections;
 }
 
+function updateDiagnostics(document, collection) {
+    if (document.languageId !== 'yini') {
+        return;
+    }
+
+    const errorMessage = validator.validateYiniSource(document.getText());
+    const diagnostics = [];
+
+    if (errorMessage) {
+        // Try to parse line and column from the error message
+        const match = errorMessage.match(/Error at line (\d+), column (\d+): (.*)/);
+        if (match) {
+            const line = parseInt(match[1], 10) - 1;
+            const column = parseInt(match[2], 10) - 1;
+            const message = match[3];
+            const range = new vscode.Range(line, column, line, 100); // Highlight a portion of the line
+            diagnostics.push(new vscode.Diagnostic(range, message, vscode.DiagnosticSeverity.Error));
+        } else {
+            // If we can't parse the line, show the error on the first line
+            const range = new vscode.Range(0, 0, 0, 1);
+            diagnostics.push(new vscode.Diagnostic(range, errorMessage, vscode.DiagnosticSeverity.Error));
+        }
+    }
+
+    collection.set(document.uri, diagnostics);
+}
+
 
 function activate(context) {
+    // --- Diagnostics ---
+    const diagnosticCollection = vscode.languages.createDiagnosticCollection('yini');
+    context.subscriptions.push(diagnosticCollection);
+
+    if (vscode.window.activeTextEditor) {
+        updateDiagnostics(vscode.window.activeTextEditor.document, diagnosticCollection);
+    }
+
+    context.subscriptions.push(vscode.window.onDidChangeActiveTextEditor(editor => {
+        if (editor) {
+            updateDiagnostics(editor.document, diagnosticCollection);
+        }
+    }));
+
+    context.subscriptions.push(vscode.workspace.onDidChangeTextDocument(event => {
+        updateDiagnostics(event.document, diagnosticCollection);
+    }));
+
+    // --- Auto-completion ---
     const provider = vscode.languages.registerCompletionItemProvider('yini', {
         provideCompletionItems(document, position) {
             const linePrefix = document.lineAt(position).text.substr(0, position.character);

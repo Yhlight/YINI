@@ -14,16 +14,28 @@
         "onLanguage:yini"
     ],
     "contributes": {
-        "languages": [{
-            "id": "yini",
-            "aliases": ["YINI", "yini"],
-            "extensions": [".yini"],
-            "configuration": "./language-configuration.json"
-        }],
-        "grammars": [{
-            "language": "yini",
-            "scopeName": "source.yini",
-            "path": "./syntaxes/yini.tmLanguage.json"
-        }]
+        "languages": [
+            {
+                "id": "yini",
+                "aliases": [
+                    "YINI",
+                    "yini"
+                ],
+                "extensions": [
+                    ".yini"
+                ],
+                "configuration": "./language-configuration.json"
+            }
+        ],
+        "grammars": [
+            {
+                "language": "yini",
+                "scopeName": "source.yini",
+                "path": "./syntaxes/yini.tmLanguage.json"
+            }
+        ]
+    },
+    "dependencies": {
+        "node-addon-api": "^8.5.0"
     }
 }
