@@ -6,6 +6,8 @@
 #include <map>
 #include <functional>
 #include <variant>
+#include <cmath>
+#include "lz4.h"
 
 #include "Lexer/Lexer.h"
 #include "Parser/Parser.h"
@@ -13,6 +15,7 @@
 #include "Ymeta/YmetaManager.h"
 #include "Validator/Validator.h"
 #include "Loader/YbinV2Format.h"
+#include "Utils/Endian.h"
 #include "YiniTypes.h"
 
 // Helper class to build the string table
@@ -53,7 +56,12 @@ public:
     }
 
     template<typename T>
-    uint32_t add(const T& value) {
+    uint32_t add(T value) {
+        if constexpr (std::is_arithmetic_v<T> && sizeof(T) > 1) {
+             if constexpr (sizeof(T) == 2) value = YINI::Utils::htole16(value);
+             if constexpr (sizeof(T) == 4) value = YINI::Utils::htole32(value);
+             if constexpr (sizeof(T) == 8) value = YINI::Utils::htole64(value);
+        }
         return add(&value, sizeof(T), alignof(T));
     }
 
@@ -65,17 +73,41 @@ private:
     std::vector<char> m_blob;
 };
 
+// Helper to check if a double can be safely represented as an int64_t
+bool is_integer_value(double d, int64_t& out_int) {
+    if (std::fmod(d, 1.0) != 0.0) {
+        return false;
+    }
+    if (d < static_cast<double>(std::numeric_limits<int64_t>::min()) || d > static_cast<double>(std::numeric_limits<int64_t>::max())) {
+        return false;
+    }
+    out_int = static_cast<int64_t>(d);
+    return true;
+}
+
 
 static YINI::YbinV2::ValueType get_array_value_type(const std::vector<std::any>& arr) {
     if (arr.empty()) return YINI::YbinV2::ValueType::Null; // Or a specific empty array type
 
     const std::type_info& first_type = arr.front().type();
-    if (first_type == typeid(double)) return YINI::YbinV2::ValueType::ArrayDouble;
+
+    if (first_type == typeid(double)) {
+        // Check if all elements are integers
+        bool all_integers = true;
+        for(const auto& item : arr) {
+            int64_t dummy;
+            if (item.type() != typeid(double) || !is_integer_value(std::any_cast<double>(item), dummy)) {
+                all_integers = false;
+                break;
+            }
+        }
+        if (all_integers) return YINI::YbinV2::ValueType::ArrayInt;
+        return YINI::YbinV2::ValueType::ArrayDouble;
+    }
+
     if (first_type == typeid(bool)) return YINI::YbinV2::ValueType::ArrayBool;
     if (first_type == typeid(std::string)) return YINI::YbinV2::ValueType::ArrayString;
 
-    // Yini only supports doubles in number literals, so we check for double
-    // which can represent integers as well.
     return YINI::YbinV2::ValueType::Null; // Unsupported array type
 }
 
@@ -121,8 +153,12 @@ static void run_cook(const std::string& output_path, const std::vector<std::stri
         entry.next_entry_index = 0xFFFFFFFF; // Sentinel for end of chain
 
         const auto& type = value.type();
+        int64_t int_val;
 
-        if (type == typeid(double)) {
+        if (type == typeid(double) && is_integer_value(std::any_cast<double>(value), int_val)) {
+            entry.value_type = YINI::YbinV2::ValueType::Int64;
+            entry.value_offset = data_table.add(int_val);
+        } else if (type == typeid(double)) {
             entry.value_type = YINI::YbinV2::ValueType::Double;
             entry.value_offset = data_table.add(std::any_cast<double>(value));
         } else if (type == typeid(bool)) {
@@ -145,7 +181,12 @@ static void run_cook(const std::string& output_path, const std::vector<std::stri
             uint32_t header_offset = data_table.add(array_header);
             entry.value_offset = header_offset;
 
-            if (entry.value_type == YINI::YbinV2::ValueType::ArrayDouble) {
+            if (entry.value_type == YINI::YbinV2::ValueType::ArrayInt) {
+                for(const auto& item : arr) {
+                     is_integer_value(std::any_cast<double>(item), int_val);
+                     data_table.add(int_val);
+                }
+            } else if (entry.value_type == YINI::YbinV2::ValueType::ArrayDouble) {
                  for(const auto& item : arr) data_table.add(std::any_cast<double>(item));
             } else if (entry.value_type == YINI::YbinV2::ValueType::ArrayBool) {
                  for(const auto& item : arr) data_table.add(std::any_cast<bool>(item));
@@ -172,42 +213,72 @@ static void run_cook(const std::string& output_path, const std::vector<std::stri
     std::vector<uint32_t> buckets(bucket_count, 0xFFFFFFFF);
 
     for (uint32_t i = 0; i < entries.size(); ++i) {
-        uint32_t bucket_index = entries[i].key_hash % bucket_count;
+        uint64_t key_hash_le = YINI::Utils::htole64(entries[i].key_hash);
+        uint32_t bucket_index = key_hash_le % bucket_count;
+
         if (buckets[bucket_index] == 0xFFFFFFFF) {
-            buckets[bucket_index] = i;
+            buckets[bucket_index] = YINI::Utils::htole32(i);
         } else {
             // Prepend to the chain
             entries[i].next_entry_index = buckets[bucket_index];
-            buckets[bucket_index] = i;
+            buckets[bucket_index] = YINI::Utils::htole32(i);
         }
     }
 
-    // 4. Write everything to the file
+    // 4. Compress data and string tables
+    const auto& uncompressed_data = data_table.get_blob();
+    int data_max_size = LZ4_compressBound(uncompressed_data.size());
+    std::vector<char> compressed_data(data_max_size);
+    int data_compressed_size = LZ4_compress_default(uncompressed_data.data(), compressed_data.data(), uncompressed_data.size(), data_max_size);
+    compressed_data.resize(data_compressed_size);
+
+    const auto& uncompressed_strings = string_table.get_blob();
+    int string_max_size = LZ4_compressBound(uncompressed_strings.size());
+    std::vector<char> compressed_strings(string_max_size);
+    int string_compressed_size = LZ4_compress_default(uncompressed_strings.data(), compressed_strings.data(), uncompressed_strings.size(), string_max_size);
+    compressed_strings.resize(string_compressed_size);
+
+
+    // 5. Write everything to the file
     std::ofstream out(output_path, std::ios::binary);
     if (!out) {
         throw std::runtime_error("Could not open output file for writing: " + output_path);
     }
 
     YINI::YbinV2::FileHeader header;
-    header.magic = YINI::YbinV2::YBIN_V2_MAGIC;
-    header.version = 2;
-    header.entries_count = entries.size();
-    header.hash_table_size = buckets.size();
+    header.magic = YINI::Utils::htole32(YINI::YbinV2::YBIN_V2_MAGIC);
+    header.version = YINI::Utils::htole32(2);
+    header.entries_count = YINI::Utils::htole32(entries.size());
+    header.hash_table_size = YINI::Utils::htole32(buckets.size());
+    header.data_table_uncompressed_size = YINI::Utils::htole32(uncompressed_data.size());
+    header.data_table_compressed_size = YINI::Utils::htole32(data_compressed_size);
+    header.string_table_uncompressed_size = YINI::Utils::htole32(uncompressed_strings.size());
+    header.string_table_compressed_size = YINI::Utils::htole32(string_compressed_size);
+
 
     uint32_t current_offset = sizeof(YINI::YbinV2::FileHeader);
-    header.hash_table_offset = current_offset;
+    header.hash_table_offset = YINI::Utils::htole32(current_offset);
     current_offset += buckets.size() * sizeof(uint32_t);
-    header.entries_offset = current_offset;
+    header.entries_offset = YINI::Utils::htole32(current_offset);
     current_offset += entries.size() * sizeof(YINI::YbinV2::HashTableEntry);
-    header.data_table_offset = current_offset;
-    current_offset += data_table.get_blob().size();
-    header.string_table_offset = current_offset;
+    header.data_table_offset = YINI::Utils::htole32(current_offset);
+    current_offset += compressed_data.size();
+    header.string_table_offset = YINI::Utils::htole32(current_offset);
 
     out.write(reinterpret_cast<const char*>(&header), sizeof(header));
     out.write(reinterpret_cast<const char*>(buckets.data()), buckets.size() * sizeof(uint32_t));
-    out.write(reinterpret_cast<const char*>(entries.data()), entries.size() * sizeof(YINI::YbinV2::HashTableEntry));
-    out.write(data_table.get_blob().data(), data_table.get_blob().size());
-    out.write(string_table.get_blob().data(), string_table.get_blob().size());
+
+    // Write entries one by one after converting to little-endian
+    for(auto& entry : entries) {
+        entry.key_hash = YINI::Utils::htole64(entry.key_hash);
+        entry.key_offset = YINI::Utils::htole32(entry.key_offset);
+        entry.value_offset = YINI::Utils::htole32(entry.value_offset);
+        // next_entry_index is already LE from the bucket-building step
+        out.write(reinterpret_cast<const char*>(&entry), sizeof(entry));
+    }
+
+    out.write(compressed_data.data(), compressed_data.size());
+    out.write(compressed_strings.data(), compressed_strings.size());
 
     std::cout << "Successfully cooked " << entries.size() << " entries to " << output_path << std::endl;
 }

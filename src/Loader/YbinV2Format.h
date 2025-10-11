@@ -13,7 +13,7 @@ constexpr uint32_t YBIN_V2_MAGIC = 0x59424932; // "YBI2"
 enum class ValueType : uint8_t
 {
     Null,
-    Int,
+    Int64,
     Double,
     Bool,
     String, // The value_offset in YbinHashTableEntry will point into the string table
@@ -36,8 +36,12 @@ struct FileHeader
     uint32_t hash_table_size;   // Number of buckets in the hash table
     uint32_t entries_offset;    // Offset to the array of hash table entries
     uint32_t entries_count;     // Total number of key-value entries
-    uint32_t data_table_offset; // Offset to the start of the data table (for arrays, structs, etc.)
-    uint32_t string_table_offset; // Offset to the start of the string table
+    uint32_t data_table_offset; // Offset to the start of the (potentially compressed) data table
+    uint32_t data_table_compressed_size;
+    uint32_t data_table_uncompressed_size;
+    uint32_t string_table_offset; // Offset to the start of the (potentially compressed) string table
+    uint32_t string_table_compressed_size;
+    uint32_t string_table_uncompressed_size;
 };
 #pragma pack(pop)
 

@@ -3,6 +3,8 @@ default_speed = 10.5
 
 [Test]
 intValue = 123
+negIntValue = -50
+largeIntValue = 2147483648
 doubleValue = 45.67
 boolValue = true
 stringValue = "hello ybin"

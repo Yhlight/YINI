@@ -41,6 +41,13 @@ TEST_F(CookerLoaderTest, CookAndLoad) {
     ASSERT_TRUE(yini_get_int(handle, "Test.intValue", &int_val));
     EXPECT_EQ(int_val, 123);
 
+    ASSERT_TRUE(yini_get_int(handle, "Test.negIntValue", &int_val));
+    EXPECT_EQ(int_val, -50);
+
+    double large_int_val;
+    ASSERT_TRUE(yini_get_double(handle, "Test.largeIntValue", &large_int_val));
+    EXPECT_EQ(large_int_val, 2147483648);
+
     double double_val;
     ASSERT_TRUE(yini_get_double(handle, "Test.doubleValue", &double_val));
     EXPECT_EQ(double_val, 45.67);
