@@ -34,6 +34,7 @@ private:
 
     std::map<std::string, std::any>& m_resolved_config;
     std::vector<const AST::SchemaStmt*> m_schemas;
+    const std::vector<std::unique_ptr<AST::Stmt>>& m_statements;
     std::vector<std::string> m_errors;
 };
 

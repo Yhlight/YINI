@@ -1,8 +1,23 @@
 #include "Parser.h"
 #include <stdexcept>
+#include <iostream>
+#include <vector>
+#include <sstream>
+#include <algorithm>
 
 namespace YINI
 {
+
+// Helper to trim whitespace from both ends of a string
+static void trim(std::string &s) {
+    s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](unsigned char ch) {
+        return !std::isspace(ch);
+    }));
+    s.erase(std::find_if(s.rbegin(), s.rend(), [](unsigned char ch) {
+        return !std::isspace(ch);
+    }).base(), s.end());
+}
+
 
 Parser::Parser(const std::vector<Token>& tokens) : m_tokens(tokens)
 {
@@ -135,18 +150,50 @@ std::unique_ptr<AST::SchemaRuleStmt> Parser::schema_rule_statement()
     Token key = consume(TokenType::IDENTIFIER, "Expect key for schema rule.");
     consume(TokenType::EQUAL, "Expect '=' after schema rule key.");
 
+    auto rule_stmt = std::make_unique<AST::SchemaRuleStmt>();
+    rule_stmt->key = key;
+
+    // --- New Robust Parsing Logic ---
+    // 1. Reconstruct the raw string for the rest of the line.
     std::string rule_string;
-    int line = peek().line;
-    while (!is_at_end() && peek().line == line) {
+    while (!is_at_end() && peek().line == key.line) {
         rule_string += advance().lexeme;
     }
 
-    auto rule_stmt = std::make_unique<AST::SchemaRuleStmt>();
-    rule_stmt->key = key;
-    rule_stmt->rules = {TokenType::STRING, rule_string, rule_string, line};
+    // 2. Split the string by commas and process each part.
+    std::stringstream ss(rule_string);
+    std::string segment;
+    bool type_parsed = false;
+
+    while(std::getline(ss, segment, ','))
+    {
+        trim(segment);
+        if (segment.empty()) continue;
+
+        if (segment == "!") {
+            rule_stmt->rule.requirement = AST::SchemaRule::Requirement::REQUIRED;
+        } else if (segment == "?") {
+            rule_stmt->rule.requirement = AST::SchemaRule::Requirement::OPTIONAL;
+        } else if (segment == "~") {
+            rule_stmt->rule.empty_behavior = AST::SchemaRule::EmptyBehavior::IGNORE;
+        } else if (segment == "e") {
+            rule_stmt->rule.empty_behavior = AST::SchemaRule::EmptyBehavior::THROW_ERROR;
+        } else if (segment.rfind("=", 0) == 0) { // starts with '='
+            rule_stmt->rule.empty_behavior = AST::SchemaRule::EmptyBehavior::ASSIGN_DEFAULT;
+            rule_stmt->rule.default_value = segment.substr(1);
+        } else if (segment.rfind("min=", 0) == 0) {
+            rule_stmt->rule.min = std::stod(segment.substr(4));
+        } else if (segment.rfind("max=", 0) == 0) {
+            rule_stmt->rule.max = std::stod(segment.substr(4));
+        } else if (!type_parsed) { // Assume it's the type
+            rule_stmt->rule.type = segment;
+            type_parsed = true;
+        }
+    }
 
     return rule_stmt;
 }
+
 
 std::unique_ptr<AST::KeyValueStmt> Parser::key_value_statement()
 {

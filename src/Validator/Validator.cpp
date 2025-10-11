@@ -1,45 +1,27 @@
 #include "Validator.h"
-#include <sstream>
+#include <stdexcept>
+#include <string>
+#include <algorithm>
 #include <iostream>
 
 namespace YINI
 {
 
 Validator::Validator(std::map<std::string, std::any>& resolved_config, const std::vector<std::unique_ptr<AST::Stmt>>& statements)
-    : m_resolved_config(resolved_config)
+    : m_resolved_config(resolved_config), m_statements(statements)
 {
-    collect_schemas(statements);
 }
 
 void Validator::validate()
 {
-    for (const auto* schema : m_schemas)
+    for (const auto& stmt : m_statements)
     {
-        for (const auto& section : schema->sections)
+        if (auto* schema_stmt = dynamic_cast<AST::SchemaStmt*>(stmt.get()))
         {
-            validate_section(section->name.lexeme, section.get());
-        }
-    }
-
-    if (!m_errors.empty())
-    {
-        std::stringstream error_stream;
-        error_stream << "Schema validation failed with " << m_errors.size() << " errors:\n";
-        for (const auto& error : m_errors)
-        {
-            error_stream << "- " << error << "\n";
-        }
-        throw std::runtime_error(error_stream.str());
-    }
-}
-
-void Validator::collect_schemas(const std::vector<std::unique_ptr<AST::Stmt>>& statements)
-{
-    for (const auto& stmt : statements)
-    {
-        if (auto* schema_stmt = dynamic_cast<const AST::SchemaStmt*>(stmt.get()))
-        {
-            m_schemas.push_back(schema_stmt);
+            for (const auto& section : schema_stmt->sections)
+            {
+                validate_section(section->name.lexeme, section.get());
+            }
         }
     }
 }
@@ -48,107 +30,68 @@ void Validator::validate_section(const std::string& section_name, const AST::Sch
 {
     for (const auto& rule_stmt : schema_section->rules)
     {
-        ValidationRule rule = parse_rule(rule_stmt->rules.lexeme);
-        validate_rule(section_name + "." + rule_stmt->key.lexeme, rule);
-    }
-}
+        std::string key = rule_stmt->key.lexeme;
+        std::string full_key = section_name + "." + key;
+        const AST::SchemaRule& rule = rule_stmt->rule;
+        bool key_exists = m_resolved_config.count(full_key);
 
-ValidationRule Validator::parse_rule(const std::string& rule_string) {
-    ValidationRule rule;
-    std::stringstream ss(rule_string);
-    std::string segment;
-
-    while (std::getline(ss, segment, ',')) {
-        // Trim leading/trailing whitespace
-        segment.erase(0, segment.find_first_not_of(" \t\n\r\f\v"));
-        segment.erase(segment.find_last_not_of(" \t\n\r\f\v") + 1);
-
-        if (segment == "!") {
-            rule.is_required = true;
-        } else if (segment == "?") {
-            rule.is_required = false;
-        } else if (segment == "e") {
-            rule.error_on_empty = true;
-        } else if (segment == "~") {
-            // ignore on empty, do nothing
-        } else if (segment.rfind("=", 0) == 0) {
-            std::string value_str = segment.substr(1);
-            try {
-                rule.default_value = std::stod(value_str);
-            } catch (...) {
-                if (value_str == "true") rule.default_value = true;
-                else if (value_str == "false") rule.default_value = false;
-                else rule.default_value = value_str;
-            }
-        } else if (segment.rfind("min=", 0) == 0) {
-            rule.min = std::stod(segment.substr(4));
-        } else if (segment.rfind("max=", 0) == 0) {
-            rule.max = std::stod(segment.substr(4));
-        } else {
-            rule.type = segment;
-        }
-    }
-    return rule;
-}
-
-void Validator::validate_rule(const std::string& key, const ValidationRule& rule)
-{
-    // Step 1: Handle missing keys and apply defaults
-    if (!m_resolved_config.count(key))
-    {
-        if (rule.is_required)
+        // 1. Check for required keys
+        if (rule.requirement == AST::SchemaRule::Requirement::REQUIRED && !key_exists)
         {
-            if (rule.default_value.has_value())
+            if (rule.empty_behavior == AST::SchemaRule::EmptyBehavior::ASSIGN_DEFAULT && rule.default_value)
             {
-                m_resolved_config[key] = rule.default_value.value();
+                // Apply default value
+                // This part needs to be improved to handle different types
+                m_resolved_config[full_key] = std::stod(*rule.default_value);
             }
-            else
+            else if (rule.empty_behavior == AST::SchemaRule::EmptyBehavior::THROW_ERROR)
             {
-                m_errors.push_back("Required key '" + key + "' is missing.");
-                return; // No value to validate
+                throw std::runtime_error("Missing required key '" + key + "' in section '" + section_name + "'.");
             }
+            // If IGNORE, do nothing.
         }
-        else
+
+        if (key_exists)
         {
-            return; // Optional key is missing, nothing to do.
-        }
-    }
+            std::any& value = m_resolved_config.at(full_key);
 
-    // Now the key is guaranteed to exist.
-    const auto& value = m_resolved_config.at(key);
+            std::cout << "Validating key '" << full_key << "'. Rule type: '" << rule.type << "'. Actual value type: '" << value.type().name() << "'" << std::endl;
 
-    // Step 2: Type validation
-    if (rule.type.has_value())
-    {
-        const std::string& type_str = rule.type.value();
-        bool type_ok = false;
-        if ((type_str == "int" || type_str == "float") && value.type() == typeid(double)) {
-            type_ok = true;
-        } else if (type_str == "string" && value.type() == typeid(std::string)) {
-            type_ok = true;
-        } else if (type_str == "bool" && value.type() == typeid(bool)) {
-            type_ok = true;
-        }
+            // 2. Validate type
+            if (!rule.type.empty())
+            {
+                bool is_numeric_rule = rule.type == "int" || rule.type == "float";
+                bool is_string_rule = rule.type == "string";
 
-        if (!type_ok) {
-            m_errors.push_back("Key '" + key + "' has incorrect type. Expected " + type_str + ".");
-            return; // Stop validation if type is wrong
-        }
-    }
+                bool is_value_numeric = value.type() == typeid(double);
+                bool is_value_string = value.type() == typeid(std::string);
 
-    // Step 3: Range validation
-    if (value.type() == typeid(double))
-    {
-        double numeric_value = std::any_cast<double>(value);
-        if (rule.min.has_value() && numeric_value < rule.min.value())
-        {
-            m_errors.push_back("Key '" + key + "' value " + std::to_string(numeric_value) + " is less than min " + std::to_string(rule.min.value()) + ".");
-        }
-        if (rule.max.has_value() && numeric_value > rule.max.value())
-        {
-            m_errors.push_back("Key '" + key + "' value " + std::to_string(numeric_value) + " is greater than max " + std::to_string(rule.max.value()) + ".");
+                if (is_string_rule && !is_value_string)
+                {
+                    throw std::runtime_error("Type mismatch for key '" + key + "'. Expected string.");
+                }
+
+                if (is_numeric_rule && !is_value_numeric)
+                {
+                    throw std::runtime_error("Type mismatch for key '" + key + "'. Expected number.");
+                }
+            }
+
+            // 3. Validate range
+            if (value.type() == typeid(double))
+            {
+                double numeric_value = std::any_cast<double>(value);
+                if (rule.min && numeric_value < *rule.min)
+                {
+                    throw std::runtime_error("Value for key '" + key + "' is below the minimum of " + std::to_string(*rule.min));
+                }
+                if (rule.max && numeric_value > *rule.max)
+                {
+                    throw std::runtime_error("Value for key '" + key + "' is above the maximum of " + std::to_string(*rule.max));
+                }
+            }
         }
     }
 }
 
-} // namespace YINI
+}

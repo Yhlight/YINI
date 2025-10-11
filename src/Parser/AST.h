@@ -4,6 +4,7 @@
 #include "Parser/ASTVisitor.h"
 #include <memory>
 #include <vector>
+#include <optional>
 
 namespace YINI
 {
@@ -158,10 +159,23 @@ struct QuickRegStmt : public Stmt
     void accept(ASTVisitor* visitor) override { visitor->visitQuickRegStmt(this); }
 };
 
+struct SchemaRule
+{
+    enum class Requirement { OPTIONAL, REQUIRED };
+    enum class EmptyBehavior { IGNORE, ASSIGN_DEFAULT, THROW_ERROR };
+
+    Requirement requirement = Requirement::OPTIONAL;
+    std::string type; // e.g., "int", "string", "array[int]"
+    std::optional<std::string> default_value;
+    std::optional<double> min;
+    std::optional<double> max;
+    EmptyBehavior empty_behavior = EmptyBehavior::IGNORE;
+};
+
 struct SchemaRuleStmt : public Stmt
 {
     Token key;
-    Token rules;
+    SchemaRule rule;
     void accept(ASTVisitor* visitor) override { visitor->visitSchemaRuleStmt(this); }
 };
 
