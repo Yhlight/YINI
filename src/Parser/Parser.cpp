@@ -61,7 +61,12 @@ std::unique_ptr<AST::Stmt> Parser::declaration()
         }
         return section_declaration();
     }
-    return key_value_statement();
+
+    Token error_token = peek();
+    std::string error_message = "Error at line " + std::to_string(error_token.line) +
+                                ", column " + std::to_string(error_token.column) +
+                                ": Top-level key-value pairs are not allowed. All keys must be inside a section.";
+    throw std::runtime_error(error_message);
 }
 
 std::unique_ptr<AST::Stmt> Parser::section_declaration()

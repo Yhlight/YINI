@@ -24,3 +24,11 @@ nestedArray = [[1, 2], [3, 4]]
         FAIL() << "Parser failed with exception: " << e.what();
     }
 }
+
+TEST(ParserBugTests, ThrowsErrorOnTopLevelKeyValuePair) {
+    std::string source = "top_level_key = 123\n[Section]\nkey = 456";
+    YINI::Lexer lexer(source);
+    auto tokens = lexer.scan_tokens();
+    YINI::Parser parser(tokens);
+    ASSERT_THROW(parser.parse(), std::runtime_error);
+}
