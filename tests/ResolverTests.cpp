@@ -59,7 +59,7 @@ TEST(ResolverTests, ResolvesSectionInheritance)
 key1 = "value1"
 key2 = "original_value"
 
-[Child : Parent]
+[Child] : Parent
 key2 = "overridden_value"
 key3 = "value3")";
 

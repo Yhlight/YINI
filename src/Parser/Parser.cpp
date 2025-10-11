@@ -50,14 +50,14 @@ std::unique_ptr<AST::Stmt> Parser::section_declaration()
     auto section = std::make_unique<AST::SectionStmt>();
     section->name = name;
 
+    consume(TokenType::RIGHT_BRACKET, "Expect ']' after section name.");
+
     if (match({TokenType::COLON}))
     {
         do {
             section->parent_sections.push_back(consume(TokenType::IDENTIFIER, "Expect parent section name."));
         } while (match({TokenType::COMMA}));
     }
-
-    consume(TokenType::RIGHT_BRACKET, "Expect ']' after section declaration.");
 
     while (!check(TokenType::LEFT_BRACKET) && !is_at_end())
     {

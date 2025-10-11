@@ -141,7 +141,7 @@ TEST(ParserTests, ParsesEmptyArray)
 
 TEST(ParserTests, ParsesSectionWithSingleInheritance)
 {
-    std::string source = "[Child : Parent]";
+    std::string source = "[Child] : Parent";
     YINI::Lexer lexer(source);
     auto tokens = lexer.scan_tokens();
     YINI::Parser parser(tokens);
@@ -157,7 +157,7 @@ TEST(ParserTests, ParsesSectionWithSingleInheritance)
 
 TEST(ParserTests, ParsesSectionWithMultipleInheritance)
 {
-    std::string source = "[Child : Parent1, Parent2,Parent3]";
+    std::string source = "[Child] : Parent1, Parent2, Parent3";
     YINI::Lexer lexer(source);
     auto tokens = lexer.scan_tokens();
     YINI::Parser parser(tokens);
