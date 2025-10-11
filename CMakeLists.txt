@@ -11,6 +11,15 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 # Add LZ4 as a subdirectory
 add_subdirectory(build/_deps/lz4-src/build/cmake ${CMAKE_BINARY_DIR}/lz4-build)
 
+include(FetchContent)
+FetchContent_Declare(
+  nlohmann_json
+  GIT_REPOSITORY https://github.com/nlohmann/json.git
+  GIT_TAG        v3.10.5
+)
+FetchContent_MakeAvailable(nlohmann_json)
+set(NLOHMANN_JSON_INCLUDE_DIR ${nlohmann_json_SOURCE_DIR}/include CACHE INTERNAL "nlohmann_json include directory")
+
 
 add_subdirectory(src/Lexer)
 add_subdirectory(src/Parser)

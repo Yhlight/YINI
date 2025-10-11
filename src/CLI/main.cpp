@@ -12,11 +12,83 @@
 #include "Lexer/Lexer.h"
 #include "Parser/Parser.h"
 #include "Resolver/Resolver.h"
+#include "Resolver/SemanticInfoVisitor.h"
 #include "Ymeta/YmetaManager.h"
 #include "Validator/Validator.h"
 #include "Loader/YbinFormat.h"
 #include "Utils/Endian.h"
 #include "YiniTypes.h"
+#include "nlohmann/json.hpp"
+
+using json = nlohmann::json;
+
+void log_message(const std::string& msg) {
+    std::cerr << "YINI LS: " << msg << std::endl;
+}
+
+void send_json_rpc(const json& msg) {
+    std::string dumped_msg = msg.dump();
+    std::cout << "Content-Length: " << dumped_msg.length() << "\r\n\r\n" << dumped_msg << std::flush;
+    log_message("Sent: " + dumped_msg);
+}
+
+void run_language_server() {
+    log_message("Language server started.");
+
+    while (std::cin.good()) {
+        std::string line;
+        long length = 0;
+        while (std::getline(std::cin, line) && !line.empty() && line != "\r") {
+            if (line.rfind("Content-Length: ", 0) == 0) {
+                length = std::stol(line.substr(16));
+            }
+        }
+
+        if (length == 0) {
+            continue;
+        }
+
+        std::string content(length, '\0');
+        std::cin.read(&content[0], length);
+
+        log_message("Received: " + content);
+
+        json request = json::parse(content);
+
+        json response;
+        response["id"] = request["id"];
+        response["jsonrpc"] = "2.0";
+
+        if (request["method"] == "initialize") {
+            response["result"]["capabilities"]["semanticTokensProvider"]["legend"] = {
+                {"tokenTypes", {"string", "number", "operator", "macro", "namespace", "property", "variable", "class"}},
+                {"tokenModifiers", {"readonly"}}
+            };
+            response["result"]["capabilities"]["semanticTokensProvider"]["full"] = true;
+            send_json_rpc(response);
+        } else if (request["method"] == "textDocument/semanticTokens/full") {
+            std::string uri = request["params"]["textDocument"]["uri"];
+            // In a real LS, you'd read the file content from the URI
+            // For now, we'll assume the client sends the text, which is more common
+            // but this is a simplified example. We'll use a placeholder.
+             std::string text = ""; // This needs to be fetched based on VSCode's text sync events
+
+            // This part is tricky as we don't have the text. A full LS needs text document sync.
+            // Let's assume for now we can get it, and proceed.
+            // In a real implementation, we'd have a document manager.
+
+            response["result"]["data"] = json::array(); // Return empty for now.
+             send_json_rpc(response);
+
+        } else if (request["method"] == "shutdown") {
+            response["result"] = nullptr;
+            send_json_rpc(response);
+        } else if (request["method"] == "exit") {
+            return;
+        }
+    }
+}
+
 
 // Helper class to build the string table
 class StringTableBuilder {
@@ -407,7 +479,10 @@ static void run_file(const char* path, std::map<std::string, std::any>& config_c
 }
 
 int main(int argc, char* argv[]) {
-    if (argc > 1 && std::string(argv[1]) == "cook") {
+    if (argc == 2 && std::string(argv[1]) == "--server") {
+        run_language_server();
+    }
+    else if (argc > 1 && std::string(argv[1]) == "cook") {
         std::string output_path;
         std::vector<std::string> input_paths;
         for (int i = 2; i < argc; ++i) {

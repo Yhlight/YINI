@@ -24,4 +24,7 @@ extern "C" {
     YINI_API bool yini_get_array_item_as_double(void* handle, const char* key, int index, double* out_value);
     YINI_API bool yini_get_array_item_as_bool(void* handle, const char* key, int index, bool* out_value);
     YINI_API const char* yini_get_array_item_as_string(void* handle, const char* key, int index);
+
+    // --- Language Server Support ---
+    YINI_API const char* yini_get_semantic_info(const char* source);
 }

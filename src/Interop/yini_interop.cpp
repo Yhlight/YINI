@@ -2,6 +2,7 @@
 #include "Lexer/Lexer.h"
 #include "Parser/Parser.h"
 #include "Resolver/Resolver.h"
+#include "Resolver/SemanticInfoVisitor.h"
 #include "Validator/Validator.h"
 #include "Ymeta/YmetaManager.h"
 #include "Loader/YbinFormat.h"
@@ -33,6 +34,8 @@
 namespace
 {
     thread_local std::string last_error_message;
+    thread_local std::string semantic_info_json;
+
 
     void set_last_error(const std::string& message)
     {
@@ -489,4 +492,29 @@ YINI_API const char* yini_get_array_item_as_string(void* handle, const char* key
         }
     } catch (const std::bad_any_cast&) {}
     return nullptr;
+}
+
+YINI_API const char* yini_get_semantic_info(const char* source)
+{
+    try
+    {
+        set_last_error("");
+        YINI::Lexer lexer(source);
+        auto tokens = lexer.scan_tokens();
+        YINI::Parser parser(tokens);
+        auto ast = parser.parse();
+
+        YINI::SemanticInfoVisitor visitor(source);
+        for (const auto& stmt : ast) {
+            stmt->accept(&visitor);
+        }
+
+        semantic_info_json = visitor.get_info().dump();
+        return semantic_info_json.c_str();
+    }
+    catch (const std::exception& e)
+    {
+        set_last_error(e.what());
+        return nullptr;
+    }
 }
