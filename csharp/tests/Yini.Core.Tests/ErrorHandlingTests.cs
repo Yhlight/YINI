@@ -16,5 +16,20 @@ namespace Yini.Core.Tests
             var exception = Assert.Throws<YiniException>(() => new YiniConfig(nonExistentFile));
             Assert.Contains("Could not open file", exception.Message);
         }
+
+        [Fact]
+        public void CreateFromFile_ParseError_ThrowsYiniException()
+        {
+            // Arrange
+            var invalidFile = "parse_error.yini";
+            System.IO.File.WriteAllText(invalidFile, "[Section]\nkey = value"); // Missing quotes
+
+            // Act & Assert
+            var exception = Assert.Throws<YiniException>(() => new YiniConfig(invalidFile));
+            Assert.Contains("Error at line 2", exception.Message);
+
+            // Cleanup
+            System.IO.File.Delete(invalidFile);
+        }
     }
 }

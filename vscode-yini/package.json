@@ -2,12 +2,16 @@
     "name": "yini",
     "displayName": "YINI Language Support",
     "description": "Syntax highlighting for the YINI language.",
-    "version": "0.0.1",
+    "version": "0.0.2",
     "engines": {
         "vscode": "^1.82.0"
     },
     "categories": [
         "Programming Languages"
+    ],
+    "main": "./src/extension.js",
+    "activationEvents": [
+        "onLanguage:yini"
     ],
     "contributes": {
         "languages": [{

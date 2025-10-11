@@ -38,6 +38,21 @@ TEST(ResolverTests, ThrowsOnUndefinedMacro)
     }
 }
 
+TEST(ResolverTests, ResolvesComplexArithmetic)
+{
+    std::string source = "[Config]\nvalue = (10 - 5) * -2 + 10 / 2.0"; // 5 * -2 + 5 = -10 + 5 = -5
+    YINI::Lexer lexer(source);
+    auto tokens = lexer.scan_tokens();
+    YINI::Parser parser(tokens);
+    auto ast = parser.parse();
+    YINI::YmetaManager ymeta_manager;
+    YINI::Resolver resolver(ast, ymeta_manager);
+    auto config = resolver.resolve();
+
+    ASSERT_EQ(config.count("Config.value"), 1);
+    ASSERT_EQ(std::any_cast<double>(config["Config.value"]), -5.0);
+}
+
 TEST(ResolverTests, ResolvesSet)
 {
     std::string source = "[MySet]\nvalues = (1, \"two\", 3.0)";

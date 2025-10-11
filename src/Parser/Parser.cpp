@@ -195,12 +195,12 @@ std::unique_ptr<AST::Expr> Parser::term()
 
 std::unique_ptr<AST::Expr> Parser::factor()
 {
-    auto expr = primary();
+    auto expr = unary();
 
     while (match({TokenType::SLASH, TokenType::STAR, TokenType::PERCENT}))
     {
         Token op = previous();
-        auto right = primary();
+        auto right = unary();
         auto new_expr = std::make_unique<AST::BinaryExpr>();
         new_expr->left = std::move(expr);
         new_expr->op = op;
@@ -209,6 +209,21 @@ std::unique_ptr<AST::Expr> Parser::factor()
     }
 
     return expr;
+}
+
+std::unique_ptr<AST::Expr> Parser::unary()
+{
+    if (match({TokenType::MINUS}))
+    {
+        Token op = previous();
+        auto right = unary();
+        auto expr = std::make_unique<AST::UnaryExpr>();
+        expr->op = op;
+        expr->right = std::move(right);
+        return expr;
+    }
+
+    return primary();
 }
 
 std::unique_ptr<AST::Expr> Parser::primary()

@@ -234,6 +234,26 @@ std::any Resolver::visitBinaryExpr(AST::BinaryExpr* expr)
     throw std::runtime_error("Error at line " + std::to_string(expr->op.line) + ", column " + std::to_string(expr->op.column) + ": Operands must be numbers for arithmetic operations.");
 }
 
+std::any Resolver::visitUnaryExpr(AST::UnaryExpr* expr)
+{
+    std::any right = expr->right->accept(this);
+
+    if (expr->op.type == TokenType::MINUS)
+    {
+        if (right.type() == typeid(double))
+        {
+            return -std::any_cast<double>(right);
+        }
+        else
+        {
+            throw std::runtime_error("Error at line " + std::to_string(expr->op.line) + ", column " + std::to_string(expr->op.column) + ": Operand must be a number for unary minus.");
+        }
+    }
+
+    // Should not be reached for other unary operators if any are added later.
+    return {};
+}
+
 std::any Resolver::visitGroupingExpr(AST::GroupingExpr* expr)
 {
     return expr->expression->accept(this);

@@ -18,6 +18,7 @@ struct MapExpr;
 struct ColorExpr;
 struct CoordExpr;
 struct BinaryExpr;
+struct UnaryExpr;
 struct GroupingExpr;
 struct KeyValueStmt;
 struct SectionStmt;
@@ -48,6 +49,7 @@ public:
     virtual std::any visitColorExpr(ColorExpr* expr) = 0;
     virtual std::any visitCoordExpr(CoordExpr* expr) = 0;
     virtual std::any visitBinaryExpr(BinaryExpr* expr) = 0;
+    virtual std::any visitUnaryExpr(UnaryExpr* expr) = 0;
     virtual std::any visitGroupingExpr(GroupingExpr* expr) = 0;
     virtual std::any visitMacroExpr(MacroExpr* expr) = 0;
     virtual std::any visitCrossSectionRefExpr(CrossSectionRefExpr* expr) = 0;

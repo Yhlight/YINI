@@ -75,6 +75,13 @@ struct BinaryExpr : public Expr
     std::any accept(ASTVisitor* visitor) override { return visitor->visitBinaryExpr(this); }
 };
 
+struct UnaryExpr : public Expr
+{
+    Token op;
+    std::unique_ptr<Expr> right;
+    std::any accept(ASTVisitor* visitor) override { return visitor->visitUnaryExpr(this); }
+};
+
 struct GroupingExpr : public Expr
 {
     std::unique_ptr<Expr> expression;

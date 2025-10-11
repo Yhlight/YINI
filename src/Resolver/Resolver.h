@@ -29,6 +29,7 @@ private:
     std::any visitColorExpr(AST::ColorExpr* expr) override;
     std::any visitCoordExpr(AST::CoordExpr* expr) override;
     std::any visitBinaryExpr(AST::BinaryExpr* expr) override;
+    std::any visitUnaryExpr(AST::UnaryExpr* expr) override;
     std::any visitGroupingExpr(AST::GroupingExpr* expr) override;
     std::any visitMacroExpr(AST::MacroExpr* expr) override;
     std::any visitCrossSectionRefExpr(AST::CrossSectionRefExpr* expr) override;
