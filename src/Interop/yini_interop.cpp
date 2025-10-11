@@ -4,6 +4,7 @@
 #include "Resolver/Resolver.h"
 #include "Validator/Validator.h"
 #include "Ymeta/YmetaManager.h"
+#include "Loader/YbinLoader.h"
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -156,6 +157,87 @@ YINI_API const char* yini_get_string(void* handle, const char* key)
         }
     }
     catch (const std::bad_any_cast&) {}
+    return nullptr;
+}
+
+// --- Ybin Loader API Implementation ---
+
+YINI_API void* yini_load_cooked_asset(const char* file_path)
+{
+    try
+    {
+        set_last_error("");
+        YINI::YbinLoader* loader = new YINI::YbinLoader(file_path);
+        return static_cast<void*>(loader);
+    }
+    catch (const std::exception& e)
+    {
+        set_last_error(e.what());
+        return nullptr;
+    }
+}
+
+YINI_API void yini_destroy_cooked_asset(void* asset_handle)
+{
+    if (asset_handle)
+    {
+        delete static_cast<YINI::YbinLoader*>(asset_handle);
+    }
+}
+
+YINI_API bool yini_cooked_get_int(void* asset_handle, const char* section, const char* key, int* out_value)
+{
+    if (!asset_handle || !section || !key || !out_value) return false;
+    YINI::YbinLoader* loader = static_cast<YINI::YbinLoader*>(asset_handle);
+    auto result = loader->get_int(section, key);
+    if (result)
+    {
+        *out_value = *result;
+        return true;
+    }
+    return false;
+}
+
+YINI_API bool yini_cooked_get_double(void* asset_handle, const char* section, const char* key, double* out_value)
+{
+    if (!asset_handle || !section || !key || !out_value) return false;
+    YINI::YbinLoader* loader = static_cast<YINI::YbinLoader*>(asset_handle);
+    auto result = loader->get_double(section, key);
+    if (result)
+    {
+        *out_value = *result;
+        return true;
+    }
+    return false;
+}
+
+YINI_API bool yini_cooked_get_bool(void* asset_handle, const char* section, const char* key, bool* out_value)
+{
+    if (!asset_handle || !section || !key || !out_value) return false;
+    YINI::YbinLoader* loader = static_cast<YINI::YbinLoader*>(asset_handle);
+    auto result = loader->get_bool(section, key);
+    if (result)
+    {
+        *out_value = *result;
+        return true;
+    }
+    return false;
+}
+
+YINI_API const char* yini_cooked_get_string(void* asset_handle, const char* section, const char* key)
+{
+    if (!asset_handle || !section || !key) return nullptr;
+    YINI::YbinLoader* loader = static_cast<YINI::YbinLoader*>(asset_handle);
+    auto result = loader->get_string(section, key);
+    if (result)
+    {
+        // The returned string from get_string is a std::string.
+        // We must allocate a new char* and copy the content.
+        // The caller (C#) will be responsible for freeing this memory.
+        char* c_str = new char[result->length() + 1];
+        strcpy(c_str, result->c_str());
+        return c_str;
+    }
     return nullptr;
 }
 

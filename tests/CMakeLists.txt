@@ -44,3 +44,9 @@ file(COPY
     "main_include_test.yini"
     DESTINATION ${CMAKE_CURRENT_BINARY_DIR}
 )
+
+add_executable(cooker_tests CookerTests.cpp)
+target_link_libraries(cooker_tests PRIVATE gtest_main Loader)
+target_sources(cooker_tests PRIVATE ../src/CLI/Cooker.cpp)
+target_include_directories(cooker_tests PRIVATE ../src)
+add_test(NAME cooker_tests COMMAND $<TARGET_FILE:cooker_tests>)

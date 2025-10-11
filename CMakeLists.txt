@@ -13,6 +13,7 @@ add_subdirectory(src/Parser)
 add_subdirectory(src/Resolver)
 add_subdirectory(src/Ymeta)
 add_subdirectory(src/Validator)
+add_subdirectory(src/Loader)
 add_subdirectory(src/Interop)
 add_subdirectory(src/CLI)
 

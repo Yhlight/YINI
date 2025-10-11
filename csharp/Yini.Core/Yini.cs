@@ -53,6 +53,25 @@ namespace Yini.Core
         [DllImport(LibName, EntryPoint = "yini_get_array_item_as_string", CallingConvention = CallingConvention.Cdecl)]
         private static extern IntPtr YiniGetArrayItemAsString(IntPtr handle, string key, int index);
 
+        // --- Ybin Loader API ---
+        [DllImport(LibName, EntryPoint = "yini_load_cooked_asset", CallingConvention = CallingConvention.Cdecl)]
+        public static extern IntPtr YiniLoadCookedAsset(string filePath);
+
+        [DllImport(LibName, EntryPoint = "yini_destroy_cooked_asset", CallingConvention = CallingConvention.Cdecl)]
+        public static extern void YiniDestroyCookedAsset(IntPtr assetHandle);
+
+        [DllImport(LibName, EntryPoint = "yini_cooked_get_int", CallingConvention = CallingConvention.Cdecl)]
+        public static extern bool YiniCookedGetInt(IntPtr assetHandle, string section, string key, out int outValue);
+
+        [DllImport(LibName, EntryPoint = "yini_cooked_get_double", CallingConvention = CallingConvention.Cdecl)]
+        public static extern bool YiniCookedGetDouble(IntPtr assetHandle, string section, string key, out double outValue);
+
+        [DllImport(LibName, EntryPoint = "yini_cooked_get_bool", CallingConvention = CallingConvention.Cdecl)]
+        public static extern bool YiniCookedGetBool(IntPtr assetHandle, string section, string key, out bool outValue);
+
+        [DllImport(LibName, EntryPoint = "yini_cooked_get_string", CallingConvention = CallingConvention.Cdecl)]
+        public static extern IntPtr YiniCookedGetString(IntPtr assetHandle, string section, string key);
+
         public static string GetString(IntPtr handle, string key)
         {
             IntPtr cstr = YiniGetString(handle, key);
@@ -298,6 +317,88 @@ namespace Yini.Core
         /// Finalizer for the YiniConfig class.
         /// </summary>
         ~YiniConfig()
+        {
+            Dispose(false);
+        }
+    }
+
+    // New class for handling cooked assets
+    public class YiniCookedAsset : IDisposable
+    {
+        private IntPtr m_asset_handle;
+        private bool m_disposed = false;
+
+        public YiniCookedAsset(string filePath)
+        {
+            m_asset_handle = NativeMethods.YiniLoadCookedAsset(filePath);
+            if (m_asset_handle == IntPtr.Zero)
+            {
+                string errorMessage = NativeMethods.GetLastError();
+                throw new YiniException($"Failed to load cooked YINI asset: {errorMessage}");
+            }
+        }
+
+        public int? GetInt(string section, string key)
+        {
+            if (NativeMethods.YiniCookedGetInt(m_asset_handle, section, key, out int value))
+            {
+                return value;
+            }
+            return null;
+        }
+
+        public double? GetDouble(string section, string key)
+        {
+            if (NativeMethods.YiniCookedGetDouble(m_asset_handle, section, key, out double value))
+            {
+                return value;
+            }
+            return null;
+        }
+
+        public bool? GetBool(string section, string key)
+        {
+            if (NativeMethods.YiniCookedGetBool(m_asset_handle, section, key, out bool value))
+            {
+                return value;
+            }
+            return null;
+        }
+
+        public string GetString(string section, string key)
+        {
+            IntPtr cstr = NativeMethods.YiniCookedGetString(m_asset_handle, section, key);
+            if (cstr == IntPtr.Zero) return null;
+            try
+            {
+                return Marshal.PtrToStringAnsi(cstr);
+            }
+            finally
+            {
+                NativeMethods.YiniFreeString(cstr);
+            }
+        }
+
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!m_disposed)
+            {
+                if (m_asset_handle != IntPtr.Zero)
+                {
+                    NativeMethods.YiniDestroyCookedAsset(m_asset_handle);
+                    m_asset_handle = IntPtr.Zero;
+                }
+                m_disposed = true;
+            }
+        }
+
+        ~YiniCookedAsset()
         {
             Dispose(false);
         }
