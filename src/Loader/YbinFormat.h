@@ -54,6 +54,7 @@ struct HashTableEntry
     uint64_t key_hash;          // 64-bit hash of the key string (e.g., "Section.key")
     uint32_t key_offset;        // Offset into the string table for the full key string
     ValueType value_type;       // The type of the value
+    uint8_t _padding[3];        // explicit padding to ensure 4-byte alignment for next field
     uint32_t value_offset;      // Offset to the value.
                                 // For simple types (Int, Bool), this can be the value itself (type punning).
                                 // For Double, Color, Coord, it's an offset into the data table.

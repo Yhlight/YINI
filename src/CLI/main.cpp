@@ -16,6 +16,7 @@
 #include "Ymeta/YmetaManager.h"
 #include "Validator/Validator.h"
 #include "Loader/YbinFormat.h"
+#include "Loader/YbinSerialization.h" // Include the new serialization helpers
 #include "Utils/Endian.h"
 #include "YiniTypes.h"
 #include "nlohmann/json.hpp"
@@ -112,38 +113,6 @@ private:
     std::string m_blob;
 };
 
-// Helper class to build the data table, ensuring alignment
-class DataTableBuilder {
-public:
-    uint32_t add(const void* data, size_t size, size_t alignment = 8) {
-        // Add padding to ensure alignment
-        size_t current_offset = m_blob.size();
-        size_t padding = (alignment - (current_offset % alignment)) % alignment;
-        m_blob.insert(m_blob.end(), padding, 0);
-
-        uint32_t offset = m_blob.size();
-        const char* bytes = static_cast<const char*>(data);
-        m_blob.insert(m_blob.end(), bytes, bytes + size);
-        return offset;
-    }
-
-    template<typename T>
-    uint32_t add(T value) {
-        if constexpr (std::is_arithmetic_v<T> && sizeof(T) > 1) {
-             if constexpr (sizeof(T) == 2) value = YINI::Utils::htole16(value);
-             if constexpr (sizeof(T) == 4) value = YINI::Utils::htole32(value);
-             if constexpr (sizeof(T) == 8) value = YINI::Utils::htole64(value);
-        }
-        return add(&value, sizeof(T), alignof(T));
-    }
-
-    const std::vector<char>& get_blob() const {
-        return m_blob;
-    }
-
-private:
-    std::vector<char> m_blob;
-};
 
 // Helper to check if a double can be safely represented as an int64_t
 bool is_integer_value(double d, int64_t& out_int) {
@@ -212,7 +181,10 @@ static void run_cook(const std::string& output_path, const std::vector<std::stri
 
     // 2. Build the data structures for the ybin file
     StringTableBuilder string_table;
-    DataTableBuilder data_table;
+
+    std::vector<char> data_table_buffer;
+    YINI::Ybin::BufferWriter data_table(data_table_buffer);
+
     std::vector<YINI::Ybin::HashTableEntry> entries;
 
     for (const auto& pair : combined_config) {
@@ -229,10 +201,12 @@ static void run_cook(const std::string& output_path, const std::vector<std::stri
 
         if (type == typeid(double) && is_integer_value(std::any_cast<double>(value), int_val)) {
             entry.value_type = YINI::Ybin::ValueType::Int64;
-            entry.value_offset = data_table.add(int_val);
+            entry.value_offset = data_table.size();
+            data_table.write_u64_le(int_val);
         } else if (type == typeid(double)) {
             entry.value_type = YINI::Ybin::ValueType::Double;
-            entry.value_offset = data_table.add(std::any_cast<double>(value));
+            entry.value_offset = data_table.size();
+            data_table.write_double_le(std::any_cast<double>(value));
         } else if (type == typeid(bool)) {
             entry.value_type = YINI::Ybin::ValueType::Bool;
             // Store bool directly in offset
@@ -244,28 +218,28 @@ static void run_cook(const std::string& output_path, const std::vector<std::stri
             entry.value_type = YINI::Ybin::ValueType::Color;
             auto c = std::any_cast<YINI::ResolvedColor>(value);
             YINI::Ybin::ColorData cdata{c.r, c.g, c.b};
-            entry.value_offset = data_table.add(cdata);
+            entry.value_offset = data_table.size();
+            data_table.write(cdata);
         } else if (type == typeid(std::vector<std::any>)) {
             const auto& arr = std::any_cast<std::vector<std::any>>(value);
             entry.value_type = get_array_value_type(arr);
 
-            YINI::Ybin::ArrayData array_header{ (uint32_t)arr.size() };
-            uint32_t header_offset = data_table.add(array_header);
-            entry.value_offset = header_offset;
+            entry.value_offset = data_table.size();
+            data_table.write_u32_le((uint32_t)arr.size());
 
             if (entry.value_type == YINI::Ybin::ValueType::ArrayInt) {
                 for(const auto& item : arr) {
                      is_integer_value(std::any_cast<double>(item), int_val);
-                     data_table.add(int_val);
+                     data_table.write_u64_le(int_val);
                 }
             } else if (entry.value_type == YINI::Ybin::ValueType::ArrayDouble) {
-                 for(const auto& item : arr) data_table.add(std::any_cast<double>(item));
+                 for(const auto& item : arr) data_table.write_double_le(std::any_cast<double>(item));
             } else if (entry.value_type == YINI::Ybin::ValueType::ArrayBool) {
-                 for(const auto& item : arr) data_table.add(std::any_cast<bool>(item));
+                 for(const auto& item : arr) data_table.write(std::any_cast<bool>(item));
             } else if (entry.value_type == YINI::Ybin::ValueType::ArrayString) {
                  for(const auto& item : arr) {
                     uint32_t str_offset = string_table.add(std::any_cast<std::string>(item));
-                    data_table.add(str_offset);
+                    data_table.write_u32_le(str_offset);
                  }
             }
         }
@@ -285,20 +259,20 @@ static void run_cook(const std::string& output_path, const std::vector<std::stri
     std::vector<uint32_t> buckets(bucket_count, 0xFFFFFFFF);
 
     for (uint32_t i = 0; i < entries.size(); ++i) {
-        uint64_t key_hash_le = YINI::Utils::htole64(entries[i].key_hash);
-        uint32_t bucket_index = key_hash_le % bucket_count;
+        uint64_t key_hash = entries[i].key_hash;
+        uint32_t bucket_index = key_hash % bucket_count;
 
         if (buckets[bucket_index] == 0xFFFFFFFF) {
-            buckets[bucket_index] = YINI::Utils::htole32(i);
+            buckets[bucket_index] = i;
         } else {
             // Prepend to the chain
             entries[i].next_entry_index = buckets[bucket_index];
-            buckets[bucket_index] = YINI::Utils::htole32(i);
+            buckets[bucket_index] = i;
         }
     }
 
     // 4. Compress data and string tables
-    const auto& uncompressed_data = data_table.get_blob();
+    const auto& uncompressed_data = data_table_buffer;
     int data_max_size = LZ4_compressBound(uncompressed_data.size());
     std::vector<char> compressed_data(data_max_size);
     int data_compressed_size = LZ4_compress_default(uncompressed_data.data(), compressed_data.data(), uncompressed_data.size(), data_max_size);
@@ -311,46 +285,74 @@ static void run_cook(const std::string& output_path, const std::vector<std::stri
     compressed_strings.resize(string_compressed_size);
 
 
-    // 5. Write everything to the file
+    // 5. Write everything to the file using BufferWriter for safety
+    std::vector<char> output_buffer;
+    YINI::Ybin::BufferWriter writer(output_buffer);
+
+    // Leave space for the header, we'll write it at the end
+    output_buffer.resize(sizeof(YINI::Ybin::FileHeader));
+
+    uint32_t hash_table_offset = writer.size();
+    for(uint32_t bucket_index : buckets) {
+        writer.write_u32_le(bucket_index);
+    }
+
+    uint32_t entries_offset = writer.size();
+    for(auto& entry : entries) {
+        writer.write_u64_le(entry.key_hash);
+        writer.write_u32_le(entry.key_offset);
+        writer.write(entry.value_type);
+        writer.write_bytes("\0\0\0", 3); // Explicit padding
+        writer.write_u32_le(entry.value_offset);
+        writer.write_u32_le(entry.next_entry_index);
+    }
+
+    uint32_t data_table_offset = writer.size();
+    writer.write_bytes(compressed_data.data(), compressed_data.size());
+
+    uint32_t string_table_offset = writer.size();
+    writer.write_bytes(compressed_strings.data(), compressed_strings.size());
+
+    // Now that we have all offsets, create and write the header at the beginning
+    YINI::Ybin::FileHeader header;
+    header.magic = YINI::Ybin::YBIN_MAGIC;
+    header.version = 2;
+    header.entries_count = entries.size();
+    header.hash_table_size = buckets.size();
+    header.data_table_uncompressed_size = uncompressed_data.size();
+    header.data_table_compressed_size = data_compressed_size;
+    header.string_table_uncompressed_size = uncompressed_strings.size();
+    header.string_table_compressed_size = string_compressed_size;
+    header.hash_table_offset = hash_table_offset;
+    header.entries_offset = entries_offset;
+    header.data_table_offset = data_table_offset;
+    header.string_table_offset = string_table_offset;
+
+    // Use a temporary writer to serialize the header into a buffer
+    std::vector<char> header_buffer;
+    YINI::Ybin::BufferWriter header_writer(header_buffer);
+    header_writer.write_u32_le(header.magic);
+    header_writer.write_u32_le(header.version);
+    header_writer.write_u32_le(header.hash_table_offset);
+    header_writer.write_u32_le(header.hash_table_size);
+    header_writer.write_u32_le(header.entries_offset);
+    header_writer.write_u32_le(header.entries_count);
+    header_writer.write_u32_le(header.data_table_offset);
+    header_writer.write_u32_le(header.data_table_compressed_size);
+    header_writer.write_u32_le(header.data_table_uncompressed_size);
+    header_writer.write_u32_le(header.string_table_offset);
+    header_writer.write_u32_le(header.string_table_compressed_size);
+    header_writer.write_u32_le(header.string_table_uncompressed_size);
+
+    // Copy the serialized header to the beginning of the main output buffer
+    memcpy(output_buffer.data(), header_buffer.data(), sizeof(YINI::Ybin::FileHeader));
+
+    // Write the complete buffer to the file
     std::ofstream out(output_path, std::ios::binary);
     if (!out) {
         throw std::runtime_error("Could not open output file for writing: " + output_path);
     }
-
-    YINI::Ybin::FileHeader header;
-    header.magic = YINI::Utils::htole32(YINI::Ybin::YBIN_MAGIC);
-    header.version = YINI::Utils::htole32(2);
-    header.entries_count = YINI::Utils::htole32(entries.size());
-    header.hash_table_size = YINI::Utils::htole32(buckets.size());
-    header.data_table_uncompressed_size = YINI::Utils::htole32(uncompressed_data.size());
-    header.data_table_compressed_size = YINI::Utils::htole32(data_compressed_size);
-    header.string_table_uncompressed_size = YINI::Utils::htole32(uncompressed_strings.size());
-    header.string_table_compressed_size = YINI::Utils::htole32(string_compressed_size);
-
-
-    uint32_t current_offset = sizeof(YINI::Ybin::FileHeader);
-    header.hash_table_offset = YINI::Utils::htole32(current_offset);
-    current_offset += buckets.size() * sizeof(uint32_t);
-    header.entries_offset = YINI::Utils::htole32(current_offset);
-    current_offset += entries.size() * sizeof(YINI::Ybin::HashTableEntry);
-    header.data_table_offset = YINI::Utils::htole32(current_offset);
-    current_offset += compressed_data.size();
-    header.string_table_offset = YINI::Utils::htole32(current_offset);
-
-    out.write(reinterpret_cast<const char*>(&header), sizeof(header));
-    out.write(reinterpret_cast<const char*>(buckets.data()), buckets.size() * sizeof(uint32_t));
-
-    // Write entries one by one after converting to little-endian
-    for(auto& entry : entries) {
-        entry.key_hash = YINI::Utils::htole64(entry.key_hash);
-        entry.key_offset = YINI::Utils::htole32(entry.key_offset);
-        entry.value_offset = YINI::Utils::htole32(entry.value_offset);
-        // next_entry_index is already LE from the bucket-building step
-        out.write(reinterpret_cast<const char*>(&entry), sizeof(entry));
-    }
-
-    out.write(compressed_data.data(), compressed_data.size());
-    out.write(compressed_strings.data(), compressed_strings.size());
+    out.write(output_buffer.data(), output_buffer.size());
 
     std::cout << "Successfully cooked " << entries.size() << " entries to " << output_path << std::endl;
 }

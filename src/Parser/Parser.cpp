@@ -34,13 +34,24 @@ std::vector<std::unique_ptr<AST::Stmt>> Parser::parse()
     std::vector<std::unique_ptr<AST::Stmt>> statements;
     while (!is_at_end())
     {
-        statements.push_back(declaration());
+        auto stmt = declaration();
+        if (stmt) { // declaration can return nullptr at EOF
+            statements.push_back(std::move(stmt));
+        }
     }
     return statements;
 }
 
 std::unique_ptr<AST::Stmt> Parser::declaration()
 {
+    if (peek().type != TokenType::LEFT_BRACKET && peek().type != TokenType::END_OF_FILE) {
+        Token error_token = peek();
+        std::string error_message = "Error at line " + std::to_string(error_token.line) +
+                                    ", column " + std::to_string(error_token.column) +
+                                    ": Top-level key-value pairs are not allowed. All keys must be inside a section.";
+        throw std::runtime_error(error_message);
+    }
+
     if (match({TokenType::LEFT_BRACKET})) {
         if (match({TokenType::HASH})) {
             Token keyword = consume(TokenType::IDENTIFIER, "Expect 'define', 'include', or 'schema' keyword.");
@@ -62,11 +73,7 @@ std::unique_ptr<AST::Stmt> Parser::declaration()
         return section_declaration();
     }
 
-    Token error_token = peek();
-    std::string error_message = "Error at line " + std::to_string(error_token.line) +
-                                ", column " + std::to_string(error_token.column) +
-                                ": Top-level key-value pairs are not allowed. All keys must be inside a section.";
-    throw std::runtime_error(error_message);
+    return nullptr; // End of file
 }
 
 std::unique_ptr<AST::Stmt> Parser::section_declaration()
@@ -209,7 +216,7 @@ std::unique_ptr<AST::SchemaRuleStmt> Parser::schema_rule_statement()
 std::unique_ptr<AST::KeyValueStmt> Parser::key_value_statement()
 {
     Token key;
-    if (check(TokenType::IDENTIFIER) || key_keywords.count(peek().type)) {
+    if (check(TokenType::IDENTIFIER) || key_keywords.count(peek().type) || check(TokenType::NUMBER)) {
         key = advance();
     } else {
         Token error_token = peek();
