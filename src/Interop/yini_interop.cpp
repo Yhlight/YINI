@@ -483,9 +483,9 @@ YINI_API const char* yini_get_semantic_info(const char* source)
         YINI::Parser parser(tokens);
         auto ast = parser.parse();
 
-        YINI::SemanticInfoVisitor visitor(source);
+        YINI::SemanticInfoVisitor visitor(source, "dummy_uri");
         for (const auto& stmt : ast) {
-            stmt->accept(&visitor);
+            if (stmt) stmt->accept(&visitor);
         }
 
         semantic_info_json = visitor.get_info().dump();

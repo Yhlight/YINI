@@ -13,7 +13,7 @@ namespace YINI
 class SemanticInfoVisitor : public AST::ASTVisitor
 {
 public:
-    SemanticInfoVisitor(const std::string& source);
+    SemanticInfoVisitor(const std::string& source, const std::string& uri);
     nlohmann::json get_info();
 
     // Visitor methods for expressions
@@ -48,6 +48,7 @@ private:
     void add_token(const Token& token, const std::string& type, const std::string& modifiers = "");
 
     const std::string& m_source;
+    std::string m_uri;
     nlohmann::json m_result;
     std::string m_current_section;
 };

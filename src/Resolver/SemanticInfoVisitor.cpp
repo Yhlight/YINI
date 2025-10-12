@@ -3,7 +3,7 @@
 namespace YINI
 {
 
-SemanticInfoVisitor::SemanticInfoVisitor(const std::string& source) : m_source(source)
+SemanticInfoVisitor::SemanticInfoVisitor(const std::string& source, const std::string& uri) : m_source(source), m_uri(uri)
 {
     m_result["tokens"] = nlohmann::json::array();
     m_result["symbols"] = nlohmann::json::array();
@@ -151,7 +151,7 @@ void SemanticInfoVisitor::visitKeyValueStmt(AST::KeyValueStmt* stmt)
     symbol["name"] = stmt->key.lexeme;
     symbol["kind"] = 12; // SymbolKind.Field
     symbol["location"] = {
-        {"uri", ""},
+        {"uri", m_uri},
         {"range", {
             {"start", {{"line", stmt->key.line - 1}, {"character", stmt->key.column - 1}}},
             {"end", {{"line", stmt->key.line - 1}, {"character", stmt->key.column - 1 + stmt->key.lexeme.length()}}}
@@ -166,6 +166,18 @@ void SemanticInfoVisitor::visitSectionStmt(AST::SectionStmt* stmt)
 {
     add_token(stmt->name, "class");
     m_current_section = stmt->name.lexeme;
+
+    nlohmann::json symbol;
+    symbol["name"] = stmt->name.lexeme;
+    symbol["kind"] = 2; // SymbolKind.Namespace
+    symbol["location"] = {
+        {"uri", m_uri},
+        {"range", {
+            {"start", {{"line", stmt->name.line - 1}, {"character", stmt->name.column - 1}}},
+            {"end", {{"line", stmt->name.line - 1}, {"character", stmt->name.column - 1 + stmt->name.lexeme.length()}}}
+        }}
+    };
+    m_result["symbols"].push_back(symbol);
 
     for(auto& parent : stmt->parent_sections) {
         add_token(parent, "class", "readonly");
