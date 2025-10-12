@@ -130,7 +130,7 @@ namespace Yini.Core
         /// <param name="key">The key of the value to retrieve (e.g., "Section.key").</param>
         /// <param name="value">When this method returns, contains the integer value associated with the specified key, if the key is found; otherwise, the default value for the type of the value parameter. This parameter is passed uninitialized.</param>
         /// <returns><c>true</c> if the configuration contains an element with the specified key; otherwise, <c>false</c>.</returns>
-        [Obsolete("This method is obsolete. Use the nullable GetInt(string key) overload instead.")]
+        [Obsolete("This method is obsolete. Use the nullable GetInt(string key) overload instead.", true)]
         public bool GetInt(string key, out int value)
         {
             return NativeMethods.YiniGetInt(m_handle, key, out value);
@@ -157,7 +157,7 @@ namespace Yini.Core
         /// <param name="key">The key of the value to retrieve (e.g., "Section.key").</param>
         /// <param name="value">When this method returns, contains the double value associated with the specified key, if the key is found; otherwise, the default value for the type of the value parameter. This parameter is passed uninitialized.</param>
         /// <returns><c>true</c> if the configuration contains an element with the specified key; otherwise, <c>false</c>.</returns>
-        [Obsolete("This method is obsolete. Use the nullable GetDouble(string key) overload instead.")]
+        [Obsolete("This method is obsolete. Use the nullable GetDouble(string key) overload instead.", true)]
         public bool GetDouble(string key, out double value)
         {
             return NativeMethods.YiniGetDouble(m_handle, key, out value);
@@ -178,7 +178,7 @@ namespace Yini.Core
         /// <param name="key">The key of the value to retrieve (e.g., "Section.key").</param>
         /// <param name="value">When this method returns, contains the boolean value associated with the specified key, if the key is found; otherwise, the default value for the type of the value parameter. This parameter is passed uninitialized.</param>
         /// <returns><c>true</c> if the configuration contains an element with the specified key; otherwise, <c>false</c>.</returns>
-        [Obsolete("This method is obsolete. Use the nullable GetBool(string key) overload instead.")]
+        [Obsolete("This method is obsolete. Use the nullable GetBool(string key) overload instead.", true)]
         public bool GetBool(string key, out bool value)
         {
             return NativeMethods.YiniGetBool(m_handle, key, out value);
@@ -208,14 +208,21 @@ namespace Yini.Core
         /// </summary>
         /// <param name="key">The key of the array to retrieve.</param>
         /// <returns>An array of integers, or <c>null</c> if the key is not found or the value is not an array.</returns>
-        public int[] GetIntArray(string key)
+        public int?[] GetIntArray(string key)
         {
             int size = NativeMethods.YiniGetArraySize(m_handle, key);
             if (size < 0) return null;
-            var result = new int[size];
+            var result = new int?[size];
             for (int i = 0; i < size; i++)
             {
-                NativeMethods.YiniGetArrayItemAsInt(m_handle, key, i, out result[i]);
+                if (NativeMethods.YiniGetArrayItemAsInt(m_handle, key, i, out int value))
+                {
+                    result[i] = value;
+                }
+                else
+                {
+                    result[i] = null;
+                }
             }
             return result;
         }
@@ -225,14 +232,21 @@ namespace Yini.Core
         /// </summary>
         /// <param name="key">The key of the array to retrieve.</param>
         /// <returns>An array of doubles, or <c>null</c> if the key is not found or the value is not an array.</returns>
-        public double[] GetDoubleArray(string key)
+        public double?[] GetDoubleArray(string key)
         {
             int size = NativeMethods.YiniGetArraySize(m_handle, key);
             if (size < 0) return null;
-            var result = new double[size];
+            var result = new double?[size];
             for (int i = 0; i < size; i++)
             {
-                NativeMethods.YiniGetArrayItemAsDouble(m_handle, key, i, out result[i]);
+                if (NativeMethods.YiniGetArrayItemAsDouble(m_handle, key, i, out double value))
+                {
+                    result[i] = value;
+                }
+                else
+                {
+                    result[i] = null;
+                }
             }
             return result;
         }
@@ -242,14 +256,21 @@ namespace Yini.Core
         /// </summary>
         /// <param name="key">The key of the array to retrieve.</param>
         /// <returns>An array of booleans, or <c>null</c> if the key is not found or the value is not an array.</returns>
-        public bool[] GetBoolArray(string key)
+        public bool?[] GetBoolArray(string key)
         {
             int size = NativeMethods.YiniGetArraySize(m_handle, key);
             if (size < 0) return null;
-            var result = new bool[size];
+            var result = new bool?[size];
             for (int i = 0; i < size; i++)
             {
-                NativeMethods.YiniGetArrayItemAsBool(m_handle, key, i, out result[i]);
+                if (NativeMethods.YiniGetArrayItemAsBool(m_handle, key, i, out bool value))
+                {
+                    result[i] = value;
+                }
+                else
+                {
+                    result[i] = null;
+                }
             }
             return result;
         }
