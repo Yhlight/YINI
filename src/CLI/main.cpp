@@ -227,10 +227,7 @@ static void run_cook(const std::string& output_path, const std::vector<std::stri
         const auto& type = value.type();
         int64_t int_val;
 
-        if (type == typeid(double) && is_integer_value(std::any_cast<double>(value), int_val)) {
-            entry.value_type = YINI::Ybin::ValueType::Int64;
-            entry.value_offset = data_table.add(int_val);
-        } else if (type == typeid(double)) {
+        if (type == typeid(double)) {
             entry.value_type = YINI::Ybin::ValueType::Double;
             entry.value_offset = data_table.add(std::any_cast<double>(value));
         } else if (type == typeid(bool)) {

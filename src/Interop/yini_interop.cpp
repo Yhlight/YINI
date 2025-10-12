@@ -184,11 +184,6 @@ namespace YINI
             uint32_t value_offset = Utils::le32toh(raw_entry.value_offset);
 
             switch(value_type) {
-                case Ybin::ValueType::Int64: {
-                    int64_t val;
-                    memcpy(&val, m_data_table + value_offset, sizeof(int64_t));
-                    return Utils::le64toh(val);
-                }
                 case Ybin::ValueType::Double: {
                     double val;
                     memcpy(&val, m_data_table + value_offset, sizeof(double));
@@ -206,7 +201,6 @@ namespace YINI
                     auto c = reinterpret_cast<const Ybin::ColorData*>(m_data_table + value_offset);
                     return ResolvedColor{c->r, c->g, c->b};
                 }
-                case Ybin::ValueType::ArrayInt:
                 case Ybin::ValueType::ArrayDouble:
                 case Ybin::ValueType::ArrayBool:
                 case Ybin::ValueType::ArrayString: {
@@ -217,18 +211,14 @@ namespace YINI
 
                     uint32_t header_end_addr = value_offset + sizeof(YINI::Ybin::ArrayData);
                     size_t element_alignment = 1;
-                    if (value_type == Ybin::ValueType::ArrayInt) element_alignment = alignof(int64_t);
-                    else if (value_type == Ybin::ValueType::ArrayDouble) element_alignment = alignof(double);
+                    if (value_type == Ybin::ValueType::ArrayDouble) element_alignment = alignof(double);
                     else if (value_type == Ybin::ValueType::ArrayBool) element_alignment = alignof(bool);
                     else if (value_type == Ybin::ValueType::ArrayString) element_alignment = alignof(uint32_t);
 
                     size_t padding = (element_alignment - (header_end_addr % element_alignment)) % element_alignment;
                     const void* arr_start = m_data_table + header_end_addr + padding;
 
-                    if (value_type == Ybin::ValueType::ArrayInt) {
-                        const int64_t* items = static_cast<const int64_t*>(arr_start);
-                        for(uint32_t i=0; i < count; ++i) result.push_back(Utils::le64toh(items[i]));
-                    } else if (value_type == Ybin::ValueType::ArrayDouble) {
+                    if (value_type == Ybin::ValueType::ArrayDouble) {
                         const uint64_t* items = static_cast<const uint64_t*>(arr_start);
                         for(uint32_t i=0; i < count; ++i) {
                              double val;

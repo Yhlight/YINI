@@ -37,20 +37,18 @@ TEST_F(CookerLoaderTest, CookAndLoad) {
     ASSERT_NE(handle, nullptr) << "yini_create_from_file failed: " << yini_get_last_error();
 
     // 3. Verify all the values
-    int int_val;
-    ASSERT_TRUE(yini_get_int(handle, "Test.intValue", &int_val));
-    EXPECT_EQ(int_val, 123);
+    double val;
+    ASSERT_TRUE(yini_get_double(handle, "Test.intValue", &val));
+    EXPECT_EQ(val, 123);
 
-    ASSERT_TRUE(yini_get_int(handle, "Test.negIntValue", &int_val));
-    EXPECT_EQ(int_val, -50);
+    ASSERT_TRUE(yini_get_double(handle, "Test.negIntValue", &val));
+    EXPECT_EQ(val, -50);
 
-    double large_int_val;
-    ASSERT_TRUE(yini_get_double(handle, "Test.largeIntValue", &large_int_val));
-    EXPECT_EQ(large_int_val, 2147483648);
+    ASSERT_TRUE(yini_get_double(handle, "Test.largeIntValue", &val));
+    EXPECT_EQ(val, 2147483648);
 
-    double double_val;
-    ASSERT_TRUE(yini_get_double(handle, "Test.doubleValue", &double_val));
-    EXPECT_EQ(double_val, 45.67);
+    ASSERT_TRUE(yini_get_double(handle, "Test.doubleValue", &val));
+    EXPECT_EQ(val, 45.67);
 
     bool bool_val;
     ASSERT_TRUE(yini_get_bool(handle, "Test.boolValue", &bool_val));
@@ -63,20 +61,19 @@ TEST_F(CookerLoaderTest, CookAndLoad) {
     EXPECT_EQ(str_val, "hello ybin");
 
     // Test that a macro was resolved during cooking
-    double speed_val;
-    ASSERT_TRUE(yini_get_double(handle, "Test.speed", &speed_val));
-    EXPECT_EQ(speed_val, 10.5);
+    ASSERT_TRUE(yini_get_double(handle, "Test.speed", &val));
+    EXPECT_EQ(val, 10.5);
 
     // Verify arrays
-    int size = yini_get_array_size(handle, "Arrays.int_array");
+    int size = yini_get_array_size(handle, "Arrays.double_array");
     ASSERT_EQ(size, 3);
-    int item;
-    ASSERT_TRUE(yini_get_array_item_as_int(handle, "Arrays.int_array", 0, &item));
-    EXPECT_EQ(item, 1);
-    ASSERT_TRUE(yini_get_array_item_as_int(handle, "Arrays.int_array", 1, &item));
-    EXPECT_EQ(item, 2);
-    ASSERT_TRUE(yini_get_array_item_as_int(handle, "Arrays.int_array", 2, &item));
-    EXPECT_EQ(item, 3);
+    double item;
+    ASSERT_TRUE(yini_get_array_item_as_double(handle, "Arrays.double_array", 0, &item));
+    EXPECT_EQ(item, 1.1);
+    ASSERT_TRUE(yini_get_array_item_as_double(handle, "Arrays.double_array", 1, &item));
+    EXPECT_EQ(item, 2.2);
+    ASSERT_TRUE(yini_get_array_item_as_double(handle, "Arrays.double_array", 2, &item));
+    EXPECT_EQ(item, 3.3);
 
     size = yini_get_array_size(handle, "Arrays.string_array");
     ASSERT_EQ(size, 3);
