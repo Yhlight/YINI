@@ -532,8 +532,151 @@ static void run_file(const char* path, std::map<std::string, YINI::YiniVariant>&
     }
 }
 
+static void run_validate(const char* path) {
+    try {
+        std::ifstream file(path);
+        if (!file.is_open()) {
+            std::cerr << "Error: Could not open file '" << path << "'" << std::endl;
+            exit(1);
+        }
+
+        std::stringstream buffer;
+        buffer << file.rdbuf();
+        std::string source = buffer.str();
+
+        YINI::Lexer lexer(source);
+        auto tokens = lexer.scan_tokens();
+        YINI::Parser parser(tokens);
+        auto ast = parser.parse();
+        YINI::YmetaManager ymeta_manager;
+        ymeta_manager.load(path);
+        YINI::Resolver resolver(ast, ymeta_manager);
+        auto resolved_config = resolver.resolve();
+        YINI::Validator validator(resolved_config, ast);
+        validator.validate();
+        std::cout << "File '" << path << "' validated successfully." << std::endl;
+    } catch (const std::runtime_error& e) {
+        std::cerr << "Validation failed: " << e.what() << std::endl;
+        exit(1);
+    }
+}
+
+static void run_decompile(const char* path) {
+    try
+    {
+        std::ifstream file(path, std::ios::binary | std::ios::ate);
+        if (!file.is_open()) {
+            throw std::runtime_error("Could not open .ybin file.");
+        }
+        std::streamsize size = file.tellg();
+        file.seekg(0, std::ios::beg);
+        std::vector<char> buffer(size);
+        if (!file.read(buffer.data(), size)) {
+             throw std::runtime_error("Could not read .ybin file.");
+        }
+
+        const char* base = buffer.data();
+        YINI::Ybin::FileHeader header;
+        YINI::Ybin::BufferReader::deserialize_header(header, base, size);
+
+        if (header.magic != YINI::Ybin::YBIN_MAGIC || header.version != 2) {
+            throw std::runtime_error("Invalid or unsupported .ybin file format.");
+        }
+
+        std::vector<char> data_table_storage(header.data_table_uncompressed_size);
+        LZ4_decompress_safe(base + header.data_table_offset, data_table_storage.data(), header.data_table_compressed_size, header.data_table_uncompressed_size);
+
+        std::vector<char> string_table_storage(header.string_table_uncompressed_size);
+        LZ4_decompress_safe(base + header.string_table_offset, string_table_storage.data(), header.string_table_compressed_size, header.string_table_uncompressed_size);
+
+        const char* entries_buffer = base + header.entries_offset;
+        const char* string_table = string_table_storage.data();
+
+        std::map<std::string, std::string> decompiled_values;
+
+        for (uint32_t i = 0; i < header.entries_count; ++i) {
+            YINI::Ybin::HashTableEntry entry;
+            YINI::Ybin::BufferReader::deserialize_entry(entry, entries_buffer + (i * sizeof(YINI::Ybin::HashTableEntry)), sizeof(YINI::Ybin::HashTableEntry));
+
+            const char* key = string_table + entry.key_offset;
+            std::string value_str = "[unknown]";
+            switch(entry.value_type) {
+                case YINI::Ybin::ValueType::Int64: {
+                    YINI::Ybin::BufferReader reader(data_table_storage.data() + entry.value_offset, sizeof(int64_t));
+                    value_str = std::to_string(static_cast<int64_t>(reader.read_u64_le()));
+                    break;
+                }
+                case YINI::Ybin::ValueType::Double: {
+                    YINI::Ybin::BufferReader reader(data_table_storage.data() + entry.value_offset, sizeof(double));
+                    value_str = std::to_string(reader.read_double_le());
+                    break;
+                }
+                case YINI::Ybin::ValueType::Bool:
+                    value_str = (entry.value_offset != 0) ? "true" : "false";
+                    break;
+                case YINI::Ybin::ValueType::String:
+                    value_str = "\"" + std::string(string_table + entry.value_offset) + "\"";
+                    break;
+                case YINI::Ybin::ValueType::Color: {
+                    auto c = reinterpret_cast<const YINI::Ybin::ColorData*>(data_table_storage.data() + entry.value_offset);
+                    value_str = "color(" + std::to_string(c->r) + ", " + std::to_string(c->g) + ", " + std::to_string(c->b) + ")";
+                    break;
+                }
+                case YINI::Ybin::ValueType::ArrayInt:
+                case YINI::Ybin::ValueType::ArrayDouble:
+                case YINI::Ybin::ValueType::ArrayBool:
+                case YINI::Ybin::ValueType::ArrayString: {
+                    YINI::Ybin::BufferReader header_reader(data_table_storage.data() + entry.value_offset, sizeof(YINI::Ybin::ArrayData));
+                    uint32_t count = header_reader.read_u32_le();
+                    const char* array_start = data_table_storage.data() + entry.value_offset + sizeof(YINI::Ybin::ArrayData);
+                    std::stringstream ss;
+                    ss << "[";
+                    if (entry.value_type == YINI::Ybin::ValueType::ArrayInt) {
+                        YINI::Ybin::BufferReader r(array_start, count * sizeof(int64_t));
+                        for(uint32_t i=0; i < count; ++i) ss << (i > 0 ? ", " : "") << static_cast<int64_t>(r.read_u64_le());
+                    } else if (entry.value_type == YINI::Ybin::ValueType::ArrayDouble) {
+                        YINI::Ybin::BufferReader r(array_start, count * sizeof(double));
+                        for(uint32_t i=0; i < count; ++i) ss << (i > 0 ? ", " : "") << r.read_double_le();
+                    } else if (entry.value_type == YINI::Ybin::ValueType::ArrayBool) {
+                        const bool* items = reinterpret_cast<const bool*>(array_start);
+                        for(uint32_t i=0; i < count; ++i) ss << (i > 0 ? ", " : "") << (items[i] ? "true" : "false");
+                    } else { // ArrayString
+                        YINI::Ybin::BufferReader r(array_start, count * sizeof(uint32_t));
+                        for(uint32_t i=0; i < count; ++i) ss << (i > 0 ? ", " : "") << "\"" << (string_table + r.read_u32_le()) << "\"";
+                    }
+                    ss << "]";
+                    value_str = ss.str();
+                    break;
+                }
+                default: break;
+            }
+            decompiled_values[key] = value_str;
+        }
+
+        std::string current_section;
+        for (const auto& pair : decompiled_values) {
+            size_t dot_pos = pair.first.find('.');
+            if (dot_pos == std::string::npos) continue;
+            std::string section = pair.first.substr(0, dot_pos);
+            std::string key = pair.first.substr(dot_pos + 1);
+
+            if (section != current_section) {
+                current_section = section;
+                std::cout << "\n[" << current_section << "]" << std::endl;
+            }
+            std::cout << key << " = " << pair.second << std::endl;
+        }
+
+    }
+    catch (const std::runtime_error& e)
+    {
+        std::cerr << "Decompilation failed: " << e.what() << std::endl;
+        exit(1);
+    }
+}
+
 int main(int argc, char* argv[]) {
-    if (argc == 2 && std::string(argv[1]) == "--server") {
+    if (argc > 1 && std::string(argv[1]) == "--server") {
         run_language_server();
     }
     else if (argc > 1 && std::string(argv[1]) == "cook") {
@@ -559,12 +702,21 @@ int main(int argc, char* argv[]) {
             std::cerr << "Error during cooking: " << e.what() << std::endl;
             return 1;
         }
-    } else if (argc > 2 && (std::string(argv[1]) != "cook")) {
-        std::cout << "Usage: yini [script]" << std::endl;
-        return 64; // EX_USAGE
-    } else if (argc == 2) {
+    }
+    else if (argc == 3 && std::string(argv[1]) == "validate") {
+        run_validate(argv[2]);
+    }
+    else if (argc == 3 && std::string(argv[1]) == "decompile") {
+        run_decompile(argv[2]);
+    }
+     else if (argc == 2) {
         run_file(argv[1]);
-    } else {
+    } else if (argc > 2) {
+        std::cerr << "Usage: yini <command> [args]" << std::endl;
+        std::cerr << "Commands: cook, validate, decompile, [script], --server" << std::endl;
+        return 64; // EX_USAGE
+    }
+    else {
         run_prompt();
     }
 

@@ -28,16 +28,10 @@ namespace Yini.Core
         private const string LibName = "YiniInterop";
 
         [DllImport(LibName, EntryPoint = "yini_create_from_file", CallingConvention = CallingConvention.Cdecl)]
-        public static extern IntPtr YiniCreateFromFile(string filePath);
+        public static extern IntPtr YiniCreateFromFile(string filePath, out IntPtr outError);
 
-        [DllImport(LibName, EntryPoint = "yini_get_last_error", CallingConvention = CallingConvention.Cdecl)]
-        private static extern IntPtr YiniGetLastError();
-
-        public static string GetLastError()
-        {
-            IntPtr cstr = YiniGetLastError();
-            return cstr == IntPtr.Zero ? "" : Marshal.PtrToStringAnsi(cstr) ?? "";
-        }
+        [DllImport(LibName, EntryPoint = "yini_free_error_string", CallingConvention = CallingConvention.Cdecl)]
+        public static extern void YiniFreeErrorString(IntPtr str);
 
         [DllImport(LibName, EntryPoint = "yini_destroy", CallingConvention = CallingConvention.Cdecl)]
         public static extern void YiniDestroy(IntPtr handle);
@@ -74,6 +68,85 @@ namespace Yini.Core
 
         [DllImport(LibName, EntryPoint = "yini_get_array_item_as_string", CallingConvention = CallingConvention.Cdecl)]
         private static extern IntPtr YiniGetArrayItemAsString(IntPtr handle, string key, int index);
+
+        // --- Map Getters ---
+        [DllImport(LibName, EntryPoint = "yini_get_map_size", CallingConvention = CallingConvention.Cdecl)]
+        public static extern int YiniGetMapSize(IntPtr handle, string key);
+
+        [DllImport(LibName, EntryPoint = "yini_get_map_key_at_index", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr YiniGetMapKeyAtIndex(IntPtr handle, string key, int index);
+
+        [DllImport(LibName, EntryPoint = "yini_get_map_value_type", CallingConvention = CallingConvention.Cdecl)]
+        public static extern ValueType YiniGetMapValueType(IntPtr handle, string key, string subKey);
+
+        [DllImport(LibName, EntryPoint = "yini_get_map_value_as_int", CallingConvention = CallingConvention.Cdecl)]
+        public static extern bool YiniGetMapValueAsInt(IntPtr handle, string key, string subKey, out int outValue);
+
+        [DllImport(LibName, EntryPoint = "yini_get_map_value_as_double", CallingConvention = CallingConvention.Cdecl)]
+        public static extern bool YiniGetMapValueAsDouble(IntPtr handle, string key, string subKey, out double outValue);
+
+        [DllImport(LibName, EntryPoint = "yini_get_map_value_as_bool", CallingConvention = CallingConvention.Cdecl)]
+        public static extern bool YiniGetMapValueAsBool(IntPtr handle, string key, string subKey, out bool outValue);
+
+        [DllImport(LibName, EntryPoint = "yini_get_map_value_as_string", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr YiniGetMapValueAsString(IntPtr handle, string key, string subKey);
+
+        // --- Struct Getters ---
+        [DllImport(LibName, EntryPoint = "yini_get_struct_key", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr YiniGetStructKey(IntPtr handle, string key);
+
+        [DllImport(LibName, EntryPoint = "yini_get_struct_value_type", CallingConvention = CallingConvention.Cdecl)]
+        public static extern ValueType YiniGetStructValueType(IntPtr handle, string key);
+
+        [DllImport(LibName, EntryPoint = "yini_get_struct_value_as_int", CallingConvention = CallingConvention.Cdecl)]
+        public static extern bool YiniGetStructValueAsInt(IntPtr handle, string key, out int outValue);
+
+        [DllImport(LibName, EntryPoint = "yini_get_struct_value_as_double", CallingConvention = CallingConvention.Cdecl)]
+        public static extern bool YiniGetStructValueAsDouble(IntPtr handle, string key, out double outValue);
+
+        [DllImport(LibName, EntryPoint = "yini_get_struct_value_as_bool", CallingConvention = CallingConvention.Cdecl)]
+        public static extern bool YiniGetStructValueAsBool(IntPtr handle, string key, out bool outValue);
+
+        [DllImport(LibName, EntryPoint = "yini_get_struct_value_as_string", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr YiniGetStructValueAsString(IntPtr handle, string key);
+
+
+        public static string? GetStringAndFree(IntPtr cstr)
+        {
+            if (cstr == IntPtr.Zero) return null;
+            try
+            {
+                return Marshal.PtrToStringAnsi(cstr);
+            }
+            finally
+            {
+                YiniFreeString(cstr);
+            }
+        }
+
+        public static string? GetMapKeyAtIndex(IntPtr handle, string key, int index)
+        {
+            IntPtr cstr = YiniGetMapKeyAtIndex(handle, key, index);
+            return GetStringAndFree(cstr);
+        }
+
+        public static string? GetMapValueAsString(IntPtr handle, string key, string subKey)
+        {
+            IntPtr cstr = YiniGetMapValueAsString(handle, key, subKey);
+            return GetStringAndFree(cstr);
+        }
+
+        public static string? GetStructKey(IntPtr handle, string key)
+        {
+            IntPtr cstr = YiniGetStructKey(handle, key);
+            return GetStringAndFree(cstr);
+        }
+
+        public static string? GetStructValueAsString(IntPtr handle, string key)
+        {
+            IntPtr cstr = YiniGetStructValueAsString(handle, key);
+            return GetStringAndFree(cstr);
+        }
 
         public static string? GetString(IntPtr handle, string key)
         {
@@ -138,10 +211,21 @@ namespace Yini.Core
         /// <exception cref="YiniException">Thrown if the native library fails to load or parse the file.</exception>
         public YiniConfig(string filePath)
         {
-            m_handle = NativeMethods.YiniCreateFromFile(filePath);
+            m_handle = NativeMethods.YiniCreateFromFile(filePath, out IntPtr errorPtr);
             if (m_handle == IntPtr.Zero)
             {
-                string errorMessage = NativeMethods.GetLastError();
+                string errorMessage = "An unknown error occurred.";
+                if (errorPtr != IntPtr.Zero)
+                {
+                    try
+                    {
+                        errorMessage = Marshal.PtrToStringAnsi(errorPtr) ?? "Failed to retrieve error message.";
+                    }
+                    finally
+                    {
+                        NativeMethods.YiniFreeErrorString(errorPtr);
+                    }
+                }
                 throw new YiniException($"Failed to create YINI config: {errorMessage}");
             }
         }
@@ -487,11 +571,83 @@ namespace Yini.Core
                         return GetBoolArray(key);
                     case ValueType.ArrayString:
                         return GetStringArray(key);
+                    case ValueType.Map:
+                        return GetMap(key);
+                    case ValueType.Struct:
+                        return GetStruct(key);
                     case ValueType.Null:
                     default:
                         return null;
                 }
             }
+        }
+
+        public Dictionary<string, object?>? GetMap(string key)
+        {
+            if (NativeMethods.YiniGetType(m_handle, key) != ValueType.Map)
+            {
+                return null;
+            }
+
+            int size = NativeMethods.YiniGetMapSize(m_handle, key);
+            if (size < 0) return null;
+
+            var result = new Dictionary<string, object?>(size);
+            for (int i = 0; i < size; i++)
+            {
+                string? subKey = NativeMethods.GetMapKeyAtIndex(m_handle, key, i);
+                if (subKey == null) continue;
+
+                ValueType subType = NativeMethods.YiniGetMapValueType(m_handle, key, subKey);
+                switch (subType)
+                {
+                    case ValueType.Int:
+                        if (NativeMethods.YiniGetMapValueAsInt(m_handle, key, subKey, out int intVal)) result[subKey] = intVal;
+                        break;
+                    case ValueType.Double:
+                        if (NativeMethods.YiniGetMapValueAsDouble(m_handle, key, subKey, out double dblVal)) result[subKey] = dblVal;
+                        break;
+                    case ValueType.Bool:
+                        if (NativeMethods.YiniGetMapValueAsBool(m_handle, key, subKey, out bool blnVal)) result[subKey] = blnVal;
+                        break;
+                    case ValueType.String:
+                        result[subKey] = NativeMethods.GetMapValueAsString(m_handle, key, subKey);
+                        break;
+                }
+            }
+            return result;
+        }
+
+        public KeyValuePair<string, object?>? GetStruct(string key)
+        {
+            if (NativeMethods.YiniGetType(m_handle, key) != ValueType.Struct)
+            {
+                return null;
+            }
+
+            string? structKey = NativeMethods.GetStructKey(m_handle, key);
+            if (structKey == null) return null;
+
+            ValueType valueType = NativeMethods.YiniGetStructValueType(m_handle, key);
+            object? structValue = null;
+
+            switch (valueType)
+            {
+                case ValueType.Int:
+                    if (NativeMethods.YiniGetStructValueAsInt(m_handle, key, out int intVal)) structValue = intVal;
+                    break;
+                case ValueType.Double:
+                    if (NativeMethods.YiniGetStructValueAsDouble(m_handle, key, out double dblVal)) structValue = dblVal;
+                    break;
+                case ValueType.Bool:
+                    if (NativeMethods.YiniGetStructValueAsBool(m_handle, key, out bool blnVal)) structValue = blnVal;
+                    break;
+                case ValueType.String:
+                    structValue = NativeMethods.GetStructValueAsString(m_handle, key);
+                    break;
+            }
+
+            return new KeyValuePair<string, object?>(structKey, structValue);
         }
     }
 }

@@ -131,10 +131,8 @@ my_nested_array = [[1, 2], [3, "four"]]
     auto ast = parser.parse();
     YINI::YmetaManager ymeta_manager;
     YINI::Resolver resolver(ast, ymeta_manager);
-    auto config = resolver.resolve();
-    YINI::Validator validator(config, ast);
 
-    EXPECT_THROW(validator.validate(), std::runtime_error);
+    EXPECT_THROW(resolver.resolve(), std::runtime_error);
 }
 
 TEST(ValidatorTests, PassesWithCorrectNestedArraySubtype)
@@ -173,10 +171,8 @@ my_array = [1, 2, "three"]
     auto ast = parser.parse();
     YINI::YmetaManager ymeta_manager;
     YINI::Resolver resolver(ast, ymeta_manager);
-    auto config = resolver.resolve();
-    YINI::Validator validator(config, ast);
 
-    EXPECT_THROW(validator.validate(), std::runtime_error);
+    EXPECT_THROW(resolver.resolve(), std::runtime_error);
 }
 
 TEST(ValidatorTests, PassesWithCorrectArraySubtype)

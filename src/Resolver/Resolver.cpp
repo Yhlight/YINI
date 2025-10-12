@@ -281,10 +281,26 @@ YiniVariant Resolver::visitBoolExpr(AST::BoolExpr* expr)
 YiniVariant Resolver::visitArrayExpr(AST::ArrayExpr* expr)
 {
     auto arr = std::make_unique<YiniArray>();
+    if (expr->elements.empty())
+    {
+        return arr;
+    }
+
     for (const auto& element : expr->elements)
     {
         arr->push_back(element->accept(this));
     }
+
+    // Verify that all elements in the array have the same type.
+    auto first_element_type_index = arr->front().index();
+    for (size_t i = 1; i < arr->size(); ++i)
+    {
+        if (arr->at(i).index() != first_element_type_index)
+        {
+            throw std::runtime_error("Array contains mixed types. All elements in an array must have the same type.");
+        }
+    }
+
     return arr;
 }
 

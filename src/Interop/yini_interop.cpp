@@ -35,12 +35,17 @@
 
 namespace
 {
-    thread_local std::string last_error_message;
     thread_local std::string semantic_info_json;
 
-    void set_last_error(const std::string& message)
+    // Helper to allocate a C-style string for an error message.
+    // The caller is responsible for freeing this memory using yini_free_error_string.
+    void set_out_error(char** out_error, const std::string& message)
     {
-        last_error_message = message;
+        if (out_error)
+        {
+            *out_error = new char[message.length() + 1];
+            std::strcpy(*out_error, message.c_str());
+        }
     }
 }
 
@@ -229,9 +234,8 @@ namespace YINI
             m_ymeta_manager.load(file_path);
             Resolver resolver(ast, m_ymeta_manager);
             m_resolved_config = resolver.resolve();
-            // Validation with std::any is complex now. Skipping for this refactor.
-            // Validator validator(m_resolved_config, ast);
-            // validator.validate();
+            Validator validator(m_resolved_config, ast);
+            validator.validate();
             m_ymeta_manager.save(file_path);
         }
 
@@ -244,26 +248,70 @@ namespace YINI
     };
 }
 
-YINI_API void* yini_create_from_file(const char* file_path)
+YINI_API void* yini_create_from_file(const char* file_path, char** out_error)
 {
     try
     {
-        set_last_error("");
+        if (out_error) *out_error = nullptr;
         YINI::Config* config = YINI::Config::create(file_path).release();
         return static_cast<void*>(config);
     }
     catch (const std::exception& e)
     {
-        set_last_error(e.what());
+        set_out_error(out_error, e.what());
         return nullptr;
     }
 }
 
-YINI_API const char* yini_get_last_error() { return last_error_message.c_str(); }
+YINI_API void yini_free_error_string(char* error_string)
+{
+    if (error_string)
+    {
+        delete[] error_string;
+    }
+}
 
 YINI_API void yini_destroy(void* handle)
 {
     if (handle) delete static_cast<YINI::Config*>(handle);
+}
+
+namespace
+{
+    ValueType get_variant_type(const YINI::YiniVariant& value)
+    {
+        ValueType type = YINI_TYPE_NULL;
+        std::visit([&](auto&& arg) {
+            using T = std::decay_t<decltype(arg)>;
+            if constexpr (std::is_same_v<T, std::monostate>) {
+                type = YINI_TYPE_NULL;
+            } else if constexpr (std::is_same_v<T, int64_t>) {
+                type = YINI_TYPE_INT;
+            } else if constexpr (std::is_same_v<T, double>) {
+                type = YINI_TYPE_DOUBLE;
+            } else if constexpr (std::is_same_v<T, bool>) {
+                type = YINI_TYPE_BOOL;
+            } else if constexpr (std::is_same_v<T, std::string>) {
+                type = YINI_TYPE_STRING;
+            } else if constexpr (std::is_same_v<T, YINI::YiniStruct>) {
+                type = YINI_TYPE_STRUCT;
+            } else if constexpr (std::is_same_v<T, YINI::YiniMap>) {
+                type = YINI_TYPE_MAP;
+            } else if constexpr (std::is_same_v<T, std::unique_ptr<YINI::YiniArray>>) {
+                if (arg) {
+                    const auto& arr = *arg;
+                    if (!arr.empty()) {
+                        const auto& first = arr.front();
+                        if (std::holds_alternative<int64_t>(first)) type = YINI_TYPE_ARRAY_INT;
+                        else if (std::holds_alternative<double>(first)) type = YINI_TYPE_ARRAY_DOUBLE;
+                        else if (std::holds_alternative<bool>(first)) type = YINI_TYPE_ARRAY_BOOL;
+                        else if (std::holds_alternative<std::string>(first)) type = YINI_TYPE_ARRAY_STRING;
+                    }
+                }
+            }
+        }, value);
+        return type;
+    }
 }
 
 YINI_API ValueType yini_get_type(void* handle, const char* key)
@@ -271,38 +319,7 @@ YINI_API ValueType yini_get_type(void* handle, const char* key)
     if (!handle || !key) return YINI_TYPE_NULL;
     YINI::Config* config = static_cast<YINI::Config*>(handle);
     YINI::YiniVariant value = config->find(key);
-
-    ValueType type = YINI_TYPE_NULL;
-    std::visit([&](auto&& arg) {
-        using T = std::decay_t<decltype(arg)>;
-        if constexpr (std::is_same_v<T, std::monostate>) {
-            type = YINI_TYPE_NULL;
-        } else if constexpr (std::is_same_v<T, int64_t>) {
-            type = YINI_TYPE_INT;
-        } else if constexpr (std::is_same_v<T, double>) {
-            type = YINI_TYPE_DOUBLE;
-        } else if constexpr (std::is_same_v<T, bool>) {
-            type = YINI_TYPE_BOOL;
-        } else if constexpr (std::is_same_v<T, std::string>) {
-            type = YINI_TYPE_STRING;
-        } else if constexpr (std::is_same_v<T, YINI::YiniStruct>) {
-            type = YINI_TYPE_STRUCT;
-        } else if constexpr (std::is_same_v<T, YINI::YiniMap>) {
-            type = YINI_TYPE_MAP;
-        } else if constexpr (std::is_same_v<T, std::unique_ptr<YINI::YiniArray>>) {
-            if (arg) {
-                const auto& arr = *arg;
-                if (!arr.empty()) {
-                    const auto& first = arr.front();
-                    if (std::holds_alternative<int64_t>(first)) type = YINI_TYPE_ARRAY_INT;
-                    else if (std::holds_alternative<double>(first)) type = YINI_TYPE_ARRAY_DOUBLE;
-                    else if (std::holds_alternative<bool>(first)) type = YINI_TYPE_ARRAY_BOOL;
-                    else if (std::holds_alternative<std::string>(first)) type = YINI_TYPE_ARRAY_STRING;
-                }
-            }
-        }
-    }, value);
-    return type;
+    return get_variant_type(value);
 }
 
 template<typename T>
@@ -432,11 +449,11 @@ YINI_API const char* yini_get_array_item_as_string(void* handle, const char* key
     return nullptr;
 }
 
-YINI_API const char* yini_get_semantic_info(const char* source)
+YINI_API const char* yini_get_semantic_info(const char* source, char** out_error)
 {
     try
     {
-        set_last_error("");
+        if (out_error) *out_error = nullptr;
         YINI::Lexer lexer(source);
         auto tokens = lexer.scan_tokens();
         YINI::Parser parser(tokens);
@@ -452,7 +469,218 @@ YINI_API const char* yini_get_semantic_info(const char* source)
     }
     catch (const std::exception& e)
     {
-        set_last_error(e.what());
+        set_out_error(out_error, e.what());
         return nullptr;
     }
+}
+
+// --- Map Getters ---
+
+YINI_API int yini_get_map_size(void* handle, const char* key)
+{
+    if (!handle || !key) return -1;
+    YINI::Config* config = static_cast<YINI::Config*>(handle);
+    YINI::YiniVariant value = config->find(key);
+    if (std::holds_alternative<YINI::YiniMap>(value))
+    {
+        return static_cast<int>(std::get<YINI::YiniMap>(value).size());
+    }
+    return -1;
+}
+
+YINI_API const char* yini_get_map_key_at_index(void* handle, const char* key, int index)
+{
+    if (!handle || !key || index < 0) return nullptr;
+    YINI::Config* config = static_cast<YINI::Config*>(handle);
+    YINI::YiniVariant value = config->find(key);
+    if (std::holds_alternative<YINI::YiniMap>(value))
+    {
+        const auto& map = std::get<YINI::YiniMap>(value);
+        if (static_cast<size_t>(index) < map.size())
+        {
+            auto it = map.begin();
+            std::advance(it, index);
+            const std::string& str_key = it->first;
+            char* c_str = new char[str_key.length() + 1];
+            strcpy(c_str, str_key.c_str());
+            return c_str;
+        }
+    }
+    return nullptr;
+}
+
+YINI_API ValueType yini_get_map_value_type(void* handle, const char* key, const char* sub_key)
+{
+    if (!handle || !key || !sub_key) return YINI_TYPE_NULL;
+    YINI::Config* config = static_cast<YINI::Config*>(handle);
+    YINI::YiniVariant value = config->find(key);
+    if (std::holds_alternative<YINI::YiniMap>(value))
+    {
+        const auto& map = std::get<YINI::YiniMap>(value);
+        if (map.count(sub_key))
+        {
+            return get_variant_type(map.at(sub_key));
+        }
+    }
+    return YINI_TYPE_NULL;
+}
+
+template<typename T>
+bool get_map_value(void* handle, const char* key, const char* sub_key, T* out_value) {
+    if (!handle || !key || !sub_key || !out_value) return false;
+    YINI::Config* config = static_cast<YINI::Config*>(handle);
+    YINI::YiniVariant value = config->find(key);
+
+    if (std::holds_alternative<YINI::YiniMap>(value))
+    {
+        const auto& map = std::get<YINI::YiniMap>(value);
+        if (map.count(sub_key))
+        {
+            const YINI::YiniVariant& sub_value = map.at(sub_key);
+            bool success = false;
+            std::visit([&](auto&& arg) {
+                using V = std::decay_t<decltype(arg)>;
+                if constexpr (std::is_same_v<T, int>) {
+                    if constexpr (std::is_same_v<V, int64_t>) { *out_value = static_cast<int>(arg); success = true; }
+                    if constexpr (std::is_same_v<V, double>) { *out_value = static_cast<int>(arg); success = true; }
+                } else if constexpr (std::is_same_v<T, double>) {
+                    if constexpr (std::is_same_v<V, int64_t>) { *out_value = static_cast<double>(arg); success = true; }
+                    if constexpr (std::is_same_v<V, double>) { *out_value = arg; success = true; }
+                } else if constexpr (std::is_same_v<T, V>) {
+                    *out_value = arg;
+                    success = true;
+                }
+            }, sub_value);
+            return success;
+        }
+    }
+    return false;
+}
+
+YINI_API bool yini_get_map_value_as_int(void* handle, const char* key, const char* sub_key, int* out_value) {
+    return get_map_value(handle, key, sub_key, out_value);
+}
+
+YINI_API bool yini_get_map_value_as_double(void* handle, const char* key, const char* sub_key, double* out_value) {
+    return get_map_value(handle, key, sub_key, out_value);
+}
+
+YINI_API bool yini_get_map_value_as_bool(void* handle, const char* key, const char* sub_key, bool* out_value) {
+    return get_map_value(handle, key, sub_key, out_value);
+}
+
+YINI_API const char* yini_get_map_value_as_string(void* handle, const char* key, const char* sub_key)
+{
+    if (!handle || !key || !sub_key) return nullptr;
+    YINI::Config* config = static_cast<YINI::Config*>(handle);
+    YINI::YiniVariant value = config->find(key);
+    if (std::holds_alternative<YINI::YiniMap>(value))
+    {
+        const auto& map = std::get<YINI::YiniMap>(value);
+        if (map.count(sub_key))
+        {
+            const YINI::YiniVariant& sub_value = map.at(sub_key);
+            if (std::holds_alternative<std::string>(sub_value))
+            {
+                const std::string& str = std::get<std::string>(sub_value);
+                char* c_str = new char[str.length() + 1];
+                strcpy(c_str, str.c_str());
+                return c_str;
+            }
+        }
+    }
+    return nullptr;
+}
+
+// --- Struct Getters ---
+
+YINI_API const char* yini_get_struct_key(void* handle, const char* key)
+{
+    if (!handle || !key) return nullptr;
+    YINI::Config* config = static_cast<YINI::Config*>(handle);
+    YINI::YiniVariant value = config->find(key);
+    if (std::holds_alternative<YINI::YiniStruct>(value))
+    {
+        const auto& yini_struct = std::get<YINI::YiniStruct>(value);
+        const std::string& str_key = yini_struct.first;
+        char* c_str = new char[str_key.length() + 1];
+        strcpy(c_str, str_key.c_str());
+        return c_str;
+    }
+    return nullptr;
+}
+
+YINI_API ValueType yini_get_struct_value_type(void* handle, const char* key)
+{
+    if (!handle || !key) return YINI_TYPE_NULL;
+    YINI::Config* config = static_cast<YINI::Config*>(handle);
+    YINI::YiniVariant value = config->find(key);
+    if (std::holds_alternative<YINI::YiniStruct>(value))
+    {
+        const auto& yini_struct = std::get<YINI::YiniStruct>(value);
+        return get_variant_type(*yini_struct.second);
+    }
+    return YINI_TYPE_NULL;
+}
+
+template<typename T>
+bool get_struct_value(void* handle, const char* key, T* out_value) {
+    if (!handle || !key || !out_value) return false;
+    YINI::Config* config = static_cast<YINI::Config*>(handle);
+    YINI::YiniVariant value = config->find(key);
+
+    if (std::holds_alternative<YINI::YiniStruct>(value))
+    {
+        const auto& yini_struct = std::get<YINI::YiniStruct>(value);
+        const YINI::YiniVariant& struct_value = *yini_struct.second;
+
+        bool success = false;
+        std::visit([&](auto&& arg) {
+            using V = std::decay_t<decltype(arg)>;
+            if constexpr (std::is_same_v<T, int>) {
+                if constexpr (std::is_same_v<V, int64_t>) { *out_value = static_cast<int>(arg); success = true; }
+                if constexpr (std::is_same_v<V, double>) { *out_value = static_cast<int>(arg); success = true; }
+            } else if constexpr (std::is_same_v<T, double>) {
+                if constexpr (std::is_same_v<V, int64_t>) { *out_value = static_cast<double>(arg); success = true; }
+                if constexpr (std::is_same_v<V, double>) { *out_value = arg; success = true; }
+            } else if constexpr (std::is_same_v<T, V>) {
+                *out_value = arg;
+                success = true;
+            }
+        }, struct_value);
+        return success;
+    }
+    return false;
+}
+
+YINI_API bool yini_get_struct_value_as_int(void* handle, const char* key, int* out_value) {
+    return get_struct_value(handle, key, out_value);
+}
+
+YINI_API bool yini_get_struct_value_as_double(void* handle, const char* key, double* out_value) {
+    return get_struct_value(handle, key, out_value);
+}
+
+YINI_API bool yini_get_struct_value_as_bool(void* handle, const char* key, bool* out_value) {
+    return get_struct_value(handle, key, out_value);
+}
+
+YINI_API const char* yini_get_struct_value_as_string(void* handle, const char* key)
+{
+    if (!handle || !key) return nullptr;
+    YINI::Config* config = static_cast<YINI::Config*>(handle);
+    YINI::YiniVariant value = config->find(key);
+    if (std::holds_alternative<YINI::YiniStruct>(value))
+    {
+        const auto& yini_struct = std::get<YINI::YiniStruct>(value);
+        const YINI::YiniVariant& struct_value = *yini_struct.second;
+        if (std::holds_alternative<std::string>(struct_value))
+        {
+            const std::string& str = std::get<std::string>(struct_value);
+            char* c_str = new char[str.length() + 1];
+            strcpy(c_str, str.c_str());
+            return c_str;
+        }
+    }
+    return nullptr;
 }

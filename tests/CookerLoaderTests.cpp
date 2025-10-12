@@ -33,8 +33,10 @@ TEST_F(CookerLoaderTest, CookAndLoad) {
     ASSERT_EQ(result, 0);
 
     // 2. Load the cooked .ybin file using the interop functions
-    void* handle = yini_create_from_file(output_ybin.c_str());
-    ASSERT_NE(handle, nullptr) << "yini_create_from_file failed: " << yini_get_last_error();
+    char* error_message = nullptr;
+    void* handle = yini_create_from_file(output_ybin.c_str(), &error_message);
+    ASSERT_NE(handle, nullptr) << "yini_create_from_file failed: " << (error_message ? error_message : "Unknown error");
+    if (error_message) yini_free_error_string(error_message);
 
     // 3. Verify all the values
     int int_val;
