@@ -204,7 +204,16 @@ std::unique_ptr<AST::SchemaRuleStmt> Parser::schema_rule_statement()
         } else if (segment.rfind("max=", 0) == 0) {
             rule_stmt->rule.max = std::stod(segment.substr(4));
         } else if (!type_parsed) { // Assume it's the type
-            rule_stmt->rule.type = segment;
+            size_t bracket_pos = segment.find('[');
+            if (bracket_pos != std::string::npos) {
+                rule_stmt->rule.type = segment.substr(0, bracket_pos);
+                size_t end_bracket_pos = segment.find(']', bracket_pos);
+                if (end_bracket_pos != std::string::npos) {
+                    rule_stmt->rule.array_subtype = segment.substr(bracket_pos + 1, end_bracket_pos - bracket_pos - 1);
+                }
+            } else {
+                rule_stmt->rule.type = segment;
+            }
             type_parsed = true;
         }
     }

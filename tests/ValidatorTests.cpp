@@ -98,3 +98,48 @@ TEST(ValidatorTests, PassesWithCorrectValue)
 
     EXPECT_NO_THROW(validator.validate());
 }
+
+TEST(ValidatorTests, PassesWithValidArray)
+{
+    std::string source = "[#schema]\n[MyConfig]\nmy_array = !, array[int]\n\n[MyConfig]\nmy_array = [1, 2, 3]";
+    YINI::Lexer lexer(source);
+    auto tokens = lexer.scan_tokens();
+    YINI::Parser parser(tokens);
+    auto ast = parser.parse();
+    YINI::YmetaManager ymeta_manager;
+    YINI::Resolver resolver(ast, ymeta_manager);
+    auto config = resolver.resolve();
+    YINI::Validator validator(config, ast);
+
+    EXPECT_NO_THROW(validator.validate());
+}
+
+TEST(ValidatorTests, ThrowsOnArrayWithWrongSubType)
+{
+    std::string source = "[#schema]\n[MyConfig]\nmy_array = !, array[string]\n\n[MyConfig]\nmy_array = [1, 2, 3]";
+    YINI::Lexer lexer(source);
+    auto tokens = lexer.scan_tokens();
+    YINI::Parser parser(tokens);
+    auto ast = parser.parse();
+    YINI::YmetaManager ymeta_manager;
+    YINI::Resolver resolver(ast, ymeta_manager);
+    auto config = resolver.resolve();
+    YINI::Validator validator(config, ast);
+
+    EXPECT_THROW(validator.validate(), std::runtime_error);
+}
+
+TEST(ValidatorTests, ThrowsOnNonArrayForArrayRule)
+{
+    std::string source = "[#schema]\n[MyConfig]\nmy_array = !, array[int]\n\n[MyConfig]\nmy_array = 123";
+    YINI::Lexer lexer(source);
+    auto tokens = lexer.scan_tokens();
+    YINI::Parser parser(tokens);
+    auto ast = parser.parse();
+    YINI::YmetaManager ymeta_manager;
+    YINI::Resolver resolver(ast, ymeta_manager);
+    auto config = resolver.resolve();
+    YINI::Validator validator(config, ast);
+
+    EXPECT_THROW(validator.validate(), std::runtime_error);
+}

@@ -74,24 +74,49 @@ void Validator::validate_section(const std::string& section_name, const AST::Sch
                 std::visit([&](auto&& arg) {
                     using T = std::decay_t<decltype(arg)>;
                     bool type_ok = false;
-                    if (rule.type == "string" && std::is_same_v<T, std::string>) type_ok = true;
-                    if (rule.type == "bool" && std::is_same_v<T, bool>) type_ok = true;
-                    if ((rule.type == "int" || rule.type == "float") && (std::is_same_v<T, int64_t> || std::is_same_v<T, double>))
-                    {
-                        type_ok = true;
-                        // 3. Validate range
-                        double numeric_value = 0.0;
-                        if constexpr (std::is_same_v<T, int64_t>) numeric_value = static_cast<double>(arg);
-                        if constexpr (std::is_same_v<T, double>) numeric_value = arg;
 
-                        if (rule.min && numeric_value < *rule.min) {
-                            throw std::runtime_error("Value for key '" + key + "' is below the minimum of " + std::to_string(*rule.min));
+                    if constexpr (std::is_same_v<T, std::unique_ptr<YiniArray>>) {
+                        if (rule.type == "array") {
+                            type_ok = true;
+                            if (rule.array_subtype.has_value()) {
+                                const std::string& subtype = rule.array_subtype.value();
+                                for (const auto& item : *arg) {
+                                    bool subtype_ok = false;
+                                    std::visit([&](auto&& item_arg) {
+                                        using ItemT = std::decay_t<decltype(item_arg)>;
+                                        if (subtype == "string" && std::is_same_v<ItemT, std::string>) subtype_ok = true;
+                                        else if (subtype == "bool" && std::is_same_v<ItemT, bool>) subtype_ok = true;
+                                        else if ((subtype == "int" || subtype == "float") && (std::is_same_v<ItemT, int64_t> || std::is_same_v<ItemT, double>)) subtype_ok = true;
+                                    }, item);
+                                    if (!subtype_ok) {
+                                        throw std::runtime_error("Type mismatch in array for key '" + key + "'. Expected elements of type " + subtype);
+                                    }
+                                }
+                            }
                         }
-                        if (rule.max && numeric_value > *rule.max) {
-                            throw std::runtime_error("Value for key '" + key + "' is above the maximum of " + std::to_string(*rule.max));
+                    } else {
+                        if (rule.type == "string" && std::is_same_v<T, std::string>) {
+                            type_ok = true;
+                        } else if (rule.type == "bool" && std::is_same_v<T, bool>) {
+                            type_ok = true;
+                        } else if ((rule.type == "int" || rule.type == "float") && (std::is_same_v<T, int64_t> || std::is_same_v<T, double>)) {
+                            type_ok = true;
+                            // 3. Validate range
+                            double numeric_value = 0.0;
+                            if constexpr (std::is_same_v<T, int64_t>) {
+                                numeric_value = static_cast<double>(arg);
+                            } else if constexpr (std::is_same_v<T, double>) {
+                                numeric_value = arg;
+                            }
+
+                            if (rule.min && numeric_value < *rule.min) {
+                                throw std::runtime_error("Value for key '" + key + "' is below the minimum of " + std::to_string(*rule.min));
+                            }
+                            if (rule.max && numeric_value > *rule.max) {
+                                throw std::runtime_error("Value for key '" + key + "' is above the maximum of " + std::to_string(*rule.max));
+                            }
                         }
                     }
-                    // TODO: Add validation for array types
 
                     if (!type_ok) {
                         throw std::runtime_error("Type mismatch for key '" + key + "'. Expected " + rule.type);
