@@ -16,16 +16,12 @@
 #include "Ymeta/YmetaManager.h"
 #include "Validator/Validator.h"
 #include "Loader/YbinFormat.h"
-#include "Loader/YbinSerialization.h" // Include the new serialization helpers
+#include "Loader/YbinSerialization.h"
 #include "Utils/Endian.h"
 #include "YiniTypes.h"
 #include "nlohmann/json.hpp"
 
 using json = nlohmann::json;
-
-// A simple document manager to store the content of open files
-static std::map<std::string, std::string> document_manager;
-static std::map<std::string, json> semantic_info_cache;
 
 void log_message(const std::string& msg) {
     std::cerr << "YINI LS: " << msg << std::endl;
@@ -36,28 +32,6 @@ void send_json_rpc(const json& msg) {
     std::cout << "Content-Length: " << dumped_msg.length() << "\r\n\r\n" << dumped_msg << std::flush;
     log_message("Sent: " + dumped_msg);
 }
-
-// Function to parse a document and update the semantic info cache
-void update_document_info(const std::string& uri, const std::string& text) {
-    document_manager[uri] = text;
-    try {
-        YINI::Lexer lexer(text);
-        auto tokens = lexer.scan_tokens();
-        YINI::Parser parser(tokens);
-        auto ast = parser.parse();
-
-        YINI::SemanticInfoVisitor visitor(text);
-        for (const auto& stmt : ast) {
-            if (stmt) stmt->accept(&visitor);
-        }
-        semantic_info_cache[uri] = visitor.get_info();
-    } catch (const std::exception& e) {
-        // Handle parse errors, maybe send diagnostics
-        log_message("Error parsing document " + uri + ": " + e.what());
-        semantic_info_cache.erase(uri);
-    }
-}
-
 
 void run_language_server() {
     log_message("Language server started.");
@@ -80,99 +54,38 @@ void run_language_server() {
 
         log_message("Received: " + content);
 
-        json request = json::parse(content, nullptr, false);
-        if (request.is_discarded()) {
-            log_message("Failed to parse JSON request.");
-            continue;
-        }
+        json request = json::parse(content);
 
+        json response;
+        response["id"] = request["id"];
+        response["jsonrpc"] = "2.0";
 
-        if (request.contains("method")) {
-             std::string method = request["method"];
-             if (method == "initialize") {
-                json response;
-                response["id"] = request["id"];
-                response["jsonrpc"] = "2.0";
-                response["result"]["capabilities"]["semanticTokensProvider"]["legend"] = {
-                    {"tokenTypes", {"string", "number", "operator", "macro", "namespace", "property", "variable", "class"}},
-                    {"tokenModifiers", {"readonly"}}
-                };
-                response["result"]["capabilities"]["semanticTokensProvider"]["full"] = true;
-                response["result"]["capabilities"]["hoverProvider"] = true;
-                response["result"]["capabilities"]["definitionProvider"] = true;
-                 response["result"]["capabilities"]["textDocumentSync"] = 1; // Full sync
-                send_json_rpc(response);
-            }
-             else if (method == "textDocument/didOpen") {
-                std::string uri = request["params"]["textDocument"]["uri"];
-                std::string text = request["params"]["textDocument"]["text"];
-                update_document_info(uri, text);
-            }
-            else if (method == "textDocument/didChange") {
-                std::string uri = request["params"]["textDocument"]["uri"];
-                std::string text = request["params"]["contentChanges"][0]["text"];
-                update_document_info(uri, text);
-            }
-             else if (method == "textDocument/semanticTokens/full") {
-                std::string uri = request["params"]["textDocument"]["uri"];
-                json response;
-                response["id"] = request["id"];
-                response["jsonrpc"] = "2.0";
-                if (semantic_info_cache.count(uri)) {
-                    // This is a simplified example. A real LSP would convert the stored
-                    // token info into the required integer array format.
-                    // For now, we return nothing to avoid client errors with wrong format.
-                     response["result"]["data"] = json::array();
-                } else {
-                    response["result"]["data"] = json::array();
-                }
-                send_json_rpc(response);
-            }
-             else if (method == "textDocument/hover") {
-                 std::string uri = request["params"]["textDocument"]["uri"];
-                 int line = request["params"]["position"]["line"];
-                 int character = request["params"]["position"]["character"];
+        if (request["method"] == "initialize") {
+            response["result"]["capabilities"]["semanticTokensProvider"]["legend"] = {
+                {"tokenTypes", {"string", "number", "operator", "macro", "namespace", "property", "variable", "class"}},
+                {"tokenModifiers", {"readonly"}}
+            };
+            response["result"]["capabilities"]["semanticTokensProvider"]["full"] = true;
+            send_json_rpc(response);
+        } else if (request["method"] == "textDocument/semanticTokens/full") {
+            std::string uri = request["params"]["textDocument"]["uri"];
+            // In a real LS, you'd read the file content from the URI
+            // For now, we'll assume the client sends the text, which is more common
+            // but this is a simplified example. We'll use a placeholder.
+             std::string text = ""; // This needs to be fetched based on VSCode's text sync events
 
-                 json response;
-                 response["id"] = request["id"];
-                 response["jsonrpc"] = "2.0";
-                 response["result"] = nullptr;
+            // This part is tricky as we don't have the text. A full LS needs text document sync.
+            // Let's assume for now we can get it, and proceed.
+            // In a real implementation, we'd have a document manager.
 
-                 if (semantic_info_cache.count(uri)) {
-                     const auto& info = semantic_info_cache[uri];
-                     for (const auto& token : info["tokens"]) {
-                         if (token["line"] == line && character >= token["startChar"].get<int>() && character < (token["startChar"].get<int>() + token["length"].get<int>())) {
-                             response["result"]["contents"] = {
-                                 {"kind", "markdown"},
-                                 {"value", "Type: `" + token["tokenType"].get<std::string>() + "`"}
-                             };
-                             break;
-                         }
-                     }
-                 }
-                send_json_rpc(response);
+            response["result"]["data"] = json::array(); // Return empty for now.
+             send_json_rpc(response);
 
-             }
-             else if (method == "textDocument/definition") {
-                  std::string uri = request["params"]["textDocument"]["uri"];
-                 int line = request["params"]["position"]["line"];
-                 int character = request["params"]["position"]["character"];
-
-                 json response;
-                 response["id"] = request["id"];
-                 response["jsonrpc"] = "2.0";
-                 response["result"] = nullptr;
-                 send_json_rpc(response); // No-op for now
-             }
-            else if (method == "shutdown") {
-                json response;
-                response["id"] = request["id"];
-                response["jsonrpc"] = "2.0";
-                response["result"] = nullptr;
-                send_json_rpc(response);
-            } else if (method == "exit") {
-                return;
-            }
+        } else if (request["method"] == "shutdown") {
+            response["result"] = nullptr;
+            send_json_rpc(response);
+        } else if (request["method"] == "exit") {
+            return;
         }
     }
 }
@@ -199,7 +112,6 @@ private:
     std::map<std::string, uint32_t> m_offsets;
     std::string m_blob;
 };
-
 
 // Helper to check if a double can be safely represented as an int64_t
 bool is_integer_value(double d, int64_t& out_int) {
@@ -346,15 +258,15 @@ static void run_cook(const std::string& output_path, const std::vector<std::stri
     std::vector<uint32_t> buckets(bucket_count, 0xFFFFFFFF);
 
     for (uint32_t i = 0; i < entries.size(); ++i) {
-        uint64_t key_hash = entries[i].key_hash;
-        uint32_t bucket_index = key_hash % bucket_count;
+        uint64_t key_hash_le = YINI::Utils::htole64(entries[i].key_hash);
+        uint32_t bucket_index = key_hash_le % bucket_count;
 
         if (buckets[bucket_index] == 0xFFFFFFFF) {
-            buckets[bucket_index] = i;
+            buckets[bucket_index] = YINI::Utils::htole32(i);
         } else {
             // Prepend to the chain
             entries[i].next_entry_index = buckets[bucket_index];
-            buckets[bucket_index] = i;
+            buckets[bucket_index] = YINI::Utils::htole32(i);
         }
     }
 
@@ -372,74 +284,46 @@ static void run_cook(const std::string& output_path, const std::vector<std::stri
     compressed_strings.resize(string_compressed_size);
 
 
-    // 5. Write everything to the file using BufferWriter for safety
-    std::vector<char> output_buffer;
-    YINI::Ybin::BufferWriter writer(output_buffer);
-
-    // Leave space for the header, we'll write it at the end
-    output_buffer.resize(sizeof(YINI::Ybin::FileHeader));
-
-    uint32_t hash_table_offset = writer.size();
-    for(uint32_t bucket_index : buckets) {
-        writer.write_u32_le(bucket_index);
-    }
-
-    uint32_t entries_offset = writer.size();
-    for(auto& entry : entries) {
-        writer.write_u64_le(entry.key_hash);
-        writer.write_u32_le(entry.key_offset);
-        writer.write(entry.value_type);
-        writer.write_bytes("\0\0\0", 3); // Explicit padding
-        writer.write_u32_le(entry.value_offset);
-        writer.write_u32_le(entry.next_entry_index);
-    }
-
-    uint32_t data_table_offset = writer.size();
-    writer.write_bytes(compressed_data.data(), compressed_data.size());
-
-    uint32_t string_table_offset = writer.size();
-    writer.write_bytes(compressed_strings.data(), compressed_strings.size());
-
-    // Now that we have all offsets, create and write the header at the beginning
-    YINI::Ybin::FileHeader header;
-    header.magic = YINI::Ybin::YBIN_MAGIC;
-    header.version = 2;
-    header.entries_count = entries.size();
-    header.hash_table_size = buckets.size();
-    header.data_table_uncompressed_size = uncompressed_data.size();
-    header.data_table_compressed_size = data_compressed_size;
-    header.string_table_uncompressed_size = uncompressed_strings.size();
-    header.string_table_compressed_size = string_compressed_size;
-    header.hash_table_offset = hash_table_offset;
-    header.entries_offset = entries_offset;
-    header.data_table_offset = data_table_offset;
-    header.string_table_offset = string_table_offset;
-
-    // Use a temporary writer to serialize the header into a buffer
-    std::vector<char> header_buffer;
-    YINI::Ybin::BufferWriter header_writer(header_buffer);
-    header_writer.write_u32_le(header.magic);
-    header_writer.write_u32_le(header.version);
-    header_writer.write_u32_le(header.hash_table_offset);
-    header_writer.write_u32_le(header.hash_table_size);
-    header_writer.write_u32_le(header.entries_offset);
-    header_writer.write_u32_le(header.entries_count);
-    header_writer.write_u32_le(header.data_table_offset);
-    header_writer.write_u32_le(header.data_table_compressed_size);
-    header_writer.write_u32_le(header.data_table_uncompressed_size);
-    header_writer.write_u32_le(header.string_table_offset);
-    header_writer.write_u32_le(header.string_table_compressed_size);
-    header_writer.write_u32_le(header.string_table_uncompressed_size);
-
-    // Copy the serialized header to the beginning of the main output buffer
-    memcpy(output_buffer.data(), header_buffer.data(), sizeof(YINI::Ybin::FileHeader));
-
-    // Write the complete buffer to the file
+    // 5. Write everything to the file
     std::ofstream out(output_path, std::ios::binary);
     if (!out) {
         throw std::runtime_error("Could not open output file for writing: " + output_path);
     }
-    out.write(output_buffer.data(), output_buffer.size());
+
+    YINI::Ybin::FileHeader header;
+    header.magic = YINI::Utils::htole32(YINI::Ybin::YBIN_MAGIC);
+    header.version = YINI::Utils::htole32(2);
+    header.entries_count = YINI::Utils::htole32(entries.size());
+    header.hash_table_size = YINI::Utils::htole32(buckets.size());
+    header.data_table_uncompressed_size = YINI::Utils::htole32(uncompressed_data.size());
+    header.data_table_compressed_size = YINI::Utils::htole32(data_compressed_size);
+    header.string_table_uncompressed_size = YINI::Utils::htole32(uncompressed_strings.size());
+    header.string_table_compressed_size = YINI::Utils::htole32(string_compressed_size);
+
+
+    uint32_t current_offset = sizeof(YINI::Ybin::FileHeader);
+    header.hash_table_offset = YINI::Utils::htole32(current_offset);
+    current_offset += buckets.size() * sizeof(uint32_t);
+    header.entries_offset = YINI::Utils::htole32(current_offset);
+    current_offset += entries.size() * sizeof(YINI::Ybin::HashTableEntry);
+    header.data_table_offset = YINI::Utils::htole32(current_offset);
+    current_offset += compressed_data.size();
+    header.string_table_offset = YINI::Utils::htole32(current_offset);
+
+    out.write(reinterpret_cast<const char*>(&header), sizeof(header));
+    out.write(reinterpret_cast<const char*>(buckets.data()), buckets.size() * sizeof(uint32_t));
+
+    // Write entries one by one after converting to little-endian
+    for(auto& entry : entries) {
+        entry.key_hash = YINI::Utils::htole64(entry.key_hash);
+        entry.key_offset = YINI::Utils::htole32(entry.key_offset);
+        entry.value_offset = YINI::Utils::htole32(entry.value_offset);
+        // next_entry_index is already LE from the bucket-building step
+        out.write(reinterpret_cast<const char*>(&entry), sizeof(entry));
+    }
+
+    out.write(compressed_data.data(), compressed_data.size());
+    out.write(compressed_strings.data(), compressed_strings.size());
 
     std::cout << "Successfully cooked " << entries.size() << " entries to " << output_path << std::endl;
 }
@@ -461,16 +345,14 @@ static void run_file(const char* path) {
     YINI::Parser parser(tokens);
     try {
         auto ast = parser.parse();
-        if (!ast.empty()) {
-            YINI::YmetaManager ymeta_manager;
-            ymeta_manager.load(path);
-            YINI::Resolver resolver(ast, ymeta_manager);
-            auto resolved_config = resolver.resolve();
-            YINI::Validator validator(resolved_config, ast);
-            validator.validate();
-            ymeta_manager.save(path);
-            std::cout << "Validation completed successfully." << std::endl;
-        }
+        YINI::YmetaManager ymeta_manager;
+        ymeta_manager.load(path);
+        YINI::Resolver resolver(ast, ymeta_manager);
+        auto resolved_config = resolver.resolve();
+        YINI::Validator validator(resolved_config, ast);
+        validator.validate();
+        ymeta_manager.save(path);
+        std::cout << "Validation completed successfully." << std::endl;
     } catch (const std::runtime_error& e) {
         std::cerr << "Error: " << e.what() << std::endl;
     }
@@ -527,14 +409,12 @@ static void run_prompt() {
                 auto tokens = lexer.scan_tokens();
                 YINI::Parser parser(tokens);
                 auto ast = parser.parse();
-                if (!ast.empty()) {
-                    YINI::Resolver resolver(ast, ymeta_manager);
-                    auto temp_config = resolver.resolve();
-                    // We don't merge this into the main context, just validate it.
-                    YINI::Validator validator(temp_config, ast);
-                    validator.validate();
-                    std::cout << "Snippet validated successfully." << std::endl;
-                }
+                YINI::Resolver resolver(ast, ymeta_manager);
+                auto temp_config = resolver.resolve();
+                // We don't merge this into the main context, just validate it.
+                YINI::Validator validator(temp_config, ast);
+                validator.validate();
+                std::cout << "Snippet validated successfully." << std::endl;
             } catch (const std::runtime_error& e) {
                 std::cerr << "Error: " << e.what() << std::endl;
             }
@@ -559,15 +439,13 @@ static void run_file(const char* path, std::map<std::string, std::any>& config_c
     YINI::Parser parser(tokens);
     try {
         auto ast = parser.parse();
-        if (!ast.empty()) {
-            ymeta_manager.load(path);
-            YINI::Resolver resolver(ast, ymeta_manager);
-            config_context = resolver.resolve(); // Load into the provided context
-            YINI::Validator validator(config_context, ast);
-            validator.validate();
-            ymeta_manager.save(path);
-            std::cout << "File '" << path << "' loaded and validated." << std::endl;
-        }
+        ymeta_manager.load(path);
+        YINI::Resolver resolver(ast, ymeta_manager);
+        config_context = resolver.resolve(); // Load into the provided context
+        YINI::Validator validator(config_context, ast);
+        validator.validate();
+        ymeta_manager.save(path);
+        std::cout << "File '" << path << "' loaded and validated." << std::endl;
     } catch (const std::runtime_error& e) {
         std::cerr << "Error: " << e.what() << std::endl;
     }

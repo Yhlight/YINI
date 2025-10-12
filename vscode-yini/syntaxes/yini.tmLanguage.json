@@ -31,16 +31,19 @@
                     "match": "#(define|include|schema)"
                 },
                 {
-"name": "entity.name.type.class.yini",
+                    "name": "entity.name.section.yini",
                     "match": "\\b[a-zA-Z_][a-zA-Z0-9_]*\\b"
                 },
                 {
-                    "name": "keyword.operator.inheritance.yini",
-                    "match": ":"
-                },
-                {
-                    "name": "entity.other.inherited-class.yini",
-                    "match": "\\b[a-zA-Z_][a-zA-Z0-9_]*\\b"
+                    "begin": ":",
+                    "end": "(?=\\])",
+                    "name": "meta.inheritance.yini",
+                    "patterns": [
+                        {
+                            "name": "entity.other.inherited-class.yini",
+                            "match": "\\b[a-zA-Z_][a-zA-Z0-9_]*\\b"
+                        }
+                    ]
                 }
             ]
         },
