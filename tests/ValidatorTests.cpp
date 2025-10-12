@@ -38,6 +38,23 @@ TEST(ValidatorTests, AppliesDefaultValueForMissingKey)
     EXPECT_EQ(std::get<int64_t>(config["MyConfig.my_key"]), 42);
 }
 
+TEST(ValidatorTests, AppliesHexDefaultValueForMissingKey)
+{
+    std::string source = "[#schema]\n[MyConfig]\nmy_key = !, int, =0xFF\n\n[MyConfig]\n";
+    YINI::Lexer lexer(source);
+    auto tokens = lexer.scan_tokens();
+    YINI::Parser parser(tokens);
+    auto ast = parser.parse();
+    YINI::YmetaManager ymeta_manager;
+    YINI::Resolver resolver(ast, ymeta_manager);
+    auto config = resolver.resolve();
+    YINI::Validator validator(config, ast);
+
+    EXPECT_NO_THROW(validator.validate());
+    ASSERT_EQ(config.count("MyConfig.my_key"), 1);
+    EXPECT_EQ(std::get<int64_t>(config["MyConfig.my_key"]), 255);
+}
+
 
 TEST(ValidatorTests, ThrowsOnTypeMismatch)
 {
@@ -87,6 +104,90 @@ TEST(ValidatorTests, ThrowsOnMaxRangeViolation)
 TEST(ValidatorTests, PassesWithCorrectValue)
 {
     std::string source = "[#schema]\n[MyConfig]\nmy_key = !, int, min=10, max=20\n\n[MyConfig]\nmy_key = 15";
+    YINI::Lexer lexer(source);
+    auto tokens = lexer.scan_tokens();
+    YINI::Parser parser(tokens);
+    auto ast = parser.parse();
+    YINI::YmetaManager ymeta_manager;
+    YINI::Resolver resolver(ast, ymeta_manager);
+    auto config = resolver.resolve();
+    YINI::Validator validator(config, ast);
+
+    EXPECT_NO_THROW(validator.validate());
+}
+
+TEST(ValidatorTests, ThrowsOnNestedArraySubtypeMismatch)
+{
+    std::string source = R"([#schema]
+[MyConfig]
+my_nested_array = !, array[array[int]]
+
+[MyConfig]
+my_nested_array = [[1, 2], [3, "four"]]
+)";
+    YINI::Lexer lexer(source);
+    auto tokens = lexer.scan_tokens();
+    YINI::Parser parser(tokens);
+    auto ast = parser.parse();
+    YINI::YmetaManager ymeta_manager;
+    YINI::Resolver resolver(ast, ymeta_manager);
+    auto config = resolver.resolve();
+    YINI::Validator validator(config, ast);
+
+    EXPECT_THROW(validator.validate(), std::runtime_error);
+}
+
+TEST(ValidatorTests, PassesWithCorrectNestedArraySubtype)
+{
+    std::string source = R"([#schema]
+[MyConfig]
+my_nested_array = !, array[array[int]]
+
+[MyConfig]
+my_nested_array = [[1, 2], [3, 4]]
+)";
+    YINI::Lexer lexer(source);
+    auto tokens = lexer.scan_tokens();
+    YINI::Parser parser(tokens);
+    auto ast = parser.parse();
+    YINI::YmetaManager ymeta_manager;
+    YINI::Resolver resolver(ast, ymeta_manager);
+    auto config = resolver.resolve();
+    YINI::Validator validator(config, ast);
+
+    EXPECT_NO_THROW(validator.validate());
+}
+
+TEST(ValidatorTests, ThrowsOnArraySubtypeMismatch)
+{
+    std::string source = R"([#schema]
+[MyConfig]
+my_array = !, array[int]
+
+[MyConfig]
+my_array = [1, 2, "three"]
+)";
+    YINI::Lexer lexer(source);
+    auto tokens = lexer.scan_tokens();
+    YINI::Parser parser(tokens);
+    auto ast = parser.parse();
+    YINI::YmetaManager ymeta_manager;
+    YINI::Resolver resolver(ast, ymeta_manager);
+    auto config = resolver.resolve();
+    YINI::Validator validator(config, ast);
+
+    EXPECT_THROW(validator.validate(), std::runtime_error);
+}
+
+TEST(ValidatorTests, PassesWithCorrectArraySubtype)
+{
+    std::string source = R"([#schema]
+[MyConfig]
+my_array = !, array[int]
+
+[MyConfig]
+my_array = [1, 2, 3]
+)";
     YINI::Lexer lexer(source);
     auto tokens = lexer.scan_tokens();
     YINI::Parser parser(tokens);

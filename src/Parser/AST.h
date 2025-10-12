@@ -172,7 +172,8 @@ struct SchemaRule
     enum class EmptyBehavior { IGNORE, ASSIGN_DEFAULT, THROW_ERROR };
 
     Requirement requirement = Requirement::OPTIONAL;
-    std::string type; // e.g., "int", "string", "array[int]"
+    std::string type; // e.g., "int", "string", "array"
+    std::string array_subtype; // e.g., "int"
     std::optional<std::string> default_value;
     std::optional<double> min;
     std::optional<double> max;
