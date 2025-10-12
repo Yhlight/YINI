@@ -3,11 +3,27 @@
 #include <string>
 #include <algorithm>
 #include <iostream>
+#include <variant>
 
 namespace YINI
 {
 
-Validator::Validator(std::map<std::string, std::any>& resolved_config, const std::vector<std::unique_ptr<AST::Stmt>>& statements)
+namespace {
+    YiniVariant convert_string_to_variant(const std::string& value_str, const std::string& type) {
+        if (type == "int") {
+            return static_cast<int64_t>(std::stoll(value_str));
+        } else if (type == "float") {
+            return std::stod(value_str);
+        } else if (type == "bool") {
+            return value_str == "true";
+        } else if (type == "string") {
+            return value_str;
+        }
+        return std::monostate{};
+    }
+}
+
+Validator::Validator(std::map<std::string, YiniVariant>& resolved_config, const std::vector<std::unique_ptr<AST::Stmt>>& statements)
     : m_resolved_config(resolved_config), m_statements(statements)
 {
 }
@@ -38,57 +54,49 @@ void Validator::validate_section(const std::string& section_name, const AST::Sch
         // 1. Check for required keys
         if (rule.requirement == AST::SchemaRule::Requirement::REQUIRED && !key_exists)
         {
-            if (rule.empty_behavior == AST::SchemaRule::EmptyBehavior::ASSIGN_DEFAULT && rule.default_value)
+            if (rule.empty_behavior == AST::SchemaRule::EmptyBehavior::ASSIGN_DEFAULT && rule.default_value.has_value())
             {
-                // Apply default value
-                // This part needs to be improved to handle different types
-                m_resolved_config[full_key] = std::stod(*rule.default_value);
+                m_resolved_config[full_key] = convert_string_to_variant(rule.default_value.value(), rule.type);
             }
             else if (rule.empty_behavior == AST::SchemaRule::EmptyBehavior::THROW_ERROR)
             {
                 throw std::runtime_error("Missing required key '" + key + "' in section '" + section_name + "'.");
             }
-            // If IGNORE, do nothing.
         }
 
         if (key_exists)
         {
-            std::any& value = m_resolved_config.at(full_key);
+            YiniVariant& value = m_resolved_config.at(full_key);
 
-            std::cout << "Validating key '" << full_key << "'. Rule type: '" << rule.type << "'. Actual value type: '" << value.type().name() << "'" << std::endl;
-
-            // 2. Validate type
+            // 2. Validate type and range
             if (!rule.type.empty())
             {
-                bool is_numeric_rule = rule.type == "int" || rule.type == "float";
-                bool is_string_rule = rule.type == "string";
+                std::visit([&](auto&& arg) {
+                    using T = std::decay_t<decltype(arg)>;
+                    bool type_ok = false;
+                    if (rule.type == "string" && std::is_same_v<T, std::string>) type_ok = true;
+                    if (rule.type == "bool" && std::is_same_v<T, bool>) type_ok = true;
+                    if ((rule.type == "int" || rule.type == "float") && (std::is_same_v<T, int64_t> || std::is_same_v<T, double>))
+                    {
+                        type_ok = true;
+                        // 3. Validate range
+                        double numeric_value = 0.0;
+                        if constexpr (std::is_same_v<T, int64_t>) numeric_value = static_cast<double>(arg);
+                        if constexpr (std::is_same_v<T, double>) numeric_value = arg;
 
-                bool is_value_numeric = value.type() == typeid(double);
-                bool is_value_string = value.type() == typeid(std::string);
+                        if (rule.min && numeric_value < *rule.min) {
+                            throw std::runtime_error("Value for key '" + key + "' is below the minimum of " + std::to_string(*rule.min));
+                        }
+                        if (rule.max && numeric_value > *rule.max) {
+                            throw std::runtime_error("Value for key '" + key + "' is above the maximum of " + std::to_string(*rule.max));
+                        }
+                    }
+                    // TODO: Add validation for array types
 
-                if (is_string_rule && !is_value_string)
-                {
-                    throw std::runtime_error("Type mismatch for key '" + key + "'. Expected string.");
-                }
-
-                if (is_numeric_rule && !is_value_numeric)
-                {
-                    throw std::runtime_error("Type mismatch for key '" + key + "'. Expected number.");
-                }
-            }
-
-            // 3. Validate range
-            if (value.type() == typeid(double))
-            {
-                double numeric_value = std::any_cast<double>(value);
-                if (rule.min && numeric_value < *rule.min)
-                {
-                    throw std::runtime_error("Value for key '" + key + "' is below the minimum of " + std::to_string(*rule.min));
-                }
-                if (rule.max && numeric_value > *rule.max)
-                {
-                    throw std::runtime_error("Value for key '" + key + "' is above the maximum of " + std::to_string(*rule.max));
-                }
+                    if (!type_ok) {
+                        throw std::runtime_error("Type mismatch for key '" + key + "'. Expected " + rule.type);
+                    }
+                }, value);
             }
         }
     }

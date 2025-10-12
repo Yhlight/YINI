@@ -1,5 +1,5 @@
 #pragma once
-#include <any>
+#include "YiniTypes.h"
 
 namespace YINI
 {
@@ -41,22 +41,22 @@ public:
     virtual ~ASTVisitor() = default;
 
     // Visitor methods for expressions
-    virtual std::any visitLiteralExpr(LiteralExpr* expr) = 0;
-    virtual std::any visitBoolExpr(BoolExpr* expr) = 0;
-    virtual std::any visitArrayExpr(ArrayExpr* expr) = 0;
-    virtual std::any visitSetExpr(SetExpr* expr) = 0;
-    virtual std::any visitMapExpr(MapExpr* expr) = 0;
-    virtual std::any visitColorExpr(ColorExpr* expr) = 0;
-    virtual std::any visitCoordExpr(CoordExpr* expr) = 0;
-    virtual std::any visitBinaryExpr(BinaryExpr* expr) = 0;
-    virtual std::any visitUnaryExpr(UnaryExpr* expr) = 0;
-    virtual std::any visitGroupingExpr(GroupingExpr* expr) = 0;
-    virtual std::any visitMacroExpr(MacroExpr* expr) = 0;
-    virtual std::any visitCrossSectionRefExpr(CrossSectionRefExpr* expr) = 0;
-    virtual std::any visitEnvVarRefExpr(EnvVarRefExpr* expr) = 0;
-    virtual std::any visitDynaExpr(DynaExpr* expr) = 0;
-    virtual std::any visitPathExpr(PathExpr* expr) = 0;
-    virtual std::any visitListExpr(ListExpr* expr) = 0;
+    virtual YiniVariant visitLiteralExpr(LiteralExpr* expr) = 0;
+    virtual YiniVariant visitBoolExpr(BoolExpr* expr) = 0;
+    virtual YiniVariant visitArrayExpr(ArrayExpr* expr) = 0;
+    virtual YiniVariant visitSetExpr(SetExpr* expr) = 0;
+    virtual YiniVariant visitMapExpr(MapExpr* expr) = 0;
+    virtual YiniVariant visitColorExpr(ColorExpr* expr) = 0;
+    virtual YiniVariant visitCoordExpr(CoordExpr* expr) = 0;
+    virtual YiniVariant visitBinaryExpr(BinaryExpr* expr) = 0;
+    virtual YiniVariant visitUnaryExpr(UnaryExpr* expr) = 0;
+    virtual YiniVariant visitGroupingExpr(GroupingExpr* expr) = 0;
+    virtual YiniVariant visitMacroExpr(MacroExpr* expr) = 0;
+    virtual YiniVariant visitCrossSectionRefExpr(CrossSectionRefExpr* expr) = 0;
+    virtual YiniVariant visitEnvVarRefExpr(EnvVarRefExpr* expr) = 0;
+    virtual YiniVariant visitDynaExpr(DynaExpr* expr) = 0;
+    virtual YiniVariant visitPathExpr(PathExpr* expr) = 0;
+    virtual YiniVariant visitListExpr(ListExpr* expr) = 0;
 
     // Visitor methods for statements
     virtual void visitKeyValueStmt(KeyValueStmt* stmt) = 0;

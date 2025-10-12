@@ -27,7 +27,7 @@ void SemanticInfoVisitor::add_token(const Token& token, const std::string& type,
 }
 
 // Visitor methods for expressions
-std::any SemanticInfoVisitor::visitLiteralExpr(AST::LiteralExpr* expr)
+YiniVariant SemanticInfoVisitor::visitLiteralExpr(AST::LiteralExpr* expr)
 {
     if (expr->value.type == TokenType::STRING) {
         add_token(expr->value, "string");
@@ -37,13 +37,13 @@ std::any SemanticInfoVisitor::visitLiteralExpr(AST::LiteralExpr* expr)
     return {};
 }
 
-std::any SemanticInfoVisitor::visitBoolExpr(AST::BoolExpr* expr)
+YiniVariant SemanticInfoVisitor::visitBoolExpr(AST::BoolExpr* expr)
 {
     // This is a synthetic node, the token is handled by the parser
     return {};
 }
 
-std::any SemanticInfoVisitor::visitArrayExpr(AST::ArrayExpr* expr)
+YiniVariant SemanticInfoVisitor::visitArrayExpr(AST::ArrayExpr* expr)
 {
     for (auto& element : expr->elements) {
         element->accept(this);
@@ -51,7 +51,7 @@ std::any SemanticInfoVisitor::visitArrayExpr(AST::ArrayExpr* expr)
     return {};
 }
 
-std::any SemanticInfoVisitor::visitSetExpr(AST::SetExpr* expr)
+YiniVariant SemanticInfoVisitor::visitSetExpr(AST::SetExpr* expr)
 {
     for (auto& element : expr->elements) {
         element->accept(this);
@@ -59,7 +59,7 @@ std::any SemanticInfoVisitor::visitSetExpr(AST::SetExpr* expr)
     return {};
 }
 
-std::any SemanticInfoVisitor::visitMapExpr(AST::MapExpr* expr)
+YiniVariant SemanticInfoVisitor::visitMapExpr(AST::MapExpr* expr)
 {
     for (auto& element : expr->elements) {
         add_token(element.first, "property");
@@ -68,12 +68,12 @@ std::any SemanticInfoVisitor::visitMapExpr(AST::MapExpr* expr)
     return {};
 }
 
-std::any SemanticInfoVisitor::visitColorExpr(AST::ColorExpr* expr)
+YiniVariant SemanticInfoVisitor::visitColorExpr(AST::ColorExpr* expr)
 {
     return {};
 }
 
-std::any SemanticInfoVisitor::visitCoordExpr(AST::CoordExpr* expr)
+YiniVariant SemanticInfoVisitor::visitCoordExpr(AST::CoordExpr* expr)
 {
     expr->x->accept(this);
     expr->y->accept(this);
@@ -83,7 +83,7 @@ std::any SemanticInfoVisitor::visitCoordExpr(AST::CoordExpr* expr)
     return {};
 }
 
-std::any SemanticInfoVisitor::visitBinaryExpr(AST::BinaryExpr* expr)
+YiniVariant SemanticInfoVisitor::visitBinaryExpr(AST::BinaryExpr* expr)
 {
     expr->left->accept(this);
     add_token(expr->op, "operator");
@@ -91,50 +91,50 @@ std::any SemanticInfoVisitor::visitBinaryExpr(AST::BinaryExpr* expr)
     return {};
 }
 
-std::any SemanticInfoVisitor::visitUnaryExpr(AST::UnaryExpr* expr)
+YiniVariant SemanticInfoVisitor::visitUnaryExpr(AST::UnaryExpr* expr)
 {
     add_token(expr->op, "operator");
     expr->right->accept(this);
     return {};
 }
 
-std::any SemanticInfoVisitor::visitGroupingExpr(AST::GroupingExpr* expr)
+YiniVariant SemanticInfoVisitor::visitGroupingExpr(AST::GroupingExpr* expr)
 {
     expr->expression->accept(this);
     return {};
 }
 
-std::any SemanticInfoVisitor::visitMacroExpr(AST::MacroExpr* expr)
+YiniVariant SemanticInfoVisitor::visitMacroExpr(AST::MacroExpr* expr)
 {
     add_token(expr->name, "macro");
     return {};
 }
 
-std::any SemanticInfoVisitor::visitCrossSectionRefExpr(AST::CrossSectionRefExpr* expr)
+YiniVariant SemanticInfoVisitor::visitCrossSectionRefExpr(AST::CrossSectionRefExpr* expr)
 {
     add_token(expr->section, "namespace");
     add_token(expr->key, "property");
     return {};
 }
 
-std::any SemanticInfoVisitor::visitEnvVarRefExpr(AST::EnvVarRefExpr* expr)
+YiniVariant SemanticInfoVisitor::visitEnvVarRefExpr(AST::EnvVarRefExpr* expr)
 {
     add_token(expr->name, "variable", "readonly");
     return {};
 }
 
-std::any SemanticInfoVisitor::visitDynaExpr(AST::DynaExpr* expr)
+YiniVariant SemanticInfoVisitor::visitDynaExpr(AST::DynaExpr* expr)
 {
     expr->expression->accept(this);
     return {};
 }
 
-std::any SemanticInfoVisitor::visitPathExpr(AST::PathExpr* expr)
+YiniVariant SemanticInfoVisitor::visitPathExpr(AST::PathExpr* expr)
 {
     return {};
 }
 
-std::any SemanticInfoVisitor::visitListExpr(AST::ListExpr* expr)
+YiniVariant SemanticInfoVisitor::visitListExpr(AST::ListExpr* expr)
 {
     for (auto& element : expr->elements) {
         element->accept(this);

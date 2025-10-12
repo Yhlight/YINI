@@ -23,7 +23,7 @@ TEST(ValidatorTests, ThrowsOnMissingRequiredKey)
 
 TEST(ValidatorTests, AppliesDefaultValueForMissingKey)
 {
-    std::string source = "[#schema]\n[MyConfig]\nmy_key = !, =42\n\n[MyConfig]\n";
+    std::string source = "[#schema]\n[MyConfig]\nmy_key = !, int, =42\n\n[MyConfig]\n";
     YINI::Lexer lexer(source);
     auto tokens = lexer.scan_tokens();
     YINI::Parser parser(tokens);
@@ -35,7 +35,7 @@ TEST(ValidatorTests, AppliesDefaultValueForMissingKey)
 
     EXPECT_NO_THROW(validator.validate());
     ASSERT_EQ(config.count("MyConfig.my_key"), 1);
-    EXPECT_EQ(std::any_cast<double>(config["MyConfig.my_key"]), 42.0);
+    EXPECT_EQ(std::get<int64_t>(config["MyConfig.my_key"]), 42);
 }
 
 

@@ -17,22 +17,22 @@ public:
     nlohmann::json get_info();
 
     // Visitor methods for expressions
-    std::any visitLiteralExpr(AST::LiteralExpr* expr) override;
-    std::any visitBoolExpr(AST::BoolExpr* expr) override;
-    std::any visitArrayExpr(AST::ArrayExpr* expr) override;
-    std::any visitSetExpr(AST::SetExpr* expr) override;
-    std::any visitMapExpr(AST::MapExpr* expr) override;
-    std::any visitColorExpr(AST::ColorExpr* expr) override;
-    std::any visitCoordExpr(AST::CoordExpr* expr) override;
-    std::any visitBinaryExpr(AST::BinaryExpr* expr) override;
-    std::any visitUnaryExpr(AST::UnaryExpr* expr) override;
-    std::any visitGroupingExpr(AST::GroupingExpr* expr) override;
-    std::any visitMacroExpr(AST::MacroExpr* expr) override;
-    std::any visitCrossSectionRefExpr(AST::CrossSectionRefExpr* expr) override;
-    std::any visitEnvVarRefExpr(AST::EnvVarRefExpr* expr) override;
-    std::any visitDynaExpr(AST::DynaExpr* expr) override;
-    std::any visitPathExpr(AST::PathExpr* expr) override;
-    std::any visitListExpr(AST::ListExpr* expr) override;
+    YiniVariant visitLiteralExpr(AST::LiteralExpr* expr) override;
+    YiniVariant visitBoolExpr(AST::BoolExpr* expr) override;
+    YiniVariant visitArrayExpr(AST::ArrayExpr* expr) override;
+    YiniVariant visitSetExpr(AST::SetExpr* expr) override;
+    YiniVariant visitMapExpr(AST::MapExpr* expr) override;
+    YiniVariant visitColorExpr(AST::ColorExpr* expr) override;
+    YiniVariant visitCoordExpr(AST::CoordExpr* expr) override;
+    YiniVariant visitBinaryExpr(AST::BinaryExpr* expr) override;
+    YiniVariant visitUnaryExpr(AST::UnaryExpr* expr) override;
+    YiniVariant visitGroupingExpr(AST::GroupingExpr* expr) override;
+    YiniVariant visitMacroExpr(AST::MacroExpr* expr) override;
+    YiniVariant visitCrossSectionRefExpr(AST::CrossSectionRefExpr* expr) override;
+    YiniVariant visitEnvVarRefExpr(AST::EnvVarRefExpr* expr) override;
+    YiniVariant visitDynaExpr(AST::DynaExpr* expr) override;
+    YiniVariant visitPathExpr(AST::PathExpr* expr) override;
+    YiniVariant visitListExpr(AST::ListExpr* expr) override;
 
     // Visitor methods for statements
     void visitKeyValueStmt(AST::KeyValueStmt* stmt) override;

@@ -4,6 +4,23 @@ using System.Collections.Generic;
 
 namespace Yini.Core
 {
+    /// <summary>
+    /// Represents the possible types of a YINI value.
+    /// This must be kept in sync with the C++ counterpart.
+    /// </summary>
+    public enum ValueType
+    {
+        Null,
+        Int,
+        Double,
+        Bool,
+        String,
+        ArrayInt,
+        ArrayDouble,
+        ArrayBool,
+        ArrayString
+    }
+
     internal static class NativeMethods
     {
         private const string LibName = "YiniInterop";
@@ -22,6 +39,9 @@ namespace Yini.Core
 
         [DllImport(LibName, EntryPoint = "yini_destroy", CallingConvention = CallingConvention.Cdecl)]
         public static extern void YiniDestroy(IntPtr handle);
+
+        [DllImport(LibName, EntryPoint = "yini_get_type", CallingConvention = CallingConvention.Cdecl)]
+        public static extern ValueType YiniGetType(IntPtr handle, string key);
 
         [DllImport(LibName, EntryPoint = "yini_get_int", CallingConvention = CallingConvention.Cdecl)]
         public static extern bool YiniGetInt(IntPtr handle, string key, out int outValue);
@@ -303,6 +323,107 @@ namespace Yini.Core
         }
 
         /// <summary>
+        /// Retrieves a value of a specified type for a given key.
+        /// </summary>
+        /// <typeparam name="T">The type of the value to retrieve. Supported types are int, double, bool, string, and their nullable and array counterparts.</typeparam>
+        /// <param name="key">The key of the value to retrieve (e.g., "Section.key").</param>
+        /// <returns>The value associated with the specified key, cast to the specified type. Returns the default value for the type (e.g., 0 for int, null for string) if the key is not found.</returns>
+        /// <exception cref="NotSupportedException">Thrown if the requested type <typeparamref name="T"/> is not supported.</exception>
+        public T? Get<T>(string key)
+        {
+            object? value = null;
+            Type targetType = typeof(T);
+
+            if (targetType == typeof(int) || targetType == typeof(int?))
+            {
+                value = GetInt(key);
+            }
+            else if (targetType == typeof(double) || targetType == typeof(double?))
+            {
+                value = GetDouble(key);
+            }
+            else if (targetType == typeof(bool) || targetType == typeof(bool?))
+            {
+                value = GetBool(key);
+            }
+            else if (targetType == typeof(string))
+            {
+                value = GetString(key);
+            }
+            else if (targetType == typeof(int?[]))
+            {
+                value = GetIntArray(key);
+            }
+            else if (targetType == typeof(double?[]))
+            {
+                value = GetDoubleArray(key);
+            }
+            else if (targetType == typeof(bool?[]))
+            {
+                value = GetBoolArray(key);
+            }
+            else if (targetType == typeof(string?[]))
+            {
+                value = GetStringArray(key);
+            }
+            else
+            {
+                throw new NotSupportedException($"The type {targetType.Name} is not supported by YiniConfig.Get<T>.");
+            }
+
+            if (value == null)
+            {
+                return default; // Returns null for nullable types, 0 for int, etc.
+            }
+
+            return (T)value;
+        }
+
+        /// <summary>
+        /// Retrieves an integer value for a specified key, or a default value if the key is not found.
+        /// </summary>
+        /// <param name="key">The key of the value to retrieve (e.g., "Section.key").</param>
+        /// <param name="defaultValue">The default value to return if the key is not found.</param>
+        /// <returns>The integer value associated with the specified key, or the default value.</returns>
+        public int GetIntOrDefault(string key, int defaultValue)
+        {
+            return GetInt(key) ?? defaultValue;
+        }
+
+        /// <summary>
+        /// Retrieves a double-precision floating-point number for a specified key, or a default value if the key is not found.
+        /// </summary>
+        /// <param name="key">The key of the value to retrieve (e.g., "Section.key").</param>
+        /// <param name="defaultValue">The default value to return if the key is not found.</param>
+        /// <returns>The double value associated with the specified key, or the default value.</returns>
+        public double GetDoubleOrDefault(string key, double defaultValue)
+        {
+            return GetDouble(key) ?? defaultValue;
+        }
+
+        /// <summary>
+        /// Retrieves a boolean value for a specified key, or a default value if the key is not found.
+        /// </summary>
+        /// <param name="key">The key of the value to retrieve (e.g., "Section.key").</param>
+        /// <param name="defaultValue">The default value to return if the key is not found.</param>
+        /// <returns>The boolean value associated with the specified key, or the default value.</returns>
+        public bool GetBoolOrDefault(string key, bool defaultValue)
+        {
+            return GetBool(key) ?? defaultValue;
+        }
+
+        /// <summary>
+        /// Retrieves a string value for a specified key, or a default value if the key is not found.
+        /// </summary>
+        /// <param name="key">The key of the value to retrieve (e.g., "Section.key").</param>
+        /// <param name="defaultValue">The default value to return if the key is not found.</param>
+        /// <returns>The string value associated with the specified key, or the default value.</returns>
+        public string GetStringOrDefault(string key, string defaultValue)
+        {
+            return GetString(key) ?? defaultValue;
+        }
+
+        /// <summary>
         /// Releases all resources used by the <see cref="YiniConfig"/> object.
         /// </summary>
         public void Dispose()
@@ -334,6 +455,41 @@ namespace Yini.Core
         ~YiniConfig()
         {
             Dispose(false);
+        }
+
+        /// <summary>
+        /// Gets the value associated with the specified key as a raw object.
+        /// </summary>
+        /// <param name="key">The key of the value to get.</param>
+        /// <returns>The value associated with the key, or null if the key is not found.</returns>
+        public object? this[string key]
+        {
+            get
+            {
+                ValueType type = NativeMethods.YiniGetType(m_handle, key);
+                switch (type)
+                {
+                    case ValueType.Int:
+                        return GetInt(key);
+                    case ValueType.Double:
+                        return GetDouble(key);
+                    case ValueType.Bool:
+                        return GetBool(key);
+                    case ValueType.String:
+                        return GetString(key);
+                    case ValueType.ArrayInt:
+                        return GetIntArray(key);
+                    case ValueType.ArrayDouble:
+                        return GetDoubleArray(key);
+                    case ValueType.ArrayBool:
+                        return GetBoolArray(key);
+                    case ValueType.ArrayString:
+                        return GetStringArray(key);
+                    case ValueType.Null:
+                    default:
+                        return null;
+                }
+            }
         }
     }
 }

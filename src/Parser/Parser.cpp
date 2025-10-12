@@ -303,140 +303,161 @@ std::unique_ptr<AST::Expr> Parser::unary()
 
 std::unique_ptr<AST::Expr> Parser::primary()
 {
-    if (match({TokenType::TRUE})) {
-        auto bool_expr = std::make_unique<AST::BoolExpr>();
-        bool_expr->value = true;
-        return bool_expr;
-    }
-
-    if (match({TokenType::FALSE})) {
-        auto bool_expr = std::make_unique<AST::BoolExpr>();
-        bool_expr->value = false;
-        return bool_expr;
-    }
-
-    if (match({TokenType::STRING, TokenType::NUMBER}))
+    switch (peek().type)
     {
-        auto literal = std::make_unique<AST::LiteralExpr>();
-        literal->value = previous();
-        return literal;
-    }
-
-    if (match({TokenType::HEX_COLOR})) {
-        auto color_expr = std::make_unique<AST::ColorExpr>();
-        std::string hex_str = previous().lexeme.substr(1); // remove '#'
-        if (hex_str.length() != 6) {
-            Token error_token = previous();
-            std::string error_message = "Error at line " + std::to_string(error_token.line) +
-                                        ", column " + std::to_string(error_token.column) +
-                                        ": Invalid hex color format. Must be 6 hex digits.";
-            throw std::runtime_error(error_message);
+        case TokenType::TRUE:
+        {
+            advance();
+            auto bool_expr = std::make_unique<AST::BoolExpr>();
+            bool_expr->value = true;
+            return bool_expr;
         }
-        try {
-            unsigned long value = std::stoul(hex_str, nullptr, 16);
-            color_expr->r = (value >> 16) & 0xFF;
-            color_expr->g = (value >> 8) & 0xFF;
-            color_expr->b = value & 0xFF;
-        } catch (const std::invalid_argument& e) {
-            Token error_token = previous();
-            std::string error_message = "Error at line " + std::to_string(error_token.line) +
-                                        ", column " + std::to_string(error_token.column) +
-                                        ": Invalid hex color value.";
-            throw std::runtime_error(error_message);
-        } catch (const std::out_of_range& e) {
-            Token error_token = previous();
-            std::string error_message = "Error at line " + std::to_string(error_token.line) +
-                                        ", column " + std::to_string(error_token.column) +
-                                        ": Hex color value out of range.";
-            throw std::runtime_error(error_message);
+        case TokenType::FALSE:
+        {
+            advance();
+            auto bool_expr = std::make_unique<AST::BoolExpr>();
+            bool_expr->value = false;
+            return bool_expr;
         }
-        return color_expr;
-    }
-
-    if (match({TokenType::LEFT_BRACKET})) {
-        return array();
-    }
-
-    if (match({TokenType::LEFT_PAREN})) {
-        auto expr = expression();
-        if (match({TokenType::COMMA})) {
-            auto set_expr = std::make_unique<AST::SetExpr>();
-            set_expr->elements.push_back(std::move(expr));
-            if (!check(TokenType::RIGHT_PAREN)) {
-                do {
-                    set_expr->elements.push_back(expression());
-                } while (match({TokenType::COMMA}));
+        case TokenType::STRING:
+        case TokenType::NUMBER:
+        {
+            advance();
+            auto literal = std::make_unique<AST::LiteralExpr>();
+            literal->value = previous();
+            return literal;
+        }
+        case TokenType::HEX_COLOR:
+        {
+            advance();
+            auto color_expr = std::make_unique<AST::ColorExpr>();
+            std::string hex_str = previous().lexeme.substr(1); // remove '#'
+            if (hex_str.length() != 6) {
+                Token error_token = previous();
+                std::string error_message = "Error at line " + std::to_string(error_token.line) +
+                                            ", column " + std::to_string(error_token.column) +
+                                            ": Invalid hex color format. Must be 6 hex digits.";
+                throw std::runtime_error(error_message);
             }
-            consume(TokenType::RIGHT_PAREN, "Expect ')' after set elements.");
-            return set_expr;
-        } else {
-            consume(TokenType::RIGHT_PAREN, "Expect ')' after expression.");
-            auto grouping_expr = std::make_unique<AST::GroupingExpr>();
-            grouping_expr->expression = std::move(expr);
-            return grouping_expr;
+            try {
+                unsigned long value = std::stoul(hex_str, nullptr, 16);
+                color_expr->r = (value >> 16) & 0xFF;
+                color_expr->g = (value >> 8) & 0xFF;
+                color_expr->b = value & 0xFF;
+            } catch (const std::invalid_argument& e) {
+                Token error_token = previous();
+                std::string error_message = "Error at line " + std::to_string(error_token.line) +
+                                            ", column " + std::to_string(error_token.column) +
+                                            ": Invalid hex color value.";
+                throw std::runtime_error(error_message);
+            } catch (const std::out_of_range& e) {
+                Token error_token = previous();
+                std::string error_message = "Error at line " + std::to_string(error_token.line) +
+                                            ", column " + std::to_string(error_token.column) +
+                                            ": Hex color value out of range.";
+                throw std::runtime_error(error_message);
+            }
+            return color_expr;
         }
-    }
-
-    if (match({TokenType::LEFT_BRACE})) {
-        return map();
-    }
-
-    if (match({TokenType::DYNA})) {
-        return dyna();
-    }
-
-    if (match({TokenType::COLOR})) {
-        return color();
-    }
-
-    if (match({TokenType::COORD})) {
-        return coord();
-    }
-
-    if (match({TokenType::PATH})) {
-        return path();
-    }
-
-    if (match({TokenType::LIST})) {
-        return list();
-    }
-
-    if (match({TokenType::ARRAY})) {
-        return array_func();
-    }
-
-    if (match({TokenType::AT})) {
-        if (match({TokenType::LEFT_BRACE})) {
-            Token section = consume(TokenType::IDENTIFIER, "Expect section name for cross-reference.");
-            consume(TokenType::DOT, "Expect '.' between section and key.");
-            Token key = consume(TokenType::IDENTIFIER, "Expect key for cross-reference.");
-            consume(TokenType::RIGHT_BRACE, "Expect '}' to close cross-reference.");
-            auto ref = std::make_unique<AST::CrossSectionRefExpr>();
-            ref->section = section;
-            ref->key = key;
+        case TokenType::LEFT_BRACKET:
+        {
+            advance();
+            return array();
+        }
+        case TokenType::LEFT_PAREN:
+        {
+            advance();
+            auto expr = expression();
+            if (match({TokenType::COMMA})) {
+                auto set_expr = std::make_unique<AST::SetExpr>();
+                set_expr->elements.push_back(std::move(expr));
+                if (!check(TokenType::RIGHT_PAREN)) {
+                    do {
+                        set_expr->elements.push_back(expression());
+                    } while (match({TokenType::COMMA}));
+                }
+                consume(TokenType::RIGHT_PAREN, "Expect ')' after set elements.");
+                return set_expr;
+            } else {
+                consume(TokenType::RIGHT_PAREN, "Expect ')' after expression.");
+                auto grouping_expr = std::make_unique<AST::GroupingExpr>();
+                grouping_expr->expression = std::move(expr);
+                return grouping_expr;
+            }
+        }
+        case TokenType::LEFT_BRACE:
+        {
+            advance();
+            return map();
+        }
+        case TokenType::DYNA:
+        {
+            advance();
+            return dyna();
+        }
+        case TokenType::COLOR:
+        {
+            advance();
+            return color();
+        }
+        case TokenType::COORD:
+        {
+            advance();
+            return coord();
+        }
+        case TokenType::PATH:
+        {
+            advance();
+            return path();
+        }
+        case TokenType::LIST:
+        {
+            advance();
+            return list();
+        }
+        case TokenType::ARRAY:
+        {
+            advance();
+            return array_func();
+        }
+        case TokenType::AT:
+        {
+            advance();
+            if (match({TokenType::LEFT_BRACE})) {
+                Token section = consume(TokenType::IDENTIFIER, "Expect section name for cross-reference.");
+                consume(TokenType::DOT, "Expect '.' between section and key.");
+                Token key = consume(TokenType::IDENTIFIER, "Expect key for cross-reference.");
+                consume(TokenType::RIGHT_BRACE, "Expect '}' to close cross-reference.");
+                auto ref = std::make_unique<AST::CrossSectionRefExpr>();
+                ref->section = section;
+                ref->key = key;
+                return ref;
+            } else {
+                Token name = consume(TokenType::IDENTIFIER, "Expect macro name after '@'.");
+                auto macro = std::make_unique<AST::MacroExpr>();
+                macro->name = name;
+                return macro;
+            }
+        }
+        case TokenType::DOLLAR:
+        {
+            advance();
+            consume(TokenType::LEFT_BRACE, "Expect '{' after '$'.");
+            Token name = consume(TokenType::IDENTIFIER, "Expect environment variable name.");
+            consume(TokenType::RIGHT_BRACE, "Expect '}' to close environment variable reference.");
+            auto ref = std::make_unique<AST::EnvVarRefExpr>();
+            ref->name = name;
             return ref;
-        } else {
-            Token name = consume(TokenType::IDENTIFIER, "Expect macro name after '@'.");
-            auto macro = std::make_unique<AST::MacroExpr>();
-            macro->name = name;
-            return macro;
+        }
+        default:
+        {
+            Token error_token = peek();
+            std::string error_message = "Error at line " + std::to_string(error_token.line) +
+                                        ", column " + std::to_string(error_token.column) +
+                                        ": Expect expression.";
+            throw std::runtime_error(error_message);
         }
     }
-
-    if (match({TokenType::DOLLAR})) {
-        consume(TokenType::LEFT_BRACE, "Expect '{' after '$'.");
-        Token name = consume(TokenType::IDENTIFIER, "Expect environment variable name.");
-        consume(TokenType::RIGHT_BRACE, "Expect '}' to close environment variable reference.");
-        auto ref = std::make_unique<AST::EnvVarRefExpr>();
-        ref->name = name;
-        return ref;
-    }
-
-    Token error_token = peek();
-    std::string error_message = "Error at line " + std::to_string(error_token.line) +
-                                ", column " + std::to_string(error_token.column) +
-                                ": Expect expression.";
-    throw std::runtime_error(error_message);
 }
 
 std::unique_ptr<AST::Expr> Parser::array() {

@@ -233,47 +233,21 @@ private:
     std::string m_blob;
 };
 
+// Returns the ybin type for a given variant, specifically for arrays
+static YINI::Ybin::ValueType get_array_value_type(const YINI::YiniArray& arr) {
+    if (arr.empty()) return YINI::Ybin::ValueType::Null;
 
-// Helper to check if a double can be safely represented as an int64_t
-bool is_integer_value(double d, int64_t& out_int) {
-    if (std::fmod(d, 1.0) != 0.0) {
-        return false;
-    }
-    if (d < static_cast<double>(std::numeric_limits<int64_t>::min()) || d > static_cast<double>(std::numeric_limits<int64_t>::max())) {
-        return false;
-    }
-    out_int = static_cast<int64_t>(d);
-    return true;
-}
-
-
-static YINI::Ybin::ValueType get_array_value_type(const std::vector<std::any>& arr) {
-    if (arr.empty()) return YINI::Ybin::ValueType::Null; // Or a specific empty array type
-
-    const std::type_info& first_type = arr.front().type();
-
-    if (first_type == typeid(double)) {
-        // Check if all elements are integers
-        bool all_integers = true;
-        for(const auto& item : arr) {
-            int64_t dummy;
-            if (item.type() != typeid(double) || !is_integer_value(std::any_cast<double>(item), dummy)) {
-                all_integers = false;
-                break;
-            }
-        }
-        if (all_integers) return YINI::Ybin::ValueType::ArrayInt;
-        return YINI::Ybin::ValueType::ArrayDouble;
-    }
-
-    if (first_type == typeid(bool)) return YINI::Ybin::ValueType::ArrayBool;
-    if (first_type == typeid(std::string)) return YINI::Ybin::ValueType::ArrayString;
+    const auto& first_type = arr.front();
+    if (std::holds_alternative<int64_t>(first_type)) return YINI::Ybin::ValueType::ArrayInt;
+    if (std::holds_alternative<double>(first_type)) return YINI::Ybin::ValueType::ArrayDouble;
+    if (std::holds_alternative<bool>(first_type)) return YINI::Ybin::ValueType::ArrayBool;
+    if (std::holds_alternative<std::string>(first_type)) return YINI::Ybin::ValueType::ArrayString;
 
     return YINI::Ybin::ValueType::Null; // Unsupported array type
 }
 
 static void run_cook(const std::string& output_path, const std::vector<std::string>& input_paths) {
-    std::map<std::string, std::any> combined_config;
+    std::map<std::string, YINI::YiniVariant> combined_config;
 
     // 1. Parse and resolve all input files, merging them
     for (const auto& path : input_paths) {
@@ -290,83 +264,72 @@ static void run_cook(const std::string& output_path, const std::vector<std::stri
         YINI::Parser parser(tokens);
         auto ast = parser.parse();
 
-        // Use a dummy YmetaManager for cooking
         YINI::YmetaManager ymeta_manager;
         YINI::Resolver resolver(ast, ymeta_manager);
         auto resolved_config = resolver.resolve();
 
-        // Merge into the combined config
         combined_config.insert(resolved_config.begin(), resolved_config.end());
     }
 
     // 2. Build the data structures for the ybin file
     StringTableBuilder string_table;
-
     std::vector<char> data_table_buffer;
     YINI::Ybin::BufferWriter data_table(data_table_buffer);
-
     std::vector<YINI::Ybin::HashTableEntry> entries;
 
     for (const auto& pair : combined_config) {
         const std::string& key = pair.first;
-        const std::any& value = pair.second;
+        const YINI::YiniVariant& value = pair.second;
 
         YINI::Ybin::HashTableEntry entry;
         entry.key_hash = std::hash<std::string>{}(key);
         entry.key_offset = string_table.add(key);
-        entry.next_entry_index = 0xFFFFFFFF; // Sentinel for end of chain
+        entry.next_entry_index = 0xFFFFFFFF;
 
-        const auto& type = value.type();
-        int64_t int_val;
+        std::visit([&](auto&& arg) {
+            using T = std::decay_t<decltype(arg)>;
+            if constexpr (std::is_same_v<T, std::monostate>) {
+                entry.value_type = YINI::Ybin::ValueType::Null;
+                entry.value_offset = 0;
+            } else if constexpr (std::is_same_v<T, int64_t>) {
+                entry.value_type = YINI::Ybin::ValueType::Int64;
+                entry.value_offset = data_table.size();
+                data_table.write_u64_le(arg);
+            } else if constexpr (std::is_same_v<T, double>) {
+                entry.value_type = YINI::Ybin::ValueType::Double;
+                entry.value_offset = data_table.size();
+                data_table.write_double_le(arg);
+            } else if constexpr (std::is_same_v<T, bool>) {
+                entry.value_type = YINI::Ybin::ValueType::Bool;
+                entry.value_offset = arg ? 1 : 0;
+            } else if constexpr (std::is_same_v<T, std::string>) {
+                entry.value_type = YINI::Ybin::ValueType::String;
+                entry.value_offset = string_table.add(arg);
+            } else if constexpr (std::is_same_v<T, YINI::ResolvedColor>) {
+                entry.value_type = YINI::Ybin::ValueType::Color;
+                YINI::Ybin::ColorData cdata{arg.r, arg.g, arg.b};
+                entry.value_offset = data_table.size();
+                data_table.write(cdata);
+            } else if constexpr (std::is_same_v<T, std::unique_ptr<YINI::YiniArray>>) {
+                const auto& arr = *arg;
+                entry.value_type = get_array_value_type(arr);
+                entry.value_offset = data_table.size();
+                data_table.write_u32_le((uint32_t)arr.size());
 
-        if (type == typeid(double) && is_integer_value(std::any_cast<double>(value), int_val)) {
-            entry.value_type = YINI::Ybin::ValueType::Int64;
-            entry.value_offset = data_table.size();
-            data_table.write_u64_le(int_val);
-        } else if (type == typeid(double)) {
-            entry.value_type = YINI::Ybin::ValueType::Double;
-            entry.value_offset = data_table.size();
-            data_table.write_double_le(std::any_cast<double>(value));
-        } else if (type == typeid(bool)) {
-            entry.value_type = YINI::Ybin::ValueType::Bool;
-            // Store bool directly in offset
-            entry.value_offset = std::any_cast<bool>(value) ? 1 : 0;
-        } else if (type == typeid(std::string)) {
-            entry.value_type = YINI::Ybin::ValueType::String;
-            entry.value_offset = string_table.add(std::any_cast<std::string>(value));
-        } else if (type == typeid(YINI::ResolvedColor)) {
-            entry.value_type = YINI::Ybin::ValueType::Color;
-            auto c = std::any_cast<YINI::ResolvedColor>(value);
-            YINI::Ybin::ColorData cdata{c.r, c.g, c.b};
-            entry.value_offset = data_table.size();
-            data_table.write(cdata);
-        } else if (type == typeid(std::vector<std::any>)) {
-            const auto& arr = std::any_cast<std::vector<std::any>>(value);
-            entry.value_type = get_array_value_type(arr);
-
-            entry.value_offset = data_table.size();
-            data_table.write_u32_le((uint32_t)arr.size());
-
-            if (entry.value_type == YINI::Ybin::ValueType::ArrayInt) {
-                for(const auto& item : arr) {
-                     is_integer_value(std::any_cast<double>(item), int_val);
-                     data_table.write_u64_le(int_val);
+                if (entry.value_type == YINI::Ybin::ValueType::ArrayInt) {
+                    for(const auto& item : arr) data_table.write_u64_le(std::get<int64_t>(item));
+                } else if (entry.value_type == YINI::Ybin::ValueType::ArrayDouble) {
+                    for(const auto& item : arr) data_table.write_double_le(std::get<double>(item));
+                } else if (entry.value_type == YINI::Ybin::ValueType::ArrayBool) {
+                    for(const auto& item : arr) data_table.write(std::get<bool>(item));
+                } else if (entry.value_type == YINI::Ybin::ValueType::ArrayString) {
+                    for(const auto& item : arr) {
+                        uint32_t str_offset = string_table.add(std::get<std::string>(item));
+                        data_table.write_u32_le(str_offset);
+                    }
                 }
-            } else if (entry.value_type == YINI::Ybin::ValueType::ArrayDouble) {
-                 for(const auto& item : arr) data_table.write_double_le(std::any_cast<double>(item));
-            } else if (entry.value_type == YINI::Ybin::ValueType::ArrayBool) {
-                 for(const auto& item : arr) data_table.write(std::any_cast<bool>(item));
-            } else if (entry.value_type == YINI::Ybin::ValueType::ArrayString) {
-                 for(const auto& item : arr) {
-                    uint32_t str_offset = string_table.add(std::any_cast<std::string>(item));
-                    data_table.write_u32_le(str_offset);
-                 }
             }
-        }
-        else {
-            entry.value_type = YINI::Ybin::ValueType::Null;
-            entry.value_offset = 0;
-        }
+        }, value);
 
         if (entry.value_type != YINI::Ybin::ValueType::Null) {
             entries.push_back(entry);
@@ -381,11 +344,9 @@ static void run_cook(const std::string& output_path, const std::vector<std::stri
     for (uint32_t i = 0; i < entries.size(); ++i) {
         uint64_t key_hash_le = YINI::Utils::htole64(entries[i].key_hash);
         uint32_t bucket_index = key_hash_le % bucket_count;
-
         if (buckets[bucket_index] == 0xFFFFFFFF) {
             buckets[bucket_index] = YINI::Utils::htole32(i);
         } else {
-            // Prepend to the chain
             entries[i].next_entry_index = buckets[bucket_index];
             buckets[bucket_index] = YINI::Utils::htole32(i);
         }
@@ -421,7 +382,6 @@ static void run_cook(const std::string& output_path, const std::vector<std::stri
     header.string_table_uncompressed_size = YINI::Utils::htole32(uncompressed_strings.size());
     header.string_table_compressed_size = YINI::Utils::htole32(string_compressed_size);
 
-
     uint32_t current_offset = sizeof(YINI::Ybin::FileHeader);
     header.hash_table_offset = YINI::Utils::htole32(current_offset);
     current_offset += buckets.size() * sizeof(uint32_t);
@@ -434,12 +394,10 @@ static void run_cook(const std::string& output_path, const std::vector<std::stri
     out.write(reinterpret_cast<const char*>(&header), sizeof(header));
     out.write(reinterpret_cast<const char*>(buckets.data()), buckets.size() * sizeof(uint32_t));
 
-    // Write entries one by one after converting to little-endian
     for(auto& entry : entries) {
         entry.key_hash = YINI::Utils::htole64(entry.key_hash);
         entry.key_offset = YINI::Utils::htole32(entry.key_offset);
         entry.value_offset = YINI::Utils::htole32(entry.value_offset);
-        // next_entry_index is already LE from the bucket-building step
         out.write(reinterpret_cast<const char*>(&entry), sizeof(entry));
     }
 
@@ -480,12 +438,12 @@ static void run_file(const char* path) {
 }
 
 // Forward declaration for the new run_file overload
-static void run_file(const char* path, std::map<std::string, std::any>& config_context, YINI::YmetaManager& ymeta_manager);
+static void run_file(const char* path, std::map<std::string, YINI::YiniVariant>& config_context, YINI::YmetaManager& ymeta_manager);
 
 static void run_prompt() {
     std::string line;
     YINI::YmetaManager ymeta_manager;
-    std::map<std::string, std::any> config_context;
+    std::map<std::string, YINI::YiniVariant> config_context;
 
     for (;;) {
         std::cout << "> ";
@@ -503,20 +461,19 @@ static void run_prompt() {
         } else if (line.rfind(".get ", 0) == 0) {
             std::string key = line.substr(5);
             if (config_context.count(key)) {
-                // This is a simplified output. A real implementation would handle different types.
-                try {
-                    if (config_context[key].type() == typeid(double)) {
-                        std::cout << std::any_cast<double>(config_context[key]) << std::endl;
-                    } else if (config_context[key].type() == typeid(std::string)) {
-                        std::cout << std::any_cast<std::string>(config_context[key]) << std::endl;
-                    } else if (config_context[key].type() == typeid(bool)) {
-                        std::cout << (std::any_cast<bool>(config_context[key]) ? "true" : "false") << std::endl;
+                std::visit([](auto&& arg) {
+                    using T = std::decay_t<decltype(arg)>;
+                    if constexpr (std::is_same_v<T, std::monostate>) {
+                        std::cout << "null";
+                    } else if constexpr (std::is_same_v<T, bool>) {
+                        std::cout << (arg ? "true" : "false");
+                    } else if constexpr (std::is_same_v<T, std::unique_ptr<YINI::YiniArray>>) {
+                        std::cout << "[array]";
                     } else {
-                         std::cout << "[complex type]" << std::endl;
+                        std::cout << arg;
                     }
-                } catch (const std::bad_any_cast& e) {
-                     std::cerr << "Error: Could not cast value." << std::endl;
-                }
+                }, config_context[key]);
+                std::cout << std::endl;
             } else {
                 std::cout << "null" << std::endl;
             }
@@ -532,7 +489,6 @@ static void run_prompt() {
                 auto ast = parser.parse();
                 YINI::Resolver resolver(ast, ymeta_manager);
                 auto temp_config = resolver.resolve();
-                // We don't merge this into the main context, just validate it.
                 YINI::Validator validator(temp_config, ast);
                 validator.validate();
                 std::cout << "Snippet validated successfully." << std::endl;
@@ -544,7 +500,7 @@ static void run_prompt() {
 }
 
 // Overload run_file to work with an existing context for the REPL
-static void run_file(const char* path, std::map<std::string, std::any>& config_context, YINI::YmetaManager& ymeta_manager) {
+static void run_file(const char* path, std::map<std::string, YINI::YiniVariant>& config_context, YINI::YmetaManager& ymeta_manager) {
     std::ifstream file(path);
     if (!file.is_open()) {
         std::cerr << "Error: Could not open file '" << path << "'" << std::endl;

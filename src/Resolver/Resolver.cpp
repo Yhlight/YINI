@@ -10,12 +10,37 @@
 namespace YINI
 {
 
+// Helper function to convert YiniVariant to std::any for YmetaManager
+static std::any to_any(const YiniVariant& variant) {
+    if (std::holds_alternative<std::monostate>(variant)) {
+        return {};
+    } else if (std::holds_alternative<int64_t>(variant)) {
+        return static_cast<double>(std::get<int64_t>(variant)); // Store as double for consistency
+    } else if (std::holds_alternative<double>(variant)) {
+        return std::get<double>(variant);
+    } else if (std::holds_alternative<bool>(variant)) {
+        return std::get<bool>(variant);
+    } else if (std::holds_alternative<std::string>(variant)) {
+        return std::get<std::string>(variant);
+    } else if (std::holds_alternative<std::unique_ptr<YiniArray>>(variant)) {
+        std::vector<std::any> vec;
+        const auto& arr = *std::get<std::unique_ptr<YiniArray>>(variant);
+        for(const auto& item : arr) {
+            vec.push_back(to_any(item));
+        }
+        return vec;
+    }
+    // Ignoring Color and Coord for Ymeta for now
+    return {};
+}
+
+
 Resolver::Resolver(const std::vector<std::unique_ptr<AST::Stmt>>& statements, YmetaManager& ymeta_manager)
     : m_statements(statements), m_ymeta_manager(ymeta_manager)
 {
 }
 
-std::map<std::string, std::any> Resolver::resolve()
+std::map<std::string, YiniVariant> Resolver::resolve()
 {
     // First pass: collect all section definitions and macros from the root and included files.
     collect_declarations(m_statements);
@@ -34,7 +59,7 @@ std::map<std::string, std::any> Resolver::resolve()
         for (const auto& value_pair : section_data)
         {
             const std::string& key = value_pair.first;
-            const std::any& value = value_pair.second;
+            const YiniVariant& value = value_pair.second;
             m_resolved_config[section_name + "." + key] = value;
         }
     }
@@ -77,7 +102,7 @@ void Resolver::collect_declarations(const std::vector<std::unique_ptr<AST::Stmt>
     }
 }
 
-std::map<std::string, std::any> Resolver::resolve_section(const std::string& section_name)
+std::map<std::string, YiniVariant> Resolver::resolve_section(const std::string& section_name)
 {
     // If already resolved, return the cached data.
     if (m_resolved_sections_data.count(section_name))
@@ -100,7 +125,7 @@ std::map<std::string, std::any> Resolver::resolve_section(const std::string& sec
 
     m_current_section_name = section_name; // Set context for DynaExpr
     AST::SectionStmt* section_stmt = m_section_nodes[section_name];
-    std::map<std::string, std::any> section_data;
+    std::map<std::string, YiniVariant> section_data;
 
     // Resolve and merge parent sections first.
     for (const auto& parent_token : section_stmt->parent_sections)
@@ -140,12 +165,12 @@ void Resolver::visitIncludeStmt(AST::IncludeStmt* stmt, bool collection_mode)
 {
     for (const auto& path_expr : stmt->paths)
     {
-        std::any path_any = path_expr->accept(this);
-        if (path_any.type() != typeid(std::string))
+        YiniVariant path_variant = path_expr->accept(this);
+        if (!std::holds_alternative<std::string>(path_variant))
         {
             throw std::runtime_error("Include path must be a string.");
         }
-        std::string path = std::any_cast<std::string>(path_any);
+        std::string path = std::get<std::string>(path_variant);
 
         std::ifstream file(path);
         if (!file.is_open())
@@ -166,14 +191,12 @@ void Resolver::visitIncludeStmt(AST::IncludeStmt* stmt, bool collection_mode)
             collect_declarations(included_ast);
             m_included_asts.push_back(std::move(included_ast));
         }
-        // else: includes are fully processed during the collection pass,
-        // so there's nothing to do during the resolution pass.
     }
 }
 
 void Resolver::visitKeyValueStmt(AST::KeyValueStmt* stmt)
 {
-    if (!m_current_section_data) return; // Should not happen during the resolution pass.
+    if (!m_current_section_data) return;
 
     std::string key = stmt->key.lexeme;
     std::string full_key = m_current_section_name + "." + key;
@@ -182,12 +205,20 @@ void Resolver::visitKeyValueStmt(AST::KeyValueStmt* stmt)
     {
         if (m_ymeta_manager.has_value(full_key))
         {
-            (*m_current_section_data)[key] = m_ymeta_manager.get_value(full_key);
+            // YmetaManager returns std::any, we need to convert it to YiniVariant
+            std::any val = m_ymeta_manager.get_value(full_key);
+            if(val.type() == typeid(double)) {
+                 (*m_current_section_data)[key] = std::any_cast<double>(val);
+            } else if (val.type() == typeid(bool)) {
+                 (*m_current_section_data)[key] = std::any_cast<bool>(val);
+            } else if (val.type() == typeid(std::string)) {
+                 (*m_current_section_data)[key] = std::any_cast<std::string>(val);
+            }
         }
         else
         {
-            std::any value = dyna_expr->expression->accept(this);
-            m_ymeta_manager.set_value(full_key, value);
+            YiniVariant value = dyna_expr->expression->accept(this);
+            m_ymeta_manager.set_value(full_key, to_any(value));
             (*m_current_section_data)[key] = value;
         }
     }
@@ -220,22 +251,11 @@ void Resolver::visitQuickRegStmt(AST::QuickRegStmt* stmt)
     (*m_current_section_data)[key] = stmt->value->accept(this);
 }
 
-void Resolver::visitSchemaRuleStmt(AST::SchemaRuleStmt* stmt)
-{
-    // The resolver does not handle schema validation.
-}
+void Resolver::visitSchemaRuleStmt(AST::SchemaRuleStmt* stmt) {}
+void Resolver::visitSchemaSectionStmt(AST::SchemaSectionStmt* stmt) {}
+void Resolver::visitSchemaStmt(AST::SchemaStmt* stmt) {}
 
-void Resolver::visitSchemaSectionStmt(AST::SchemaSectionStmt* stmt)
-{
-    // The resolver does not handle schema validation.
-}
-
-void Resolver::visitSchemaStmt(AST::SchemaStmt* stmt)
-{
-    // The resolver does not handle schema validation.
-}
-
-std::any Resolver::visitLiteralExpr(AST::LiteralExpr* expr)
+YiniVariant Resolver::visitLiteralExpr(AST::LiteralExpr* expr)
 {
     if (std::holds_alternative<std::string>(expr->value.literal))
     {
@@ -243,47 +263,50 @@ std::any Resolver::visitLiteralExpr(AST::LiteralExpr* expr)
     }
     else if (std::holds_alternative<double>(expr->value.literal))
     {
-        return std::get<double>(expr->value.literal);
+        // Try to store as int64_t if it's a whole number
+        double val = std::get<double>(expr->value.literal);
+        if (std::fmod(val, 1.0) == 0.0) {
+            return static_cast<int64_t>(val);
+        }
+        return val;
     }
-    return {}; // Should not be reached
+    return std::monostate{};
 }
 
-std::any Resolver::visitBoolExpr(AST::BoolExpr* expr)
+YiniVariant Resolver::visitBoolExpr(AST::BoolExpr* expr)
 {
     return expr->value;
 }
 
-std::any Resolver::visitArrayExpr(AST::ArrayExpr* expr)
+YiniVariant Resolver::visitArrayExpr(AST::ArrayExpr* expr)
 {
-    std::vector<std::any> elements;
+    auto arr = std::make_unique<YiniArray>();
     for (const auto& element : expr->elements)
     {
-        elements.push_back(element->accept(this));
+        arr->push_back(element->accept(this));
     }
-    return elements;
+    return arr;
 }
 
-std::any Resolver::visitSetExpr(AST::SetExpr* expr)
+YiniVariant Resolver::visitSetExpr(AST::SetExpr* expr)
 {
-    std::vector<std::any> elements;
+    // Semantically, we resolve sets to arrays for now
+    auto arr = std::make_unique<YiniArray>();
     for (const auto& element : expr->elements)
     {
-        elements.push_back(element->accept(this));
+        arr->push_back(element->accept(this));
     }
-    return elements;
+    return arr;
 }
 
-std::any Resolver::visitMapExpr(AST::MapExpr* expr)
+YiniVariant Resolver::visitMapExpr(AST::MapExpr* expr)
 {
-    std::map<std::string, std::any> elements;
-    for (const auto& element : expr->elements)
-    {
-        elements[element.first.lexeme] = element.second->accept(this);
-    }
-    return elements;
+    // Maps are not a direct value type in the variant, this is a syntax error
+    // or should be handled differently. For now, return null.
+    return std::monostate{};
 }
 
-std::any Resolver::visitColorExpr(AST::ColorExpr* expr)
+YiniVariant Resolver::visitColorExpr(AST::ColorExpr* expr)
 {
     ResolvedColor color;
     color.r = expr->r;
@@ -292,19 +315,28 @@ std::any Resolver::visitColorExpr(AST::ColorExpr* expr)
     return color;
 }
 
-std::any Resolver::visitCoordExpr(AST::CoordExpr* expr)
+YiniVariant Resolver::visitCoordExpr(AST::CoordExpr* expr)
 {
     ResolvedCoord coord;
-    coord.x = expr->x->accept(this);
-    coord.y = expr->y->accept(this);
+    YiniVariant x = expr->x->accept(this);
+    YiniVariant y = expr->y->accept(this);
+
+    if (std::holds_alternative<double>(x)) coord.x = std::get<double>(x);
+    if (std::holds_alternative<int64_t>(x)) coord.x = std::get<int64_t>(x);
+    if (std::holds_alternative<double>(y)) coord.y = std::get<double>(y);
+    if (std::holds_alternative<int64_t>(y)) coord.y = std::get<int64_t>(y);
+
     if (expr->z)
     {
-        coord.z = expr->z->accept(this);
+        coord.has_z = true;
+        YiniVariant z = expr->z->accept(this);
+        if (std::holds_alternative<double>(z)) coord.z = std::get<double>(z);
+        if (std::holds_alternative<int64_t>(z)) coord.z = std::get<int64_t>(z);
     }
     return coord;
 }
 
-std::any Resolver::visitMacroExpr(AST::MacroExpr* expr)
+YiniVariant Resolver::visitMacroExpr(AST::MacroExpr* expr)
 {
     if (m_macros.find(expr->name.lexeme) == m_macros.end())
     {
@@ -313,110 +345,95 @@ std::any Resolver::visitMacroExpr(AST::MacroExpr* expr)
     return m_macros[expr->name.lexeme]->accept(this);
 }
 
-std::any Resolver::visitBinaryExpr(AST::BinaryExpr* expr)
+YiniVariant Resolver::visitBinaryExpr(AST::BinaryExpr* expr)
 {
-    std::any left = expr->left->accept(this);
-    std::any right = expr->right->accept(this);
+    YiniVariant left = expr->left->accept(this);
+    YiniVariant right = expr->right->accept(this);
 
-    if (left.type() == typeid(double) && right.type() == typeid(double))
+    double left_val = 0.0;
+    if (std::holds_alternative<double>(left)) left_val = std::get<double>(left);
+    if (std::holds_alternative<int64_t>(left)) left_val = std::get<int64_t>(left);
+
+    double right_val = 0.0;
+    if (std::holds_alternative<double>(right)) right_val = std::get<double>(right);
+    if (std::holds_alternative<int64_t>(right)) right_val = std::get<int64_t>(right);
+
+    switch (expr->op.type)
     {
-        double left_val = std::any_cast<double>(left);
-        double right_val = std::any_cast<double>(right);
-
-        switch (expr->op.type)
-        {
-            case TokenType::PLUS: return left_val + right_val;
-            case TokenType::MINUS: return left_val - right_val;
-            case TokenType::STAR: return left_val * right_val;
-            case TokenType::SLASH:
-                if (right_val == 0) {
-                    throw std::runtime_error("Error at line " + std::to_string(expr->op.line) + ", column " + std::to_string(expr->op.column) + ": Division by zero.");
-                }
-                return left_val / right_val;
-            case TokenType::PERCENT:
-                if (right_val == 0) {
-                    throw std::runtime_error("Error at line " + std::to_string(expr->op.line) + ", column " + std::to_string(expr->op.column) + ": Division by zero.");
-                }
-                return fmod(left_val, right_val);
-            default: break;
-        }
+        case TokenType::PLUS: return left_val + right_val;
+        case TokenType::MINUS: return left_val - right_val;
+        case TokenType::STAR: return left_val * right_val;
+        case TokenType::SLASH:
+            if (right_val == 0) throw std::runtime_error("Division by zero.");
+            return left_val / right_val;
+        case TokenType::PERCENT:
+            if (right_val == 0) throw std::runtime_error("Division by zero.");
+            return fmod(left_val, right_val);
+        default: break;
     }
 
-    throw std::runtime_error("Error at line " + std::to_string(expr->op.line) + ", column " + std::to_string(expr->op.column) + ": Operands must be numbers for arithmetic operations.");
+    throw std::runtime_error("Operands must be numbers for arithmetic operations.");
 }
 
-std::any Resolver::visitUnaryExpr(AST::UnaryExpr* expr)
+YiniVariant Resolver::visitUnaryExpr(AST::UnaryExpr* expr)
 {
-    std::any right = expr->right->accept(this);
+    YiniVariant right = expr->right->accept(this);
 
     if (expr->op.type == TokenType::MINUS)
     {
-        if (right.type() == typeid(double))
-        {
-            return -std::any_cast<double>(right);
-        }
-        else
-        {
-            throw std::runtime_error("Error at line " + std::to_string(expr->op.line) + ", column " + std::to_string(expr->op.column) + ": Operand must be a number for unary minus.");
-        }
+        if (std::holds_alternative<double>(right)) return -std::get<double>(right);
+        if (std::holds_alternative<int64_t>(right)) return -std::get<int64_t>(right);
+        else throw std::runtime_error("Operand must be a number for unary minus.");
     }
-
-    // Should not be reached for other unary operators if any are added later.
     return {};
 }
 
-std::any Resolver::visitGroupingExpr(AST::GroupingExpr* expr)
+YiniVariant Resolver::visitGroupingExpr(AST::GroupingExpr* expr)
 {
     return expr->expression->accept(this);
 }
 
-std::any Resolver::visitCrossSectionRefExpr(AST::CrossSectionRefExpr* expr)
+YiniVariant Resolver::visitCrossSectionRefExpr(AST::CrossSectionRefExpr* expr)
 {
     const std::string& section_name = expr->section.lexeme;
     const std::string& key = expr->key.lexeme;
 
-    // Resolve the referenced section if it hasn't been already.
     resolve_section(section_name);
 
     const auto& section_data = m_resolved_sections_data.at(section_name);
     if (section_data.find(key) == section_data.end())
     {
-        throw std::runtime_error("Error at line " + std::to_string(expr->key.line) + ", column " + std::to_string(expr->key.column) + ": Undefined key '" + key + "' in section '" + section_name + "'.");
+        throw std::runtime_error("Error: Undefined key '" + key + "' in section '" + section_name + "'.");
     }
     return section_data.at(key);
 }
 
-std::any Resolver::visitEnvVarRefExpr(AST::EnvVarRefExpr* expr)
+YiniVariant Resolver::visitEnvVarRefExpr(AST::EnvVarRefExpr* expr)
 {
     const char* value = std::getenv(expr->name.lexeme.c_str());
-    if (value == nullptr)
-    {
-        return std::string(""); // Return empty string if not found
-    }
+    if (value == nullptr) return std::string("");
     return std::string(value);
 }
 
-std::any Resolver::visitDynaExpr(AST::DynaExpr* expr)
+YiniVariant Resolver::visitDynaExpr(AST::DynaExpr* expr)
 {
-    // DynaExpr needs to know the fully resolved key to interact with YmetaManager.
-    // This logic is now implicitly handled by visitKeyValueStmt, as DynaExpr
-    // is just a wrapper. The value resolution happens there.
     return expr->expression->accept(this);
 }
 
-std::any Resolver::visitPathExpr(AST::PathExpr* expr)
+YiniVariant Resolver::visitPathExpr(AST::PathExpr* expr)
 {
     return expr->path;
 }
 
-std::any Resolver::visitListExpr(AST::ListExpr* expr)
+YiniVariant Resolver::visitListExpr(AST::ListExpr* expr)
 {
-    std::vector<std::any> elements;
+    // Semantically, we resolve lists to arrays
+    auto arr = std::make_unique<YiniArray>();
     for (const auto& element : expr->elements)
     {
-        elements.push_back(element->accept(this));
+        arr->push_back(element->accept(this));
     }
-    return elements;
+    return arr;
 }
 
 } // namespace YINI

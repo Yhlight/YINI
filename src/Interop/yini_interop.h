@@ -8,10 +8,25 @@
 
 extern "C" {
 
+    // Enum representing the possible types of a YINI value.
+    // This must be kept in sync with the C# counterpart.
+    enum ValueType {
+        YINI_TYPE_NULL,
+        YINI_TYPE_INT,
+        YINI_TYPE_DOUBLE,
+        YINI_TYPE_BOOL,
+        YINI_TYPE_STRING,
+        YINI_TYPE_ARRAY_INT,
+        YINI_TYPE_ARRAY_DOUBLE,
+        YINI_TYPE_ARRAY_BOOL,
+        YINI_TYPE_ARRAY_STRING
+    };
+
     YINI_API void* yini_create_from_file(const char* file_path);
     YINI_API const char* yini_get_last_error();
     YINI_API void yini_destroy(void* handle);
 
+    YINI_API ValueType yini_get_type(void* handle, const char* key);
     YINI_API bool yini_get_int(void* handle, const char* key, int* out_value);
     YINI_API bool yini_get_double(void* handle, const char* key, double* out_value);
     YINI_API bool yini_get_bool(void* handle, const char* key, bool* out_value);

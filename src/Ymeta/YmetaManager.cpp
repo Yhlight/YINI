@@ -59,10 +59,10 @@ namespace
             j["type"] = "coord";
             const auto& coord = std::any_cast<ResolvedCoord>(value);
             json& val_coord = j["value"];
-            val_coord["x"] = any_to_json(coord.x);
-            val_coord["y"] = any_to_json(coord.y);
-            if (coord.z.has_value()) {
-                val_coord["z"] = any_to_json(coord.z);
+            val_coord["x"] = coord.x;
+            val_coord["y"] = coord.y;
+            if (coord.has_z) {
+                val_coord["z"] = coord.z;
             }
         } else {
             j["type"] = "unsupported";
@@ -101,10 +101,11 @@ namespace
         }
         if (type == "coord") {
             ResolvedCoord coord;
-            coord.x = json_to_any(value.at("x"));
-            coord.y = json_to_any(value.at("y"));
+            coord.x = value.at("x").get<double>();
+            coord.y = value.at("y").get<double>();
             if (value.contains("z")) {
-                coord.z = json_to_any(value.at("z"));
+                coord.has_z = true;
+                coord.z = value.at("z").get<double>();
             }
             return coord;
         }

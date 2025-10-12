@@ -18,7 +18,7 @@ struct Node
 
 struct Expr : public Node
 {
-    virtual std::any accept(ASTVisitor* visitor) = 0;
+    virtual YiniVariant accept(ASTVisitor* visitor) = 0;
 };
 
 struct Stmt : public Node
@@ -29,43 +29,43 @@ struct Stmt : public Node
 struct LiteralExpr : public Expr
 {
     Token value;
-    std::any accept(ASTVisitor* visitor) override { return visitor->visitLiteralExpr(this); }
+    YiniVariant accept(ASTVisitor* visitor) override { return visitor->visitLiteralExpr(this); }
 };
 
 struct BoolExpr : public Expr
 {
     bool value;
-    std::any accept(ASTVisitor* visitor) override { return visitor->visitBoolExpr(this); }
+    YiniVariant accept(ASTVisitor* visitor) override { return visitor->visitBoolExpr(this); }
 };
 
 struct ArrayExpr : public Expr
 {
     std::vector<std::unique_ptr<Expr>> elements;
-    std::any accept(ASTVisitor* visitor) override { return visitor->visitArrayExpr(this); }
+    YiniVariant accept(ASTVisitor* visitor) override { return visitor->visitArrayExpr(this); }
 };
 
 struct SetExpr : public Expr
 {
     std::vector<std::unique_ptr<Expr>> elements;
-    std::any accept(ASTVisitor* visitor) override { return visitor->visitSetExpr(this); }
+    YiniVariant accept(ASTVisitor* visitor) override { return visitor->visitSetExpr(this); }
 };
 
 struct MapExpr : public Expr
 {
     std::vector<std::pair<Token, std::unique_ptr<Expr>>> elements;
-    std::any accept(ASTVisitor* visitor) override { return visitor->visitMapExpr(this); }
+    YiniVariant accept(ASTVisitor* visitor) override { return visitor->visitMapExpr(this); }
 };
 
 struct ColorExpr : public Expr
 {
     uint8_t r, g, b;
-    std::any accept(ASTVisitor* visitor) override { return visitor->visitColorExpr(this); }
+    YiniVariant accept(ASTVisitor* visitor) override { return visitor->visitColorExpr(this); }
 };
 
 struct CoordExpr : public Expr
 {
     std::unique_ptr<Expr> x, y, z;
-    std::any accept(ASTVisitor* visitor) override { return visitor->visitCoordExpr(this); }
+    YiniVariant accept(ASTVisitor* visitor) override { return visitor->visitCoordExpr(this); }
 };
 
 struct BinaryExpr : public Expr
@@ -73,20 +73,20 @@ struct BinaryExpr : public Expr
     std::unique_ptr<Expr> left;
     Token op;
     std::unique_ptr<Expr> right;
-    std::any accept(ASTVisitor* visitor) override { return visitor->visitBinaryExpr(this); }
+    YiniVariant accept(ASTVisitor* visitor) override { return visitor->visitBinaryExpr(this); }
 };
 
 struct UnaryExpr : public Expr
 {
     Token op;
     std::unique_ptr<Expr> right;
-    std::any accept(ASTVisitor* visitor) override { return visitor->visitUnaryExpr(this); }
+    YiniVariant accept(ASTVisitor* visitor) override { return visitor->visitUnaryExpr(this); }
 };
 
 struct GroupingExpr : public Expr
 {
     std::unique_ptr<Expr> expression;
-    std::any accept(ASTVisitor* visitor) override { return visitor->visitGroupingExpr(this); }
+    YiniVariant accept(ASTVisitor* visitor) override { return visitor->visitGroupingExpr(this); }
 };
 
 struct KeyValueStmt : public Stmt
@@ -119,38 +119,38 @@ struct IncludeStmt : public Stmt
 struct MacroExpr : public Expr
 {
     Token name;
-    std::any accept(ASTVisitor* visitor) override { return visitor->visitMacroExpr(this); }
+    YiniVariant accept(ASTVisitor* visitor) override { return visitor->visitMacroExpr(this); }
 };
 
 struct CrossSectionRefExpr : public Expr
 {
     Token section;
     Token key;
-    std::any accept(ASTVisitor* visitor) override { return visitor->visitCrossSectionRefExpr(this); }
+    YiniVariant accept(ASTVisitor* visitor) override { return visitor->visitCrossSectionRefExpr(this); }
 };
 
 struct EnvVarRefExpr : public Expr
 {
     Token name;
-    std::any accept(ASTVisitor* visitor) override { return visitor->visitEnvVarRefExpr(this); }
+    YiniVariant accept(ASTVisitor* visitor) override { return visitor->visitEnvVarRefExpr(this); }
 };
 
 struct DynaExpr : public Expr
 {
     std::unique_ptr<Expr> expression;
-    std::any accept(ASTVisitor* visitor) override { return visitor->visitDynaExpr(this); }
+    YiniVariant accept(ASTVisitor* visitor) override { return visitor->visitDynaExpr(this); }
 };
 
 struct PathExpr : public Expr
 {
     std::string path;
-    std::any accept(ASTVisitor* visitor) override { return visitor->visitPathExpr(this); }
+    YiniVariant accept(ASTVisitor* visitor) override { return visitor->visitPathExpr(this); }
 };
 
 struct ListExpr : public Expr
 {
     std::vector<std::unique_ptr<Expr>> elements;
-    std::any accept(ASTVisitor* visitor) override { return visitor->visitListExpr(this); }
+    YiniVariant accept(ASTVisitor* visitor) override { return visitor->visitListExpr(this); }
 };
 
 struct QuickRegStmt : public Stmt
