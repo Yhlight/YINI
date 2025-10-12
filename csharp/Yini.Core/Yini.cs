@@ -5,21 +5,32 @@ using System.Collections.Generic;
 namespace Yini.Core
 {
     /// <summary>
-    /// Represents the possible types of a YINI value.
-    /// This must be kept in sync with the C++ counterpart.
+    /// Represents the possible types of a YINI value, as determined by the native library.
+    /// This enum must be kept in sync with the C++ counterpart.
     /// </summary>
     public enum ValueType
     {
+        /// <summary>Represents a null or non-existent value.</summary>
         Null,
+        /// <summary>Represents a 64-bit integer value.</summary>
         Int,
+        /// <summary>Represents a double-precision floating-point value.</summary>
         Double,
+        /// <summary>Represents a boolean value.</summary>
         Bool,
+        /// <summary>Represents a string value.</summary>
         String,
+        /// <summary>Represents a YINI struct {key: value}.</summary>
         Struct,
+        /// <summary>Represents a YINI map {key: value, ...}.</summary>
         Map,
+        /// <summary>Represents an array of 64-bit integers.</summary>
         ArrayInt,
+        /// <summary>Represents an array of doubles.</summary>
         ArrayDouble,
+        /// <summary>Represents an array of booleans.</summary>
         ArrayBool,
+        /// <summary>Represents an array of strings.</summary>
         ArrayString
     }
 
@@ -123,9 +134,13 @@ namespace Yini.Core
     }
 
     /// <summary>
-    /// Provides a managed interface to a YINI configuration file.
-    /// This class handles the lifetime of the native YINI handle and provides methods to access configuration values.
+    /// Provides a managed, read-only interface to a YINI configuration file (.yini or .ybin).
     /// </summary>
+    /// <remarks>
+    /// This class handles the lifetime of the native YINI handle. It is crucial to properly
+    /// dispose of this object (e.g., via a <c>using</c> block) to ensure that native
+    /// resources are released. All keys are expected in the format "Section.Key".
+    /// </remarks>
     public class YiniConfig : IDisposable
     {
         private IntPtr m_handle;
@@ -460,10 +475,15 @@ namespace Yini.Core
         }
 
         /// <summary>
-        /// Gets the value associated with the specified key as a raw object.
+        /// Gets the value associated with the specified key, dynamically determining its type.
         /// </summary>
-        /// <param name="key">The key of the value to get.</param>
-        /// <returns>The value associated with the key, or null if the key is not found.</returns>
+        /// <param name="key">The key of the value to get (e.g., "Section.Key").</param>
+        /// <returns>
+        /// The value associated with the key, returned as one of the following types:
+        /// <c>int?</c>, <c>double?</c>, <c>bool?</c>, <c>string?</c>,
+        /// <c>int?[]?</c>, <c>double?[]?</c>, <c>bool?[]?</c>, or <c>string?[]?</c>.
+        /// Returns <c>null</c> if the key is not found or the type is not supported.
+        /// </returns>
         public object? this[string key]
         {
             get

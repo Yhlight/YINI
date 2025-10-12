@@ -71,17 +71,27 @@ void Validator::validate_section(const std::string& section_name, const AST::Sch
             // 2. Validate type and range
             if (!rule.type.empty())
             {
+                // `std::visit` is used to safely inspect the type held by the YiniVariant.
+                // The lambda is instantiated at compile-time for each possible type in the variant.
                 std::visit([&](auto&& arg) {
                     using T = std::decay_t<decltype(arg)>;
                     bool type_ok = false;
 
+                    // `if constexpr` is used for compile-time branching. This ensures that
+                    // code that would not compile for a specific type (like iterating over an int)
+                    // is completely discarded, avoiding compilation errors.
+
+                    // This branch handles the case where the variant holds a YiniArray.
                     if constexpr (std::is_same_v<T, std::unique_ptr<YiniArray>>) {
                         if (rule.type == "array") {
                             type_ok = true;
+                            // If the schema specifies a subtype (e.g., "array[int]"),
+                            // we must validate the type of each element in the array.
                             if (rule.array_subtype.has_value()) {
                                 const std::string& subtype = rule.array_subtype.value();
                                 for (const auto& item : *arg) {
                                     bool subtype_ok = false;
+                                    // A nested `std::visit` is used for each element of the array.
                                     std::visit([&](auto&& item_arg) {
                                         using ItemT = std::decay_t<decltype(item_arg)>;
                                         if (subtype == "string" && std::is_same_v<ItemT, std::string>) subtype_ok = true;
@@ -95,13 +105,14 @@ void Validator::validate_section(const std::string& section_name, const AST::Sch
                             }
                         }
                     } else {
+                        // This branch handles all non-array types (int, string, bool, etc.).
                         if (rule.type == "string" && std::is_same_v<T, std::string>) {
                             type_ok = true;
                         } else if (rule.type == "bool" && std::is_same_v<T, bool>) {
                             type_ok = true;
                         } else if ((rule.type == "int" || rule.type == "float") && (std::is_same_v<T, int64_t> || std::is_same_v<T, double>)) {
                             type_ok = true;
-                            // 3. Validate range
+                            // For numeric types, also validate the range if specified in the schema.
                             double numeric_value = 0.0;
                             if constexpr (std::is_same_v<T, int64_t>) {
                                 numeric_value = static_cast<double>(arg);

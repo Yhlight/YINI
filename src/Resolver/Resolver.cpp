@@ -42,16 +42,30 @@ Resolver::Resolver(const std::vector<std::unique_ptr<AST::Stmt>>& statements, Ym
 
 std::map<std::string, YiniVariant> Resolver::resolve()
 {
-    // First pass: collect all section definitions and macros from the root and included files.
+    // The resolver operates in three main passes to handle out-of-order definitions,
+    // inheritance, and includes gracefully.
+
+    // Pass 1: Collect Declarations.
+    // This pass walks the AST from the main file and recursively through all included
+    // files. It populates `m_section_nodes` with pointers to all section statements
+    // and `m_macros` with all defined macros. This allows sections and macros to be
+    // referenced before they are declared in the source files.
     collect_declarations(m_statements);
 
-    // Second pass: resolve each section, handling inheritance.
+    // Pass 2: Resolve Sections.
+    // This pass iterates over all the sections collected in the first pass and resolves
+    // them one by one. The `resolve_section` method handles inheritance by recursively
+    // resolving parent sections first and merging their data. It also includes protection
+    // against circular dependencies. The resolved data for each section is stored in
+    // `m_resolved_sections_data`.
     for (const auto& pair : m_section_nodes)
     {
         resolve_section(pair.first);
     }
 
-    // Third pass: flatten the resolved per-section data into the final config map.
+    // Pass 3: Flatten the final configuration map.
+    // The final step is to convert the per-section data into the flat "Section.key"
+    // format that the rest of the system expects. This creates the final `m_resolved_config` map.
     for (const auto& section_pair : m_resolved_sections_data)
     {
         const std::string& section_name = section_pair.first;
