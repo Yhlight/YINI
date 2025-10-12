@@ -1,4 +1,5 @@
 cmake_minimum_required(VERSION 3.14)
+cmake_policy(SET CMP0135 NEW) # Handle FetchContent timestamp behavior
 project(YINI)
 
 set(CMAKE_CXX_STANDARD 17)

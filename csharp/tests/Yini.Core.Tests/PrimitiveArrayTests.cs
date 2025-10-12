@@ -27,7 +27,7 @@ boolArray = [true, false, true]
             using (var config = new YiniConfig(TestFileName))
             {
                 // Int array test
-                int?[] intArray = config.GetIntArray("Arrays.intArray");
+                int?[]? intArray = config.GetIntArray("Arrays.intArray");
                 Assert.NotNull(intArray);
                 Assert.Equal(3, intArray.Length);
                 Assert.Equal(1, intArray[0]);
@@ -35,7 +35,7 @@ boolArray = [true, false, true]
                 Assert.Equal(3, intArray[2]);
 
                 // Double array test
-                double?[] doubleArray = config.GetDoubleArray("Arrays.doubleArray");
+                double?[]? doubleArray = config.GetDoubleArray("Arrays.doubleArray");
                 Assert.NotNull(doubleArray);
                 Assert.Equal(3, doubleArray.Length);
                 Assert.Equal(1.1, doubleArray[0]);
@@ -43,7 +43,7 @@ boolArray = [true, false, true]
                 Assert.Equal(3.3, doubleArray[2]);
 
                 // Bool array test
-                bool?[] boolArray = config.GetBoolArray("Arrays.boolArray");
+                bool?[]? boolArray = config.GetBoolArray("Arrays.boolArray");
                 Assert.NotNull(boolArray);
                 Assert.Equal(3, boolArray.Length);
                 Assert.True(boolArray[0]);

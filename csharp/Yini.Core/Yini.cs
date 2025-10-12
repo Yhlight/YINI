@@ -17,7 +17,7 @@ namespace Yini.Core
         public static string GetLastError()
         {
             IntPtr cstr = YiniGetLastError();
-            return cstr == IntPtr.Zero ? "" : Marshal.PtrToStringAnsi(cstr);
+            return cstr == IntPtr.Zero ? "" : Marshal.PtrToStringAnsi(cstr) ?? "";
         }
 
         [DllImport(LibName, EntryPoint = "yini_destroy", CallingConvention = CallingConvention.Cdecl)]
@@ -53,7 +53,7 @@ namespace Yini.Core
         [DllImport(LibName, EntryPoint = "yini_get_array_item_as_string", CallingConvention = CallingConvention.Cdecl)]
         private static extern IntPtr YiniGetArrayItemAsString(IntPtr handle, string key, int index);
 
-        public static string GetString(IntPtr handle, string key)
+        public static string? GetString(IntPtr handle, string key)
         {
             IntPtr cstr = YiniGetString(handle, key);
             if (cstr == IntPtr.Zero)
@@ -70,7 +70,7 @@ namespace Yini.Core
             }
         }
 
-        public static string GetArrayItemAsString(IntPtr handle, string key, int index)
+        public static string? GetArrayItemAsString(IntPtr handle, string key, int index)
         {
             IntPtr cstr = YiniGetArrayItemAsString(handle, key, index);
             if (cstr == IntPtr.Zero)
@@ -163,6 +163,11 @@ namespace Yini.Core
             return NativeMethods.YiniGetDouble(m_handle, key, out value);
         }
 
+        /// <summary>
+        /// Retrieves a double-precision floating-point number for a specified key.
+        /// </summary>
+        /// <param name="key">The key of the value to retrieve (e.g., "Section.key").</param>
+        /// <returns>The double value associated with the specified key, or <c>null</c> if the key is not found.</returns>
         public double? GetDouble(string key)
         {
             if (NativeMethods.YiniGetDouble(m_handle, key, out double value))
@@ -184,6 +189,11 @@ namespace Yini.Core
             return NativeMethods.YiniGetBool(m_handle, key, out value);
         }
 
+        /// <summary>
+        /// Retrieves a boolean value for a specified key.
+        /// </summary>
+        /// <param name="key">The key of the value to retrieve (e.g., "Section.key").</param>
+        /// <returns>The boolean value associated with the specified key, or <c>null</c> if the key is not found.</returns>
         public bool? GetBool(string key)
         {
             if (NativeMethods.YiniGetBool(m_handle, key, out bool value))
@@ -198,7 +208,7 @@ namespace Yini.Core
         /// </summary>
         /// <param name="key">The key of the value to retrieve (e.g., "Section.key").</param>
         /// <returns>The string value associated with the specified key, or <c>null</c> if the key is not found.</returns>
-        public string GetString(string key)
+        public string? GetString(string key)
         {
             return NativeMethods.GetString(m_handle, key);
         }
@@ -208,7 +218,7 @@ namespace Yini.Core
         /// </summary>
         /// <param name="key">The key of the array to retrieve.</param>
         /// <returns>An array of integers, or <c>null</c> if the key is not found or the value is not an array.</returns>
-        public int?[] GetIntArray(string key)
+        public int?[]? GetIntArray(string key)
         {
             int size = NativeMethods.YiniGetArraySize(m_handle, key);
             if (size < 0) return null;
@@ -232,7 +242,7 @@ namespace Yini.Core
         /// </summary>
         /// <param name="key">The key of the array to retrieve.</param>
         /// <returns>An array of doubles, or <c>null</c> if the key is not found or the value is not an array.</returns>
-        public double?[] GetDoubleArray(string key)
+        public double?[]? GetDoubleArray(string key)
         {
             int size = NativeMethods.YiniGetArraySize(m_handle, key);
             if (size < 0) return null;
@@ -256,7 +266,7 @@ namespace Yini.Core
         /// </summary>
         /// <param name="key">The key of the array to retrieve.</param>
         /// <returns>An array of booleans, or <c>null</c> if the key is not found or the value is not an array.</returns>
-        public bool?[] GetBoolArray(string key)
+        public bool?[]? GetBoolArray(string key)
         {
             int size = NativeMethods.YiniGetArraySize(m_handle, key);
             if (size < 0) return null;
@@ -280,11 +290,11 @@ namespace Yini.Core
         /// </summary>
         /// <param name="key">The key of the array to retrieve.</param>
         /// <returns>An array of strings, or <c>null</c> if the key is not found or the value is not an array.</returns>
-        public string[] GetStringArray(string key)
+        public string?[]? GetStringArray(string key)
         {
             int size = NativeMethods.YiniGetArraySize(m_handle, key);
             if (size < 0) return null;
-            var result = new string[size];
+            var result = new string?[size];
             for (int i = 0; i < size; i++)
             {
                 result[i] = NativeMethods.GetArrayItemAsString(m_handle, key, i);

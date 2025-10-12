@@ -8,7 +8,10 @@ on:
 
 jobs:
   build-and-test:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
 
     steps:
     - uses: actions/checkout@v3
@@ -18,16 +21,58 @@ jobs:
       with:
         dotnet-version: '8.0.x'
 
-    - name: Install C++ dependencies
+    - name: Install C++ dependencies (Linux)
+      if: runner.os == 'Linux'
       run: sudo apt-get update && sudo apt-get install -y build-essential cmake
+
+    - name: Install C++ dependencies (macOS)
+      if: runner.os == 'macOS'
+      run: brew install cmake
+
+    - name: Install C++ dependencies (Windows)
+      if: runner.os == 'Windows'
+      run: choco install cmake --installargs 'ADD_CMAKE_TO_PATH=System'
 
     - name: Build C++ Core
       run: python3 build.py
 
     - name: Run C++ Tests
+      shell: bash
       run: |
         cd build
         ctest --output-on-failure
 
     - name: Run C# Tests
       run: dotnet test csharp/tests/Yini.Core.Tests
+
+    - name: Set up Node.js
+      if: runner.os == 'Linux'
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+
+    - name: Package VSCode Extension
+      if: runner.os == 'Linux'
+      run: |
+        cd vscode-yini
+        npm install
+        npm install -g @vscode/vsce
+        vsce package
+
+    - name: Upload VSCode Extension Artifact
+      if: runner.os == 'Linux'
+      uses: actions/upload-artifact@v3
+      with:
+        name: yini-vscode-extension
+        path: vscode-yini/*.vsix
+
+    - name: Install and Run Style Checkers
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt-get install -y clang-format
+        dotnet tool install -g dotnet-format
+        clang-format --version
+        dotnet-format --version
+        clang-format --dry-run --Werror $(find src tests -name '*.cpp' -o -name '*.h')
+        dotnet format --verify-no-changes csharp/Yini.Core/Yini.Core.csproj
+        dotnet format --verify-no-changes csharp/tests/Yini.Core.Tests/Yini.Core.Tests.csproj
