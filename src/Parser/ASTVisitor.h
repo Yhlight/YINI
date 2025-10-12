@@ -15,6 +15,7 @@ struct BoolExpr;
 struct ArrayExpr;
 struct SetExpr;
 struct MapExpr;
+struct StructExpr;
 struct ColorExpr;
 struct CoordExpr;
 struct BinaryExpr;
@@ -46,6 +47,7 @@ public:
     virtual YiniVariant visitArrayExpr(ArrayExpr* expr) = 0;
     virtual YiniVariant visitSetExpr(SetExpr* expr) = 0;
     virtual YiniVariant visitMapExpr(MapExpr* expr) = 0;
+    virtual YiniVariant visitStructExpr(StructExpr* expr) = 0;
     virtual YiniVariant visitColorExpr(ColorExpr* expr) = 0;
     virtual YiniVariant visitCoordExpr(CoordExpr* expr) = 0;
     virtual YiniVariant visitBinaryExpr(BinaryExpr* expr) = 0;

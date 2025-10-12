@@ -483,17 +483,36 @@ std::unique_ptr<AST::Expr> Parser::set() {
 }
 
 std::unique_ptr<AST::Expr> Parser::map() {
-    auto map_expr = std::make_unique<AST::MapExpr>();
+    std::vector<std::pair<Token, std::unique_ptr<AST::Expr>>> elements;
+    bool trailing_comma = false;
+
     if (!check(TokenType::RIGHT_BRACE)) {
         do {
             Token key = consume(TokenType::IDENTIFIER, "Expect map key.");
             consume(TokenType::COLON, "Expect ':' after map key.");
             std::unique_ptr<AST::Expr> value = expression();
-            map_expr->elements.emplace_back(key, std::move(value));
+            elements.emplace_back(key, std::move(value));
         } while (match({TokenType::COMMA}));
     }
+
+    // After the loop, check if the last token was a comma
+    if (previous().type == TokenType::COMMA) {
+        trailing_comma = true;
+    }
+
     consume(TokenType::RIGHT_BRACE, "Expect '}' after map elements.");
-    return map_expr;
+
+    // Now, decide which AST node to create
+    if (elements.size() == 1 && !trailing_comma) {
+        auto struct_expr = std::make_unique<AST::StructExpr>();
+        struct_expr->key = elements[0].first;
+        struct_expr->value = std::move(elements[0].second);
+        return struct_expr;
+    } else {
+        auto map_expr = std::make_unique<AST::MapExpr>();
+        map_expr->elements = std::move(elements);
+        return map_expr;
+    }
 }
 
 std::unique_ptr<AST::Expr> Parser::color() {

@@ -285,6 +285,10 @@ YINI_API ValueType yini_get_type(void* handle, const char* key)
             type = YINI_TYPE_BOOL;
         } else if constexpr (std::is_same_v<T, std::string>) {
             type = YINI_TYPE_STRING;
+        } else if constexpr (std::is_same_v<T, YINI::YiniStruct>) {
+            type = YINI_TYPE_STRUCT;
+        } else if constexpr (std::is_same_v<T, YINI::YiniMap>) {
+            type = YINI_TYPE_MAP;
         } else if constexpr (std::is_same_v<T, std::unique_ptr<YINI::YiniArray>>) {
             if (arg) {
                 const auto& arr = *arg;

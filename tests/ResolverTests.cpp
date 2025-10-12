@@ -114,7 +114,7 @@ TEST(ResolverTests, ResolvesCrossSectionReference)
     EXPECT_EQ(std::get<std::string>(config["Target.ref"]), "hello");
 }
 
-TEST(ResolverTests, ResolvesMapAsNull)
+TEST(ResolverTests, ResolvesMap)
 {
     std::string source = "[MyMap]\ndata = {key1: \"value1\", key2: 123}";
     YINI::Lexer lexer(source);
@@ -126,7 +126,14 @@ TEST(ResolverTests, ResolvesMapAsNull)
     auto config = resolver.resolve();
 
     ASSERT_EQ(config.count("MyMap.data"), 1);
-    ASSERT_TRUE(std::holds_alternative<std::monostate>(config["MyMap.data"]));
+    auto& map_variant = config["MyMap.data"];
+    ASSERT_TRUE(std::holds_alternative<YINI::YiniMap>(map_variant));
+    auto& map_val = std::get<YINI::YiniMap>(map_variant);
+    ASSERT_EQ(map_val.size(), 2);
+    ASSERT_EQ(map_val.count("key1"), 1);
+    EXPECT_EQ(std::get<std::string>(map_val.at("key1")), "value1");
+    ASSERT_EQ(map_val.count("key2"), 1);
+    EXPECT_EQ(std::get<int64_t>(map_val.at("key2")), 123);
 }
 
 TEST(ResolverTests, ResolvesHexColor)

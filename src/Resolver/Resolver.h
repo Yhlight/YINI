@@ -26,6 +26,7 @@ private:
     YiniVariant visitArrayExpr(AST::ArrayExpr* expr) override;
     YiniVariant visitSetExpr(AST::SetExpr* expr) override;
     YiniVariant visitMapExpr(AST::MapExpr* expr) override;
+    YiniVariant visitStructExpr(AST::StructExpr* expr) override;
     YiniVariant visitColorExpr(AST::ColorExpr* expr) override;
     YiniVariant visitCoordExpr(AST::CoordExpr* expr) override;
     YiniVariant visitBinaryExpr(AST::BinaryExpr* expr) override;

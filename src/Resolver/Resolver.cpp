@@ -301,9 +301,19 @@ YiniVariant Resolver::visitSetExpr(AST::SetExpr* expr)
 
 YiniVariant Resolver::visitMapExpr(AST::MapExpr* expr)
 {
-    // Maps are not a direct value type in the variant, this is a syntax error
-    // or should be handled differently. For now, return null.
-    return std::monostate{};
+    YiniMap map;
+    for (const auto& element : expr->elements)
+    {
+        map[element.first.lexeme] = element.second->accept(this);
+    }
+    return map;
+}
+
+YiniVariant Resolver::visitStructExpr(AST::StructExpr* expr)
+{
+    auto value_variant = expr->value->accept(this);
+    auto yini_struct = std::make_unique<YiniVariant>(std::move(value_variant));
+    return YiniStruct(expr->key.lexeme, std::move(yini_struct));
 }
 
 YiniVariant Resolver::visitColorExpr(AST::ColorExpr* expr)

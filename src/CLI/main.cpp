@@ -469,6 +469,10 @@ static void run_prompt() {
                         std::cout << (arg ? "true" : "false");
                     } else if constexpr (std::is_same_v<T, std::unique_ptr<YINI::YiniArray>>) {
                         std::cout << "[array]";
+                    } else if constexpr (std::is_same_v<T, YINI::YiniStruct>) {
+                        std::cout << "[struct]";
+                    } else if constexpr (std::is_same_v<T, YINI::YiniMap>) {
+                        std::cout << "[map]";
                     } else {
                         std::cout << arg;
                     }

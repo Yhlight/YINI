@@ -6,6 +6,7 @@
 #include <string>
 #include <memory>
 #include <ostream>
+#include <map>
 
 namespace YINI
 {
@@ -26,6 +27,8 @@ struct YiniVariant;
 
 // Using an alias for the vector type, which contains the variant type
 using YiniArray = std::vector<YiniVariant>;
+using YiniStruct = std::pair<std::string, std::unique_ptr<YiniVariant>>;
+using YiniMap = std::map<std::string, YiniVariant>;
 
 // The base variant type, using a pointer-wrapper for the recursive part
 using YiniVariantBase = std::variant<
@@ -36,6 +39,8 @@ using YiniVariantBase = std::variant<
     std::string,
     ResolvedColor,
     ResolvedCoord,
+    YiniStruct,
+    YiniMap,
     std::unique_ptr<YiniArray>
 >;
 
@@ -47,18 +52,20 @@ struct YiniVariant : YiniVariantBase
     using YiniVariantBase::operator=;
 
     // Custom copy constructor for deep copying the unique_ptr
+    // Custom copy constructor for deep copying move-only types
     YiniVariant(const YiniVariant& other) : YiniVariantBase()
     {
-        std::visit([&](const auto& value) {
-            using T = std::decay_t<decltype(value)>;
+        std::visit([&](auto&& arg) {
+            using T = std::decay_t<decltype(arg)>;
             if constexpr (std::is_same_v<T, std::unique_ptr<YiniArray>>) {
-                if (value) {
-                    *this = std::make_unique<YiniArray>(*value);
-                } else {
-                    *this = std::unique_ptr<YiniArray>(nullptr);
-                }
+                *this = arg ? std::make_unique<YiniArray>(*arg) : nullptr;
+            } else if constexpr (std::is_same_v<T, YiniStruct>) {
+                auto new_val = arg.second ? std::make_unique<YiniVariant>(*arg.second) : nullptr;
+                *this = YiniStruct(arg.first, std::move(new_val));
+            } else if constexpr (std::is_same_v<T, YiniMap>) {
+                *this = arg; // std::map is copyable
             } else {
-                *this = value;
+                *this = arg;
             }
         }, static_cast<const YiniVariantBase&>(other));
     }
@@ -67,16 +74,17 @@ struct YiniVariant : YiniVariantBase
     YiniVariant& operator=(const YiniVariant& other)
     {
         if (this != &other) {
-            std::visit([&](const auto& value) {
-                using T = std::decay_t<decltype(value)>;
+             std::visit([&](auto&& arg) {
+                using T = std::decay_t<decltype(arg)>;
                 if constexpr (std::is_same_v<T, std::unique_ptr<YiniArray>>) {
-                    if (value) {
-                        *this = std::make_unique<YiniArray>(*value);
-                    } else {
-                        *this = std::unique_ptr<YiniArray>(nullptr);
-                    }
+                    *this = arg ? std::make_unique<YiniArray>(*arg) : nullptr;
+                } else if constexpr (std::is_same_v<T, YiniStruct>) {
+                    auto new_val = arg.second ? std::make_unique<YiniVariant>(*arg.second) : nullptr;
+                    *this = YiniStruct(arg.first, std::move(new_val));
+                } else if constexpr (std::is_same_v<T, YiniMap>) {
+                    *this = arg; // std::map is copyable
                 } else {
-                    *this = value;
+                    *this = arg;
                 }
             }, static_cast<const YiniVariantBase&>(other));
         }

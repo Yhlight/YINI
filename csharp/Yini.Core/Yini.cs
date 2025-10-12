@@ -15,6 +15,8 @@ namespace Yini.Core
         Double,
         Bool,
         String,
+        Struct,
+        Map,
         ArrayInt,
         ArrayDouble,
         ArrayBool,

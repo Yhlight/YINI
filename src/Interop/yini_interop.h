@@ -16,6 +16,8 @@ extern "C" {
         YINI_TYPE_DOUBLE,
         YINI_TYPE_BOOL,
         YINI_TYPE_STRING,
+        YINI_TYPE_STRUCT,
+        YINI_TYPE_MAP,
         YINI_TYPE_ARRAY_INT,
         YINI_TYPE_ARRAY_DOUBLE,
         YINI_TYPE_ARRAY_BOOL,

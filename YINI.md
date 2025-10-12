@@ -47,8 +47,10 @@ YINI支持多种值类型
     - 二维数组使用  ->  [[1, 2], [3, 4]]  
 - 集合 -> (value, value, value3)  
             - (value, ) 只有一个元素集合需要需要添加逗号  
-- 结构体  ->  {key: value}  // 我不觉得使用一个Map来存储一个对组是一件好事，数量太少了，浪费性能  
-- Map(对组的集合)  ->  {key1: value1, key2: value2}  
+- 结构体 (Struct) -> `{key: value}`
+    - 一个没有尾随逗号的单一键值对被视为一个独立的“结构体”或“对”类型。这样做是为了优化性能，避免为单个键值对创建和验证一个完整的Map的开销。
+- Map -> `{key: value,}` 或 `{key1: value1, key2: value2}`
+    - 包含多个键值对，或者只有一个键值对但有尾随逗号的语法，被视作一个完整的Map类型。
 - 颜色  ->  #RRGGBB / color(255, 192, 203) / Color(255, 192, 203)  
 - 坐标  ->  Coord(x, y) / Coord(x, y, z) / coord(x, y) / coord(x, y, z)  
 - 路径  ->  path() / Path()  

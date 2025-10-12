@@ -56,6 +56,13 @@ struct MapExpr : public Expr
     YiniVariant accept(ASTVisitor* visitor) override { return visitor->visitMapExpr(this); }
 };
 
+struct StructExpr : public Expr
+{
+    Token key;
+    std::unique_ptr<Expr> value;
+    YiniVariant accept(ASTVisitor* visitor) override { return visitor->visitStructExpr(this); }
+};
+
 struct ColorExpr : public Expr
 {
     uint8_t r, g, b;

@@ -68,6 +68,13 @@ YiniVariant SemanticInfoVisitor::visitMapExpr(AST::MapExpr* expr)
     return {};
 }
 
+YiniVariant SemanticInfoVisitor::visitStructExpr(AST::StructExpr* expr)
+{
+    add_token(expr->key, "property");
+    expr->value->accept(this);
+    return {};
+}
+
 YiniVariant SemanticInfoVisitor::visitColorExpr(AST::ColorExpr* expr)
 {
     return {};
