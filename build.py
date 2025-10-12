@@ -23,5 +23,8 @@ def main():
 
     os.chdir("..")
 
+    print("\nRunning C# tests...")
+    run_command("dotnet test csharp/tests/Yini.Core.Tests")
+
 if __name__ == "__main__":
     main()
