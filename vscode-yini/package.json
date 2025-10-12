@@ -37,5 +37,9 @@
     },
     "dependencies": {
         "vscode-languageclient": "^7.0.0"
+    },
+    "capabilities": {
+        "hoverProvider": "true",
+        "definitionProvider": "true"
     }
 }
