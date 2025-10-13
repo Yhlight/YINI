@@ -171,6 +171,8 @@ void run_language_server()
                 response["result"]["capabilities"]["hoverProvider"] = true;
                 response["result"]["capabilities"]["definitionProvider"] = true;
                 response["result"]["capabilities"]["textDocumentSync"] = 1; // Full sync
+                response["result"]["capabilities"]["completionProvider"]["resolveProvider"] = false;
+                response["result"]["capabilities"]["completionProvider"]["triggerCharacters"] = {"@", "["};
                 send_json_rpc(response);
             }
             else if (method == "textDocument/didOpen")
@@ -233,6 +235,85 @@ void run_language_server()
                         }
                     }
                 }
+                send_json_rpc(response);
+            }
+            else if (method == "textDocument/completion")
+            {
+                std::string uri = request["params"]["textDocument"]["uri"];
+                int line = request["params"]["position"]["line"];
+                int character = request["params"]["position"]["character"];
+
+                json response;
+                response["id"] = request["id"];
+                response["jsonrpc"] = "2.0";
+
+                json completion_list;
+                completion_list["isIncomplete"] = false;
+                completion_list["items"] = json::array();
+
+                if (document_manager.count(uri))
+                {
+                    const std::string &doc = document_manager[uri];
+                    std::stringstream ss(doc);
+                    std::string doc_line;
+                    for (int i = 0; i <= line; ++i)
+                        std::getline(ss, doc_line);
+
+                    char trigger_char = 0;
+                    if (character > 0)
+                    {
+                        trigger_char = doc_line[character - 1];
+                    }
+
+                    if (trigger_char == '@')
+                    {
+                        if (semantic_info_cache.count(uri))
+                        {
+                            const auto &info = semantic_info_cache[uri];
+                            for (const auto &symbol : info["symbols"])
+                            {
+                                if (symbol["kind"] == 12) // Field (for macros)
+                                {
+                                    json item;
+                                    item["label"] = symbol["name"].get<std::string>();
+                                    item["kind"] = 6; // Variable
+                                    completion_list["items"].push_back(item);
+                                }
+                            }
+                        }
+                    }
+                    else if (trigger_char == '[')
+                    {
+                        if (semantic_info_cache.count(uri))
+                        {
+                            const auto &info = semantic_info_cache[uri];
+                            for (const auto &symbol : info["symbols"])
+                            {
+                                if (symbol["kind"] == 2) // Namespace (for sections)
+                                {
+                                    json item;
+                                    item["label"] = symbol["name"].get<std::string>();
+                                    item["kind"] = 19; // Module
+                                    completion_list["items"].push_back(item);
+                                }
+                            }
+                        }
+                    }
+                    else
+                    {
+                        // Keyword completion
+                        std::vector<std::string> keywords = {"true", "false", "color", "coord", "path", "list", "array", "Dyna"};
+                        for (const auto &kw : keywords)
+                        {
+                            json item;
+                            item["label"] = kw;
+                            item["kind"] = 14; // Keyword
+                            completion_list["items"].push_back(item);
+                        }
+                    }
+                }
+
+                response["result"] = completion_list;
                 send_json_rpc(response);
             }
             else if (method == "textDocument/definition")
