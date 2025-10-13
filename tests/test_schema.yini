@@ -1,4 +1,0 @@
-[#schema]
-[Test]
-required_value = !, int, min=10
-optional_value = ?, string, ="default"

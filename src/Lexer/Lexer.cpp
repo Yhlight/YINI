@@ -1,18 +1,30 @@
 #include "Lexer.h"
-#include <cctype>
 #include <iostream>
 #include <map>
+#include <cctype>
 
 namespace YINI
 {
 
 static std::map<std::string, TokenType> keywords = {
-    {"true", TokenType::TRUE},   {"false", TokenType::FALSE}, {"color", TokenType::COLOR}, {"Color", TokenType::COLOR},
-    {"coord", TokenType::COORD}, {"Coord", TokenType::COORD}, {"path", TokenType::PATH},   {"Path", TokenType::PATH},
-    {"list", TokenType::LIST},   {"List", TokenType::LIST},   {"array", TokenType::ARRAY}, {"Array", TokenType::ARRAY},
-    {"dyna", TokenType::DYNA},   {"Dyna", TokenType::DYNA}};
+    {"true", TokenType::TRUE},
+    {"false", TokenType::FALSE},
+    {"color", TokenType::COLOR},
+    {"Color", TokenType::COLOR},
+    {"coord", TokenType::COORD},
+    {"Coord", TokenType::COORD},
+    {"path", TokenType::PATH},
+    {"Path", TokenType::PATH},
+    {"list", TokenType::LIST},
+    {"List", TokenType::LIST},
+    {"array", TokenType::ARRAY},
+    {"Array", TokenType::ARRAY},
+    {"dyna", TokenType::DYNA},
+    {"Dyna", TokenType::DYNA}
+};
 
-Lexer::Lexer(const std::string &source) : m_source(source)
+
+Lexer::Lexer(const std::string& source) : m_source(source)
 {
 }
 
@@ -33,48 +45,22 @@ void Lexer::scan_token()
     char c = advance();
     switch (c)
     {
-    case '(':
-        add_token(TokenType::LEFT_PAREN);
-        break;
-    case ')':
-        add_token(TokenType::RIGHT_PAREN);
-        break;
-    case '{':
-        add_token(TokenType::LEFT_BRACE);
-        break;
-    case '}':
-        add_token(TokenType::RIGHT_BRACE);
-        break;
-    case '[':
-        add_token(TokenType::LEFT_BRACKET);
-        break;
-    case ']':
-        add_token(TokenType::RIGHT_BRACKET);
-        break;
-    case ',':
-        add_token(TokenType::COMMA);
-        break;
-    case '.':
-        add_token(TokenType::DOT);
-        break;
-    case '-':
-        add_token(TokenType::MINUS);
-        break;
+    case '(': add_token(TokenType::LEFT_PAREN); break;
+    case ')': add_token(TokenType::RIGHT_PAREN); break;
+    case '{': add_token(TokenType::LEFT_BRACE); break;
+    case '}': add_token(TokenType::RIGHT_BRACE); break;
+    case '[': add_token(TokenType::LEFT_BRACKET); break;
+    case ']': add_token(TokenType::RIGHT_BRACKET); break;
+    case ',': add_token(TokenType::COMMA); break;
+    case '.': add_token(TokenType::DOT); break;
+    case '-': add_token(TokenType::MINUS); break;
     case '+':
         add_token(match('=') ? TokenType::PLUS_EQUAL : TokenType::PLUS);
         break;
-    case '*':
-        add_token(TokenType::STAR);
-        break;
-    case '%':
-        add_token(TokenType::PERCENT);
-        break;
-    case ':':
-        add_token(TokenType::COLON);
-        break;
-    case ';':
-        add_token(TokenType::SEMICOLON);
-        break;
+    case '*': add_token(TokenType::STAR); break;
+    case '%': add_token(TokenType::PERCENT); break;
+    case ':': add_token(TokenType::COLON); break;
+    case ';': add_token(TokenType::SEMICOLON); break;
     case '=':
         add_token(match('=') ? TokenType::EQUAL_EQUAL : TokenType::EQUAL);
         break;
@@ -91,16 +77,14 @@ void Lexer::scan_token()
         if (match('/'))
         {
             // A comment goes until the end of the line.
-            while (peek() != '\n' && !is_at_end())
-                advance();
+            while (peek() != '\n' && !is_at_end()) advance();
         }
         else if (match('*'))
         {
             // A block comment goes until */
             while (!(peek() == '*' && peek_next() == '/') && !is_at_end())
             {
-                if (peek() == '\n')
-                    m_line++;
+                if (peek() == '\n') m_line++;
                 advance();
             }
 
@@ -116,31 +100,19 @@ void Lexer::scan_token()
         }
         break;
     case '#':
-        if (is_hex_color())
-        {
-            for (int i = 0; i < 6; ++i)
-            {
+        if (is_hex_color()) {
+            for (int i = 0; i < 6; ++i) {
                 advance();
             }
             add_token(TokenType::HEX_COLOR);
-        }
-        else
-        {
+        } else {
             add_token(TokenType::HASH);
         }
         break;
-    case '@':
-        add_token(TokenType::AT);
-        break;
-    case '$':
-        add_token(TokenType::DOLLAR);
-        break;
-    case '~':
-        add_token(TokenType::TILDE);
-        break;
-    case '?':
-        add_token(TokenType::QUESTION);
-        break;
+    case '@': add_token(TokenType::AT); break;
+    case '$': add_token(TokenType::DOLLAR); break;
+    case '~': add_token(TokenType::TILDE); break;
+    case '?': add_token(TokenType::QUESTION); break;
 
     case ' ':
     case '\r':
@@ -153,9 +125,7 @@ void Lexer::scan_token()
         m_line_start = m_current;
         break;
 
-    case '"':
-        string();
-        break;
+    case '"': string(); break;
 
     default:
         if (isdigit(c))
@@ -184,7 +154,7 @@ void Lexer::add_token(TokenType type)
     add_token(type, {});
 }
 
-void Lexer::add_token(TokenType type, const std::variant<std::string, double> &literal)
+void Lexer::add_token(TokenType type, const std::variant<std::string, double>& literal)
 {
     std::string text = m_source.substr(m_start, m_current - m_start);
     int column = m_start - m_line_start + 1;
@@ -193,10 +163,8 @@ void Lexer::add_token(TokenType type, const std::variant<std::string, double> &l
 
 bool Lexer::match(char expected)
 {
-    if (is_at_end())
-        return false;
-    if (m_source[m_current] != expected)
-        return false;
+    if (is_at_end()) return false;
+    if (m_source[m_current] != expected) return false;
 
     m_current++;
     return true;
@@ -204,15 +172,13 @@ bool Lexer::match(char expected)
 
 char Lexer::peek()
 {
-    if (is_at_end())
-        return '\0';
+    if (is_at_end()) return '\0';
     return m_source[m_current];
 }
 
 char Lexer::peek_next()
 {
-    if (m_current + 1 >= m_source.length())
-        return '\0';
+    if (m_current + 1 >= m_source.length()) return '\0';
     return m_source[m_current + 1];
 }
 
@@ -220,8 +186,7 @@ void Lexer::string()
 {
     while (peek() != '"' && !is_at_end())
     {
-        if (peek() == '\n')
-            m_line++;
+        if (peek() == '\n') m_line++;
         advance();
     }
 
@@ -239,15 +204,13 @@ void Lexer::string()
 
 void Lexer::number()
 {
-    while (isdigit(peek()))
-        advance();
+    while (isdigit(peek())) advance();
 
     if (peek() == '.' && isdigit(peek_next()))
     {
         advance();
 
-        while (isdigit(peek()))
-            advance();
+        while (isdigit(peek())) advance();
     }
 
     add_token(TokenType::NUMBER, std::stod(m_source.substr(m_start, m_current - m_start)));
@@ -255,8 +218,7 @@ void Lexer::number()
 
 void Lexer::identifier()
 {
-    while (isalnum(peek()) || peek() == '_')
-        advance();
+    while (isalnum(peek()) || peek() == '_') advance();
 
     std::string text = m_source.substr(m_start, m_current - m_start);
     TokenType type = TokenType::IDENTIFIER;
@@ -267,21 +229,16 @@ void Lexer::identifier()
     add_token(type);
 }
 
-bool Lexer::is_hex_color()
-{
-    if (m_source.length() - m_current < 6)
-        return false;
+bool Lexer::is_hex_color() {
+    if (m_source.length() - m_current < 6) return false;
 
-    for (int i = 0; i < 6; ++i)
-    {
-        if (!isxdigit(m_source[m_current + i]))
-        {
+    for (int i = 0; i < 6; ++i) {
+        if (!isxdigit(m_source[m_current + i])) {
             return false;
         }
     }
 
-    if (m_source.length() > m_current + 6 && isalnum(m_source[m_current + 6]))
-    {
+    if (m_source.length() > m_current + 6 && isalnum(m_source[m_current + 6])) {
         return false;
     }
 
@@ -293,4 +250,4 @@ bool Lexer::is_at_end()
     return m_current >= m_source.length();
 }
 
-} // namespace YINI
+}

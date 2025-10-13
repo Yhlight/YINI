@@ -1,19 +1,19 @@
 #pragma once
 
-#include "AST.h"
 #include "Lexer/Token.h"
-#include <memory>
+#include "AST.h"
 #include <vector>
+#include <memory>
 
 namespace YINI
 {
 class Parser
 {
-  public:
-    Parser(const std::vector<Token> &tokens);
+public:
+    Parser(const std::vector<Token>& tokens);
     std::vector<std::unique_ptr<AST::Stmt>> parse();
 
-  private:
+private:
     std::unique_ptr<AST::Stmt> declaration();
     std::unique_ptr<AST::Stmt> section_declaration();
     std::unique_ptr<AST::Stmt> define_section_declaration();
@@ -38,8 +38,8 @@ class Parser
     std::unique_ptr<AST::Expr> list();
     std::unique_ptr<AST::Expr> array_func();
 
-    bool match(const std::vector<TokenType> &types);
-    Token consume(TokenType type, const std::string &message);
+    bool match(const std::vector<TokenType>& types);
+    Token consume(TokenType type, const std::string& message);
     bool check(TokenType type);
     Token advance();
     bool is_at_end();
@@ -50,4 +50,4 @@ class Parser
     std::vector<Token> m_tokens;
     int m_current = 0;
 };
-} // namespace YINI
+}

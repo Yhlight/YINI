@@ -4,6 +4,7 @@
 #include <functional>
 #include <iostream>
 #include <map>
+#include <regex>
 #include <sstream>
 #include <string>
 #include <variant>
@@ -39,6 +40,42 @@ void send_json_rpc(const json &msg)
     log_message("Sent: " + dumped_msg);
 }
 
+// Function to send diagnostics to the client
+void send_diagnostics(const std::string &uri, const std::vector<json> &diagnostics)
+{
+    json msg;
+    msg["jsonrpc"] = "2.0";
+    msg["method"] = "textDocument/publishDiagnostics";
+    msg["params"]["uri"] = uri;
+    msg["params"]["diagnostics"] = diagnostics;
+    send_json_rpc(msg);
+}
+
+// Helper to parse line and column from error messages
+json parse_error_for_range(const std::string &error_msg)
+{
+    json range;
+    // Default to the start of the document
+    range["start"]["line"] = 0;
+    range["start"]["character"] = 0;
+    range["end"]["line"] = 0;
+    range["end"]["character"] = 255; // Highlight the whole line
+
+    std::smatch matches;
+    // Regex for "Error at line X, column Y: ..."
+    std::regex re("Error at line (\\d+), column (\\d+):");
+    if (std::regex_search(error_msg, matches, re) && matches.size() == 3)
+    {
+        int line = std::stoi(matches[1].str()) - 1; // LSP is 0-indexed
+        int col = std::stoi(matches[2].str()) - 1;  // LSP is 0-indexed
+        range["start"]["line"] = line;
+        range["start"]["character"] = col;
+        range["end"]["line"] = line;
+    }
+
+    return range;
+}
+
 // Function to parse a document and update the semantic info cache
 void update_document_info(const std::string &uri, const std::string &text)
 {
@@ -50,6 +87,13 @@ void update_document_info(const std::string &uri, const std::string &text)
         YINI::Parser parser(tokens);
         auto ast = parser.parse();
 
+        // Also run resolver and validator to catch semantic errors
+        YINI::YmetaManager ymeta_manager;
+        YINI::Resolver resolver(ast, ymeta_manager);
+        auto resolved_config = resolver.resolve();
+        YINI::Validator validator(resolved_config, ast);
+        validator.validate();
+
         YINI::SemanticInfoVisitor visitor(text, uri);
         for (const auto &stmt : ast)
         {
@@ -57,12 +101,23 @@ void update_document_info(const std::string &uri, const std::string &text)
                 stmt->accept(&visitor);
         }
         semantic_info_cache[uri] = visitor.get_info();
+
+        // If successful, clear any existing diagnostics
+        send_diagnostics(uri, {});
     }
     catch (const std::exception &e)
     {
-        // Handle parse errors, maybe send diagnostics
         log_message("Error parsing document " + uri + ": " + e.what());
         semantic_info_cache.erase(uri);
+
+        // Send a diagnostic to the client
+        json diagnostic;
+        diagnostic["range"] = parse_error_for_range(e.what());
+        diagnostic["severity"] = 1; // 1 = Error
+        diagnostic["source"] = "yini";
+        diagnostic["message"] = e.what();
+
+        send_diagnostics(uri, {diagnostic});
     }
 }
 
