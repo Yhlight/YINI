@@ -659,32 +659,44 @@ static void run_file(const char *path, std::map<std::string, YINI::YiniVariant> 
     }
 }
 
-static void run_validate(const char *path)
+// Helper to read and parse a file into an AST
+static std::vector<std::unique_ptr<YINI::AST::Stmt>> parse_file(const char *path)
+{
+    std::ifstream file(path);
+    if (!file.is_open())
+    {
+        throw std::runtime_error("Could not open file '" + std::string(path) + "'");
+    }
+    std::stringstream buffer;
+    buffer << file.rdbuf();
+    std::string source = buffer.str();
+
+    YINI::Lexer lexer(source);
+    auto tokens = lexer.scan_tokens();
+    YINI::Parser parser(tokens);
+    return parser.parse();
+}
+
+static void run_validate_with_schema(const char *schema_path, const char *config_path)
 {
     try
     {
-        std::ifstream file(path);
-        if (!file.is_open())
-        {
-            std::cerr << "Error: Could not open file '" << path << "'" << std::endl;
-            exit(1);
-        }
+        auto schema_ast = parse_file(schema_path);
+        auto config_ast = parse_file(config_path);
 
-        std::stringstream buffer;
-        buffer << file.rdbuf();
-        std::string source = buffer.str();
+        // Combine ASTs, with the schema first
+        std::vector<std::unique_ptr<YINI::AST::Stmt>> combined_ast;
+        std::move(schema_ast.begin(), schema_ast.end(), std::back_inserter(combined_ast));
+        std::move(config_ast.begin(), config_ast.end(), std::back_inserter(combined_ast));
 
-        YINI::Lexer lexer(source);
-        auto tokens = lexer.scan_tokens();
-        YINI::Parser parser(tokens);
-        auto ast = parser.parse();
-        YINI::YmetaManager ymeta_manager;
-        ymeta_manager.load(path);
-        YINI::Resolver resolver(ast, ymeta_manager);
+        YINI::YmetaManager ymeta_manager; // Not used for this command, but resolver needs it
+        YINI::Resolver resolver(combined_ast, ymeta_manager);
         auto resolved_config = resolver.resolve();
-        YINI::Validator validator(resolved_config, ast);
+        YINI::Validator validator(resolved_config, combined_ast);
         validator.validate();
-        std::cout << "File '" << path << "' validated successfully." << std::endl;
+
+        std::cout << "File '" << config_path << "' successfully validated against schema '" << schema_path << "'."
+                  << std::endl;
     }
     catch (const std::runtime_error &e)
     {
@@ -877,9 +889,9 @@ int main(int argc, char *argv[])
             return 1;
         }
     }
-    else if (argc == 3 && std::string(argv[1]) == "validate")
+    else if (argc == 4 && std::string(argv[1]) == "validate")
     {
-        run_validate(argv[2]);
+        run_validate_with_schema(argv[2], argv[3]);
     }
     else if (argc == 3 && std::string(argv[1]) == "decompile")
     {

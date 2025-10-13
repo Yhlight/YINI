@@ -48,6 +48,9 @@ file(COPY
     "include_test.yini"
     "main_include_test.yini"
     "cooker_test.yini"
+    "test_schema.yini"
+    "test_valid_config.yini"
+    "test_invalid_config.yini"
     DESTINATION ${CMAKE_CURRENT_BINARY_DIR}
 )
 
@@ -55,3 +58,8 @@ add_executable(cooker_loader_tests CookerLoaderTests.cpp)
 target_link_libraries(cooker_loader_tests PRIVATE gtest_main YiniInterop)
 target_include_directories(cooker_loader_tests PRIVATE ../src)
 add_test(NAME cooker_loader_tests COMMAND $<TARGET_FILE:cooker_loader_tests>)
+
+add_executable(cli_tests CLITests.cpp)
+target_link_libraries(cli_tests PRIVATE gtest_main)
+target_include_directories(cli_tests PRIVATE ../src)
+add_test(NAME cli_tests COMMAND $<TARGET_FILE:cli_tests>)
