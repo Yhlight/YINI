@@ -30,8 +30,8 @@ enum class ValueType : uint8_t
 #pragma pack(push, 1)
 struct FileHeader
 {
-    uint32_t magic;           // Must be YBIN_MAGIC
-    uint32_t version;         // Version number, e.g., 2
+    uint32_t magic;             // Must be YBIN_MAGIC
+    uint32_t version;           // Version number, e.g., 2
     uint32_t hash_table_offset; // Offset from the start of the file to the hash table buckets
     uint32_t hash_table_size;   // Number of buckets in the hash table
     uint32_t entries_offset;    // Offset to the array of hash table entries
@@ -45,22 +45,21 @@ struct FileHeader
 };
 #pragma pack(pop)
 
-
 // Hash Table Entry: Represents a single key-value pair.
 // These are stored in an array and indexed by the hash table buckets.
 #pragma pack(push, 1)
 struct HashTableEntry
 {
-    uint64_t key_hash;          // 64-bit hash of the key string (e.g., "Section.key")
-    uint32_t key_offset;        // Offset into the string table for the full key string
-    ValueType value_type;       // The type of the value
-    uint8_t _padding[3];        // explicit padding to ensure 4-byte alignment for next field
-    uint32_t value_offset;      // Offset to the value.
-                                // For simple types (Int, Bool), this can be the value itself (type punning).
-                                // For Double, Color, Coord, it's an offset into the data table.
-                                // For String, it's an offset into the string table.
-                                // For Arrays, it's an offset into the data table where the array data is stored.
-    uint32_t next_entry_index;  // Index of the next entry in case of a hash collision (0 if none).
+    uint64_t key_hash;         // 64-bit hash of the key string (e.g., "Section.key")
+    uint32_t key_offset;       // Offset into the string table for the full key string
+    ValueType value_type;      // The type of the value
+    uint8_t _padding[3];       // explicit padding to ensure 4-byte alignment for next field
+    uint32_t value_offset;     // Offset to the value.
+                               // For simple types (Int, Bool), this can be the value itself (type punning).
+                               // For Double, Color, Coord, it's an offset into the data table.
+                               // For String, it's an offset into the string table.
+                               // For Arrays, it's an offset into the data table where the array data is stored.
+    uint32_t next_entry_index; // Index of the next entry in case of a hash collision (0 if none).
 };
 #pragma pack(pop)
 
@@ -86,7 +85,6 @@ struct CoordData
     double x, y, z;
 };
 #pragma pack(pop)
-
 
 } // namespace Ybin
 } // namespace YINI

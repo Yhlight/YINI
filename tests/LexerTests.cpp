@@ -1,8 +1,9 @@
-#include "gtest/gtest.h"
 #include "Lexer/Lexer.h"
 #include "Lexer/Token.h"
+#include "gtest/gtest.h"
 
-TEST(LexerTests, TokenizesSingleTokens) {
+TEST(LexerTests, TokenizesSingleTokens)
+{
     std::string source = "+-(){}[],.:;=";
     YINI::Lexer lexer(source);
     std::vector<YINI::Token> tokens = lexer.scan_tokens();
@@ -47,7 +48,8 @@ key = /* block comment */ value
     EXPECT_EQ(tokens[6].type, YINI::TokenType::END_OF_FILE);
 }
 
-TEST(LexerTests, TokenizesAssignment) {
+TEST(LexerTests, TokenizesAssignment)
+{
     std::string source = "key = \"value\"";
     YINI::Lexer lexer(source);
     std::vector<YINI::Token> tokens = lexer.scan_tokens();
@@ -60,7 +62,8 @@ TEST(LexerTests, TokenizesAssignment) {
     EXPECT_EQ(std::get<std::string>(tokens[2].literal), "value");
 }
 
-TEST(LexerTests, TokenizesKeywords) {
+TEST(LexerTests, TokenizesKeywords)
+{
     std::string source = "true false color";
     YINI::Lexer lexer(source);
     std::vector<YINI::Token> tokens = lexer.scan_tokens();
@@ -72,8 +75,8 @@ TEST(LexerTests, TokenizesKeywords) {
     EXPECT_EQ(tokens[3].type, YINI::TokenType::END_OF_FILE);
 }
 
-
-TEST(LexerTests, HandlesUnterminatedBlockComment) {
+TEST(LexerTests, HandlesUnterminatedBlockComment)
+{
     std::string source = "/* this is an unterminated comment";
     YINI::Lexer lexer(source);
     std::vector<YINI::Token> tokens = lexer.scan_tokens();

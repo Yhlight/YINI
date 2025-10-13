@@ -8,15 +8,15 @@ namespace YINI
 {
 class Lexer
 {
-public:
-    Lexer(const std::string& source);
+  public:
+    Lexer(const std::string &source);
     std::vector<Token> scan_tokens();
 
-private:
+  private:
     void scan_token();
     char advance();
     void add_token(TokenType type);
-    void add_token(TokenType type, const std::variant<std::string, double>& literal);
+    void add_token(TokenType type, const std::variant<std::string, double> &literal);
     bool match(char expected);
     char peek();
     char peek_next();
@@ -33,4 +33,4 @@ private:
     int m_line = 1;
     int m_line_start = 0;
 };
-}
+} // namespace YINI

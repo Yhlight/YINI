@@ -1,15 +1,15 @@
-#include "gtest/gtest.h"
 #include "Interop/yini_interop.h"
+#include "gtest/gtest.h"
 #include <string>
 
 TEST(InteropTests, CreateFromFile_NonExistentFile)
 {
     // Arrange
-    const char* non_existent_file = "non_existent_file.yini";
-    char* error_message = nullptr;
+    const char *non_existent_file = "non_existent_file.yini";
+    char *error_message = nullptr;
 
     // Act
-    void* handle = yini_create_from_file(non_existent_file, &error_message);
+    void *handle = yini_create_from_file(non_existent_file, &error_message);
 
     // Assert
     ASSERT_EQ(handle, nullptr);

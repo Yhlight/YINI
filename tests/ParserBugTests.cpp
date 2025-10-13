@@ -1,6 +1,6 @@
-#include "gtest/gtest.h"
 #include "Lexer/Lexer.h"
 #include "Parser/Parser.h"
+#include "gtest/gtest.h"
 
 TEST(ParserBugTests, CanParseMultipleComplexValuesInOneSection)
 {
@@ -19,13 +19,14 @@ nestedArray = [[1, 2], [3, 4]]
         auto ast = parser.parse();
         SUCCEED();
     }
-    catch (const std::runtime_error& e)
+    catch (const std::runtime_error &e)
     {
         FAIL() << "Parser failed with exception: " << e.what();
     }
 }
 
-TEST(ParserBugTests, ThrowsErrorOnTopLevelKeyValuePair) {
+TEST(ParserBugTests, ThrowsErrorOnTopLevelKeyValuePair)
+{
     std::string source = "top_level_key = 123\n[Section]\nkey = 456";
     YINI::Lexer lexer(source);
     auto tokens = lexer.scan_tokens();

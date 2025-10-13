@@ -1,8 +1,8 @@
-#include "gtest/gtest.h"
 #include "Lexer/Lexer.h"
 #include "Parser/Parser.h"
 #include "Resolver/Resolver.h"
 #include "Validator/Validator.h"
+#include "gtest/gtest.h"
 #include <any>
 #include <cstdlib>
 
@@ -54,7 +54,6 @@ TEST(ValidatorTests, AppliesHexDefaultValueForMissingKey)
     ASSERT_EQ(config.count("MyConfig.my_key"), 1);
     EXPECT_EQ(std::get<int64_t>(config["MyConfig.my_key"]), 255);
 }
-
 
 TEST(ValidatorTests, ThrowsOnTypeMismatch)
 {

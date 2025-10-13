@@ -1,7 +1,7 @@
-#include "gtest/gtest.h"
 #include "Lexer/Lexer.h"
-#include "Parser/Parser.h"
 #include "Parser/AST.h"
+#include "Parser/Parser.h"
+#include "gtest/gtest.h"
 
 TEST(ParserTests, ParsesSectionWithKeyValue)
 {
@@ -13,17 +13,17 @@ TEST(ParserTests, ParsesSectionWithKeyValue)
 
     ASSERT_EQ(ast.size(), 1);
 
-    auto section = dynamic_cast<YINI::AST::SectionStmt*>(ast[0].get());
+    auto section = dynamic_cast<YINI::AST::SectionStmt *>(ast[0].get());
     ASSERT_NE(section, nullptr);
     EXPECT_EQ(section->name.lexeme, "TestSection");
 
     ASSERT_EQ(section->statements.size(), 1);
 
-    auto keyValue = dynamic_cast<YINI::AST::KeyValueStmt*>(section->statements[0].get());
+    auto keyValue = dynamic_cast<YINI::AST::KeyValueStmt *>(section->statements[0].get());
     ASSERT_NE(keyValue, nullptr);
     EXPECT_EQ(keyValue->key.lexeme, "key");
 
-    auto literal = dynamic_cast<YINI::AST::LiteralExpr*>(keyValue->value.get());
+    auto literal = dynamic_cast<YINI::AST::LiteralExpr *>(keyValue->value.get());
     ASSERT_NE(literal, nullptr);
     EXPECT_EQ(std::get<std::string>(literal->value.literal), "value");
 }
@@ -37,11 +37,11 @@ TEST(ParserTests, ParsesNumberLiteral)
     auto ast = parser.parse();
 
     ASSERT_EQ(ast.size(), 1);
-    auto section = dynamic_cast<YINI::AST::SectionStmt*>(ast[0].get());
+    auto section = dynamic_cast<YINI::AST::SectionStmt *>(ast[0].get());
     ASSERT_NE(section, nullptr);
-    auto keyValue = dynamic_cast<YINI::AST::KeyValueStmt*>(section->statements[0].get());
+    auto keyValue = dynamic_cast<YINI::AST::KeyValueStmt *>(section->statements[0].get());
     ASSERT_NE(keyValue, nullptr);
-    auto literal = dynamic_cast<YINI::AST::LiteralExpr*>(keyValue->value.get());
+    auto literal = dynamic_cast<YINI::AST::LiteralExpr *>(keyValue->value.get());
     ASSERT_NE(literal, nullptr);
     EXPECT_EQ(std::get<double>(literal->value.literal), 123);
 }
@@ -53,10 +53,13 @@ TEST(ParserTests, ThrowsErrorOnMissingBracket)
     auto tokens = lexer.scan_tokens();
     YINI::Parser parser(tokens);
 
-    try {
+    try
+    {
         parser.parse();
         FAIL() << "Expected std::runtime_error";
-    } catch (const std::runtime_error& e) {
+    }
+    catch (const std::runtime_error &e)
+    {
         EXPECT_NE(std::string(e.what()).find("Error at line 1"), std::string::npos);
     }
 }
@@ -70,21 +73,21 @@ TEST(ParserTests, ParsesBooleanLiterals)
     auto ast = parser.parse();
 
     ASSERT_EQ(ast.size(), 1);
-    auto section = dynamic_cast<YINI::AST::SectionStmt*>(ast[0].get());
+    auto section = dynamic_cast<YINI::AST::SectionStmt *>(ast[0].get());
     ASSERT_NE(section, nullptr);
     ASSERT_EQ(section->statements.size(), 2);
 
-    auto true_kv = dynamic_cast<YINI::AST::KeyValueStmt*>(section->statements[0].get());
+    auto true_kv = dynamic_cast<YINI::AST::KeyValueStmt *>(section->statements[0].get());
     ASSERT_NE(true_kv, nullptr);
     EXPECT_EQ(true_kv->key.lexeme, "true_val");
-    auto true_expr = dynamic_cast<YINI::AST::BoolExpr*>(true_kv->value.get());
+    auto true_expr = dynamic_cast<YINI::AST::BoolExpr *>(true_kv->value.get());
     ASSERT_NE(true_expr, nullptr);
     EXPECT_EQ(true_expr->value, true);
 
-    auto false_kv = dynamic_cast<YINI::AST::KeyValueStmt*>(section->statements[1].get());
+    auto false_kv = dynamic_cast<YINI::AST::KeyValueStmt *>(section->statements[1].get());
     ASSERT_NE(false_kv, nullptr);
     EXPECT_EQ(false_kv->key.lexeme, "false_val");
-    auto false_expr = dynamic_cast<YINI::AST::BoolExpr*>(false_kv->value.get());
+    auto false_expr = dynamic_cast<YINI::AST::BoolExpr *>(false_kv->value.get());
     ASSERT_NE(false_expr, nullptr);
     EXPECT_EQ(false_expr->value, false);
 }
@@ -98,24 +101,24 @@ TEST(ParserTests, ParsesArrayOfNumbers)
     auto ast = parser.parse();
 
     ASSERT_EQ(ast.size(), 1);
-    auto section = dynamic_cast<YINI::AST::SectionStmt*>(ast[0].get());
+    auto section = dynamic_cast<YINI::AST::SectionStmt *>(ast[0].get());
     ASSERT_NE(section, nullptr);
-    auto keyValue = dynamic_cast<YINI::AST::KeyValueStmt*>(section->statements[0].get());
+    auto keyValue = dynamic_cast<YINI::AST::KeyValueStmt *>(section->statements[0].get());
     ASSERT_NE(keyValue, nullptr);
 
-    auto array_expr = dynamic_cast<YINI::AST::ArrayExpr*>(keyValue->value.get());
+    auto array_expr = dynamic_cast<YINI::AST::ArrayExpr *>(keyValue->value.get());
     ASSERT_NE(array_expr, nullptr);
     ASSERT_EQ(array_expr->elements.size(), 3);
 
-    auto e1 = dynamic_cast<YINI::AST::LiteralExpr*>(array_expr->elements[0].get());
+    auto e1 = dynamic_cast<YINI::AST::LiteralExpr *>(array_expr->elements[0].get());
     ASSERT_NE(e1, nullptr);
     EXPECT_EQ(std::get<double>(e1->value.literal), 1);
 
-    auto e2 = dynamic_cast<YINI::AST::LiteralExpr*>(array_expr->elements[1].get());
+    auto e2 = dynamic_cast<YINI::AST::LiteralExpr *>(array_expr->elements[1].get());
     ASSERT_NE(e2, nullptr);
     EXPECT_EQ(std::get<double>(e2->value.literal), 2);
 
-    auto e3 = dynamic_cast<YINI::AST::LiteralExpr*>(array_expr->elements[2].get());
+    auto e3 = dynamic_cast<YINI::AST::LiteralExpr *>(array_expr->elements[2].get());
     ASSERT_NE(e3, nullptr);
     EXPECT_EQ(std::get<double>(e3->value.literal), 3);
 }
@@ -129,12 +132,12 @@ TEST(ParserTests, ParsesEmptyArray)
     auto ast = parser.parse();
 
     ASSERT_EQ(ast.size(), 1);
-    auto section = dynamic_cast<YINI::AST::SectionStmt*>(ast[0].get());
+    auto section = dynamic_cast<YINI::AST::SectionStmt *>(ast[0].get());
     ASSERT_NE(section, nullptr);
-    auto keyValue = dynamic_cast<YINI::AST::KeyValueStmt*>(section->statements[0].get());
+    auto keyValue = dynamic_cast<YINI::AST::KeyValueStmt *>(section->statements[0].get());
     ASSERT_NE(keyValue, nullptr);
 
-    auto array_expr = dynamic_cast<YINI::AST::ArrayExpr*>(keyValue->value.get());
+    auto array_expr = dynamic_cast<YINI::AST::ArrayExpr *>(keyValue->value.get());
     ASSERT_NE(array_expr, nullptr);
     EXPECT_EQ(array_expr->elements.size(), 0);
 }
@@ -148,7 +151,7 @@ TEST(ParserTests, ParsesSectionWithSingleInheritance)
     auto ast = parser.parse();
 
     ASSERT_EQ(ast.size(), 1);
-    auto section = dynamic_cast<YINI::AST::SectionStmt*>(ast[0].get());
+    auto section = dynamic_cast<YINI::AST::SectionStmt *>(ast[0].get());
     ASSERT_NE(section, nullptr);
     EXPECT_EQ(section->name.lexeme, "Child");
     ASSERT_EQ(section->parent_sections.size(), 1);
@@ -164,7 +167,7 @@ TEST(ParserTests, ParsesSectionWithMultipleInheritance)
     auto ast = parser.parse();
 
     ASSERT_EQ(ast.size(), 1);
-    auto section = dynamic_cast<YINI::AST::SectionStmt*>(ast[0].get());
+    auto section = dynamic_cast<YINI::AST::SectionStmt *>(ast[0].get());
     ASSERT_NE(section, nullptr);
     EXPECT_EQ(section->name.lexeme, "Child");
     ASSERT_EQ(section->parent_sections.size(), 3);
@@ -182,7 +185,7 @@ TEST(ParserTests, ParsesDefineSection)
     auto ast = parser.parse();
 
     ASSERT_EQ(ast.size(), 1);
-    auto define_section = dynamic_cast<YINI::AST::DefineSectionStmt*>(ast[0].get());
+    auto define_section = dynamic_cast<YINI::AST::DefineSectionStmt *>(ast[0].get());
     ASSERT_NE(define_section, nullptr);
     ASSERT_EQ(define_section->definitions.size(), 2);
     EXPECT_EQ(define_section->definitions[0]->key.lexeme, "name");
@@ -198,12 +201,12 @@ TEST(ParserTests, ParsesMacroReference)
     auto ast = parser.parse();
 
     ASSERT_EQ(ast.size(), 1);
-    auto section = dynamic_cast<YINI::AST::SectionStmt*>(ast[0].get());
+    auto section = dynamic_cast<YINI::AST::SectionStmt *>(ast[0].get());
     ASSERT_NE(section, nullptr);
-    auto keyValue = dynamic_cast<YINI::AST::KeyValueStmt*>(section->statements[0].get());
+    auto keyValue = dynamic_cast<YINI::AST::KeyValueStmt *>(section->statements[0].get());
     ASSERT_NE(keyValue, nullptr);
 
-    auto macro_expr = dynamic_cast<YINI::AST::MacroExpr*>(keyValue->value.get());
+    auto macro_expr = dynamic_cast<YINI::AST::MacroExpr *>(keyValue->value.get());
     ASSERT_NE(macro_expr, nullptr);
     EXPECT_EQ(macro_expr->name.lexeme, "some_macro");
 }
@@ -217,14 +220,14 @@ TEST(ParserTests, ParsesDynaExpression)
     auto ast = parser.parse();
 
     ASSERT_EQ(ast.size(), 1);
-    auto section = dynamic_cast<YINI::AST::SectionStmt*>(ast[0].get());
+    auto section = dynamic_cast<YINI::AST::SectionStmt *>(ast[0].get());
     ASSERT_NE(section, nullptr);
-    auto keyValue = dynamic_cast<YINI::AST::KeyValueStmt*>(section->statements[0].get());
+    auto keyValue = dynamic_cast<YINI::AST::KeyValueStmt *>(section->statements[0].get());
     ASSERT_NE(keyValue, nullptr);
 
-    auto dyna_expr = dynamic_cast<YINI::AST::DynaExpr*>(keyValue->value.get());
+    auto dyna_expr = dynamic_cast<YINI::AST::DynaExpr *>(keyValue->value.get());
     ASSERT_NE(dyna_expr, nullptr);
-    auto literal_expr = dynamic_cast<YINI::AST::LiteralExpr*>(dyna_expr->expression.get());
+    auto literal_expr = dynamic_cast<YINI::AST::LiteralExpr *>(dyna_expr->expression.get());
     ASSERT_NE(literal_expr, nullptr);
     EXPECT_EQ(std::get<double>(literal_expr->value.literal), 123);
 }
@@ -238,12 +241,12 @@ TEST(ParserTests, ParsesPathExpression)
     auto ast = parser.parse();
 
     ASSERT_EQ(ast.size(), 1);
-    auto section = dynamic_cast<YINI::AST::SectionStmt*>(ast[0].get());
+    auto section = dynamic_cast<YINI::AST::SectionStmt *>(ast[0].get());
     ASSERT_NE(section, nullptr);
-    auto keyValue = dynamic_cast<YINI::AST::KeyValueStmt*>(section->statements[0].get());
+    auto keyValue = dynamic_cast<YINI::AST::KeyValueStmt *>(section->statements[0].get());
     ASSERT_NE(keyValue, nullptr);
 
-    auto path_expr = dynamic_cast<YINI::AST::PathExpr*>(keyValue->value.get());
+    auto path_expr = dynamic_cast<YINI::AST::PathExpr *>(keyValue->value.get());
     ASSERT_NE(path_expr, nullptr);
     EXPECT_EQ(path_expr->path, "/usr/local/bin");
 }
@@ -257,12 +260,12 @@ TEST(ParserTests, ParsesListExpression)
     auto ast = parser.parse();
 
     ASSERT_EQ(ast.size(), 1);
-    auto section = dynamic_cast<YINI::AST::SectionStmt*>(ast[0].get());
+    auto section = dynamic_cast<YINI::AST::SectionStmt *>(ast[0].get());
     ASSERT_NE(section, nullptr);
-    auto keyValue = dynamic_cast<YINI::AST::KeyValueStmt*>(section->statements[0].get());
+    auto keyValue = dynamic_cast<YINI::AST::KeyValueStmt *>(section->statements[0].get());
     ASSERT_NE(keyValue, nullptr);
 
-    auto list_expr = dynamic_cast<YINI::AST::ListExpr*>(keyValue->value.get());
+    auto list_expr = dynamic_cast<YINI::AST::ListExpr *>(keyValue->value.get());
     ASSERT_NE(list_expr, nullptr);
     ASSERT_EQ(list_expr->elements.size(), 2);
 }
@@ -276,13 +279,13 @@ TEST(ParserTests, ParsesQuickRegistration)
     auto ast = parser.parse();
 
     ASSERT_EQ(ast.size(), 1);
-    auto section = dynamic_cast<YINI::AST::SectionStmt*>(ast[0].get());
+    auto section = dynamic_cast<YINI::AST::SectionStmt *>(ast[0].get());
     ASSERT_NE(section, nullptr);
     ASSERT_EQ(section->statements.size(), 2);
 
-    auto reg1 = dynamic_cast<YINI::AST::QuickRegStmt*>(section->statements[0].get());
+    auto reg1 = dynamic_cast<YINI::AST::QuickRegStmt *>(section->statements[0].get());
     ASSERT_NE(reg1, nullptr);
-    auto reg2 = dynamic_cast<YINI::AST::QuickRegStmt*>(section->statements[1].get());
+    auto reg2 = dynamic_cast<YINI::AST::QuickRegStmt *>(section->statements[1].get());
     ASSERT_NE(reg2, nullptr);
 }
 
@@ -295,12 +298,12 @@ TEST(ParserTests, ParsesArrayFuncSyntax)
     auto ast = parser.parse();
 
     ASSERT_EQ(ast.size(), 1);
-    auto* section = dynamic_cast<YINI::AST::SectionStmt*>(ast[0].get());
+    auto *section = dynamic_cast<YINI::AST::SectionStmt *>(ast[0].get());
     ASSERT_NE(section, nullptr);
     ASSERT_EQ(section->statements.size(), 1);
-    auto* array_stmt = dynamic_cast<YINI::AST::KeyValueStmt*>(section->statements[0].get());
+    auto *array_stmt = dynamic_cast<YINI::AST::KeyValueStmt *>(section->statements[0].get());
     ASSERT_NE(array_stmt, nullptr);
-    ASSERT_NE(dynamic_cast<YINI::AST::ArrayExpr*>(array_stmt->value.get()), nullptr);
+    ASSERT_NE(dynamic_cast<YINI::AST::ArrayExpr *>(array_stmt->value.get()), nullptr);
 }
 
 TEST(ParserTests, Parses2DArray)
@@ -312,19 +315,19 @@ TEST(ParserTests, Parses2DArray)
     auto ast = parser.parse();
 
     ASSERT_EQ(ast.size(), 1);
-    auto* section = dynamic_cast<YINI::AST::SectionStmt*>(ast[0].get());
+    auto *section = dynamic_cast<YINI::AST::SectionStmt *>(ast[0].get());
     ASSERT_NE(section, nullptr);
-    auto* kv = dynamic_cast<YINI::AST::KeyValueStmt*>(section->statements[0].get());
+    auto *kv = dynamic_cast<YINI::AST::KeyValueStmt *>(section->statements[0].get());
     ASSERT_NE(kv, nullptr);
-    auto* array_expr = dynamic_cast<YINI::AST::ArrayExpr*>(kv->value.get());
+    auto *array_expr = dynamic_cast<YINI::AST::ArrayExpr *>(kv->value.get());
     ASSERT_NE(array_expr, nullptr);
     ASSERT_EQ(array_expr->elements.size(), 2);
 
-    auto* sub_array1 = dynamic_cast<YINI::AST::ArrayExpr*>(array_expr->elements[0].get());
+    auto *sub_array1 = dynamic_cast<YINI::AST::ArrayExpr *>(array_expr->elements[0].get());
     ASSERT_NE(sub_array1, nullptr);
     ASSERT_EQ(sub_array1->elements.size(), 2);
 
-    auto* sub_array2 = dynamic_cast<YINI::AST::ArrayExpr*>(array_expr->elements[1].get());
+    auto *sub_array2 = dynamic_cast<YINI::AST::ArrayExpr *>(array_expr->elements[1].get());
     ASSERT_NE(sub_array2, nullptr);
     ASSERT_EQ(sub_array2->elements.size(), 2);
 }

@@ -38,37 +38,37 @@ struct SchemaStmt;
 
 class ASTVisitor
 {
-public:
+  public:
     virtual ~ASTVisitor() = default;
 
     // Visitor methods for expressions
-    virtual YiniVariant visitLiteralExpr(LiteralExpr* expr) = 0;
-    virtual YiniVariant visitBoolExpr(BoolExpr* expr) = 0;
-    virtual YiniVariant visitArrayExpr(ArrayExpr* expr) = 0;
-    virtual YiniVariant visitSetExpr(SetExpr* expr) = 0;
-    virtual YiniVariant visitMapExpr(MapExpr* expr) = 0;
-    virtual YiniVariant visitStructExpr(StructExpr* expr) = 0;
-    virtual YiniVariant visitColorExpr(ColorExpr* expr) = 0;
-    virtual YiniVariant visitCoordExpr(CoordExpr* expr) = 0;
-    virtual YiniVariant visitBinaryExpr(BinaryExpr* expr) = 0;
-    virtual YiniVariant visitUnaryExpr(UnaryExpr* expr) = 0;
-    virtual YiniVariant visitGroupingExpr(GroupingExpr* expr) = 0;
-    virtual YiniVariant visitMacroExpr(MacroExpr* expr) = 0;
-    virtual YiniVariant visitCrossSectionRefExpr(CrossSectionRefExpr* expr) = 0;
-    virtual YiniVariant visitEnvVarRefExpr(EnvVarRefExpr* expr) = 0;
-    virtual YiniVariant visitDynaExpr(DynaExpr* expr) = 0;
-    virtual YiniVariant visitPathExpr(PathExpr* expr) = 0;
-    virtual YiniVariant visitListExpr(ListExpr* expr) = 0;
+    virtual YiniVariant visitLiteralExpr(LiteralExpr *expr) = 0;
+    virtual YiniVariant visitBoolExpr(BoolExpr *expr) = 0;
+    virtual YiniVariant visitArrayExpr(ArrayExpr *expr) = 0;
+    virtual YiniVariant visitSetExpr(SetExpr *expr) = 0;
+    virtual YiniVariant visitMapExpr(MapExpr *expr) = 0;
+    virtual YiniVariant visitStructExpr(StructExpr *expr) = 0;
+    virtual YiniVariant visitColorExpr(ColorExpr *expr) = 0;
+    virtual YiniVariant visitCoordExpr(CoordExpr *expr) = 0;
+    virtual YiniVariant visitBinaryExpr(BinaryExpr *expr) = 0;
+    virtual YiniVariant visitUnaryExpr(UnaryExpr *expr) = 0;
+    virtual YiniVariant visitGroupingExpr(GroupingExpr *expr) = 0;
+    virtual YiniVariant visitMacroExpr(MacroExpr *expr) = 0;
+    virtual YiniVariant visitCrossSectionRefExpr(CrossSectionRefExpr *expr) = 0;
+    virtual YiniVariant visitEnvVarRefExpr(EnvVarRefExpr *expr) = 0;
+    virtual YiniVariant visitDynaExpr(DynaExpr *expr) = 0;
+    virtual YiniVariant visitPathExpr(PathExpr *expr) = 0;
+    virtual YiniVariant visitListExpr(ListExpr *expr) = 0;
 
     // Visitor methods for statements
-    virtual void visitKeyValueStmt(KeyValueStmt* stmt) = 0;
-    virtual void visitSectionStmt(SectionStmt* stmt) = 0;
-    virtual void visitDefineSectionStmt(DefineSectionStmt* stmt) = 0;
-    virtual void visitIncludeStmt(IncludeStmt* stmt, bool collection_mode) = 0;
-    virtual void visitQuickRegStmt(QuickRegStmt* stmt) = 0;
-    virtual void visitSchemaRuleStmt(SchemaRuleStmt* stmt) = 0;
-    virtual void visitSchemaSectionStmt(SchemaSectionStmt* stmt) = 0;
-    virtual void visitSchemaStmt(SchemaStmt* stmt) = 0;
+    virtual void visitKeyValueStmt(KeyValueStmt *stmt) = 0;
+    virtual void visitSectionStmt(SectionStmt *stmt) = 0;
+    virtual void visitDefineSectionStmt(DefineSectionStmt *stmt) = 0;
+    virtual void visitIncludeStmt(IncludeStmt *stmt, bool collection_mode) = 0;
+    virtual void visitQuickRegStmt(QuickRegStmt *stmt) = 0;
+    virtual void visitSchemaRuleStmt(SchemaRuleStmt *stmt) = 0;
+    virtual void visitSchemaSectionStmt(SchemaSectionStmt *stmt) = 0;
+    virtual void visitSchemaStmt(SchemaStmt *stmt) = 0;
 };
 
 } // namespace AST

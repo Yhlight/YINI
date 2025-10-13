@@ -1,9 +1,9 @@
-#include "gtest/gtest.h"
 #include "Lexer/Lexer.h"
 #include "Parser/Parser.h"
 #include "Resolver/Resolver.h"
-#include <variant>
+#include "gtest/gtest.h"
 #include <cstdlib>
+#include <variant>
 
 TEST(ResolverTests, ResolvesMacro)
 {
@@ -89,15 +89,14 @@ TEST(ResolverTests, ResolvesSetAsArray)
     auto config = resolver.resolve();
 
     ASSERT_EQ(config.count("MySet.values"), 1);
-    auto& set_variant = config["MySet.values"];
+    auto &set_variant = config["MySet.values"];
     ASSERT_TRUE(std::holds_alternative<std::unique_ptr<YINI::YiniArray>>(set_variant));
-    auto& set_vec = *std::get<std::unique_ptr<YINI::YiniArray>>(set_variant);
+    auto &set_vec = *std::get<std::unique_ptr<YINI::YiniArray>>(set_variant);
     ASSERT_EQ(set_vec.size(), 3);
     EXPECT_EQ(std::get<int64_t>(set_vec[0]), 1);
     EXPECT_EQ(std::get<std::string>(set_vec[1]), "two");
     EXPECT_EQ(std::get<int64_t>(set_vec[2]), 3);
 }
-
 
 TEST(ResolverTests, ResolvesCrossSectionReference)
 {
@@ -126,9 +125,9 @@ TEST(ResolverTests, ResolvesMap)
     auto config = resolver.resolve();
 
     ASSERT_EQ(config.count("MyMap.data"), 1);
-    auto& map_variant = config["MyMap.data"];
+    auto &map_variant = config["MyMap.data"];
     ASSERT_TRUE(std::holds_alternative<YINI::YiniMap>(map_variant));
-    auto& map_val = std::get<YINI::YiniMap>(map_variant);
+    auto &map_val = std::get<YINI::YiniMap>(map_variant);
     ASSERT_EQ(map_val.size(), 2);
     ASSERT_EQ(map_val.count("key1"), 1);
     EXPECT_EQ(std::get<std::string>(map_val.at("key1")), "value1");
@@ -148,7 +147,7 @@ TEST(ResolverTests, ResolvesHexColor)
     auto config = resolver.resolve();
 
     ASSERT_EQ(config.count("Colors.my_color"), 1);
-    auto& color_variant = config["Colors.my_color"];
+    auto &color_variant = config["Colors.my_color"];
     ASSERT_TRUE(std::holds_alternative<YINI::ResolvedColor>(color_variant));
     auto color_val = std::get<YINI::ResolvedColor>(color_variant);
     EXPECT_EQ(color_val.r, 255);
@@ -168,7 +167,7 @@ TEST(ResolverTests, ResolvesRgbColor)
     auto config = resolver.resolve();
 
     ASSERT_EQ(config.count("Colors.my_color"), 1);
-    auto& color_variant = config["Colors.my_color"];
+    auto &color_variant = config["Colors.my_color"];
     ASSERT_TRUE(std::holds_alternative<YINI::ResolvedColor>(color_variant));
     auto color_val = std::get<YINI::ResolvedColor>(color_variant);
     EXPECT_EQ(color_val.r, 255);
@@ -188,7 +187,7 @@ TEST(ResolverTests, ResolvesCoord2D)
     auto config = resolver.resolve();
 
     ASSERT_EQ(config.count("Coords.pos"), 1);
-    auto& coord_variant = config["Coords.pos"];
+    auto &coord_variant = config["Coords.pos"];
     ASSERT_TRUE(std::holds_alternative<YINI::ResolvedCoord>(coord_variant));
     auto coord_val = std::get<YINI::ResolvedCoord>(coord_variant);
     EXPECT_EQ(coord_val.x, 10.0);
@@ -208,7 +207,7 @@ TEST(ResolverTests, ResolvesCoord3D)
     auto config = resolver.resolve();
 
     ASSERT_EQ(config.count("Coords.pos"), 1);
-    auto& coord_variant = config["Coords.pos"];
+    auto &coord_variant = config["Coords.pos"];
     ASSERT_TRUE(std::holds_alternative<YINI::ResolvedCoord>(coord_variant));
     auto coord_val = std::get<YINI::ResolvedCoord>(coord_variant);
     EXPECT_EQ(coord_val.x, 10.0);
@@ -222,7 +221,8 @@ TEST(ResolverTests, ResolvesCoord3D)
 
 TEST(ResolverTests, ResolvesInclude)
 {
-    std::string source = "[#include]\n+= \"include_test.yini\"\n[MainSection]\nmain_key = \"this is from the main file\"";
+    std::string source =
+        "[#include]\n+= \"include_test.yini\"\n[MainSection]\nmain_key = \"this is from the main file\"";
     YINI::Lexer lexer(source);
     auto tokens = lexer.scan_tokens();
     YINI::Parser parser(tokens);
@@ -257,7 +257,8 @@ TEST(ResolverTests, ResolvesArithmetic)
     EXPECT_EQ(std::get<double>(config["Config.value"]), 7.0);
 }
 
-TEST(ResolverTests, HandlesQuickRegistrationWithInheritance) {
+TEST(ResolverTests, HandlesQuickRegistrationWithInheritance)
+{
     std::string source = R"(
 [Parent]
 0 = "zero"
@@ -323,9 +324,9 @@ TEST(ResolverTests, ResolvesList)
     auto config = resolver.resolve();
 
     ASSERT_EQ(config.count("MyConfig.my_list"), 1);
-    auto& list_variant = config["MyConfig.my_list"];
+    auto &list_variant = config["MyConfig.my_list"];
     ASSERT_TRUE(std::holds_alternative<std::unique_ptr<YINI::YiniArray>>(list_variant));
-    auto& list_vec = *std::get<std::unique_ptr<YINI::YiniArray>>(list_variant);
+    auto &list_vec = *std::get<std::unique_ptr<YINI::YiniArray>>(list_variant);
     ASSERT_EQ(list_vec.size(), 2);
     EXPECT_EQ(std::get<int64_t>(list_vec[0]), 1);
     EXPECT_EQ(std::get<std::string>(list_vec[1]), "two");
