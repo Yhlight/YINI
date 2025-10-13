@@ -10,6 +10,7 @@
 #include <variant>
 #include <vector>
 
+#include "CLI/CLI.hpp"
 #include "Lexer/Lexer.h"
 #include "Loader/YbinFormat.h"
 #include "Loader/YbinSerialization.h"
@@ -907,33 +908,47 @@ static void run_decompile(const char *path)
 
 int main(int argc, char *argv[])
 {
-    if (argc > 1 && std::string(argv[1]) == "--server")
+    CLI::App app{"YINI Language Tool"};
+    app.allow_windows_style_options();
+
+    bool server = false;
+    app.add_flag("--server", server, "Run as a Language Server");
+
+    // Add a subcommand for cooking files
+    std::string output_path;
+    std::vector<std::string> input_paths;
+    CLI::App *cook_cmd = app.add_subcommand("cook", "Cook .yini files into a .ybin asset");
+    cook_cmd->add_option("-o,--output", output_path, "Output file path")->required();
+    cook_cmd->add_option("inputs", input_paths, "Input .yini file paths")->required();
+
+    // Add a subcommand for validation
+    std::string schema_path;
+    std::string config_path_val;
+    CLI::App *validate_cmd = app.add_subcommand("validate", "Validate a config file against a schema");
+    validate_cmd->add_option("schema", schema_path, "Schema file path")->required();
+    validate_cmd->add_option("config", config_path_val, "Config file path")->required();
+
+    // Add a subcommand for decompiling
+    std::string decompile_path;
+    CLI::App *decompile_cmd = app.add_subcommand("decompile", "Decompile a .ybin file to a human-readable format");
+    decompile_cmd->add_option("input", decompile_path, "Input .ybin file path")->required();
+
+    // Add an optional positional argument for a single file to run
+    std::string file_to_run;
+    app.add_option("file", file_to_run, "A single .yini file to process");
+
+    try {
+        app.parse(argc, argv);
+    } catch (const CLI::ParseError &e) {
+        return app.exit(e);
+    }
+
+    if (server)
     {
         run_language_server();
     }
-    else if (argc > 1 && std::string(argv[1]) == "cook")
+    else if (*cook_cmd)
     {
-        std::string output_path;
-        std::vector<std::string> input_paths;
-        for (int i = 2; i < argc; ++i)
-        {
-            std::string arg = argv[i];
-            if (arg == "-o" && i + 1 < argc)
-            {
-                output_path = argv[++i];
-            }
-            else
-            {
-                input_paths.push_back(arg);
-            }
-        }
-
-        if (output_path.empty() || input_paths.empty())
-        {
-            std::cerr << "Usage: yini cook -o <output.ybin> <input1.yini> [input2.yini]..." << std::endl;
-            return 64;
-        }
-
         try
         {
             run_cook(output_path, input_paths);
@@ -944,23 +959,17 @@ int main(int argc, char *argv[])
             return 1;
         }
     }
-    else if (argc == 4 && std::string(argv[1]) == "validate")
+    else if (*validate_cmd)
     {
-        run_validate_with_schema(argv[2], argv[3]);
+        run_validate_with_schema(schema_path.c_str(), config_path_val.c_str());
     }
-    else if (argc == 3 && std::string(argv[1]) == "decompile")
+    else if (*decompile_cmd)
     {
-        run_decompile(argv[2]);
+        run_decompile(decompile_path.c_str());
     }
-    else if (argc == 2)
+    else if (!file_to_run.empty())
     {
-        run_file(argv[1]);
-    }
-    else if (argc > 2)
-    {
-        std::cerr << "Usage: yini <command> [args]" << std::endl;
-        std::cerr << "Commands: cook, validate, decompile, [script], --server" << std::endl;
-        return 64; // EX_USAGE
+        run_file(file_to_run.c_str());
     }
     else
     {

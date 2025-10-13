@@ -28,6 +28,13 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(nlohmann_json)
 set(NLOHMANN_JSON_INCLUDE_DIR ${nlohmann_json_SOURCE_DIR}/include CACHE INTERNAL "nlohmann_json include directory")
 
+FetchContent_Declare(
+  CLI11
+  GIT_REPOSITORY https://github.com/CLIUtils/CLI11.git
+  GIT_TAG        v2.3.2
+)
+FetchContent_MakeAvailable(CLI11)
+
 
 add_subdirectory(src/Lexer)
 add_subdirectory(src/Parser)
