@@ -1,4 +1,6 @@
 #include "SemanticInfoVisitor.h"
+#include "Resolver/Resolver.h"
+#include "Ymeta/YmetaManager.h"
 
 namespace YINI
 {
@@ -16,7 +18,8 @@ nlohmann::json SemanticInfoVisitor::get_info()
     return m_result;
 }
 
-void SemanticInfoVisitor::add_token(const Token &token, const std::string &type, const std::string &modifiers)
+void SemanticInfoVisitor::add_token(const Token &token, const std::string &type, const std::string &modifiers,
+                                  const std::string &hover_text)
 {
     nlohmann::json token_info;
     token_info["line"] = token.line - 1;
@@ -24,8 +27,48 @@ void SemanticInfoVisitor::add_token(const Token &token, const std::string &type,
     token_info["length"] = token.lexeme.length();
     token_info["tokenType"] = type;
     token_info["tokenModifiers"] = modifiers;
+    if (!hover_text.empty())
+    {
+        token_info["hoverText"] = hover_text;
+    }
     m_result["tokens"].push_back(token_info);
 }
+
+namespace
+{
+// Helper to get a string representation of the type held in a YiniVariant
+std::string get_variant_type_name(const YiniVariant &v)
+{
+    return std::visit(
+        [](auto &&arg) -> std::string
+        {
+            using T = std::decay_t<decltype(arg)>;
+            if constexpr (std::is_same_v<T, std::monostate>)
+                return "null";
+            else if constexpr (std::is_same_v<T, int64_t>)
+                return "int";
+            else if constexpr (std::is_same_v<T, double>)
+                return "float";
+            else if constexpr (std::is_same_v<T, bool>)
+                return "bool";
+            else if constexpr (std::is_same_v<T, std::string>)
+                return "string";
+            else if constexpr (std::is_same_v<T, ResolvedColor>)
+                return "color";
+            else if constexpr (std::is_same_v<T, ResolvedCoord>)
+                return "coord";
+            else if constexpr (std::is_same_v<T, YiniMap>)
+                return "map";
+            else if constexpr (std::is_same_v<T, YiniStruct>)
+                return "struct";
+            else if constexpr (std::is_same_v<T, std::unique_ptr<YiniArray>>)
+                return "array";
+            else
+                return "unknown";
+        },
+        v);
+}
+} // namespace
 
 // Visitor methods for expressions
 YiniVariant SemanticInfoVisitor::visitLiteralExpr(AST::LiteralExpr *expr)
@@ -161,7 +204,23 @@ YiniVariant SemanticInfoVisitor::visitListExpr(AST::ListExpr *expr)
 // Visitor methods for statements
 void SemanticInfoVisitor::visitKeyValueStmt(AST::KeyValueStmt *stmt)
 {
-    add_token(stmt->key, "property");
+    // To get the resolved type for the hover, we need to resolve this specific value expression.
+    // This is a bit inefficient as it creates a mini-resolver, but it's self-contained.
+    // A more advanced implementation might pass the resolved config into the visitor.
+    YiniVariant resolved_value;
+    try
+    {
+        std::vector<std::unique_ptr<AST::Stmt>> temp_ast; // Empty ast for resolver
+        YmetaManager temp_ymeta;
+        Resolver temp_resolver(temp_ast, temp_ymeta);
+        resolved_value = stmt->value->accept(&temp_resolver);
+    }
+    catch (...)
+    {
+        // Ignore resolution errors for semantic token highlighting
+    }
+
+    add_token(stmt->key, "property", "", get_variant_type_name(resolved_value));
 
     nlohmann::json symbol;
     symbol["name"] = stmt->key.lexeme;

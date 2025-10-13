@@ -46,7 +46,8 @@ class SemanticInfoVisitor : public AST::ASTVisitor
     void visitSchemaStmt(AST::SchemaStmt *stmt) override;
 
   private:
-    void add_token(const Token &token, const std::string &type, const std::string &modifiers = "");
+    void add_token(const Token &token, const std::string &type, const std::string &modifiers = "",
+                   const std::string &hover_text = "");
 
     const std::string &m_source;
     std::string m_uri;

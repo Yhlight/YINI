@@ -223,9 +223,12 @@ void run_language_server()
                         if (token["line"] == line && character >= token["startChar"].get<int>() &&
                             character < (token["startChar"].get<int>() + token["length"].get<int>()))
                         {
-                            response["result"]["contents"] = {
-                                {"kind", "markdown"},
-                                {"value", "Type: `" + token["tokenType"].get<std::string>() + "`"}};
+                            if (token.contains("hoverText"))
+                            {
+                                response["result"]["contents"] = {
+                                    {"kind", "markdown"},
+                                    {"value", "Type: `" + token["hoverText"].get<std::string>() + "`"}};
+                            }
                             break;
                         }
                     }
