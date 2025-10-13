@@ -140,60 +140,77 @@ void Validator::validate_section(const std::string &section_name, const AST::Sch
         const AST::SchemaRule &rule = rule_stmt->rule;
         bool key_exists = m_resolved_config.count(full_key);
 
-        // 1. Check for required keys
-        if (rule.requirement == AST::SchemaRule::Requirement::REQUIRED && !key_exists)
-        {
-            if (rule.empty_behavior == AST::SchemaRule::EmptyBehavior::ASSIGN_DEFAULT && rule.default_value.has_value())
-            {
-                m_resolved_config[full_key] = convert_string_to_variant(rule.default_value.value(), rule.type);
-            }
-            else if (rule.empty_behavior == AST::SchemaRule::EmptyBehavior::THROW_ERROR)
-            {
-                throw std::runtime_error("Missing required key '" + key + "' in section '" + section_name + "'.");
-            }
-        }
+        YiniVariant value_to_validate;
 
         if (key_exists)
         {
-            YiniVariant &value = m_resolved_config.at(full_key);
-
-            // 2. Validate type
-            if (!rule.type.empty())
+            value_to_validate = m_resolved_config.at(full_key);
+        }
+        else
+        {
+            // Key does not exist. Check for default values or throw if required.
+            if (rule.empty_behavior == AST::SchemaRule::EmptyBehavior::ASSIGN_DEFAULT && rule.default_value.has_value())
             {
-                std::string full_type_str = rule.type;
-                if (rule.type == "array" && !rule.array_subtype.empty())
-                {
-                    full_type_str = "array[" + rule.array_subtype + "]";
-                }
-                validate_variant(value, full_type_str, full_key);
+                // Key is missing, but has a default value.
+                value_to_validate = convert_string_to_variant(rule.default_value.value(), rule.type);
+                // We will validate this default value below, and assign it if it passes.
             }
+            else if (rule.requirement == AST::SchemaRule::Requirement::REQUIRED)
+            {
+                // Key is required, has no default, and is missing.
+                throw std::runtime_error("Missing required key '" + key + "' in section '" + section_name + "'.");
+            }
+            else
+            {
+                // Key is optional, missing, and has no default. Nothing to do.
+                continue;
+            }
+        }
 
-            // 3. Validate range
-            std::visit(
-                [&](auto &&arg)
+        // --- Perform Validation ---
+
+        // 1. Validate type
+        if (!rule.type.empty())
+        {
+            std::string full_type_str = rule.type;
+            if (rule.type == "array" && !rule.array_subtype.empty())
+            {
+                full_type_str = "array[" + rule.array_subtype + "]";
+            }
+            validate_variant(value_to_validate, full_type_str, full_key);
+        }
+
+        // 2. Validate range
+        std::visit(
+            [&](auto &&arg)
+            {
+                using T = std::decay_t<decltype(arg)>;
+                if constexpr (std::is_same_v<T, int64_t> || std::is_same_v<T, double>)
                 {
-                    using T = std::decay_t<decltype(arg)>;
-                    if constexpr (std::is_same_v<T, int64_t> || std::is_same_v<T, double>)
-                    {
-                        double numeric_value = 0.0;
-                        if constexpr (std::is_same_v<T, int64_t>)
-                            numeric_value = static_cast<double>(arg);
-                        if constexpr (std::is_same_v<T, double>)
-                            numeric_value = arg;
+                    double numeric_value = 0.0;
+                    if constexpr (std::is_same_v<T, int64_t>)
+                        numeric_value = static_cast<double>(arg);
+                    if constexpr (std::is_same_v<T, double>)
+                        numeric_value = arg;
 
-                        if (rule.min && numeric_value < *rule.min)
-                        {
-                            throw std::runtime_error("Value for key '" + key + "' is below the minimum of " +
-                                                     std::to_string(*rule.min));
-                        }
-                        if (rule.max && numeric_value > *rule.max)
-                        {
-                            throw std::runtime_error("Value for key '" + key + "' is above the maximum of " +
-                                                     std::to_string(*rule.max));
-                        }
+                    if (rule.min && numeric_value < *rule.min)
+                    {
+                        throw std::runtime_error("Value for key '" + key + "' (" + std::to_string(numeric_value) +
+                                                 ") is below the minimum of " + std::to_string(*rule.min));
                     }
-                },
-                value);
+                    if (rule.max && numeric_value > *rule.max)
+                    {
+                        throw std::runtime_error("Value for key '" + key + "' (" + std::to_string(numeric_value) +
+                                                 ") is above the maximum of " + std::to_string(*rule.max));
+                    }
+                }
+            },
+            value_to_validate);
+
+        // If the key was missing and we validated a default value, assign it now.
+        if (!key_exists && rule.empty_behavior == AST::SchemaRule::EmptyBehavior::ASSIGN_DEFAULT)
+        {
+            m_resolved_config[full_key] = value_to_validate;
         }
     }
 }

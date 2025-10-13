@@ -115,6 +115,85 @@ TEST(ValidatorTests, PassesWithCorrectValue)
     EXPECT_NO_THROW(validator.validate());
 }
 
+TEST(ValidatorTests, ThrowsOnValidatorArraySubtypeMismatch)
+{
+    // This test is different from the one above. The resolver will happily resolve
+    // `my_array` because it contains all integers. However, the *validator* should
+    // fail because the schema expects an array of strings.
+    std::string source = R"([#schema]
+[MyConfig]
+my_array = !, array[string]
+
+[MyConfig]
+my_array = [1, 2, 3]
+)";
+    YINI::Lexer lexer(source);
+    auto tokens = lexer.scan_tokens();
+    YINI::Parser parser(tokens);
+    auto ast = parser.parse();
+    YINI::YmetaManager ymeta_manager;
+    YINI::Resolver resolver(ast, ymeta_manager);
+    auto config = resolver.resolve();
+    YINI::Validator validator(config, ast);
+
+    EXPECT_THROW(validator.validate(), std::runtime_error);
+}
+
+TEST(ValidatorTests, PassesWithCorrectValidatorArraySubtype)
+{
+    std::string source = R"([#schema]
+[MyConfig]
+my_array = !, array[string]
+
+[MyConfig]
+my_array = ["one", "two", "three"]
+)";
+    YINI::Lexer lexer(source);
+    auto tokens = lexer.scan_tokens();
+    YINI::Parser parser(tokens);
+    auto ast = parser.parse();
+    YINI::YmetaManager ymeta_manager;
+    YINI::Resolver resolver(ast, ymeta_manager);
+    auto config = resolver.resolve();
+    YINI::Validator validator(config, ast);
+
+    EXPECT_NO_THROW(validator.validate());
+}
+
+TEST(ValidatorTests, HandlesCombinedRules)
+{
+    // This test checks an optional key with a default value that is within the specified range.
+    std::string source = "[#schema]\n[MyConfig]\nmy_key = ?, int, =15, min=10, max=20\n\n[MyConfig]\n";
+    YINI::Lexer lexer(source);
+    auto tokens = lexer.scan_tokens();
+    YINI::Parser parser(tokens);
+    auto ast = parser.parse();
+    YINI::YmetaManager ymeta_manager;
+    YINI::Resolver resolver(ast, ymeta_manager);
+    auto config = resolver.resolve();
+    YINI::Validator validator(config, ast);
+
+    EXPECT_NO_THROW(validator.validate());
+    ASSERT_EQ(config.count("MyConfig.my_key"), 1);
+    EXPECT_EQ(std::get<int64_t>(config["MyConfig.my_key"]), 15);
+}
+
+TEST(ValidatorTests, ThrowsWhenDefaultValueIsOutOfRange)
+{
+    // The default value of 5 violates the min=10 rule.
+    std::string source = "[#schema]\n[MyConfig]\nmy_key = ?, int, =5, min=10, max=20\n\n[MyConfig]\n";
+    YINI::Lexer lexer(source);
+    auto tokens = lexer.scan_tokens();
+    YINI::Parser parser(tokens);
+    auto ast = parser.parse();
+    YINI::YmetaManager ymeta_manager;
+    YINI::Resolver resolver(ast, ymeta_manager);
+    auto config = resolver.resolve();
+    YINI::Validator validator(config, ast);
+
+    EXPECT_THROW(validator.validate(), std::runtime_error);
+}
+
 TEST(ValidatorTests, ThrowsOnNestedArraySubtypeMismatch)
 {
     std::string source = R"([#schema]
