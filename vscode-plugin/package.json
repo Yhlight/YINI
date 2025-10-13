@@ -1,0 +1,47 @@
+{
+  "name": "yini-language-support",
+  "displayName": "YINI Language Support",
+  "description": "Syntax highlighting and language support for YINI configuration files",
+  "version": "1.0.0",
+  "publisher": "yini",
+  "engines": {
+    "vscode": "^1.60.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "yini",
+        "aliases": [
+          "YINI",
+          "yini"
+        ],
+        "extensions": [
+          ".yini",
+          ".YINI"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "yini",
+        "scopeName": "source.yini",
+        "path": "./syntaxes/yini.tmLanguage.json"
+      }
+    ]
+  },
+  "keywords": [
+    "yini",
+    "configuration",
+    "ini",
+    "game development"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/yini"
+  },
+  "license": "MIT"
+}
