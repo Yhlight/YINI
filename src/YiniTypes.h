@@ -11,11 +11,13 @@
 namespace YINI
 {
 
+/// @brief Represents a resolved RGB color value.
 struct ResolvedColor
 {
     uint8_t r, g, b;
 };
 
+/// @brief Represents a resolved 2D or 3D coordinate.
 struct ResolvedCoord
 {
     double x = 0.0, y = 0.0, z = 0.0;
@@ -25,25 +27,40 @@ struct ResolvedCoord
 // Forward declaration for recursion
 struct YiniVariant;
 
-// Using an alias for the vector type, which contains the variant type
+/// @brief An alias for a vector of YiniVariant objects, representing an array in YINI.
+/// @see YiniVariant
 using YiniArray = std::vector<YiniVariant>;
+
+/// @brief An alias for a pair representing a single key-value struct.
+/// @details The key is a std::string and the value is a unique_ptr to another YiniVariant.
+/// @see YiniVariant
 using YiniStruct = std::pair<std::string, std::unique_ptr<YiniVariant>>;
+
+/// @brief An alias for a map of string keys to YiniVariant values, representing a map in YINI.
+/// @see YiniVariant
 using YiniMap = std::map<std::string, YiniVariant>;
 
-// The base variant type, using a pointer-wrapper for the recursive part
+/// @brief The base std::variant definition for YiniVariant.
+/// @details This defines all possible types that a YiniVariant can hold.
+///          The recursive YiniVariant inherits from this.
 using YiniVariantBase = std::variant<std::monostate, // Represents a null or uninitialized value
                                      int64_t, double, bool, std::string, ResolvedColor, ResolvedCoord,
                                      YiniMap, YiniStruct, std::unique_ptr<YiniArray>>;
 
-// The actual variant type we will use, which inherits from the base.
-// This is a common pattern for defining recursive variants.
+/**
+ * @brief The core recursive variant type used to represent any resolved YINI value.
+ * @details This is the primary data structure for holding resolved values after parsing and
+ *          resolving. It's a std::variant that can hold simple types, YINI-specific structs,
+ *          or containers of itself (like arrays). It implements custom copy constructors/assignment
+ *          to handle deep copying of heap-allocated members like YiniArray and YiniStruct.
+ * @see YiniVariantBase
+ */
 struct YiniVariant : YiniVariantBase
 {
     using YiniVariantBase::YiniVariantBase;
     using YiniVariantBase::operator=;
 
-    // Custom copy constructor for deep copying the unique_ptr
-    // Custom copy constructor for deep copying move-only types
+    /// @brief Custom copy constructor for deep copying move-only types.
     YiniVariant(const YiniVariant &other) : YiniVariantBase()
     {
         std::visit(
@@ -71,7 +88,7 @@ struct YiniVariant : YiniVariantBase
             static_cast<const YiniVariantBase &>(other));
     }
 
-    // Custom copy assignment operator
+    /// @brief Custom copy assignment operator for deep copying.
     YiniVariant &operator=(const YiniVariant &other)
     {
         if (this != &other)
@@ -108,6 +125,7 @@ struct YiniVariant : YiniVariantBase
     YiniVariant &operator=(YiniVariant &&other) = default;
 };
 
+/// @brief ostream operator for pretty-printing ResolvedColor.
 inline std::ostream &operator<<(std::ostream &os, const ResolvedColor &color)
 {
     os << "color(" << static_cast<int>(color.r) << ", " << static_cast<int>(color.g) << ", "
@@ -115,6 +133,7 @@ inline std::ostream &operator<<(std::ostream &os, const ResolvedColor &color)
     return os;
 }
 
+/// @brief ostream operator for pretty-printing ResolvedCoord.
 inline std::ostream &operator<<(std::ostream &os, const ResolvedCoord &coord)
 {
     os << "coord(" << coord.x << ", " << coord.y;

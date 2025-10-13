@@ -13,10 +13,28 @@
 namespace YINI
 {
 
+/**
+ * @brief Resolves the YINI AST into a flat key-value map.
+ * @details Traverses the AST produced by the Parser, resolving inheritance,
+ *          macros, includes, and other language features into a final, flat map
+ *          of `Section.Key` to `YiniVariant` values. This class uses the Visitor
+ *          pattern to traverse the AST nodes.
+ */
 class Resolver : public AST::ASTVisitor
 {
 public:
+    /**
+     * @brief Constructs a new Resolver object.
+     * @param statements The vector of root AST statements from the Parser.
+     * @param ymeta_manager A reference to the YmetaManager for handling dynamic values.
+     */
     Resolver(const std::vector<std::unique_ptr<AST::Stmt>>& statements, YmetaManager& ymeta_manager);
+
+    /**
+     * @brief Performs the resolution of the entire AST.
+     * @return A map where keys are in "Section.Key" format and values are the resolved YiniVariant.
+     * @throws std::runtime_error on errors like circular inheritance or undefined references.
+     */
     std::map<std::string, YiniVariant> resolve();
 
 private:
