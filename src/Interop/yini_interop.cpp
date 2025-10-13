@@ -220,7 +220,62 @@ namespace YINI
             return std::monostate{};
         }
 
+        void set_value(const std::string& key, YiniVariant value) {
+            if (m_ybin_data) {
+                // Cannot modify a loaded ybin file in memory
+                return;
+            }
+            m_resolved_config[key] = value;
+        }
+
+        void save_to_file(const std::string& file_path) {
+            if (m_ybin_data) {
+                 throw std::runtime_error("Cannot save a loaded .ybin file.");
+            }
+
+            std::ofstream file(file_path);
+            if (!file.is_open()) {
+                throw std::runtime_error("Could not open file for writing: " + file_path);
+            }
+
+            // A simple (and not fully featured) way to write back the config.
+            // This doesn't preserve comments, structure, or ordering.
+            std::map<std::string, std::map<std::string, YiniVariant>> sections;
+            for(const auto& pair : m_resolved_config) {
+                size_t dot_pos = pair.first.find('.');
+                if (dot_pos == std::string::npos) continue;
+                std::string section_name = pair.first.substr(0, dot_pos);
+                std::string key_name = pair.first.substr(dot_pos + 1);
+                sections[section_name][key_name] = pair.second;
+            }
+
+            for(const auto& section_pair : sections) {
+                file << "[" << section_pair.first << "]\n";
+                for(const auto& key_pair : section_pair.second) {
+                    file << key_pair.first << " = ";
+                    std::visit([&file](auto&& arg) {
+                        using T = std::decay_t<decltype(arg)>;
+                        if constexpr (std::is_same_v<T, std::monostate>) {
+                            file << "null";
+                        } else if constexpr (std::is_same_v<T, bool>) {
+                            file << (arg ? "true" : "false");
+                        } else if constexpr (std::is_same_v<T, std::string>) {
+                            file << "\"" << arg << "\"";
+                        } else if constexpr (std::is_same_v<T, YiniMap> || std::is_same_v<T, YiniStruct> || std::is_same_v<T, std::unique_ptr<YiniArray>>) {
+                            file << "[complex type]"; // Placeholder for now
+                        } else {
+                            file << arg;
+                        }
+                    }, key_pair.second);
+                    file << "\n";
+                }
+                file << "\n";
+            }
+        }
+
     public:
+        Config() = default; // For creating an empty config
+
         Config(const std::string& file_path) {
             std::ifstream file(file_path);
             if (!file.is_open()) throw std::runtime_error("Could not open file: " + file_path);
@@ -369,6 +424,62 @@ YINI_API const char* yini_get_string(void* handle, const char* key)
         return c_str;
     }
     return nullptr;
+}
+
+// --- Write API Implementations ---
+
+YINI_API void* yini_create()
+{
+    YINI::Config* config = new YINI::Config();
+    return static_cast<void*>(config);
+}
+
+YINI_API void yini_set_int(void* handle, const char* key, int value)
+{
+    if (!handle || !key) return;
+    YINI::Config* config = static_cast<YINI::Config*>(handle);
+    config->set_value(key, static_cast<int64_t>(value));
+}
+
+YINI_API void yini_set_double(void* handle, const char* key, double value)
+{
+    if (!handle || !key) return;
+    YINI::Config* config = static_cast<YINI::Config*>(handle);
+    config->set_value(key, value);
+}
+
+YINI_API void yini_set_bool(void* handle, const char* key, bool value)
+{
+    if (!handle || !key) return;
+    YINI::Config* config = static_cast<YINI::Config*>(handle);
+    config->set_value(key, value);
+}
+
+YINI_API void yini_set_string(void* handle, const char* key, const char* value)
+{
+    if (!handle || !key || !value) return;
+    YINI::Config* config = static_cast<YINI::Config*>(handle);
+    config->set_value(key, std::string(value));
+}
+
+YINI_API bool yini_save_to_file(void* handle, const char* file_path, char** out_error)
+{
+    if (!handle || !file_path) {
+        set_out_error(out_error, "Invalid handle or file path provided.");
+        return false;
+    }
+    YINI::Config* config = static_cast<YINI::Config*>(handle);
+    try
+    {
+        if (out_error) *out_error = nullptr;
+        config->save_to_file(file_path);
+        return true;
+    }
+    catch (const std::exception& e)
+    {
+        set_out_error(out_error, e.what());
+        return false;
+    }
 }
 
 YINI_API void yini_free_string(const char* str)

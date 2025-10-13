@@ -61,4 +61,12 @@ extern "C" {
 
     // --- Language Server Support ---
     YINI_API const char* yini_get_semantic_info(const char* source, char** out_error);
+
+    // --- Write API ---
+    YINI_API void* yini_create();
+    YINI_API void yini_set_int(void* handle, const char* key, int value);
+    YINI_API void yini_set_double(void* handle, const char* key, double value);
+    YINI_API void yini_set_bool(void* handle, const char* key, bool value);
+    YINI_API void yini_set_string(void* handle, const char* key, const char* value);
+    YINI_API bool yini_save_to_file(void* handle, const char* file_path, char** out_error);
 }

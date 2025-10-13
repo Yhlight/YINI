@@ -30,6 +30,24 @@ namespace Yini.Core
         [DllImport(LibName, EntryPoint = "yini_create_from_file", CallingConvention = CallingConvention.Cdecl)]
         public static extern IntPtr YiniCreateFromFile(string filePath, out IntPtr outError);
 
+        [DllImport(LibName, EntryPoint = "yini_create", CallingConvention = CallingConvention.Cdecl)]
+        public static extern IntPtr YiniCreate();
+
+        [DllImport(LibName, EntryPoint = "yini_set_int", CallingConvention = CallingConvention.Cdecl)]
+        public static extern void YiniSetInt(IntPtr handle, string key, int value);
+
+        [DllImport(LibName, EntryPoint = "yini_set_double", CallingConvention = CallingConvention.Cdecl)]
+        public static extern void YiniSetDouble(IntPtr handle, string key, double value);
+
+        [DllImport(LibName, EntryPoint = "yini_set_bool", CallingConvention = CallingConvention.Cdecl)]
+        public static extern void YiniSetBool(IntPtr handle, string key, bool value);
+
+        [DllImport(LibName, EntryPoint = "yini_set_string", CallingConvention = CallingConvention.Cdecl)]
+        public static extern void YiniSetString(IntPtr handle, string key, string value);
+
+        [DllImport(LibName, EntryPoint = "yini_save_to_file", CallingConvention = CallingConvention.Cdecl)]
+        public static extern bool YiniSaveToFile(IntPtr handle, string filePath, out IntPtr outError);
+
         [DllImport(LibName, EntryPoint = "yini_free_error_string", CallingConvention = CallingConvention.Cdecl)]
         public static extern void YiniFreeErrorString(IntPtr str);
 
@@ -203,6 +221,18 @@ namespace Yini.Core
     {
         private IntPtr m_handle;
         private bool m_disposed = false;
+
+        /// <summary>
+        /// Initializes a new, empty instance of the <see cref="YiniConfig"/> class in memory.
+        /// </summary>
+        public YiniConfig()
+        {
+            m_handle = NativeMethods.YiniCreate();
+            if (m_handle == IntPtr.Zero)
+            {
+                throw new YiniException("Failed to create an empty YINI config handle.");
+            }
+        }
 
         /// <summary>
         /// Initializes a new instance of the <see cref="YiniConfig"/> class by loading and parsing a YINI file.
@@ -648,6 +678,76 @@ namespace Yini.Core
             }
 
             return new KeyValuePair<string, object?>(structKey, structValue);
+        }
+
+        /// <summary>
+        /// Sets an integer value for a specified key.
+        /// </summary>
+        /// <param name="key">The key of the value to set (e.g., "Section.key").</param>
+        /// <param name="value">The integer value to set.</param>
+        public void SetValue(string key, int value)
+        {
+            NativeMethods.YiniSetInt(m_handle, key, value);
+        }
+
+        /// <summary>
+        /// Sets a double value for a specified key.
+        /// </summary>
+        /// <param name="key">The key of the value to set (e.g., "Section.key").</param>
+        /// <param name="value">The double value to set.</param>
+        public void SetValue(string key, double value)
+        {
+            NativeMethods.YiniSetDouble(m_handle, key, value);
+        }
+
+        /// <summary>
+        /// Sets a boolean value for a specified key.
+        /// </summary>
+        /// <param name="key">The key of the value to set (e.g., "Section.key").</param>
+        /// <param name="value">The boolean value to set.</param>
+        public void SetValue(string key, bool value)
+        {
+            NativeMethods.YiniSetBool(m_handle, key, value);
+        }
+
+        /// <summary>
+        /// Sets a string value for a specified key.
+        /// </summary>
+        /// <param name="key">The key of the value to set (e.g., "Section.key").</param>
+        /// <param name="value">The string value to set.</param>
+        public void SetValue(string key, string value)
+        {
+            if (value == null)
+            {
+                // Or handle as an error, depending on desired behavior
+                return;
+            }
+            NativeMethods.YiniSetString(m_handle, key, value);
+        }
+
+        /// <summary>
+        /// Saves the current in-memory configuration to a .yini file.
+        /// </summary>
+        /// <param name="filePath">The path to the file where the configuration will be saved.</param>
+        /// <exception cref="YiniException">Thrown if the native library fails to save the file.</exception>
+        public void Save(string filePath)
+        {
+            if (!NativeMethods.YiniSaveToFile(m_handle, filePath, out IntPtr errorPtr))
+            {
+                string errorMessage = "An unknown error occurred during save.";
+                if (errorPtr != IntPtr.Zero)
+                {
+                    try
+                    {
+                        errorMessage = Marshal.PtrToStringAnsi(errorPtr) ?? "Failed to retrieve error message.";
+                    }
+                    finally
+                    {
+                        NativeMethods.YiniFreeErrorString(errorPtr);
+                    }
+                }
+                throw new YiniException($"Failed to save YINI config: {errorMessage}");
+            }
         }
     }
 }
