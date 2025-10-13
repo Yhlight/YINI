@@ -10,31 +10,6 @@
 namespace YINI
 {
 
-// Helper function to convert YiniVariant to std::any for YmetaManager
-static std::any to_any(const YiniVariant& variant) {
-    if (std::holds_alternative<std::monostate>(variant)) {
-        return {};
-    } else if (std::holds_alternative<int64_t>(variant)) {
-        return static_cast<double>(std::get<int64_t>(variant)); // Store as double for consistency
-    } else if (std::holds_alternative<double>(variant)) {
-        return std::get<double>(variant);
-    } else if (std::holds_alternative<bool>(variant)) {
-        return std::get<bool>(variant);
-    } else if (std::holds_alternative<std::string>(variant)) {
-        return std::get<std::string>(variant);
-    } else if (std::holds_alternative<std::unique_ptr<YiniArray>>(variant)) {
-        std::vector<std::any> vec;
-        const auto& arr = *std::get<std::unique_ptr<YiniArray>>(variant);
-        for(const auto& item : arr) {
-            vec.push_back(to_any(item));
-        }
-        return vec;
-    }
-    // Ignoring Color and Coord for Ymeta for now
-    return {};
-}
-
-
 Resolver::Resolver(const std::vector<std::unique_ptr<AST::Stmt>>& statements, YmetaManager& ymeta_manager)
     : m_statements(statements), m_ymeta_manager(ymeta_manager)
 {
@@ -205,20 +180,12 @@ void Resolver::visitKeyValueStmt(AST::KeyValueStmt* stmt)
     {
         if (m_ymeta_manager.has_value(full_key))
         {
-            // YmetaManager returns std::any, we need to convert it to YiniVariant
-            std::any val = m_ymeta_manager.get_value(full_key);
-            if(val.type() == typeid(double)) {
-                 (*m_current_section_data)[key] = std::any_cast<double>(val);
-            } else if (val.type() == typeid(bool)) {
-                 (*m_current_section_data)[key] = std::any_cast<bool>(val);
-            } else if (val.type() == typeid(std::string)) {
-                 (*m_current_section_data)[key] = std::any_cast<std::string>(val);
-            }
+            (*m_current_section_data)[key] = m_ymeta_manager.get_value(full_key);
         }
         else
         {
             YiniVariant value = dyna_expr->expression->accept(this);
-            m_ymeta_manager.set_value(full_key, to_any(value));
+            m_ymeta_manager.set_value(full_key, value);
             (*m_current_section_data)[key] = value;
         }
     }

@@ -493,16 +493,16 @@ std::unique_ptr<AST::Expr> Parser::map() {
 
     if (!check(TokenType::RIGHT_BRACE)) {
         do {
+            // If the next token is a brace right after a comma, it's a trailing comma.
+            if (check(TokenType::RIGHT_BRACE)) {
+                trailing_comma = true;
+                break;
+            }
             Token key = consume(TokenType::IDENTIFIER, "Expect map key.");
             consume(TokenType::COLON, "Expect ':' after map key.");
             std::unique_ptr<AST::Expr> value = expression();
             elements.emplace_back(key, std::move(value));
         } while (match({TokenType::COMMA}));
-    }
-
-    // After the loop, check if the last token was a comma
-    if (previous().type == TokenType::COMMA) {
-        trailing_comma = true;
     }
 
     consume(TokenType::RIGHT_BRACE, "Expect '}' after map elements.");

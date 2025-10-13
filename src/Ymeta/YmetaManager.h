@@ -1,6 +1,6 @@
 #pragma once
 
-#include <any>
+#include "YiniTypes.h"
 #include <map>
 #include <string>
 #include <vector>
@@ -17,14 +17,14 @@ class YmetaManager
     void save(const std::string &yini_filepath);
 
     bool has_value(const std::string &key);
-    std::any get_value(const std::string &key);
-    void set_value(const std::string &key, std::any value);
+    YiniVariant get_value(const std::string &key);
+    void set_value(const std::string &key, YiniVariant value);
 
   private:
     std::string get_ymeta_path(const std::string &yini_filepath);
 
-    std::map<std::string, std::any> m_dynamic_values;
-    std::map<std::string, std::vector<std::any>> m_backup_values;
+    std::map<std::string, YiniVariant> m_dynamic_values;
+    std::map<std::string, std::vector<YiniVariant>> m_backup_values;
 };
 
 } // namespace YINI

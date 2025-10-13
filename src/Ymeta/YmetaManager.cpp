@@ -12,139 +12,113 @@ namespace YINI
 
 namespace
 {
-// Forward declaration for recursive calls
-json any_to_json(const std::any &value);
+    // Forward declaration for recursive calls
+    json variant_to_json(const YiniVariant &value);
+    YiniVariant json_to_variant(const json &j);
 
-std::any json_to_any(const json &j);
-
-json any_to_json(const std::any &value)
-{
-    json j;
-    if (!value.has_value())
+    json variant_to_json(const YiniVariant &value)
     {
-        return nullptr;
+        json j;
+        std::visit([&j](auto&& arg) {
+            using T = std::decay_t<decltype(arg)>;
+            if constexpr (std::is_same_v<T, std::monostate>) {
+                j["type"] = "null";
+                j["value"] = nullptr;
+            } else if constexpr (std::is_same_v<T, int64_t>) {
+                j["type"] = "int";
+                j["value"] = arg;
+            } else if constexpr (std::is_same_v<T, double>) {
+                j["type"] = "double";
+                j["value"] = arg;
+            } else if constexpr (std::is_same_v<T, bool>) {
+                j["type"] = "bool";
+                j["value"] = arg;
+            } else if constexpr (std::is_same_v<T, std::string>) {
+                j["type"] = "string";
+                j["value"] = arg;
+            } else if constexpr (std::is_same_v<T, ResolvedColor>) {
+                j["type"] = "color";
+                j["value"] = {{"r", arg.r}, {"g", arg.g}, {"b", arg.b}};
+            } else if constexpr (std::is_same_v<T, ResolvedCoord>) {
+                j["type"] = "coord";
+                j["value"] = {{"x", arg.x}, {"y", arg.y}, {"z", arg.z}, {"has_z", arg.has_z}};
+            } else if constexpr (std::is_same_v<T, std::unique_ptr<YiniArray>>) {
+                j["type"] = "array";
+                json& val_array = j["value"];
+                val_array = json::array();
+                if (arg) {
+                    for (const auto &elem : *arg) {
+                        val_array.push_back(variant_to_json(elem));
+                    }
+                }
+            } else if constexpr (std::is_same_v<T, YiniMap>) {
+                 j["type"] = "map";
+                json& val_map = j["value"];
+                val_map = json::object();
+                for (const auto &[key, val] : arg) {
+                    val_map[key] = variant_to_json(val);
+                }
+            } else if constexpr (std::is_same_v<T, YiniStruct>) {
+                j["type"] = "struct";
+                json& val_struct = j["value"];
+                val_struct[arg.first] = variant_to_json(*arg.second);
+            }
+        }, value);
+        return j;
     }
 
-    const auto &type = value.type();
+    YiniVariant json_to_variant(const json &j)
+    {
+        std::string type = j.at("type").get<std::string>();
+        const json &value = j.at("value");
 
-    if (type == typeid(std::string))
-    {
-        j["type"] = "string";
-        j["value"] = std::any_cast<std::string>(value);
-    }
-    else if (type == typeid(double))
-    {
-        j["type"] = "double";
-        j["value"] = std::any_cast<double>(value);
-    }
-    else if (type == typeid(bool))
-    {
-        j["type"] = "bool";
-        j["value"] = std::any_cast<bool>(value);
-    }
-    else if (type == typeid(std::vector<std::any>))
-    {
-        j["type"] = "vector";
-        const auto &vec = std::any_cast<const std::vector<std::any> &>(value);
-        json &val_array = j["value"];
-        val_array = json::array();
-        for (const auto &elem : vec)
-        {
-            val_array.push_back(any_to_json(elem));
+        if (type == "null") return std::monostate{};
+        if (type == "int") return value.get<int64_t>();
+        if (type == "double") return value.get<double>();
+        if (type == "bool") return value.get<bool>();
+        if (type == "string") return value.get<std::string>();
+        if (type == "color") {
+            ResolvedColor color;
+            color.r = value.at("r").get<uint8_t>();
+            color.g = value.at("g").get<uint8_t>();
+            color.b = value.at("b").get<uint8_t>();
+            return color;
         }
-    }
-    else if (type == typeid(std::map<std::string, std::any>))
-    {
-        j["type"] = "map";
-        const auto &map = std::any_cast<const std::map<std::string, std::any> &>(value);
-        json &val_map = j["value"];
-        val_map = json::object();
-        for (const auto &[key, val] : map)
-        {
-            val_map[key] = any_to_json(val);
-        }
-    }
-    else if (type == typeid(ResolvedColor))
-    {
-        j["type"] = "color";
-        const auto &color = std::any_cast<ResolvedColor>(value);
-        j["value"] = {{"r", color.r}, {"g", color.g}, {"b", color.b}};
-    }
-    else if (type == typeid(ResolvedCoord))
-    {
-        j["type"] = "coord";
-        const auto &coord = std::any_cast<ResolvedCoord>(value);
-        json &val_coord = j["value"];
-        val_coord["x"] = coord.x;
-        val_coord["y"] = coord.y;
-        if (coord.has_z)
-        {
-            val_coord["z"] = coord.z;
-        }
-    }
-    else
-    {
-        j["type"] = "unsupported";
-    }
-    return j;
-}
-
-std::any json_to_any(const json &j)
-{
-    std::string type = j.at("type").get<std::string>();
-    const json &value = j.at("value");
-
-    if (type == "string")
-        return value.get<std::string>();
-    if (type == "double")
-        return value.get<double>();
-    if (type == "bool")
-        return value.get<bool>();
-    if (type == "vector")
-    {
-        std::vector<std::any> vec;
-        for (const auto &elem : value)
-        {
-            vec.push_back(json_to_any(elem));
-        }
-        return vec;
-    }
-    if (type == "map")
-    {
-        std::map<std::string, std::any> map;
-        for (auto &[key, val] : value.items())
-        {
-            map[key] = json_to_any(val);
-        }
-        return map;
-    }
-    if (type == "color")
-    {
-        ResolvedColor color;
-        color.r = value.at("r").get<uint8_t>();
-        color.g = value.at("g").get<uint8_t>();
-        color.b = value.at("b").get<uint8_t>();
-        return color;
-    }
-    if (type == "coord")
-    {
-        ResolvedCoord coord;
-        coord.x = value.at("x").get<double>();
-        coord.y = value.at("y").get<double>();
-        if (value.contains("z"))
-        {
-            coord.has_z = true;
+        if (type == "coord") {
+            ResolvedCoord coord;
+            coord.x = value.at("x").get<double>();
+            coord.y = value.at("y").get<double>();
             coord.z = value.at("z").get<double>();
+            coord.has_z = value.at("has_z").get<bool>();
+            return coord;
         }
-        return coord;
+        if (type == "array") {
+            auto arr = std::make_unique<YiniArray>();
+            for (const auto &elem : value) {
+                arr->push_back(json_to_variant(elem));
+            }
+            return arr;
+        }
+        if (type == "map") {
+            YiniMap map;
+            for (auto &[key, val] : value.items()) {
+                map[key] = json_to_variant(val);
+            }
+            return map;
+        }
+        if (type == "struct") {
+            YiniStruct yini_struct;
+            for (auto &[key, val] : value.items()) {
+                yini_struct.first = key;
+                yini_struct.second = std::make_unique<YiniVariant>(json_to_variant(val));
+            }
+            return yini_struct;
+        }
+        return std::monostate{};
     }
-    return {};
-}
 } // namespace
 
-YmetaManager::YmetaManager()
-{
-}
+YmetaManager::YmetaManager() {}
 
 void YmetaManager::load(const std::string &yini_filepath)
 {
@@ -171,7 +145,7 @@ void YmetaManager::load(const std::string &yini_filepath)
         const json &dynamic_values_json = root["dynamic_values"];
         for (auto &[key, value] : dynamic_values_json.items())
         {
-            m_dynamic_values[key] = json_to_any(value);
+            m_dynamic_values[key] = json_to_variant(value);
         }
     }
 
@@ -180,10 +154,10 @@ void YmetaManager::load(const std::string &yini_filepath)
         const json &backup_values_json = root["backup_values"];
         for (auto &[key, values] : backup_values_json.items())
         {
-            std::vector<std::any> backup_vec;
+            std::vector<YiniVariant> backup_vec;
             for (const auto &val_json : values)
             {
-                backup_vec.push_back(json_to_any(val_json));
+                backup_vec.push_back(json_to_variant(val_json));
             }
             m_backup_values[key] = backup_vec;
         }
@@ -198,7 +172,7 @@ void YmetaManager::save(const std::string &yini_filepath)
     json dynamic_values_json;
     for (const auto &[key, value] : m_dynamic_values)
     {
-        dynamic_values_json[key] = any_to_json(value);
+        dynamic_values_json[key] = variant_to_json(value);
     }
     root["dynamic_values"] = dynamic_values_json;
 
@@ -208,7 +182,7 @@ void YmetaManager::save(const std::string &yini_filepath)
         json backup_array = json::array();
         for (const auto &val : values)
         {
-            backup_array.push_back(any_to_json(val));
+            backup_array.push_back(variant_to_json(val));
         }
         backup_values_json[key] = backup_array;
     }
@@ -223,12 +197,12 @@ bool YmetaManager::has_value(const std::string &key)
     return m_dynamic_values.count(key);
 }
 
-std::any YmetaManager::get_value(const std::string &key)
+YiniVariant YmetaManager::get_value(const std::string &key)
 {
     return m_dynamic_values[key];
 }
 
-void YmetaManager::set_value(const std::string &key, std::any value)
+void YmetaManager::set_value(const std::string &key, YiniVariant value)
 {
     if (m_dynamic_values.count(key))
     {

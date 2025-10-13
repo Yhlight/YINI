@@ -32,8 +32,8 @@ using YiniMap = std::map<std::string, YiniVariant>;
 
 // The base variant type, using a pointer-wrapper for the recursive part
 using YiniVariantBase = std::variant<std::monostate, // Represents a null or uninitialized value
-                                     int64_t, double, bool, std::string, ResolvedColor, ResolvedCoord, YiniStruct,
-                                     YiniMap, std::unique_ptr<YiniArray>>;
+                                     int64_t, double, bool, std::string, ResolvedColor, ResolvedCoord,
+                                     YiniMap, YiniStruct, std::unique_ptr<YiniArray>>;
 
 // The actual variant type we will use, which inherits from the base.
 // This is a common pattern for defining recursive variants.

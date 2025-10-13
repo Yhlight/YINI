@@ -116,6 +116,118 @@ TEST(ValidatorTests, PassesWithCorrectValue)
     EXPECT_NO_THROW(validator.validate());
 }
 
+// --- New Tests for Bug Fixes ---
+
+TEST(ValidatorBugsTests, AppliesDefaultValueForOptionalMissingKey)
+{
+    std::string source = "[#schema]\n[MyConfig]\nmy_key = ?, int, =123\n\n[MyConfig]\n";
+    YINI::Lexer lexer(source);
+    auto tokens = lexer.scan_tokens();
+    YINI::Parser parser(tokens);
+    auto ast = parser.parse();
+    YINI::YmetaManager ymeta_manager;
+    YINI::Resolver resolver(ast, ymeta_manager);
+    auto config = resolver.resolve();
+    YINI::Validator validator(config, ast);
+
+    EXPECT_NO_THROW(validator.validate());
+    ASSERT_EQ(config.count("MyConfig.my_key"), 1);
+    EXPECT_EQ(std::get<int64_t>(config["MyConfig.my_key"]), 123);
+}
+
+TEST(ValidatorBugsTests, ThrowsWhenDefaultValueViolatesMinRule)
+{
+    std::string source = "[#schema]\n[MyConfig]\nmy_key = ?, int, =5, min=10\n\n[MyConfig]\n";
+    YINI::Lexer lexer(source);
+    auto tokens = lexer.scan_tokens();
+    YINI::Parser parser(tokens);
+    auto ast = parser.parse();
+    YINI::YmetaManager ymeta_manager;
+    YINI::Resolver resolver(ast, ymeta_manager);
+    auto config = resolver.resolve();
+    YINI::Validator validator(config, ast);
+
+    EXPECT_THROW(validator.validate(), std::runtime_error);
+}
+
+TEST(ValidatorBugsTests, ThrowsWhenDefaultValueViolatesMaxRule)
+{
+    std::string source = "[#schema]\n[MyConfig]\nmy_key = ?, int, =50, max=20\n\n[MyConfig]\n";
+    YINI::Lexer lexer(source);
+    auto tokens = lexer.scan_tokens();
+    YINI::Parser parser(tokens);
+    auto ast = parser.parse();
+    YINI::YmetaManager ymeta_manager;
+    YINI::Resolver resolver(ast, ymeta_manager);
+    auto config = resolver.resolve();
+    YINI::Validator validator(config, ast);
+
+    EXPECT_THROW(validator.validate(), std::runtime_error);
+}
+
+TEST(ValidatorBugsTests, CorrectlyValidatesMapType)
+{
+    std::string source = R"([#schema]
+[MyConfig]
+my_map = !, map
+
+[MyConfig]
+my_map = {key:"value",}
+)";
+    YINI::Lexer lexer(source);
+    auto tokens = lexer.scan_tokens();
+    YINI::Parser parser(tokens);
+    auto ast = parser.parse();
+    YINI::YmetaManager ymeta_manager;
+    YINI::Resolver resolver(ast, ymeta_manager);
+    auto config = resolver.resolve();
+    YINI::Validator validator(config, ast);
+
+    EXPECT_NO_THROW(validator.validate());
+}
+
+TEST(ValidatorBugsTests, ThrowsOnMapTypeMismatch)
+{
+    std::string source = R"([#schema]
+[MyConfig]
+my_map = !, map
+
+[MyConfig]
+my_map = 123
+)";
+    YINI::Lexer lexer(source);
+    auto tokens = lexer.scan_tokens();
+    YINI::Parser parser(tokens);
+    auto ast = parser.parse();
+    YINI::YmetaManager ymeta_manager;
+    YINI::Resolver resolver(ast, ymeta_manager);
+    auto config = resolver.resolve();
+    YINI::Validator validator(config, ast);
+
+    EXPECT_THROW(validator.validate(), std::runtime_error);
+}
+
+TEST(ValidatorBugsTests, CorrectlyValidatesColorType)
+{
+    std::string source = R"([#schema]
+[MyConfig]
+my_color = !, color
+
+[MyConfig]
+my_color = #FF00FF
+)";
+    YINI::Lexer lexer(source);
+    auto tokens = lexer.scan_tokens();
+    YINI::Parser parser(tokens);
+    auto ast = parser.parse();
+    YINI::YmetaManager ymeta_manager;
+    YINI::Resolver resolver(ast, ymeta_manager);
+    auto config = resolver.resolve();
+    YINI::Validator validator(config, ast);
+
+    EXPECT_NO_THROW(validator.validate());
+}
+
 TEST(ValidatorTests, ThrowsOnNestedArraySubtypeMismatch)
 {
     std::string source = R"([#schema]
