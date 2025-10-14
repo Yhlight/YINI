@@ -51,3 +51,37 @@ TEST(LSPTests, ServerClearsDiagnosticsOnSuccess)
     // Check that the diagnostics array is empty, indicating success
     ASSERT_NE(logs.find("\"diagnostics\":[]"), std::string::npos);
 }
+
+TEST(LSPTests, ServerSendsDiagnosticsForCircularInheritance)
+{
+    std::stringstream log_buffer;
+    std::streambuf* old_cerr = std::cerr.rdbuf(log_buffer.rdbuf());
+
+    std::string uri = "file:///test_circular.yini";
+    std::string text = "[A]:B\n[B]:A";
+
+    update_document_info(uri, text);
+
+    std::cerr.rdbuf(old_cerr);
+    std::string logs = log_buffer.str();
+
+    ASSERT_NE(logs.find("textDocument/publishDiagnostics"), std::string::npos);
+    ASSERT_NE(logs.find("Circular inheritance detected"), std::string::npos);
+}
+
+TEST(LSPTests, ServerSendsDiagnosticsForSchemaViolation)
+{
+    std::stringstream log_buffer;
+    std::streambuf* old_cerr = std::cerr.rdbuf(log_buffer.rdbuf());
+
+    std::string uri = "file:///test_schema.yini";
+    std::string text = "[#schema]\n[MySection]\nmy_key = !, int, e\n\n[MySection]\n";
+
+    update_document_info(uri, text);
+
+    std::cerr.rdbuf(old_cerr);
+    std::string logs = log_buffer.str();
+
+    ASSERT_NE(logs.find("textDocument/publishDiagnostics"), std::string::npos);
+    ASSERT_NE(logs.find("Missing required key"), std::string::npos);
+}
