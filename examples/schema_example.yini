@@ -1,0 +1,29 @@
+# This file demonstrates a practical example of YINI's schema validation.
+# It defines a schema for a game's graphics settings and provides a
+# configuration file that conforms to it.
+
+# --- Schema Definition (graphics_schema.yini) ---
+
+[#schema]
+[GraphicsSettings]
+resolution_width = !, int, =1920, min=800
+resolution_height = !, int, =1080, min=600
+fullscreen = ?, bool, =true
+render_quality = ?, string, ="High"
+shadow_quality = ?, string, ="Medium"
+texture_filtering = ?, string, ="Anisotropic"
+vignette_enabled = !, bool, e
+
+# --- Configuration File (user_settings.yini) ---
+
+# [#include]
+# += graphics_schema.yini
+
+[GraphicsSettings]
+resolution_width = 1280
+resolution_height = 720
+fullscreen = false
+render_quality = "Low"
+shadow_quality = "Low"
+texture_filtering = "Trilinear"
+vignette_enabled = true
