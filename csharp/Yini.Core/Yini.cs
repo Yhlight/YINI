@@ -20,7 +20,11 @@ namespace Yini.Core
         ArrayInt,
         ArrayDouble,
         ArrayBool,
-        ArrayString
+        ArrayString,
+        ListInt,
+        ListDouble,
+        ListBool,
+        ListString
     }
 
     internal static class NativeMethods
@@ -86,6 +90,22 @@ namespace Yini.Core
 
         [DllImport(LibName, EntryPoint = "yini_get_array_item_as_string", CallingConvention = CallingConvention.Cdecl)]
         private static extern IntPtr YiniGetArrayItemAsString(IntPtr handle, string key, int index);
+
+        // --- List Getters ---
+        [DllImport(LibName, EntryPoint = "yini_get_list_size", CallingConvention = CallingConvention.Cdecl)]
+        public static extern int YiniGetListSize(IntPtr handle, string key);
+
+        [DllImport(LibName, EntryPoint = "yini_get_list_item_as_int", CallingConvention = CallingConvention.Cdecl)]
+        public static extern bool YiniGetListItemAsInt(IntPtr handle, string key, int index, out int outValue);
+
+        [DllImport(LibName, EntryPoint = "yini_get_list_item_as_double", CallingConvention = CallingConvention.Cdecl)]
+        public static extern bool YiniGetListItemAsDouble(IntPtr handle, string key, int index, out double outValue);
+
+        [DllImport(LibName, EntryPoint = "yini_get_list_item_as_bool", CallingConvention = CallingConvention.Cdecl)]
+        public static extern bool YiniGetListItemAsBool(IntPtr handle, string key, int index, out bool outValue);
+
+        [DllImport(LibName, EntryPoint = "yini_get_list_item_as_string", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr YiniGetListItemAsString(IntPtr handle, string key, int index);
 
         // --- Map Getters ---
         [DllImport(LibName, EntryPoint = "yini_get_map_size", CallingConvention = CallingConvention.Cdecl)]
@@ -186,6 +206,23 @@ namespace Yini.Core
         public static string? GetArrayItemAsString(IntPtr handle, string key, int index)
         {
             IntPtr cstr = YiniGetArrayItemAsString(handle, key, index);
+            if (cstr == IntPtr.Zero)
+            {
+                return null;
+            }
+            try
+            {
+                return Marshal.PtrToStringAnsi(cstr);
+            }
+            finally
+            {
+                YiniFreeString(cstr);
+            }
+        }
+
+        public static string? GetListItemAsString(IntPtr handle, string key, int index)
+        {
+            IntPtr cstr = YiniGetListItemAsString(handle, key, index);
             if (cstr == IntPtr.Zero)
             {
                 return null;
@@ -369,6 +406,75 @@ namespace Yini.Core
                 {
                     result[i] = null;
                 }
+            }
+            return result;
+        }
+
+        public int?[]? GetIntList(string key)
+        {
+            int size = NativeMethods.YiniGetListSize(m_handle, key);
+            if (size < 0) return null;
+            var result = new int?[size];
+            for (int i = 0; i < size; i++)
+            {
+                if (NativeMethods.YiniGetListItemAsInt(m_handle, key, i, out int value))
+                {
+                    result[i] = value;
+                }
+                else
+                {
+                    result[i] = null;
+                }
+            }
+            return result;
+        }
+
+        public double?[]? GetDoubleList(string key)
+        {
+            int size = NativeMethods.YiniGetListSize(m_handle, key);
+            if (size < 0) return null;
+            var result = new double?[size];
+            for (int i = 0; i < size; i++)
+            {
+                if (NativeMethods.YiniGetListItemAsDouble(m_handle, key, i, out double value))
+                {
+                    result[i] = value;
+                }
+                else
+                {
+                    result[i] = null;
+                }
+            }
+            return result;
+        }
+
+        public bool?[]? GetBoolList(string key)
+        {
+            int size = NativeMethods.YiniGetListSize(m_handle, key);
+            if (size < 0) return null;
+            var result = new bool?[size];
+            for (int i = 0; i < size; i++)
+            {
+                if (NativeMethods.YiniGetListItemAsBool(m_handle, key, i, out bool value))
+                {
+                    result[i] = value;
+                }
+                else
+                {
+                    result[i] = null;
+                }
+            }
+            return result;
+        }
+
+        public string?[]? GetStringList(string key)
+        {
+            int size = NativeMethods.YiniGetListSize(m_handle, key);
+            if (size < 0) return null;
+            var result = new string?[size];
+            for (int i = 0; i < size; i++)
+            {
+                result[i] = NativeMethods.GetListItemAsString(m_handle, key, i);
             }
             return result;
         }
@@ -601,6 +707,14 @@ namespace Yini.Core
                         return GetBoolArray(key);
                     case ValueType.ArrayString:
                         return GetStringArray(key);
+                    case ValueType.ListInt:
+                        return GetIntList(key);
+                    case ValueType.ListDouble:
+                        return GetDoubleList(key);
+                    case ValueType.ListBool:
+                        return GetBoolList(key);
+                    case ValueType.ListString:
+                        return GetStringList(key);
                     case ValueType.Map:
                         return GetMap(key);
                     case ValueType.Struct:

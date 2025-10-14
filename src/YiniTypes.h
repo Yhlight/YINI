@@ -31,6 +31,12 @@ struct YiniVariant;
 /// @see YiniVariant
 using YiniArray = std::vector<YiniVariant>;
 
+/// @brief A struct to represent a list in YINI, to distinguish it from YiniArray in the variant.
+/// @see YiniVariant
+struct YiniList {
+    std::vector<YiniVariant> elements;
+};
+
 /// @brief An alias for a pair representing a single key-value struct.
 /// @details The key is a std::string and the value is a unique_ptr to another YiniVariant.
 /// @see YiniVariant
@@ -45,7 +51,7 @@ using YiniMap = std::map<std::string, YiniVariant>;
 ///          The recursive YiniVariant inherits from this.
 using YiniVariantBase = std::variant<std::monostate, // Represents a null or uninitialized value
                                      int64_t, double, bool, std::string, ResolvedColor, ResolvedCoord,
-                                     YiniMap, YiniStruct, std::unique_ptr<YiniArray>>;
+                                     YiniMap, YiniStruct, std::unique_ptr<YiniArray>, std::unique_ptr<YiniList>>;
 
 /**
  * @brief The core recursive variant type used to represent any resolved YINI value.
@@ -70,6 +76,10 @@ struct YiniVariant : YiniVariantBase
                 if constexpr (std::is_same_v<T, std::unique_ptr<YiniArray>>)
                 {
                     *this = arg ? std::make_unique<YiniArray>(*arg) : nullptr;
+                }
+                else if constexpr (std::is_same_v<T, std::unique_ptr<YiniList>>)
+                {
+                    *this = arg ? std::make_unique<YiniList>(*arg) : nullptr;
                 }
                 else if constexpr (std::is_same_v<T, YiniStruct>)
                 {
@@ -100,6 +110,10 @@ struct YiniVariant : YiniVariantBase
                     if constexpr (std::is_same_v<T, std::unique_ptr<YiniArray>>)
                     {
                         *this = arg ? std::make_unique<YiniArray>(*arg) : nullptr;
+                    }
+                    else if constexpr (std::is_same_v<T, std::unique_ptr<YiniList>>)
+                    {
+                        *this = arg ? std::make_unique<YiniList>(*arg) : nullptr;
                     }
                     else if constexpr (std::is_same_v<T, YiniStruct>)
                     {

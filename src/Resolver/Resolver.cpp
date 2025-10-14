@@ -420,13 +420,12 @@ YiniVariant Resolver::visitPathExpr(AST::PathExpr* expr)
 
 YiniVariant Resolver::visitListExpr(AST::ListExpr* expr)
 {
-    // Semantically, we resolve lists to arrays
-    auto arr = std::make_unique<YiniArray>();
+    auto list = std::make_unique<YiniList>();
     for (const auto& element : expr->elements)
     {
-        arr->push_back(element->accept(this));
+        list->elements.push_back(element->accept(this));
     }
-    return arr;
+    return list;
 }
 
 } // namespace YINI

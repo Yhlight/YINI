@@ -51,6 +51,13 @@ namespace {
         }
     }
 
+    // Recursively validates list subtypes
+    void validate_list(const YiniList& list, const std::string& expected_subtype_str, const std::string& full_key) {
+        for (const auto& item : list.elements) {
+            validate_type(item, expected_subtype_str, full_key);
+        }
+    }
+
     // Comprehensive type validation for a YiniVariant
     void validate_type(const YiniVariant& value, const std::string& expected_type_str, const std::string& full_key) {
         if (expected_type_str.empty()) return;
@@ -72,10 +79,17 @@ namespace {
             } else if constexpr (std::is_same_v<T, double>) {
                 if (main_type == "float") type_ok = true;
             } else if constexpr (std::is_same_v<T, std::unique_ptr<YiniArray>>) {
-                if (main_type == "array" || main_type == "list") {
+                if (main_type == "array") {
                     type_ok = true;
                     if (arg && !sub_type.empty()) {
                         validate_array(*arg, sub_type, full_key);
+                    }
+                }
+            } else if constexpr (std::is_same_v<T, std::unique_ptr<YiniList>>) {
+                if (main_type == "list") {
+                    type_ok = true;
+                    if (arg && !sub_type.empty()) {
+                        validate_list(*arg, sub_type, full_key);
                     }
                 }
             } else if constexpr (std::is_same_v<T, YiniMap>) {

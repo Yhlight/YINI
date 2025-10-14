@@ -332,7 +332,7 @@ TEST(ResolverTests, ResolvesPath)
     EXPECT_EQ(std::get<std::string>(config["MyConfig.my_path"]), "/usr/local/bin");
 }
 
-TEST(ResolverTests, ResolvesList)
+TEST(ResolverTests, ResolvesListAsDistinctType)
 {
     std::string source = "[MyConfig]\nmy_list = list(1, \"two\")";
     YINI::Lexer lexer(source);
@@ -345,11 +345,11 @@ TEST(ResolverTests, ResolvesList)
 
     ASSERT_EQ(config.count("MyConfig.my_list"), 1);
     auto &list_variant = config["MyConfig.my_list"];
-    ASSERT_TRUE(std::holds_alternative<std::unique_ptr<YINI::YiniArray>>(list_variant));
-    auto &list_vec = *std::get<std::unique_ptr<YINI::YiniArray>>(list_variant);
-    ASSERT_EQ(list_vec.size(), 2);
-    EXPECT_EQ(std::get<int64_t>(list_vec[0]), 1);
-    EXPECT_EQ(std::get<std::string>(list_vec[1]), "two");
+    ASSERT_TRUE(std::holds_alternative<std::unique_ptr<YINI::YiniList>>(list_variant));
+    auto &list_vec = *std::get<std::unique_ptr<YINI::YiniList>>(list_variant);
+    ASSERT_EQ(list_vec.elements.size(), 2);
+    EXPECT_EQ(std::get<int64_t>(list_vec.elements[0]), 1);
+    EXPECT_EQ(std::get<std::string>(list_vec.elements[1]), "two");
 }
 
 TEST(ResolverTests, ResolvesQuickRegistration)

@@ -21,7 +21,11 @@ extern "C" {
         YINI_TYPE_ARRAY_INT,
         YINI_TYPE_ARRAY_DOUBLE,
         YINI_TYPE_ARRAY_BOOL,
-        YINI_TYPE_ARRAY_STRING
+    YINI_TYPE_ARRAY_STRING,
+    YINI_TYPE_LIST_INT,
+    YINI_TYPE_LIST_DOUBLE,
+    YINI_TYPE_LIST_BOOL,
+    YINI_TYPE_LIST_STRING
     };
 
     YINI_API void* yini_create_from_file(const char* file_path, char** out_error);
@@ -41,6 +45,13 @@ extern "C" {
     YINI_API bool yini_get_array_item_as_double(void* handle, const char* key, int index, double* out_value);
     YINI_API bool yini_get_array_item_as_bool(void* handle, const char* key, int index, bool* out_value);
     YINI_API const char* yini_get_array_item_as_string(void* handle, const char* key, int index);
+
+    // --- List Getters ---
+    YINI_API int yini_get_list_size(void* handle, const char* key);
+    YINI_API bool yini_get_list_item_as_int(void* handle, const char* key, int index, int* out_value);
+    YINI_API bool yini_get_list_item_as_double(void* handle, const char* key, int index, double* out_value);
+    YINI_API bool yini_get_list_item_as_bool(void* handle, const char* key, int index, bool* out_value);
+    YINI_API const char* yini_get_list_item_as_string(void* handle, const char* key, int index);
 
     // --- Map Getters ---
     YINI_API int yini_get_map_size(void* handle, const char* key);

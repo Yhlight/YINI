@@ -261,7 +261,7 @@ namespace YINI
                             file << (arg ? "true" : "false");
                         } else if constexpr (std::is_same_v<T, std::string>) {
                             file << "\"" << arg << "\"";
-                        } else if constexpr (std::is_same_v<T, YiniMap> || std::is_same_v<T, YiniStruct> || std::is_same_v<T, std::unique_ptr<YiniArray>>) {
+                        } else if constexpr (std::is_same_v<T, YiniMap> || std::is_same_v<T, YiniStruct> || std::is_same_v<T, std::unique_ptr<YiniArray>> || std::is_same_v<T, std::unique_ptr<YINI::YiniList>>) {
                             file << "[complex type]"; // Placeholder for now
                         } else {
                             file << arg;
@@ -363,6 +363,17 @@ namespace
                         else if (std::holds_alternative<std::string>(first)) type = YINI_TYPE_ARRAY_STRING;
                     }
                 }
+            } else if constexpr (std::is_same_v<T, std::unique_ptr<YINI::YiniList>>) {
+                if (arg) {
+                    const auto& list = *arg;
+                    if (!list.elements.empty()) {
+                        const auto& first = list.elements.front();
+                        if (std::holds_alternative<int64_t>(first)) type = YINI_TYPE_LIST_INT;
+                        else if (std::holds_alternative<double>(first)) type = YINI_TYPE_LIST_DOUBLE;
+                        else if (std::holds_alternative<bool>(first)) type = YINI_TYPE_LIST_BOOL;
+                        else if (std::holds_alternative<std::string>(first)) type = YINI_TYPE_LIST_STRING;
+                    }
+                }
             }
         }, value);
         return type;
@@ -422,6 +433,81 @@ YINI_API const char* yini_get_string(void* handle, const char* key)
         char* c_str = new char[str.length() + 1];
         strcpy(c_str, str.c_str());
         return c_str;
+    }
+    return nullptr;
+}
+
+// --- List Getters ---
+
+YINI_API int yini_get_list_size(void* handle, const char* key)
+{
+    if (!handle || !key) return -1;
+    YINI::Config* config = static_cast<YINI::Config*>(handle);
+    YINI::YiniVariant value = config->find(key);
+    if (std::holds_alternative<std::unique_ptr<YINI::YiniList>>(value)) {
+        return static_cast<int>(std::get<std::unique_ptr<YINI::YiniList>>(value)->elements.size());
+    }
+    return -1;
+}
+
+template<typename T>
+bool get_list_item(void* handle, const char* key, int index, T* out_value) {
+    if (!handle || !key || !out_value) return false;
+    YINI::Config* config = static_cast<YINI::Config*>(handle);
+    YINI::YiniVariant value = config->find(key);
+
+    if (std::holds_alternative<std::unique_ptr<YINI::YiniList>>(value)) {
+        const auto& list = *std::get<std::unique_ptr<YINI::YiniList>>(value);
+        if (index >= 0 && static_cast<size_t>(index) < list.elements.size()) {
+            const YINI::YiniVariant& item = list.elements.at(index);
+            bool success = false;
+            std::visit([&](auto&& arg) {
+                using V = std::decay_t<decltype(arg)>;
+                if constexpr (std::is_same_v<T, int>) {
+                    if constexpr (std::is_same_v<V, int64_t>) { *out_value = static_cast<int>(arg); success = true; }
+                    if constexpr (std::is_same_v<V, double>) { *out_value = static_cast<int>(arg); success = true; }
+                } else if constexpr (std::is_same_v<T, double>) {
+                    if constexpr (std::is_same_v<V, int64_t>) { *out_value = static_cast<double>(arg); success = true; }
+                    if constexpr (std::is_same_v<V, double>) { *out_value = arg; success = true; }
+                } else if constexpr (std::is_same_v<T, V>) {
+                    *out_value = arg;
+                    success = true;
+                }
+            }, item);
+            return success;
+        }
+    }
+    return false;
+}
+
+YINI_API bool yini_get_list_item_as_int(void* handle, const char* key, int index, int* out_value) {
+    return get_list_item(handle, key, index, out_value);
+}
+
+YINI_API bool yini_get_list_item_as_double(void* handle, const char* key, int index, double* out_value) {
+    return get_list_item(handle, key, index, out_value);
+}
+
+YINI_API bool yini_get_list_item_as_bool(void* handle, const char* key, int index, bool* out_value) {
+    return get_list_item(handle, key, index, out_value);
+}
+
+YINI_API const char* yini_get_list_item_as_string(void* handle, const char* key, int index)
+{
+    if (!handle || !key) return nullptr;
+    YINI::Config* config = static_cast<YINI::Config*>(handle);
+    YINI::YiniVariant value = config->find(key);
+    if (std::holds_alternative<std::unique_ptr<YINI::YiniList>>(value)) {
+        const auto& list = *std::get<std::unique_ptr<YINI::YiniList>>(value);
+        if (index >= 0 && static_cast<size_t>(index) < list.elements.size()) {
+            const YINI::YiniVariant& item = list.elements.at(index);
+            if (std::holds_alternative<std::string>(item)) {
+                const std::string& str = std::get<std::string>(item);
+                char* c_str = new char[str.length() + 1];
+                strcpy(c_str, str.c_str());
+                return c_str;
+            }
+        }
     }
     return nullptr;
 }
