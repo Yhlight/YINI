@@ -882,7 +882,7 @@ static void run_decompile(const char *path)
         const char *entries_buffer = base + header.entries_offset;
         const char *string_table = string_table_storage.data();
 
-        std::map<std::string, std::string> decompiled_values;
+        std::map<std::string, std::map<std::string, std::string>> sections;
 
         for (uint32_t i = 0; i < header.entries_count; ++i)
         {
@@ -890,7 +890,7 @@ static void run_decompile(const char *path)
             YINI::Ybin::BufferReader::deserialize_entry(
                 entry, entries_buffer + (i * sizeof(YINI::Ybin::HashTableEntry)), sizeof(YINI::Ybin::HashTableEntry));
 
-            const char *key = string_table + entry.key_offset;
+            const char *full_key = string_table + entry.key_offset;
             std::string value_str = "[unknown]";
             switch (entry.value_type)
             {
@@ -963,24 +963,24 @@ static void run_decompile(const char *path)
             default:
                 break;
             }
-            decompiled_values[key] = value_str;
+
+            std::string full_key_str(full_key);
+            size_t dot_pos = full_key_str.find('.');
+            if (dot_pos != std::string::npos)
+            {
+                std::string section_name = full_key_str.substr(0, dot_pos);
+                std::string key_name = full_key_str.substr(dot_pos + 1);
+                sections[section_name][key_name] = value_str;
+            }
         }
 
-        std::string current_section;
-        for (const auto &pair : decompiled_values)
+        for (const auto &section_pair : sections)
         {
-            size_t dot_pos = pair.first.find('.');
-            if (dot_pos == std::string::npos)
-                continue;
-            std::string section = pair.first.substr(0, dot_pos);
-            std::string key = pair.first.substr(dot_pos + 1);
-
-            if (section != current_section)
+            std::cout << "\n[" << section_pair.first << "]" << std::endl;
+            for (const auto &key_pair : section_pair.second)
             {
-                current_section = section;
-                std::cout << "\n[" << current_section << "]" << std::endl;
+                std::cout << key_pair.first << " = " << key_pair.second << std::endl;
             }
-            std::cout << key << " = " << pair.second << std::endl;
         }
     }
     catch (const std::runtime_error &e)

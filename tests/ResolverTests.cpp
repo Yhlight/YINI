@@ -216,8 +216,28 @@ TEST(ResolverTests, ResolvesCoord3D)
     EXPECT_EQ(coord_val.z, 30.0);
 }
 
-// NOTE: DynaValue and EnvVar tests are harder to write now without significant
-// refactoring of the test setup. Skipping for now as the core logic is tested elsewhere.
+TEST(ResolverTests, ResolvesEnvVar)
+{
+    // Set an environment variable for the test
+    const char *var_name = "YINI_TEST_VAR";
+    const char *var_value = "hello from env";
+    setenv(var_name, var_value, 1);
+
+    std::string source = "[MyConfig]\nvalue = ${YINI_TEST_VAR}";
+    YINI::Lexer lexer(source);
+    auto tokens = lexer.scan_tokens();
+    YINI::Parser parser(tokens);
+    auto ast = parser.parse();
+    YINI::YmetaManager ymeta_manager;
+    YINI::Resolver resolver(ast, ymeta_manager);
+    auto config = resolver.resolve();
+
+    ASSERT_EQ(config.count("MyConfig.value"), 1);
+    EXPECT_EQ(std::get<std::string>(config["MyConfig.value"]), var_value);
+
+    // Clean up the environment variable
+    unsetenv(var_name);
+}
 
 TEST(ResolverTests, ResolvesInclude)
 {

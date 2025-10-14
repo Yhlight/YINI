@@ -1,35 +1,39 @@
-# YINI Project Improvement Suggestions
+# YINI Project: Improvement Suggestions
 
-## 1. Introduction
+This document provides a list of actionable suggestions for improving the YINI project, based on the findings of the recent audit.
 
-The YINI project is in an excellent state. The codebase is robust, well-engineered, and fully compliant with the `YINI.md` specification. The following suggestions are not critical bug fixes but rather forward-looking enhancements aimed at improving the developer experience and expanding the capabilities of the YINI ecosystem.
+## 1. C++ Core
 
-## 2. Proposed Enhancements
+### 1.1. Enhance Test Coverage for Environment Variables
 
-### 2.1. Expand C# API for Complex Types
+-   **Observation**: The `ResolverTests.cpp` file explicitly notes that tests for environment variables (`${VAR_NAME}`) are currently skipped.
+-   **Suggestion**: Implement a suite of tests for this feature. This could involve setting environment variables within the test runner's process before executing the test cases.
+-   **Benefit**: This would increase confidence in the correctness of this feature and prevent future regressions.
 
-*   **Description**: The C# `YiniConfig.SetValue` API is currently limited to primitive types (int, double, bool, string). There is no direct way to create or modify complex types like arrays or maps.
-*   **Rationale**: Adding support for setting complex types would significantly improve the ergonomics of creating new YINI configurations from scratch in C#. It would allow developers to work with familiar C# collection types.
-*   **Proposed Action**:
-    1.  Create new C++ interop functions to handle the creation and population of arrays and maps (e.g., `yini_create_array`, `yini_add_to_array`, `yini_set_array`, `yini_create_map`, etc.).
-    2.  Add new `SetValue` overloads to the C# `YiniConfig` class that accept `IEnumerable<T>` for arrays and `IDictionary<string, object>` for maps.
-    3.  Add corresponding unit tests to `csharp/tests/Yini.Core.Tests/WriteTests.cs` to verify the new functionality.
+### 1.2. Clarify `list()` vs. `array()`
 
-### 2.2. Add a `.ybin` Decompiler to the CLI
+-   **Observation**: The `YINI.md` specification introduces both `list()` and `array()` syntax, but the `Resolver` currently treats both as `YiniArray`.
+-   **Suggestion**: Formally define the semantic difference between `list` and `array` in `YINI.md`. If there is no difference, consider deprecating one of the syntaxes to reduce redundancy. If there is a difference, implement it in the C++ core and C# bindings.
+-   **Benefit**: This would improve the clarity and consistency of the language.
 
-*   **Description**: The `yini` CLI has a `cook` command to compile `.yini` files into the optimized `.ybin` format. However, there is no corresponding `decompile` command to inspect the contents of a `.ybin` file.
-*   **Rationale**: A decompiler would be an invaluable tool for debugging. It would allow developers to verify the final, resolved key-value pairs that are baked into the binary asset, helping to diagnose issues related to inheritance, includes, or macros.
-*   **Proposed Action**:
-    1.  Implement a new `decompile` command in the C++ CLI (`src/CLI/main.cpp`).
-    2.  This command would use the `YbinData` class to load a `.ybin` file, iterate through all the key-value pairs, and print them to the console or a file in a human-readable `.yini` format.
-    3.  Add a new integration test to `tests/CLITests.cpp` to verify the decompiler's output.
+## 2. C# Bindings
 
-### 2.3. Enhance Language Server with Semantic Diagnostics
+### 2.1. Expand Test Coverage for Complex Types
 
-*   **Description**: The language server currently provides diagnostics for syntax errors (from the Parser). However, it does not report semantic errors that are detected later in the compilation pipeline, such as circular inheritance (Resolver) or schema violations (Validator).
-*   **Rationale**: Pushing these semantic diagnostics to the VSCode client would provide immediate feedback to the user, significantly improving the development experience and catching errors before the user even tries to compile or run their code.
-*   **Proposed Action**:
-    1.  Modify the main language server loop in `src/CLI/main.cpp` to run the full Resolver and Validator on the source code.
-    2.  Wrap these calls in `try-catch` blocks. When an exception is caught, parse the error message to extract the relevant information (error message, line, column).
-    3.  Send the extracted information back to the client using the `textDocument/publishDiagnostics` LSP notification.
-    4.  Add a new test file, `tests/LSPTests.cpp`, to specifically test that the correct diagnostics are generated for common semantic errors.
+-   **Observation**: The C# tests in `Yini.Core.Tests` provide good coverage for primitive types but are less comprehensive for complex types like arrays, maps, and structs.
+-   **Suggestion**: Add more detailed tests for these types. This should include tests for empty collections, collections of different primitive types, and nested collections (if applicable).
+-   **Benefit**: This would increase the robustness of the C# API and provide better examples of how to use these features.
+
+## 3. Developer Experience
+
+### 3.1. Improve `.ybin` Decompiler Output
+
+-   **Observation**: The `decompile` command is a valuable tool, but its output is a simple, flat list of key-value pairs.
+-   **Suggestion**: Enhance the decompiler to reconstruct the original `.yini` structure as closely as possible, including section headers (`[Section]`).
+-   **Benefit**: This would make the output more readable and easier to compare with the original `.yini` files.
+
+### 3.2. Provide Real-time Semantic Diagnostics in VSCode
+
+-   **Observation**: The VSCode extension currently provides diagnostics for syntax errors but not for semantic errors (e.g., schema violations, circular dependencies).
+-   **Suggestion**: Enhance the C++ language server to perform full resolution and validation on file changes and report any semantic errors as diagnostics.
+-   **Benefit**: This would provide a much richer and more helpful development experience for YINI users.

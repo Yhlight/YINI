@@ -396,7 +396,7 @@ YiniVariant Resolver::visitCrossSectionRefExpr(AST::CrossSectionRefExpr* expr)
     const auto& section_data = m_resolved_sections_data.at(section_name);
     if (section_data.find(key) == section_data.end())
     {
-        throw std::runtime_error("Error: Undefined key '" + key + "' in section '" + section_name + "'.");
+        throw std::runtime_error("Error at line " + std::to_string(expr->key.line) + ", column " + std::to_string(expr->key.column) + ": Undefined key '" + key + "' in section '" + section_name + "'.");
     }
     return section_data.at(key);
 }
