@@ -60,3 +60,7 @@ add_executable(lsp_tests LSPTests.cpp)
 target_link_libraries(lsp_tests PRIVATE gtest_main Validator Resolver Parser Lexer YmetaManager lz4_static CLI11::CLI11)
 target_include_directories(lsp_tests PRIVATE ../src ${lz4_INCLUDE_DIRS} ${NLOHMANN_JSON_INCLUDE_DIR})
 add_test(NAME lsp_tests COMMAND $<TARGET_FILE:lsp_tests>)
+
+add_executable(cli_tests CLITests.cpp)
+target_link_libraries(cli_tests PRIVATE gtest_main)
+add_test(NAME cli_tests COMMAND $<TARGET_FILE:cli_tests>)

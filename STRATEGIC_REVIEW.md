@@ -6,21 +6,21 @@ This document presents a high-level strategic review of the YINI language and it
 
 ## 2. Language Design: Strengths and Opportunities
 
-YINI succeeds in its goal of being a modern replacement for INI files. The feature set is rich and well-suited for game development. The following are suggestions for refining the language design for greater clarity and ergonomics.
+YINI succeeds in its goal of being a modern replacement for INI files. The feature set is rich and well-suited for game development. The following are suggestions for refining the language design for greater clarity and ergonomics, incorporating recent feedback.
 
-*   **Recommendation 2.1: Introduce a more explicit syntax for Structs.**
-    *   **Observation:** The current distinction between a `Struct` (`{key: value}`) and a `Map` (`{key: value,}`) based on a trailing comma is subtle and a potential source of errors for developers.
-    *   **Proposal:** Consider a more explicit syntax to differentiate these two fundamental types. For example, a dedicated keyword (`struct {key: value}`) or a different set of braces (`<{key: value}>`). This would make the intent clearer and the language easier to parse for both humans and tools.
+*   **Recommendation 2.1: Enhance Clarity with Explicit Constructors for Complex Types.**
+    *   **Observation:** The current distinction between a `Struct` (`{key: value}`) and a `Map` (`{key: value,}`) based on a trailing comma is subtle and a potential source of errors.
+    *   **Proposal:** Keep the convenient shorthand syntax, but introduce more explicit, function-style constructors for clarity and to avoid ambiguity. This would allow for `struct(key, value)`, `map({key:value,})`, and `set(1, 2, 3)`. This provides a clearer, less error-prone alternative for developers while retaining the conciseness of the literal syntax.
 
-*   **Recommendation 2.2: Clarify the role of `list()` vs. `array()` (`[]`).**
-    *   **Observation:** The language supports both `list()` and `[]` syntax, but they are currently resolved to the same underlying data structure. This creates a redundancy that could be confusing.
-    *   **Proposal:**
-        1.  **Option A (Unify):** If there is no intended semantic difference, deprecate one of the syntaxes (e.g., `list()`) in a future version to simplify the language.
-        2.  **Option B (Differentiate):** If there is an intended difference (e.g., performance characteristics, mutability), this should be clearly defined in the `YINI.md` specification and implemented in the core.
+*   **Recommendation 2.2: Formally Define and Implement `list()` Semantics.**
+    *   **Observation:** The language supports both `list()` and `[]` (array) syntax, but they are currently resolved to the same underlying data structure. Feedback has confirmed that a distinction is intended and necessary.
+    *   **Proposal:** The `YINI.md` specification should be updated to formally define the semantic and behavioral differences between a `list` and an `array` (e.g., performance characteristics, intended use cases, mutability). The C++ core should then be updated to implement these distinct behaviors.
 
-*   **Recommendation 2.3: Provide a more detailed `Dyna()` lifecycle specification.**
-    *   **Observation:** The `Dyna()` feature is powerful, but its exact behavior regarding synchronization with `.ymeta` files is not fully specified.
-    *   **Proposal:** Expand `YINI.md` with a "Lifecycle" section for `Dyna()` that explicitly answers questions like: When is the `.ymeta` file read? When is it written? What happens if the `.yini` file is modified by hand while the game is running?
+*   **Recommendation 2.3: Design a Dual-Interface `Dyna()` System.**
+    *   **Observation:** The `Dyna()` feature for dynamic values is powerful, but its lifecycle and update mechanism need a more concrete design to meet the demands of modern game development.
+    *   **Proposal:** Design a comprehensive `Dyna()` system with two distinct interfaces:
+        1.  A **Runtime API:** Designed for high-performance, in-game use. This API would allow the game engine to read and modify `Dyna()` values in memory with minimal overhead.
+        2.  A **Static API:** Designed for serialization. This interface would handle the logic for writing the modified `Dyna()` values back to the `.ymeta` file at appropriate times (e.g., on game save, level change, or shutdown), ensuring data persistence.
 
 *   **Recommendation 2.4: Consider a more verbose schema syntax.**
     *   **Observation:** The current comma-separated schema syntax is compact but can be difficult to read.
