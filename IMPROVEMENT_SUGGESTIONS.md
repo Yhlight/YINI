@@ -2,30 +2,34 @@
 
 ## 1. Introduction
 
-The YINI project is currently in a stable and robust state. All critical issues from the previous audit have been addressed, and the codebase is clean and well-maintained. The following suggestions are not critical bug fixes but rather forward-looking enhancements aimed at further improving the developer experience, increasing the language's power, and ensuring long-term maintainability.
+The YINI project is in an excellent state. The codebase is robust, well-engineered, and fully compliant with the `YINI.md` specification. The following suggestions are not critical bug fixes but rather forward-looking enhancements aimed at improving the developer experience and expanding the capabilities of the YINI ecosystem.
 
 ## 2. Proposed Enhancements
 
-### 2.1 Enhance Schema Validation for Nested Arrays
+### 2.1. Expand C# API for Complex Types
 
-*   **Description**: The current schema validation correctly handles `array[int]`. However, the `YINI.md` specification also mentions nested arrays like `array[array[int]]`. The validation logic should be extended to recursively validate the subtypes of nested arrays.
-*   **Rationale**: This would make the schema validation feature more complete and powerful, allowing for the enforcement of more complex data structures.
+*   **Description**: The C# `YiniConfig.SetValue` API is currently limited to primitive types (int, double, bool, string). There is no direct way to create or modify complex types like arrays or maps.
+*   **Rationale**: Adding support for setting complex types would significantly improve the ergonomics of creating new YINI configurations from scratch in C#. It would allow developers to work with familiar C# collection types.
 *   **Proposed Action**:
-    1.  Add a new test case to `tests/ValidatorTests.cpp` that checks for a type mismatch in a nested array (e.g., `[[1], ["two"]]` for a schema of `array[array[int]]`). This test should initially fail.
-    2.  Update the validation logic in `src/Validator/Validator.cpp` to handle recursive array subtype checking.
+    1.  Create new C++ interop functions to handle the creation and population of arrays and maps (e.g., `yini_create_array`, `yini_add_to_array`, `yini_set_array`, `yini_create_map`, etc.).
+    2.  Add new `SetValue` overloads to the C# `YiniConfig` class that accept `IEnumerable<T>` for arrays and `IDictionary<string, object>` for maps.
+    3.  Add corresponding unit tests to `csharp/tests/Yini.Core.Tests/WriteTests.cs` to verify the new functionality.
 
-### 2.2 Refine VSCode Syntax Highlighting
+### 2.2. Add a `.ybin` Decompiler to the CLI
 
-*   **Description**: The TextMate grammar in `vscode-yini/syntaxes/yini.tmLanguage.json` is good, but it could be more granular. For example, it could distinguish between a section's name and its parent sections in an inheritance clause.
-*   **Rationale**: More specific TextMate scopes would allow theme creators to provide richer and more informative syntax highlighting, which would improve the readability of complex YINI files.
+*   **Description**: The `yini` CLI has a `cook` command to compile `.yini` files into the optimized `.ybin` format. However, there is no corresponding `decompile` command to inspect the contents of a `.ybin` file.
+*   **Rationale**: A decompiler would be an invaluable tool for debugging. It would allow developers to verify the final, resolved key-value pairs that are baked into the binary asset, helping to diagnose issues related to inheritance, includes, or macros.
 *   **Proposed Action**:
-    1.  Modify `yini.tmLanguage.json` to define more specific scopes (e.g., `entity.name.section.yini` for the section name and `entity.other.inherited-class.yini` for parent sections).
-    2.  Test the changes in VSCode to ensure they produce the desired highlighting with common themes.
+    1.  Implement a new `decompile` command in the C++ CLI (`src/CLI/main.cpp`).
+    2.  This command would use the `YbinData` class to load a `.ybin` file, iterate through all the key-value pairs, and print them to the console or a file in a human-readable `.yini` format.
+    3.  Add a new integration test to `tests/CLITests.cpp` to verify the decompiler's output.
 
-### 2.3 Add Support for C-Style Hex Literals in Schema Defaults
+### 2.3. Enhance Language Server with Semantic Diagnostics
 
-*   **Description**: The schema validator currently supports decimal default values (e.g., `=10`). It would be a nice quality-of-life improvement to also support C-style hexadecimal literals (e.g., `=0xFF`).
-*   **Rationale**: This would be particularly useful when working with color values or other bitmask-style configurations, making the schema files more readable and consistent with the hex color literal syntax (`#RRGGBB`).
+*   **Description**: The language server currently provides diagnostics for syntax errors (from the Parser). However, it does not report semantic errors that are detected later in the compilation pipeline, such as circular inheritance (Resolver) or schema violations (Validator).
+*   **Rationale**: Pushing these semantic diagnostics to the VSCode client would provide immediate feedback to the user, significantly improving the development experience and catching errors before the user even tries to compile or run their code.
 *   **Proposed Action**:
-    1.  Update the `convert_string_to_variant` helper function in `src/Validator/Validator.cpp` to detect a `0x` prefix and parse the string as a hexadecimal number if present.
-    2.  Add a test case to `tests/ValidatorTests.cpp` to verify that a hex default value is correctly applied.
+    1.  Modify the main language server loop in `src/CLI/main.cpp` to run the full Resolver and Validator on the source code.
+    2.  Wrap these calls in `try-catch` blocks. When an exception is caught, parse the error message to extract the relevant information (error message, line, column).
+    3.  Send the extracted information back to the client using the `textDocument/publishDiagnostics` LSP notification.
+    4.  Add a new test file, `tests/LSPTests.cpp`, to specifically test that the correct diagnostics are generated for common semantic errors.
