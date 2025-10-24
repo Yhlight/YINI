@@ -1,39 +1,44 @@
-# YINI Project: Improvement Suggestions
+# YINI Project Improvement Suggestions - 2025-10-23
 
-This document provides a list of actionable suggestions for improving the YINI project, based on the findings of the recent audit.
+## 1. Overview
 
-## 1. C++ Core
+This document provides a list of actionable suggestions for improving the YINI project, based on the findings of the audit report.
 
-### 1.1. Enhance Test Coverage for Environment Variables
+## 2. C++ Core
 
--   **Observation**: The `ResolverTests.cpp` file explicitly notes that tests for environment variables (`${VAR_NAME}`) are currently skipped.
--   **Suggestion**: Implement a suite of tests for this feature. This could involve setting environment variables within the test runner's process before executing the test cases.
--   **Benefit**: This would increase confidence in the correctness of this feature and prevent future regressions.
+*   **Lexer:**
+    *   Add explicit token types for section headers, cross-section references, and environment variables to improve the clarity and robustness of the parser.
+*   **Parser:**
+    *   Refactor the schema validation parsing logic to be more token-based and less reliant on string manipulation.
 
-### 1.2. Clarify `list()` vs. `array()`
+## 3. C# Bindings
 
--   **Observation**: The `YINI.md` specification introduces both `list()` and `array()` syntax, but the `Resolver` currently treats both as `YiniArray`.
--   **Suggestion**: Formally define the semantic difference between `list` and `array` in `YINI.md`. If there is no difference, consider deprecating one of the syntaxes to reduce redundancy. If there is a difference, implement it in the C++ core and C# bindings.
--   **Benefit**: This would improve the clarity and consistency of the language.
+*   **Feature Completeness:**
+    *   Add support for `color` and `coord` data types.
+    *   Implement support for dynamic `Dyna()` values.
+    *   Expose the schema validation and macro features to the C# API.
 
-## 2. C# Bindings
+## 4. Test Suite
 
-### 2.1. Expand Test Coverage for Complex Types
+*   **Lexer:**
+    *   Add tests for hex color codes (`#RRGGBB`).
+    *   Add tests for arithmetic operators (`*`, `/`, `%`).
+    *   Add tests for special characters (`@`, `$`, `~`, `?`).
+    *   Add a test for the `+=` operator.
+*   **Parser:**
+    *   Add tests for set literals (`(1, 2, 3)`).
+    *   Add tests to explicitly check the distinction between structs (`{key: value}`) and maps (`{key: value,}`).
+    *   Add tests for `color` and `coord` literals.
+    *   Add tests for arithmetic expressions.
+    *   Add tests for environment variable references (`${ENV_VAR}`).
+    *   Add tests for cross-section references (`@{Section.key}`).
+    *   Add a test for the `[#include]` directive.
+    *   Add tests for the `[#schema]` directive.
 
--   **Observation**: The C# tests in `Yini.Core.Tests` provide good coverage for primitive types but are less comprehensive for complex types like arrays, maps, and structs.
--   **Suggestion**: Add more detailed tests for these types. This should include tests for empty collections, collections of different primitive types, and nested collections (if applicable).
--   **Benefit**: This would increase the robustness of the C# API and provide better examples of how to use these features.
+## 5. General
 
-## 3. Developer Experience
-
-### 3.1. Improve `.ybin` Decompiler Output
-
--   **Observation**: The `decompile` command is a valuable tool, but its output is a simple, flat list of key-value pairs.
--   **Suggestion**: Enhance the decompiler to reconstruct the original `.yini` structure as closely as possible, including section headers (`[Section]`).
--   **Benefit**: This would make the output more readable and easier to compare with the original `.yini` files.
-
-### 3.2. Provide Real-time Semantic Diagnostics in VSCode
-
--   **Observation**: The VSCode extension currently provides diagnostics for syntax errors but not for semantic errors (e.g., schema violations, circular dependencies).
--   **Suggestion**: Enhance the C++ language server to perform full resolution and validation on file changes and report any semantic errors as diagnostics.
--   **Benefit**: This would provide a much richer and more helpful development experience for YINI users.
+*   **Continuous Integration:**
+    *   Set up a continuous integration (CI) pipeline to automatically build and test the project on every commit. This will help to catch regressions and ensure a high level of code quality.
+*   **Documentation:**
+    *   Expand the documentation to include more examples and tutorials for each of the language features.
+    *   Add documentation for the C# API, explaining how to use the bindings to integrate YINI with .NET applications.
