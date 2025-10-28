@@ -1,0 +1,114 @@
+// YINI Example - Game Configuration
+// This demonstrates the features of the YINI language
+
+[#define]
+// Define constants
+DEFAULT_WIDTH = 1920
+DEFAULT_HEIGHT = 1080
+MAX_FPS = 144
+MIN_FPS = 30
+
+[Window]
+title = "My Awesome Game"
+width = @DEFAULT_WIDTH
+height = @DEFAULT_HEIGHT
+fullscreen = false
+vsync = true
+resizable = true
+
+[Graphics]
+renderer = "OpenGL"
+antialiasing = 4
+shadowQuality = "high"
+textureQuality = "ultra"
+fps = Dyna(60)  // Dynamic value that updates at runtime
+fov = 90.0
+
+[Colors]
+background = #1E1E1E
+primary = Color(255, 128, 64)
+secondary = color(128, 192, 255)
+accent = #FF5733
+
+[Audio] : Window  // Inherits from Window
+volume = Dyna(0.8)
+music = true
+sfx = true
+voiceover = true
+channels = 32
+
+[Gameplay]
+difficulty = "normal"
+autoSave = true
+saveInterval = 300
+maxPlayers = 4
+playerPositions = [
+    Coord(100, 200),
+    Coord(300, 200),
+    Coord(100, 400),
+    Coord(300, 400)
+]
+
+[Weapons]
+// Quick registration - automatic indexing
++= "Sword"
++= "Bow"
++= "Staff"
++= "Dagger"
+
+[Items]
+healthPotion = {
+    name: "Health Potion",
+    value: 50,
+    stack: 99
+}
+manaPotion = {
+    name: "Mana Potion",
+    value: 30,
+    stack: 99
+}
+
+[Paths]
+dataPath = path(./data)
+savePath = path(./saves)
+configPath = path(${CONFIG_DIR}/game.yini)
+assetsPath = ${ASSET_PATH}
+
+[UI]
+theme = "dark"
+fontSize = 14
+fontFamily = "Arial"
+buttonColor = @{Colors.primary}
+backgroundColor = @{Colors.background}
+
+[Debug]
+showFPS = false
+showConsole = true
+logLevel = "info"
+profiler = false
+
+/* 
+   Multi-line comment
+   These settings are for advanced configuration
+*/
+[Advanced]
+threadCount = 8
+cacheSize = 1024
+compressionLevel = 6
+networkTimeout = 30.0
+
+[#schema]
+[Window]
+width = !, int, =1280
+height = !, int, =720
+fullscreen = ?, bool, =false
+title = !, string, e
+
+[Audio]
+volume = !, float, =1.0
+music = ?, bool, =true
+
+// Include other configuration files
+[#include]
++= ui_config.yini
++= controls_config.yini
