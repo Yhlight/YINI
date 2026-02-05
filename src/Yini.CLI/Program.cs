@@ -31,6 +31,10 @@ namespace Yini.CLI
                         return GenMeta(args);
                     case "gen-cs":
                         return GenCs(args);
+                    case "precompile":
+                        return Precompile(args);
+                    case "doc":
+                        return GenDoc(args);
                     default:
                         Console.WriteLine($"Unknown command: {command}");
                         PrintHelp();
@@ -63,6 +67,8 @@ namespace Yini.CLI
             Console.WriteLine("  yini format <file>   Format/Normalize YINI file");
             Console.WriteLine("  yini gen-meta <file> Generate .ymeta cache file");
             Console.WriteLine("  yini gen-cs <file> <ns> <class> [out.cs] Generate C# class");
+            Console.WriteLine("  yini precompile <file> Compile Dyna expressions to bytecode (.ybc)");
+            Console.WriteLine("  yini doc <file> [output.md] Generate Markdown documentation");
         }
 
         static int Build(string[] args)
@@ -358,6 +364,124 @@ namespace Yini.CLI
 
             File.WriteAllText(outPath, code);
             Console.WriteLine($"Generated C# code to {outPath}");
+            return 0;
+        }
+
+        static int Precompile(string[] args)
+        {
+            if (args.Length < 2)
+            {
+                Console.WriteLine("Usage: yini precompile <file>");
+                return 1;
+            }
+
+            string file = args[1];
+            if (!File.Exists(file))
+            {
+                Console.WriteLine($"File not found: {file}");
+                return 1;
+            }
+
+            var loader = new PhysicalFileLoader(Path.GetDirectoryName(Path.GetFullPath(file)));
+            var compiler = new Compiler(loader);
+            var doc = compiler.Compile(File.ReadAllText(file), Path.GetDirectoryName(file));
+
+            // Find all Dyna values
+            var bytecodeCompiler = new Yini.Bytecode.BytecodeCompiler();
+            using(var ms = new MemoryStream())
+            using(var writer = new BinaryWriter(ms))
+            {
+                // Write Header for YBC Container (Collection of expressions)
+                writer.Write(new char[] { 'Y', 'B', 'C', 'C' }); // YBC Container
+
+                int count = 0;
+                long countPos = ms.Position;
+                writer.Write(count); // Placeholder
+
+                foreach(var section in doc.Sections.Values)
+                {
+                    foreach(var prop in section.Properties)
+                    {
+                        if (prop.Value is Yini.Model.YiniDyna dyna)
+                        {
+                            // Key: Section.Prop
+                            string key = $"{section.Name}.{prop.Key}";
+                            writer.Write(key);
+
+                            // Compile expression string
+                            var lexer = new Lexer(dyna.Expression);
+                            var parser = new Parser(lexer.Tokenize());
+                            var ast = parser.ParseExpression();
+                            byte[] code = bytecodeCompiler.Compile(ast);
+
+                            writer.Write(code.Length);
+                            writer.Write(code);
+                            count++;
+                        }
+                    }
+                }
+
+                // Update count
+                ms.Position = countPos;
+                writer.Write(count);
+
+                string outFile = file + ".ybc";
+                File.WriteAllBytes(outFile, ms.ToArray());
+                Console.WriteLine($"Precompiled {count} expressions to {outFile}");
+            }
+            return 0;
+        }
+
+        static int GenDoc(string[] args)
+        {
+            if (args.Length < 2)
+            {
+                Console.WriteLine("Usage: yini doc <file> [output.md]");
+                return 1;
+            }
+
+            string file = args[1];
+            string outFile = args.Length > 2 ? args[2] : Path.GetFileNameWithoutExtension(file) + ".md";
+
+            if (!File.Exists(file))
+            {
+                Console.WriteLine($"File not found: {file}");
+                return 1;
+            }
+
+            var loader = new PhysicalFileLoader(Path.GetDirectoryName(Path.GetFullPath(file)));
+            var compiler = new Compiler(loader);
+            var doc = compiler.Compile(File.ReadAllText(file), Path.GetDirectoryName(file));
+
+            var sb = new StringBuilder();
+            sb.AppendLine($"# Configuration Documentation: {Path.GetFileName(file)}");
+            sb.AppendLine();
+
+            foreach(var schemaKv in doc.Schemas)
+            {
+                sb.AppendLine($"## Section `[{schemaKv.Key}]`");
+                // TODO: Add comments/description if we parsed them. Currently AST doesn't store comments.
+                sb.AppendLine("| Key | Type | Required | Default | Range |");
+                sb.AppendLine("| --- | --- | :---: | --- | --- |");
+
+                foreach(var prop in schemaKv.Value.Properties)
+                {
+                    if (prop.Value is Yini.Model.YiniSchemaDefinition def)
+                    {
+                        string req = def.Requirement == Yini.Model.SchemaRequirement.Required ? "Yes" : "No";
+                        string defVal = def.DefaultValue != null ? def.DefaultValue.ToString() : "-";
+                        string range = "";
+                        if (def.Min != null) range += $"Min: {def.Min} ";
+                        if (def.Max != null) range += $"Max: {def.Max}";
+
+                        sb.AppendLine($"| `{prop.Key}` | `{def.TypeName}` | {req} | {defVal} | {range} |");
+                    }
+                }
+                sb.AppendLine();
+            }
+
+            File.WriteAllText(outFile, sb.ToString());
+            Console.WriteLine($"Documentation generated to {outFile}");
             return 0;
         }
     }
