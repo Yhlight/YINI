@@ -141,6 +141,9 @@ namespace Yini
                         case '@': tokens.Add(new Token(TokenType.At, "@", _line, _column)); Advance(); break;
                         case '$': tokens.Add(new Token(TokenType.Dollar, "$", _line, _column)); Advance(); break;
                         case '#': tokens.Add(new Token(TokenType.Hash, "#", _line, _column)); Advance(); break;
+                        case '!': tokens.Add(new Token(TokenType.Exclamation, "!", _line, _column)); Advance(); break;
+                        case '?': tokens.Add(new Token(TokenType.Question, "?", _line, _column)); Advance(); break;
+                        case '~': tokens.Add(new Token(TokenType.Tilde, "~", _line, _column)); Advance(); break;
                         default:
                             throw new Exception($"Unexpected character '{current}' at {_line}:{_column}");
                     }

@@ -13,16 +13,28 @@ namespace Yini
         private HashSet<string> _resolvedSections;
         private HashSet<string> _resolvingSections;
 
+        private IFileLoader _fileLoader;
+        private HashSet<string> _loadedFiles;
+
+        public Compiler(IFileLoader fileLoader = null)
+        {
+            _fileLoader = fileLoader;
+        }
+
         public YiniDocument Compile(string source)
+        {
+            return Compile(source, null);
+        }
+
+        public YiniDocument Compile(string source, string basePath)
         {
             _macros = new Dictionary<string, YiniValue>();
             _resolvedSections = new HashSet<string>();
             _resolvingSections = new HashSet<string>();
+            _loadedFiles = new HashSet<string>();
 
-            var lexer = new Lexer(source);
-            var tokens = lexer.Tokenize();
-            var parser = new Parser(tokens);
-            _doc = parser.Parse();
+            // 1. Parse and Merge Includes
+            _doc = ParseAndMerge(source, basePath);
 
             // 2. Gather Macros
             if (_doc.Sections.ContainsKey("#define"))
@@ -32,11 +44,10 @@ namespace Yini
                 {
                     _macros[kv.Key] = kv.Value;
                 }
-                // Also from doc.Macros if populated
-                foreach(var kv in _doc.Macros) _macros[kv.Key] = kv.Value;
-
-                _doc.Macros = _macros;
             }
+            // Also from doc.Macros if populated (merged from includes)
+            foreach(var kv in _doc.Macros) _macros[kv.Key] = kv.Value;
+            _doc.Macros = _macros;
 
             // 3. Resolve Sections
             foreach(var sectionName in new List<string>(_doc.Sections.Keys))
@@ -46,6 +57,112 @@ namespace Yini
             }
 
             return _doc;
+        }
+
+        private YiniDocument ParseAndMerge(string source, string basePath)
+        {
+            var lexer = new Lexer(source);
+            var tokens = lexer.Tokenize();
+            var parser = new Parser(tokens);
+            var currentDoc = parser.Parse();
+
+            if (currentDoc.Sections.ContainsKey("#include"))
+            {
+                var includeSection = currentDoc.Sections["#include"];
+                var baseDoc = new YiniDocument();
+
+                foreach (var item in includeSection.Registry)
+                {
+                    string filename = item.ToString().Trim('"'); // Handle YiniString or raw
+                    if (item is YiniString s) filename = s.Value;
+                    else if (item is YiniPath p) filename = p.Path;
+
+                    if (_fileLoader == null) throw new Exception("Includes found but no FileLoader provided.");
+
+                    // Simple cycle detection (path based)
+                    string fullPath = filename;
+                    if (!string.IsNullOrEmpty(basePath) && !Path.IsPathRooted(filename))
+                    {
+                         fullPath = Path.Combine(basePath, filename);
+                    }
+                    // Normalize?
+
+                    if (_loadedFiles.Contains(fullPath)) continue;
+                    _loadedFiles.Add(fullPath);
+
+                    if (!_fileLoader.Exists(fullPath)) throw new FileNotFoundException($"Include file not found: {fullPath}");
+
+                    string content = _fileLoader.LoadFile(fullPath);
+                    string newBasePath = Path.GetDirectoryName(fullPath);
+
+                    var includedDoc = ParseAndMerge(content, newBasePath);
+                    MergeDocs(baseDoc, includedDoc);
+                }
+
+                // Merge current over base
+                MergeDocs(baseDoc, currentDoc);
+                return baseDoc;
+            }
+
+            return currentDoc;
+        }
+
+        private void MergeDocs(YiniDocument target, YiniDocument source)
+        {
+            // Merge Sections
+            foreach(var sectionPair in source.Sections)
+            {
+                var name = sectionPair.Key;
+                var srcSection = sectionPair.Value;
+
+                if (!target.Sections.ContainsKey(name))
+                {
+                    target.Sections[name] = new YiniSection(name);
+                }
+                var targetSection = target.Sections[name];
+
+                // Merge Properties
+                foreach(var kv in srcSection.Properties)
+                {
+                    targetSection.Properties[kv.Key] = kv.Value.Clone();
+                }
+
+                // Merge Registry
+                foreach(var item in srcSection.Registry)
+                {
+                    targetSection.Registry.Add(item.Clone());
+                }
+
+                // Merge Parents (Append? Unique?)
+                foreach(var p in srcSection.Parents)
+                {
+                    if (!targetSection.Parents.Contains(p)) targetSection.Parents.Add(p);
+                }
+            }
+
+            // Merge Macros
+            foreach(var kv in source.Macros)
+            {
+                target.Macros[kv.Key] = kv.Value.Clone();
+            }
+
+            // Merge Schemas
+            foreach(var schemaPair in source.Schemas)
+            {
+                 var name = schemaPair.Key;
+                 var srcSchema = schemaPair.Value;
+
+                 if (!target.Schemas.ContainsKey(name))
+                 {
+                     target.Schemas[name] = new YiniSection(name);
+                 }
+                 var targetSchema = target.Schemas[name];
+
+                 foreach(var kv in srcSchema.Properties)
+                 {
+                     targetSchema.Properties[kv.Key] = kv.Value.Clone();
+                 }
+            }
         }
 
         private void ResolveSection(string name)

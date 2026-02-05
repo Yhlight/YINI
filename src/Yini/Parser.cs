@@ -160,8 +160,17 @@ namespace Yini
                     Consume(TokenType.Identifier, "Expected key");
 
                     Consume(TokenType.Assign, "Expected '='");
-                    var value = ParseExpression();
-                    section.Properties[keyToken.Value] = value;
+
+                    if (_isSchemaMode)
+                    {
+                        var schemaDef = ParseSchemaDefinition();
+                        section.Properties[keyToken.Value] = schemaDef;
+                    }
+                    else
+                    {
+                        var value = ParseExpression();
+                        section.Properties[keyToken.Value] = value;
+                    }
                 }
                 else
                 {
@@ -170,6 +179,86 @@ namespace Yini
                 }
             }
         }
+
+        private YiniValue ParseSchemaDefinition()
+        {
+            var def = new YiniSchemaDefinition();
+
+            bool first = true;
+            while (first || Match(TokenType.Comma))
+            {
+                first = false;
+
+                if (Match(TokenType.Exclamation))
+                {
+                    def.Requirement = SchemaRequirement.Required;
+                }
+                else if (Match(TokenType.Question))
+                {
+                    def.Requirement = SchemaRequirement.Optional;
+                }
+                else if (Match(TokenType.Tilde))
+                {
+                    def.EmptyBehavior = SchemaEmptyBehavior.Ignore;
+                }
+                else if (Match(TokenType.Assign))
+                {
+                     // Default value
+                     // Spec says: =1280.
+                     // But wait, Empty behavior also has `=`.
+                     // "Empty behavior... Assign value (=)"
+                     // Spec example: `fps = ?, int, =60`
+                     // This looks like default value.
+                     // Does implicit `=` mean "Empty=Default"?
+                     def.EmptyBehavior = SchemaEmptyBehavior.Default;
+                     def.DefaultValue = ParseExpression();
+                }
+                else if (Current.Type == TokenType.Identifier)
+                {
+                    var id = Current.Value;
+                    if (id == "e")
+                    {
+                        Advance();
+                        def.EmptyBehavior = SchemaEmptyBehavior.Error;
+                    }
+                    else if (id == "min")
+                    {
+                        Advance();
+                        Consume(TokenType.Assign, "Expected = after min");
+                        def.Min = ParseExpression();
+                    }
+                    else if (id == "max")
+                    {
+                        Advance();
+                        Consume(TokenType.Assign, "Expected = after max");
+                        def.Max = ParseExpression();
+                    }
+                    else
+                    {
+                        // Assume Type Name
+                        Advance();
+                        def.TypeName = id;
+                        // Handle array[int] syntax?
+                        // Spec: array[int]
+                        if (Current.Type == TokenType.LBracket)
+                        {
+                            Advance();
+                            var subtype = Consume(TokenType.Identifier, "Expected subtype").Value;
+                            Consume(TokenType.RBracket, "Expected ]");
+                            def.TypeName += $"[{subtype}]";
+                        }
+                    }
+                }
+                else
+                {
+                    // Unexpected token in schema def
+                    break;
+                }
+            }
+            return def;
+        }
+
+        private void Advance() => _position++;
 
         private YiniValue ParseExpression(int precedence = 0)
         {
@@ -216,7 +305,7 @@ namespace Yini
             if (Current.Type == TokenType.NumberLiteral)
             {
                 var token = Consume(TokenType.NumberLiteral, "");
-                if (token.Value.Contains(".")) return new YiniFloat(float.Parse(token.Value));
+                if (token.Value.Contains(".")) return new YiniFloat(float.Parse(token.Value, System.Globalization.CultureInfo.InvariantCulture));
                 return new YiniInteger(int.Parse(token.Value));
             }
 
@@ -247,12 +336,18 @@ namespace Yini
 
             if (Current.Type == TokenType.Hash) // Color #RRGGBB
             {
-                Consume(TokenType.Hash, "");
-                // Next should be identifier (hex)
-                var hex = Consume(TokenType.Identifier, "Expected Hex Color").Value;
-                // Parse hex to Color
-                // Assuming RRGGBB
-                // TODO: Implement Hex Parsing logic properly
+                var hashToken = Consume(TokenType.Hash, "");
+                string hex = "";
+                // Handle split tokens (e.g. 00FF00 -> 00 (Number) + FF00 (Ident))
+                // Must be on same line
+                while (Current.Line == hashToken.Line && (Current.Type == TokenType.NumberLiteral || Current.Type == TokenType.Identifier))
+                {
+                    if (Current.Type == TokenType.NumberLiteral) hex += Consume(TokenType.NumberLiteral, "").Value;
+                    else hex += Consume(TokenType.Identifier, "").Value;
+                }
+
+                if (string.IsNullOrEmpty(hex)) throw new Exception("Expected Hex Color after #");
+
                 return ParseHexColor(hex);
             }
 
@@ -288,7 +383,15 @@ namespace Yini
 
             if (Current.Type == TokenType.Identifier)
             {
-                var id = Consume(TokenType.Identifier, "").Value;
+                var sb = new System.Text.StringBuilder();
+                sb.Append(Consume(TokenType.Identifier, "").Value);
+
+                while (Current.Type == TokenType.Dot)
+                {
+                    sb.Append(Consume(TokenType.Dot, "").Value);
+                    sb.Append(Consume(TokenType.Identifier, "Expected identifier after dot").Value);
+                }
+                var id = sb.ToString();
 
                 if (Current.Type == TokenType.LParen)
                 {
@@ -438,7 +541,7 @@ namespace Yini
                 int b = Convert.ToInt32(new string(hex[2], 2), 16);
                 return new YiniColor(r, g, b);
             }
-            throw new Exception("Invalid hex color length");
+            throw new Exception($"Invalid hex color length: {hex.Length} ('{hex}')");
         }
     }
 }

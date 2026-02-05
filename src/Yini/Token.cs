@@ -34,6 +34,9 @@ namespace Yini
 
         // Special
         Hash,     // # (for colors or #define/#include/#schema)
+        Exclamation, // !
+        Question, // ?
+        Tilde,    // ~
     }
 
     public class Token

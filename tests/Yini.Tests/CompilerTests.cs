@@ -70,6 +70,7 @@ val = @base + 50
 color = #FF0000
 coord = Coord(10.5, 20.5)
 list = [1, 2, 3]
+color2 = #00FF00
 ";
             var compiler = new Compiler();
             var doc = compiler.Compile(src);
@@ -78,6 +79,10 @@ list = [1, 2, 3]
             var color = (YiniColor)visual.Properties["color"];
             Assert.Equal(255, color.R);
             Assert.Equal(0, color.G);
+
+            var color2 = (YiniColor)visual.Properties["color2"];
+            Assert.Equal(0, color2.R);
+            Assert.Equal(255, color2.G);
 
             var coord = (YiniCoord)visual.Properties["coord"];
             Assert.Equal(10.5f, coord.X);
