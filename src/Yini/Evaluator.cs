@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Yini.Bytecode;
 using Yini.Model;
 
 namespace Yini
@@ -13,19 +14,38 @@ namespace Yini
     public class Evaluator
     {
         private readonly IEvaluationContext _context;
+        private readonly Dictionary<string, byte[]> _bytecodeCache = new Dictionary<string, byte[]>();
+        private readonly BytecodeVM _vm;
 
         public Evaluator(IEvaluationContext context)
         {
             _context = context;
+            _vm = new BytecodeVM(context);
         }
 
-        public YiniValue EvaluateDyna(string expression)
+        public YiniValue EvaluateDyna(string expression, bool useBytecode = false)
         {
-            var lexer = new Lexer(expression);
-            var tokens = lexer.Tokenize();
-            var parser = new Parser(tokens);
-            var ast = parser.ParseExpression();
-            return ResolveValue(ast, allowVariables: true);
+            if (useBytecode)
+            {
+                if (!_bytecodeCache.TryGetValue(expression, out byte[] code))
+                {
+                    var compiler = new BytecodeCompiler();
+                    var lexer = new Lexer(expression);
+                    var parser = new Parser(lexer.Tokenize());
+                    var ast = parser.ParseExpression();
+                    code = compiler.Compile(ast);
+                    _bytecodeCache[expression] = code;
+                }
+                return _vm.Run(code);
+            }
+            else
+            {
+                var lexer = new Lexer(expression);
+                var tokens = lexer.Tokenize();
+                var parser = new Parser(tokens);
+                var ast = parser.ParseExpression();
+                return ResolveValue(ast, allowVariables: true);
+            }
         }
 
         public YiniValue ResolveValue(YiniValue value, bool allowVariables = false)

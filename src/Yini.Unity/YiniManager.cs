@@ -13,6 +13,8 @@ namespace Yini.Unity
         public YiniAsset DefaultConfig;
 
         private YiniDocument _doc;
+        public YiniDocument Document => _doc;
+
         private Evaluator _evaluator;
         private Dictionary<string, YiniValue> _runtimeVariables = new Dictionary<string, YiniValue>();
 
