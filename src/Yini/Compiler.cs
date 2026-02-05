@@ -14,11 +14,13 @@ namespace Yini
         private HashSet<string> _resolvingSections;
 
         private IFileLoader _fileLoader;
+        private ILocalizationProvider _locProvider;
         private HashSet<string> _loadedFiles;
 
-        public Compiler(IFileLoader fileLoader = null)
+        public Compiler(IFileLoader fileLoader = null, ILocalizationProvider locProvider = null)
         {
             _fileLoader = fileLoader;
+            _locProvider = locProvider;
         }
 
         public YiniDocument Compile(string source)
@@ -303,6 +305,14 @@ namespace Yini
                     }
                 }
                 throw new Exception($"Reference not found: {refVal.Reference}");
+            }
+            if (refVal.Type == ReferenceType.Localization)
+            {
+                if (_locProvider != null)
+                {
+                    return new YiniString(_locProvider.GetString(refVal.Reference));
+                }
+                return refVal; // Keep as reference if no provider
             }
             return refVal;
         }

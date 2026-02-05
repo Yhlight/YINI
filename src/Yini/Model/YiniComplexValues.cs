@@ -103,7 +103,8 @@ namespace Yini.Model
     {
         Environment, // ${...}
         CrossSection, // @{...}
-        Macro // @name
+        Macro, // @name
+        Localization // @i18n:key
     }
 
     public class YiniReference : YiniValue

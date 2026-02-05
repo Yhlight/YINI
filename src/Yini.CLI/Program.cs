@@ -1,5 +1,7 @@
 using System;
 using System.IO;
+using System.Security.Cryptography;
+using System.Text;
 using Yini;
 
 namespace Yini.CLI
@@ -27,6 +29,8 @@ namespace Yini.CLI
                         return Format(args);
                     case "gen-meta":
                         return GenMeta(args);
+                    case "gen-cs":
+                        return GenCs(args);
                     default:
                         Console.WriteLine($"Unknown command: {command}");
                         PrintHelp();
@@ -58,6 +62,7 @@ namespace Yini.CLI
             Console.WriteLine("  yini validate <file> Validate YINI file against schemas");
             Console.WriteLine("  yini format <file>   Format/Normalize YINI file");
             Console.WriteLine("  yini gen-meta <file> Generate .ymeta cache file");
+            Console.WriteLine("  yini gen-cs <file> <ns> <class> [out.cs] Generate C# class");
         }
 
         static int Build(string[] args)
@@ -89,13 +94,49 @@ namespace Yini.CLI
             var files = Directory.GetFiles(inputDir, "*.yini", SearchOption.AllDirectories);
             Console.WriteLine($"Found {files.Length} files in {inputDir}. Building parallel...");
 
+            string cachePath = Path.Combine(inputDir, ".yini_cache");
+            var cache = BuildCache.Load(cachePath);
+            // Cache needs to be thread safe if updated in parallel, or we gather updates and save at end.
+            var cacheUpdates = new System.Collections.Concurrent.ConcurrentDictionary<string, string>();
+
             var exceptions = new System.Collections.Concurrent.ConcurrentQueue<Exception>();
             int successCount = 0;
+            int skippedCount = 0;
 
             System.Threading.Tasks.Parallel.ForEach(files, file =>
             {
                 try
                 {
+                    string content = File.ReadAllText(file);
+
+                    // Simple check: if source hasn't changed, and output exists, skip.
+                    // But we don't know dependencies (includes) easily without parsing.
+                    // For V1 incremental: Only check source file change.
+                    // Users should run clean build if includes change fundamentally.
+                    // Or we could parse imports.
+                    // Let's rely on Hash check of the main file for now as "File Level Incremental".
+
+                    bool skip = false;
+                    if (cache.IsUpToDate(file, content))
+                    {
+                        // Check if output exists
+                        if (outputDir != null)
+                        {
+                            string relPath = Path.GetRelativePath(inputDir, file);
+                            string relDir = Path.GetDirectoryName(relPath);
+                            string fileName = Path.GetFileNameWithoutExtension(file);
+                            string outPath = Path.Combine(outputDir, relDir, fileName + ".ybin");
+                            if (File.Exists(outPath)) skip = true;
+                        }
+                    }
+
+                    if (skip)
+                    {
+                        System.Threading.Interlocked.Increment(ref skippedCount);
+                        return; // Continue loop
+                    }
+
+                    // Proceed to build
                     string outFile = null;
                     if (outputDir != null)
                     {
@@ -112,7 +153,7 @@ namespace Yini.CLI
                     // Logic similar to BuildFile but silent
                     var loader = new PhysicalFileLoader(Path.GetDirectoryName(Path.GetFullPath(file)));
                     var compiler = new Compiler(loader);
-                    var doc = compiler.Compile(File.ReadAllText(file), Path.GetDirectoryName(file));
+                    var doc = compiler.Compile(content, Path.GetDirectoryName(file));
 
                     if (outFile != null)
                     {
@@ -122,6 +163,17 @@ namespace Yini.CLI
                             writer.Write(doc, fs);
                         }
                     }
+
+                    // Record successful hash
+                    // Re-calculate hash or assume content didn't change?
+                    // Use helper to update our local dict
+                    // cache.Update(file, content); // Not thread safe
+                    using (var sha = SHA256.Create())
+                    {
+                        var hash = Convert.ToBase64String(sha.ComputeHash(Encoding.UTF8.GetBytes(content)));
+                        cacheUpdates[file] = hash;
+                    }
+
                     System.Threading.Interlocked.Increment(ref successCount);
                 }
                 catch (Exception ex)
@@ -130,7 +182,14 @@ namespace Yini.CLI
                 }
             });
 
-            Console.WriteLine($"Built {successCount}/{files.Length} files.");
+            // Update cache
+            foreach(var kv in cacheUpdates)
+            {
+                cache.FileHashes[kv.Key] = kv.Value;
+            }
+            if (successCount > 0) cache.Save(cachePath);
+
+            Console.WriteLine($"Built {successCount}, Skipped {skippedCount}, Total {files.Length} files.");
             if (exceptions.Count > 0)
             {
                 foreach(var ex in exceptions) Console.WriteLine(ex.Message);
@@ -268,6 +327,37 @@ namespace Yini.CLI
                 generator.Generate(doc, fs);
             }
             Console.WriteLine($"Generated {metaFile}");
+            return 0;
+        }
+
+        static int GenCs(string[] args)
+        {
+            if (args.Length < 4)
+            {
+                Console.WriteLine("Usage: yini gen-cs <file> <namespace> <class> [output.cs]");
+                return 1;
+            }
+
+            string file = args[1];
+            string ns = args[2];
+            string cls = args[3];
+            string outPath = args.Length > 4 ? args[4] : cls + ".cs";
+
+            if (!File.Exists(file))
+            {
+                Console.WriteLine($"File not found: {file}");
+                return 1;
+            }
+
+            var loader = new PhysicalFileLoader(Path.GetDirectoryName(Path.GetFullPath(file)));
+            var compiler = new Compiler(loader);
+            var doc = compiler.Compile(File.ReadAllText(file), Path.GetDirectoryName(file));
+
+            var generator = new CodeGenerator();
+            string code = generator.GenerateCSharp(doc, ns, cls);
+
+            File.WriteAllText(outPath, code);
+            Console.WriteLine($"Generated C# code to {outPath}");
             return 0;
         }
     }

@@ -110,7 +110,8 @@ namespace Yini
             }
             else
             {
-                _isSchemaMode = false; // Reset schema mode for normal sections
+                // Do not reset schema mode here. If [#schema] was seen, it applies to subsequent sections.
+                // _isSchemaMode = false;
                 var nameToken = Consume(TokenType.Identifier, "Expected Section Name");
                 var section = new YiniSection(nameToken.Value);
                 section.NameSpan = nameToken.Span;
@@ -141,6 +142,8 @@ namespace Yini
                 {
                     targetDict.Add(section.Name, section);
                 }
+
+                _isSchemaMode = false; // Reset schema mode after section is parsed (one-shot directive)
             }
         }
 
@@ -242,11 +245,13 @@ namespace Yini
                     else
                     {
                         // Assume Type Name
+                        int typeLine = Current.Line;
                         Advance();
                         def.TypeName = id;
                         // Handle array[int] syntax?
                         // Spec: array[int]
-                        if (Current.Type == TokenType.LBracket)
+                        // Must be on the same line to avoid consuming start of next section [Section]
+                        if (Current.Type == TokenType.LBracket && Current.Line == typeLine)
                         {
                             Advance();
                             var subtype = Consume(TokenType.Identifier, "Expected subtype").Value;
@@ -367,9 +372,17 @@ namespace Yini
                 }
                 else
                 {
-                    // @name
+                    // @name or @i18n:key
                     var name = Consume(TokenType.Identifier, "Expected macro name").Value;
-                    result = new YiniReference(name, ReferenceType.Macro);
+                    if (name == "i18n" && Match(TokenType.Colon))
+                    {
+                        var key = Consume(TokenType.Identifier, "Expected localization key").Value;
+                        result = new YiniReference(key, ReferenceType.Localization);
+                    }
+                    else
+                    {
+                        result = new YiniReference(name, ReferenceType.Macro);
+                    }
                 }
             }
             else if (Current.Type == TokenType.Dollar) // ${ENV}

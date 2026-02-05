@@ -20,6 +20,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Yini\Yini.csproj" />
+    <ProjectReference Include="..\..\src\Yini.CLI\Yini.CLI.csproj" />
   </ItemGroup>
 
 </Project>
