@@ -95,6 +95,11 @@ namespace Yini
                     return new YiniReference(rRef, rType);
                 case 13:
                     return new YiniDyna(reader.ReadString());
+                case 14:
+                    count = reader.ReadInt32();
+                    var str = new YiniStruct();
+                    for(int i=0; i<count; i++) str.Fields[reader.ReadString()] = ReadValue(reader);
+                    return str;
                 default:
                     throw new Exception($"Unknown value type: {type}");
             }

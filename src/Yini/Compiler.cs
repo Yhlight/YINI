@@ -256,6 +256,15 @@ namespace Yini
                  }
                  return map;
             }
+            if (value is YiniStruct str)
+            {
+                var keys = new List<string>(str.Fields.Keys);
+                foreach(var k in keys)
+                {
+                    str.Fields[k] = ResolveValue(str.Fields[k], context);
+                }
+                return str;
+            }
 
             return value;
         }

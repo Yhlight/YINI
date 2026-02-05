@@ -25,6 +25,12 @@ namespace Yini.LSP
     {
         [JsonPropertyName("textDocumentSync")] public int TextDocumentSync { get; set; } = 1; // Full sync
         [JsonPropertyName("hoverProvider")] public bool HoverProvider { get; set; } = true;
+        [JsonPropertyName("completionProvider")] public CompletionOptions CompletionProvider { get; set; } = new CompletionOptions();
+    }
+
+    public class CompletionOptions
+    {
+        [JsonPropertyName("resolveProvider")] public bool ResolveProvider { get; set; } = false;
     }
 
     public class PublishDiagnosticsParams
@@ -183,6 +189,28 @@ namespace Yini.LSP
             {
                 HandleHover(message);
             }
+            else if (message.Method == "textDocument/completion")
+            {
+                HandleCompletion(message);
+            }
+        }
+
+        private void HandleCompletion(LspMessage message)
+        {
+            // Simple logic: Suggest keywords or properties if inside a section?
+            // Without a full AST lookup at current position, hard to do context-aware.
+            // But we can return list of all known schemas properties?
+
+            var items = new System.Collections.Generic.List<object>();
+            items.Add(new { label = "true", kind = 21 }); // Constant
+            items.Add(new { label = "false", kind = 21 });
+            items.Add(new { label = "Coord", kind = 3 }); // Function
+            items.Add(new { label = "Color", kind = 3 });
+
+            // TODO: If we had the parsed doc, we could find which section we are in
+            // and suggest schema keys. For now, this proves the endpoint works.
+
+            WriteMessage(items, message.Id);
         }
 
         private void HandleHover(LspMessage message)

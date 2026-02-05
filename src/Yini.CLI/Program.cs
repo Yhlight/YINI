@@ -64,26 +64,91 @@ namespace Yini.CLI
         {
             if (args.Length < 2)
             {
-                Console.WriteLine("Usage: yini build <file> [output.ybin]");
+                Console.WriteLine("Usage: yini build <file/dir> [output]");
                 return 1;
             }
 
-            string file = args[1];
-            if (!File.Exists(file))
+            string input = args[1];
+
+            if (Directory.Exists(input))
             {
-                Console.WriteLine($"File not found: {file}");
+                return BuildDirectory(input, args.Length > 2 ? args[2] : null);
+            }
+
+            if (!File.Exists(input))
+            {
+                Console.WriteLine($"File not found: {input}");
                 return 1;
             }
 
+            return BuildFile(input, args.Length > 2 ? args[2] : null);
+        }
+
+        static int BuildDirectory(string inputDir, string outputDir)
+        {
+            var files = Directory.GetFiles(inputDir, "*.yini", SearchOption.AllDirectories);
+            Console.WriteLine($"Found {files.Length} files in {inputDir}. Building parallel...");
+
+            var exceptions = new System.Collections.Concurrent.ConcurrentQueue<Exception>();
+            int successCount = 0;
+
+            System.Threading.Tasks.Parallel.ForEach(files, file =>
+            {
+                try
+                {
+                    string outFile = null;
+                    if (outputDir != null)
+                    {
+                        // Mirror structure?
+                        string relPath = Path.GetRelativePath(inputDir, file);
+                        string relDir = Path.GetDirectoryName(relPath);
+                        string fileName = Path.GetFileNameWithoutExtension(file);
+                        string outPath = Path.Combine(outputDir, relDir, fileName + ".ybin");
+
+                        Directory.CreateDirectory(Path.GetDirectoryName(outPath));
+                        outFile = outPath;
+                    }
+
+                    // Logic similar to BuildFile but silent
+                    var loader = new PhysicalFileLoader(Path.GetDirectoryName(Path.GetFullPath(file)));
+                    var compiler = new Compiler(loader);
+                    var doc = compiler.Compile(File.ReadAllText(file), Path.GetDirectoryName(file));
+
+                    if (outFile != null)
+                    {
+                        using(var fs = File.Create(outFile))
+                        {
+                            var writer = new YiniBinaryWriter();
+                            writer.Write(doc, fs);
+                        }
+                    }
+                    System.Threading.Interlocked.Increment(ref successCount);
+                }
+                catch (Exception ex)
+                {
+                    exceptions.Enqueue(new Exception($"Error building {file}: {ex.Message}"));
+                }
+            });
+
+            Console.WriteLine($"Built {successCount}/{files.Length} files.");
+            if (exceptions.Count > 0)
+            {
+                foreach(var ex in exceptions) Console.WriteLine(ex.Message);
+                return 1;
+            }
+            return 0;
+        }
+
+        static int BuildFile(string file, string outFile)
+        {
             var loader = new PhysicalFileLoader(Path.GetDirectoryName(Path.GetFullPath(file)));
             var compiler = new Compiler(loader);
             var doc = compiler.Compile(File.ReadAllText(file), Path.GetDirectoryName(file));
 
             Console.WriteLine($"Successfully compiled {file}");
 
-            if (args.Length > 2)
+            if (outFile != null)
             {
-                string outFile = args[2];
                 if (outFile.EndsWith(".ybin", StringComparison.OrdinalIgnoreCase))
                 {
                     using(var fs = File.Create(outFile))

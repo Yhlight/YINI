@@ -428,19 +428,47 @@ namespace Yini
         private YiniValue ParseMap()
         {
             Consume(TokenType.LBrace, "");
-            var map = new YiniMap();
+            var items = new Dictionary<string, YiniValue>();
+            bool hasTrailingComma = false;
+
             if (Current.Type != TokenType.RBrace)
             {
-                do
+                bool first = true;
+                while (first || (hasTrailingComma = Match(TokenType.Comma)))
                 {
+                    if (hasTrailingComma && Current.Type == TokenType.RBrace) break; // Trailing comma detected
+                    if (!first && !hasTrailingComma) break; // No comma between items
+
+                    first = false;
                     var keyToken = Consume(TokenType.Identifier, "Expected Key");
                     Consume(TokenType.Colon, "Expected :");
                     var val = ParseExpression();
-                    map.Items[keyToken.Value] = val;
-                } while (Match(TokenType.Comma));
+                    items[keyToken.Value] = val;
+                }
             }
             Consume(TokenType.RBrace, "Expected }");
-            return map;
+
+            // Spec:
+            // {key: value} -> Struct (Single pair?, or just no trailing comma?)
+            // {key: value,} -> Map
+            // The spec says: "{key: value} (single pair without trailing comma) represents distinct struct".
+            // "{key: value,} (with trailing comma) represents Map".
+            // Implementation interpretation:
+            // If hasTrailingComma -> Map
+            // Else -> Struct
+
+            if (hasTrailingComma || items.Count == 0) // Empty {} usually Map? Or empty Struct? Let's default to Map for empty.
+            {
+                var map = new YiniMap();
+                foreach(var kv in items) map.Items[kv.Key] = kv.Value;
+                return map;
+            }
+            else
+            {
+                var str = new YiniStruct();
+                foreach(var kv in items) str.Fields[kv.Key] = kv.Value;
+                return str;
+            }
         }
 
         private YiniValue ParseParenOrSet()

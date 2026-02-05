@@ -104,6 +104,12 @@ namespace Yini
                 writer.Write((byte)13);
                 writer.Write(d.Expression);
             }
+            else if (value is YiniStruct str)
+            {
+                writer.Write((byte)14);
+                writer.Write(str.Fields.Count);
+                foreach(var kv in str.Fields) { writer.Write(kv.Key); WriteValue(writer, kv.Value); }
+            }
             else
             {
                 throw new Exception($"Unsupported type for binary serialization: {value.GetType().Name}");
