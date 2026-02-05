@@ -16,7 +16,7 @@ namespace Yini.Model
         }
 
         public override object GetRawValue() => throw new InvalidOperationException($"Unresolved Binary Expression: {Left} {Op} {Right}");
-        public override YiniValue Clone() => new YiniBinaryExpression(Left.Clone(), Op, Right.Clone());
+        public override YiniValue Clone() { var c = new YiniBinaryExpression(Left.Clone(), Op, Right.Clone()); CopySpanTo(c); return c; }
         public override string ToString() => $"({Left} {Op} {Right})";
     }
 
@@ -32,7 +32,7 @@ namespace Yini.Model
         }
 
         public override object GetRawValue() => throw new InvalidOperationException($"Unresolved Unary Expression: {Op}{Operand}");
-        public override YiniValue Clone() => new YiniUnaryExpression(Op, Operand.Clone());
+        public override YiniValue Clone() { var c = new YiniUnaryExpression(Op, Operand.Clone()); CopySpanTo(c); return c; }
         public override string ToString() => $"({Op}{Operand})";
     }
 }

@@ -11,6 +11,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{0AB3BF05
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Yini.Tests", "tests\Yini.Tests\Yini.Tests.csproj", "{8799631D-6BA6-4066-A86C-99B2FB5771DC}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Yini.CLI", "src\Yini.CLI\Yini.CLI.csproj", "{CAC8DAAF-2BD3-4455-96A1-21EC5BD37244}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -45,6 +47,18 @@ Global
 		{8799631D-6BA6-4066-A86C-99B2FB5771DC}.Release|x64.Build.0 = Release|Any CPU
 		{8799631D-6BA6-4066-A86C-99B2FB5771DC}.Release|x86.ActiveCfg = Release|Any CPU
 		{8799631D-6BA6-4066-A86C-99B2FB5771DC}.Release|x86.Build.0 = Release|Any CPU
+		{CAC8DAAF-2BD3-4455-96A1-21EC5BD37244}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CAC8DAAF-2BD3-4455-96A1-21EC5BD37244}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CAC8DAAF-2BD3-4455-96A1-21EC5BD37244}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{CAC8DAAF-2BD3-4455-96A1-21EC5BD37244}.Debug|x64.Build.0 = Debug|Any CPU
+		{CAC8DAAF-2BD3-4455-96A1-21EC5BD37244}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{CAC8DAAF-2BD3-4455-96A1-21EC5BD37244}.Debug|x86.Build.0 = Debug|Any CPU
+		{CAC8DAAF-2BD3-4455-96A1-21EC5BD37244}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CAC8DAAF-2BD3-4455-96A1-21EC5BD37244}.Release|Any CPU.Build.0 = Release|Any CPU
+		{CAC8DAAF-2BD3-4455-96A1-21EC5BD37244}.Release|x64.ActiveCfg = Release|Any CPU
+		{CAC8DAAF-2BD3-4455-96A1-21EC5BD37244}.Release|x64.Build.0 = Release|Any CPU
+		{CAC8DAAF-2BD3-4455-96A1-21EC5BD37244}.Release|x86.ActiveCfg = Release|Any CPU
+		{CAC8DAAF-2BD3-4455-96A1-21EC5BD37244}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -52,5 +66,6 @@ Global
 	GlobalSection(NestedProjects) = preSolution
 		{A834CC2D-0883-4AE8-AC55-86B47866E406} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{8799631D-6BA6-4066-A86C-99B2FB5771DC} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
+		{CAC8DAAF-2BD3-4455-96A1-21EC5BD37244} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 	EndGlobalSection
 EndGlobal

@@ -45,6 +45,7 @@ namespace Yini
         public string Value { get; }
         public int Line { get; }
         public int Column { get; }
+        public string File { get; set; }
 
         public Token(TokenType type, string value, int line, int column)
         {
@@ -54,9 +55,11 @@ namespace Yini
             Column = column;
         }
 
+        public SourceSpan Span => new SourceSpan(File, Line, Column);
+
         public override string ToString()
         {
-            return $"{Type}('{Value}') at {Line}:{Column}";
+            return $"{Type}('{Value}') at {File}:{Line}:{Column}";
         }
     }
 }

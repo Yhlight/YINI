@@ -32,7 +32,7 @@ namespace Yini
                 _position++;
                 return token;
             }
-            throw new Exception($"Parse Error at {Current.Line}:{Current.Column}: {errorMessage}. Found {Current.Type} ('{Current.Value}')");
+            throw new YiniException($"{errorMessage}. Found {Current.Type} ('{Current.Value}')", Current.Span);
         }
 
         private bool Match(TokenType type)
@@ -58,7 +58,7 @@ namespace Yini
                 else
                 {
                     // Unexpected
-                    throw new Exception($"Unexpected token at top level: {Current}. All pairs must be in a section.");
+                    throw new YiniException($"Unexpected token at top level: {Current}. All pairs must be in a section.", Current.Span);
                 }
             }
 
@@ -175,7 +175,7 @@ namespace Yini
                 else
                 {
                      // Probably an error or we hit something unexpected
-                     throw new Exception($"Unexpected token in section body: {Current}");
+                     throw new YiniException($"Unexpected token in section body: {Current}", Current.Span);
                 }
             }
         }
@@ -296,45 +296,41 @@ namespace Yini
 
         private YiniValue ParsePrimary()
         {
+            var startToken = Current;
+            YiniValue result;
+
             if (Match(TokenType.Minus)) // Unary Minus
             {
                 var operand = ParsePrimary();
-                return new YiniUnaryExpression(TokenType.Minus, operand);
+                result = new YiniUnaryExpression(TokenType.Minus, operand);
             }
-
-            if (Current.Type == TokenType.NumberLiteral)
+            else if (Current.Type == TokenType.NumberLiteral)
             {
                 var token = Consume(TokenType.NumberLiteral, "");
-                if (token.Value.Contains(".")) return new YiniFloat(float.Parse(token.Value, System.Globalization.CultureInfo.InvariantCulture));
-                return new YiniInteger(int.Parse(token.Value));
+                if (token.Value.Contains(".")) result = new YiniFloat(float.Parse(token.Value, System.Globalization.CultureInfo.InvariantCulture));
+                else result = new YiniInteger(int.Parse(token.Value));
             }
-
-            if (Current.Type == TokenType.StringLiteral)
+            else if (Current.Type == TokenType.StringLiteral)
             {
-                return new YiniString(Consume(TokenType.StringLiteral, "").Value);
+                result = new YiniString(Consume(TokenType.StringLiteral, "").Value);
             }
-
-            if (Current.Type == TokenType.BooleanLiteral)
+            else if (Current.Type == TokenType.BooleanLiteral)
             {
-                return new YiniBoolean(bool.Parse(Consume(TokenType.BooleanLiteral, "").Value));
+                result = new YiniBoolean(bool.Parse(Consume(TokenType.BooleanLiteral, "").Value));
             }
-
-            if (Current.Type == TokenType.LBracket) // Array [1, 2]
+            else if (Current.Type == TokenType.LBracket) // Array [1, 2]
             {
-                return ParseArray();
+                result = ParseArray();
             }
-
-            if (Current.Type == TokenType.LBrace) // Map {k:v}
+            else if (Current.Type == TokenType.LBrace) // Map {k:v}
             {
-                return ParseMap();
+                result = ParseMap();
             }
-
-            if (Current.Type == TokenType.LParen) // Set or (Expr)
+            else if (Current.Type == TokenType.LParen) // Set or (Expr)
             {
-                return ParseParenOrSet();
+                result = ParseParenOrSet();
             }
-
-            if (Current.Type == TokenType.Hash) // Color #RRGGBB
+            else if (Current.Type == TokenType.Hash) // Color #RRGGBB
             {
                 var hashToken = Consume(TokenType.Hash, "");
                 string hex = "";
@@ -346,14 +342,13 @@ namespace Yini
                     else hex += Consume(TokenType.Identifier, "").Value;
                 }
 
-                if (string.IsNullOrEmpty(hex)) throw new Exception("Expected Hex Color after #");
+                if (string.IsNullOrEmpty(hex)) throw new YiniException("Expected Hex Color after #", hashToken.Span);
 
-                return ParseHexColor(hex);
+                result = ParseHexColor(hex);
             }
-
-            if (Current.Type == TokenType.At) // @name or @{...}
+            else if (Current.Type == TokenType.At) // @name or @{...}
             {
-                Consume(TokenType.At, "");
+                var atToken = Consume(TokenType.At, "");
                 if (Current.Type == TokenType.LBrace)
                 {
                     // @{Section.Key}
@@ -362,26 +357,24 @@ namespace Yini
                     Consume(TokenType.Dot, "Expected .");
                     var key = Consume(TokenType.Identifier, "Expected Key").Value;
                     Consume(TokenType.RBrace, "");
-                    return new YiniReference($"{sec}.{key}", ReferenceType.CrossSection);
+                    result = new YiniReference($"{sec}.{key}", ReferenceType.CrossSection);
                 }
                 else
                 {
                     // @name
                     var name = Consume(TokenType.Identifier, "Expected macro name").Value;
-                    return new YiniReference(name, ReferenceType.Macro);
+                    result = new YiniReference(name, ReferenceType.Macro);
                 }
             }
-
-            if (Current.Type == TokenType.Dollar) // ${ENV}
+            else if (Current.Type == TokenType.Dollar) // ${ENV}
             {
                 Consume(TokenType.Dollar, "");
                 Consume(TokenType.LBrace, "Expected {");
                 var name = Consume(TokenType.Identifier, "Expected Env Var Name").Value;
                 Consume(TokenType.RBrace, "Expected }");
-                return new YiniReference(name, ReferenceType.Environment);
+                result = new YiniReference(name, ReferenceType.Environment);
             }
-
-            if (Current.Type == TokenType.Identifier)
+            else if (Current.Type == TokenType.Identifier)
             {
                 var sb = new System.Text.StringBuilder();
                 sb.Append(Consume(TokenType.Identifier, "").Value);
@@ -396,14 +389,25 @@ namespace Yini
                 if (Current.Type == TokenType.LParen)
                 {
                     // Constructor call: Color(), Coord(), Path(), List(), Array()
-                    return ParseConstructor(id);
+                    result = ParseConstructor(id);
                 }
-
-                // Unquoted string
-                return new YiniString(id);
+                else
+                {
+                    // Unquoted string
+                    result = new YiniString(id);
+                }
+            }
+            else
+            {
+                throw new YiniException($"Unexpected token in expression: {Current}", Current.Span);
             }
 
-            throw new Exception($"Unexpected token in expression: {Current}");
+            // Assign Span
+            if (result != null)
+            {
+                result.Span = startToken.Span;
+            }
+            return result;
         }
 
         private YiniValue ParseArray()

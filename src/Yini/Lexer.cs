@@ -7,13 +7,15 @@ namespace Yini
     public class Lexer
     {
         private readonly string _input;
+        private readonly string _filename;
         private int _position;
         private int _line;
         private int _column;
 
-        public Lexer(string input)
+        public Lexer(string input, string filename = "<string>")
         {
             _input = input;
+            _filename = filename;
             _position = 0;
             _line = 1;
             _column = 1;
@@ -110,47 +112,53 @@ namespace Yini
                 else
                 {
                     // Operators and Symbols
+                    Token token = null;
                     switch (current)
                     {
-                        case '[': tokens.Add(new Token(TokenType.LBracket, "[", _line, _column)); Advance(); break;
-                        case ']': tokens.Add(new Token(TokenType.RBracket, "]", _line, _column)); Advance(); break;
-                        case '{': tokens.Add(new Token(TokenType.LBrace, "{", _line, _column)); Advance(); break;
-                        case '}': tokens.Add(new Token(TokenType.RBrace, "}", _line, _column)); Advance(); break;
-                        case '(': tokens.Add(new Token(TokenType.LParen, "(", _line, _column)); Advance(); break;
-                        case ')': tokens.Add(new Token(TokenType.RParen, ")", _line, _column)); Advance(); break;
-                        case ':': tokens.Add(new Token(TokenType.Colon, ":", _line, _column)); Advance(); break;
-                        case ',': tokens.Add(new Token(TokenType.Comma, ",", _line, _column)); Advance(); break;
-                        case '.': tokens.Add(new Token(TokenType.Dot, ".", _line, _column)); Advance(); break;
-                        case '=': tokens.Add(new Token(TokenType.Assign, "=", _line, _column)); Advance(); break;
+                        case '[': token = new Token(TokenType.LBracket, "[", _line, _column); Advance(); break;
+                        case ']': token = new Token(TokenType.RBracket, "]", _line, _column); Advance(); break;
+                        case '{': token = new Token(TokenType.LBrace, "{", _line, _column); Advance(); break;
+                        case '}': token = new Token(TokenType.RBrace, "}", _line, _column); Advance(); break;
+                        case '(': token = new Token(TokenType.LParen, "(", _line, _column); Advance(); break;
+                        case ')': token = new Token(TokenType.RParen, ")", _line, _column); Advance(); break;
+                        case ':': token = new Token(TokenType.Colon, ":", _line, _column); Advance(); break;
+                        case ',': token = new Token(TokenType.Comma, ",", _line, _column); Advance(); break;
+                        case '.': token = new Token(TokenType.Dot, ".", _line, _column); Advance(); break;
+                        case '=': token = new Token(TokenType.Assign, "=", _line, _column); Advance(); break;
                         case '+':
                             if (Peek() == '=')
                             {
-                                tokens.Add(new Token(TokenType.PlusAssign, "+=", _line, _column));
+                                token = new Token(TokenType.PlusAssign, "+=", _line, _column);
                                 Advance(); Advance();
                             }
                             else
                             {
-                                tokens.Add(new Token(TokenType.Plus, "+", _line, _column));
+                                token = new Token(TokenType.Plus, "+", _line, _column);
                                 Advance();
                             }
                             break;
-                        case '-': tokens.Add(new Token(TokenType.Minus, "-", _line, _column)); Advance(); break;
-                        case '*': tokens.Add(new Token(TokenType.Multiply, "*", _line, _column)); Advance(); break;
-                        case '/': tokens.Add(new Token(TokenType.Divide, "/", _line, _column)); Advance(); break;
-                        case '%': tokens.Add(new Token(TokenType.Modulo, "%", _line, _column)); Advance(); break;
-                        case '@': tokens.Add(new Token(TokenType.At, "@", _line, _column)); Advance(); break;
-                        case '$': tokens.Add(new Token(TokenType.Dollar, "$", _line, _column)); Advance(); break;
-                        case '#': tokens.Add(new Token(TokenType.Hash, "#", _line, _column)); Advance(); break;
-                        case '!': tokens.Add(new Token(TokenType.Exclamation, "!", _line, _column)); Advance(); break;
-                        case '?': tokens.Add(new Token(TokenType.Question, "?", _line, _column)); Advance(); break;
-                        case '~': tokens.Add(new Token(TokenType.Tilde, "~", _line, _column)); Advance(); break;
+                        case '-': token = new Token(TokenType.Minus, "-", _line, _column); Advance(); break;
+                        case '*': token = new Token(TokenType.Multiply, "*", _line, _column); Advance(); break;
+                        case '/': token = new Token(TokenType.Divide, "/", _line, _column); Advance(); break;
+                        case '%': token = new Token(TokenType.Modulo, "%", _line, _column); Advance(); break;
+                        case '@': token = new Token(TokenType.At, "@", _line, _column); Advance(); break;
+                        case '$': token = new Token(TokenType.Dollar, "$", _line, _column); Advance(); break;
+                        case '#': token = new Token(TokenType.Hash, "#", _line, _column); Advance(); break;
+                        case '!': token = new Token(TokenType.Exclamation, "!", _line, _column); Advance(); break;
+                        case '?': token = new Token(TokenType.Question, "?", _line, _column); Advance(); break;
+                        case '~': token = new Token(TokenType.Tilde, "~", _line, _column); Advance(); break;
                         default:
-                            throw new Exception($"Unexpected character '{current}' at {_line}:{_column}");
+                            throw new YiniException($"Unexpected character '{current}'", new SourceSpan(_filename, _line, _column));
+                    }
+                    if (token != null)
+                    {
+                        token.File = _filename;
+                        tokens.Add(token);
                     }
                 }
             }
 
-            tokens.Add(new Token(TokenType.EndOfFile, "", _line, _column));
+            tokens.Add(new Token(TokenType.EndOfFile, "", _line, _column) { File = _filename });
             return tokens;
         }
 
@@ -172,7 +180,7 @@ namespace Yini
                 Advance();
             }
 
-            return new Token(TokenType.NumberLiteral, sb.ToString(), startLine, startColumn);
+            return new Token(TokenType.NumberLiteral, sb.ToString(), startLine, startColumn) { File = _filename };
         }
 
         private Token ReadIdentifierOrKeyword()
@@ -190,10 +198,10 @@ namespace Yini
             string text = sb.ToString();
             if (text == "true" || text == "false")
             {
-                return new Token(TokenType.BooleanLiteral, text, startLine, startColumn);
+                return new Token(TokenType.BooleanLiteral, text, startLine, startColumn) { File = _filename };
             }
 
-            return new Token(TokenType.Identifier, text, startLine, startColumn);
+            return new Token(TokenType.Identifier, text, startLine, startColumn) { File = _filename };
         }
 
         private Token ReadString()
@@ -231,7 +239,7 @@ namespace Yini
                 Advance(); // Skip closing quote
             }
 
-            return new Token(TokenType.StringLiteral, sb.ToString(), startLine, startColumn);
+            return new Token(TokenType.StringLiteral, sb.ToString(), startLine, startColumn) { File = _filename };
         }
     }
 }

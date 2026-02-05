@@ -25,7 +25,7 @@ namespace Yini.Model
         public override object GetRawValue() => this;
         public override YiniValue Clone()
         {
-            return new YiniSchemaDefinition
+            var c = new YiniSchemaDefinition
             {
                 Requirement = Requirement,
                 TypeName = TypeName,
@@ -34,6 +34,8 @@ namespace Yini.Model
                 Max = Max?.Clone(),
                 EmptyBehavior = EmptyBehavior
             };
+            CopySpanTo(c);
+            return c;
         }
 
         public override string ToString() => $"Schema({TypeName}, {Requirement})";

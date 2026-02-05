@@ -11,7 +11,7 @@ namespace Yini.Model
             if (items != null) Items.AddRange(items);
         }
         public override object GetRawValue() => Items;
-        public override YiniValue Clone() => new YiniArray(Items.Select(i => i.Clone()));
+        public override YiniValue Clone() { var c = new YiniArray(Items.Select(i => i.Clone())); CopySpanTo(c); return c; }
         public override string ToString() => $"[{string.Join(", ", Items)}]";
     }
 
@@ -23,7 +23,7 @@ namespace Yini.Model
             if (items != null) Items.AddRange(items);
         }
         public override object GetRawValue() => Items;
-        public override YiniValue Clone() => new YiniList(Items.Select(i => i.Clone()));
+        public override YiniValue Clone() { var c = new YiniList(Items.Select(i => i.Clone())); CopySpanTo(c); return c; }
         public override string ToString() => $"List({string.Join(", ", Items)})";
     }
 
@@ -36,7 +36,7 @@ namespace Yini.Model
             if (items != null) Elements.AddRange(items);
         }
         public override object GetRawValue() => Elements;
-        public override YiniValue Clone() => new YiniSet(Elements.Select(i => i.Clone()));
+        public override YiniValue Clone() { var c = new YiniSet(Elements.Select(i => i.Clone())); CopySpanTo(c); return c; }
         public override string ToString() => $"({string.Join(", ", Elements)})";
     }
 
@@ -48,6 +48,7 @@ namespace Yini.Model
         {
             var map = new YiniMap();
             foreach(var kv in Items) map.Items[kv.Key] = kv.Value.Clone();
+            CopySpanTo(map);
             return map;
         }
         public override string ToString() => "{" + string.Join(", ", Items.Select(kv => $"{kv.Key}: {kv.Value}")) + "}";
@@ -65,7 +66,7 @@ namespace Yini.Model
             R = r; G = g; B = b; A = a;
         }
         public override object GetRawValue() => this;
-        public override YiniValue Clone() => new YiniColor(R, G, B, A);
+        public override YiniValue Clone() { var c = new YiniColor(R, G, B, A); CopySpanTo(c); return c; }
         public override string ToString() => $"Color({R}, {G}, {B}, {A})";
     }
 
@@ -85,7 +86,7 @@ namespace Yini.Model
             X = x; Y = y; Z = z; Is3D = true;
         }
         public override object GetRawValue() => this;
-        public override YiniValue Clone() => Is3D ? new YiniCoord(X, Y, Z) : new YiniCoord(X, Y);
+        public override YiniValue Clone() { var c = Is3D ? new YiniCoord(X, Y, Z) : new YiniCoord(X, Y); CopySpanTo(c); return c; }
         public override string ToString() => Is3D ? $"Coord({X}, {Y}, {Z})" : $"Coord({X}, {Y})";
     }
 
@@ -94,7 +95,7 @@ namespace Yini.Model
         public string Path { get; set; }
         public YiniPath(string path) => Path = path;
         public override object GetRawValue() => Path;
-        public override YiniValue Clone() => new YiniPath(Path);
+        public override YiniValue Clone() { var c = new YiniPath(Path); CopySpanTo(c); return c; }
         public override string ToString() => $"Path({Path})";
     }
 
@@ -116,7 +117,7 @@ namespace Yini.Model
             Type = type;
         }
         public override object GetRawValue() => $"Ref({Type}:{Reference})";
-        public override YiniValue Clone() => new YiniReference(Reference, Type);
+        public override YiniValue Clone() { var c = new YiniReference(Reference, Type); CopySpanTo(c); return c; }
         public override string ToString() => GetRawValue().ToString();
     }
 }
