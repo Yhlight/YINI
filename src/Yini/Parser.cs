@@ -271,7 +271,7 @@ namespace Yini
 
         private void Advance() => _position++;
 
-        private YiniValue ParseExpression(int precedence = 0)
+        public YiniValue ParseExpression(int precedence = 0)
         {
             var left = ParsePrimary();
 

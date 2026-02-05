@@ -1,11 +1,12 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using Yini.Model;
 
 namespace Yini
 {
-    public class Compiler
+    public class Compiler : IEvaluationContext
     {
         private YiniDocument _doc;
         private Dictionary<string, YiniValue> _macros;
@@ -87,7 +88,6 @@ namespace Yini
                     {
                          fullPath = Path.Combine(basePath, filename);
                     }
-                    // Normalize?
 
                     if (_loadedFiles.Contains(fullPath)) continue;
                     _loadedFiles.Add(fullPath);
@@ -197,94 +197,48 @@ namespace Yini
             }
 
             // Resolve Values
+            var evaluator = new Evaluator(this);
             var keys = new List<string>(section.Properties.Keys);
             foreach(var key in keys)
             {
-                section.Properties[key] = ResolveValue(section.Properties[key], section);
+                section.Properties[key] = evaluator.ResolveValue(section.Properties[key]);
             }
 
             // Resolve Registry
             for(int i=0; i<section.Registry.Count; i++)
             {
-                section.Registry[i] = ResolveValue(section.Registry[i], section);
+                section.Registry[i] = evaluator.ResolveValue(section.Registry[i]);
             }
 
             _resolvingSections.Remove(name);
             _resolvedSections.Add(name);
         }
 
-        private YiniValue ResolveValue(YiniValue value, YiniSection context)
+        public YiniValue ResolveVariable(string name)
         {
-            if (value is YiniReference reference)
-            {
-                return ResolveReference(reference, context);
-            }
-            if (value is YiniBinaryExpression binary)
-            {
-                return EvaluateBinary(binary, context);
-            }
-            if (value is YiniUnaryExpression unary)
-            {
-                return EvaluateUnary(unary, context);
-            }
-
-            if (value is YiniDyna) return value; // Don't resolve Dyna
-
-            if (value is YiniArray arr)
-            {
-                var newItems = new List<YiniValue>();
-                foreach(var item in arr.Items) newItems.Add(ResolveValue(item, context));
-                return new YiniArray(newItems);
-            }
-            if (value is YiniList list)
-            {
-                var newItems = new List<YiniValue>();
-                foreach(var item in list.Items) newItems.Add(ResolveValue(item, context));
-                return new YiniList(newItems);
-            }
-            if (value is YiniSet set)
-            {
-                var newItems = new List<YiniValue>();
-                foreach(var item in set.Elements) newItems.Add(ResolveValue(item, context));
-                return new YiniSet(newItems);
-            }
-            if (value is YiniMap map)
-            {
-                 // Resolve values in map
-                 var keys = new List<string>(map.Items.Keys);
-                 foreach(var k in keys)
-                 {
-                     map.Items[k] = ResolveValue(map.Items[k], context);
-                 }
-                 return map;
-            }
-            if (value is YiniStruct str)
-            {
-                var keys = new List<string>(str.Fields.Keys);
-                foreach(var k in keys)
-                {
-                    str.Fields[k] = ResolveValue(str.Fields[k], context);
-                }
-                return str;
-            }
-
-            return value;
+            return null; // Compiler doesn't support dynamic variables
         }
 
-        private YiniValue ResolveReference(YiniReference refVal, YiniSection context)
+        public YiniValue ResolveReference(YiniReference refVal)
         {
+            // Implementation of IEvaluationContext
             if (refVal.Type == ReferenceType.Macro)
             {
                 if (_macros.ContainsKey(refVal.Reference))
                 {
-                    return ResolveValue(_macros[refVal.Reference], context);
+                    // Recursively resolve the macro value using a fresh evaluator?
+                    // Or just return it and let Evaluator recurse?
+                    // Evaluator.ResolveValue calls ResolveReference, which returns a value.
+                    // Then Evaluator calls ResolveValue on that value.
+                    // So we just return the raw value from the macro dictionary.
+                    return _macros[refVal.Reference];
                 }
                 throw new Exception($"Undefined macro: @{refVal.Reference}");
             }
             if (refVal.Type == ReferenceType.Environment)
             {
                 var val = Environment.GetEnvironmentVariable(refVal.Reference);
-                if (val == null) return new YiniString(""); // Or throw
+                if (val == null) return new YiniString("");
                 return new YiniString(val);
             }
             if (refVal.Type == ReferenceType.CrossSection)
@@ -312,57 +266,9 @@ namespace Yini
                 {
                     return new YiniString(_locProvider.GetString(refVal.Reference));
                 }
-                return refVal; // Keep as reference if no provider
+                return refVal;
             }
             return refVal;
-        }
-
-        private YiniValue EvaluateBinary(YiniBinaryExpression expr, YiniSection context)
-        {
-            var left = ResolveValue(expr.Left, context);
-            var right = ResolveValue(expr.Right, context);
-
-            if (left is YiniInteger lInt && right is YiniInteger rInt)
-            {
-                switch(expr.Op)
-                {
-                    case TokenType.Plus: return new YiniInteger(lInt.Value + rInt.Value);
-                    case TokenType.Minus: return new YiniInteger(lInt.Value - rInt.Value);
-                    case TokenType.Multiply: return new YiniInteger(lInt.Value * rInt.Value);
-                    case TokenType.Divide: return new YiniInteger(lInt.Value / rInt.Value);
-                    case TokenType.Modulo: return new YiniInteger(lInt.Value % rInt.Value);
-                }
-            }
-            if ((left is YiniFloat || left is YiniInteger) && (right is YiniFloat || right is YiniInteger))
-            {
-                float lVal = (left is YiniFloat lf) ? lf.Value : ((YiniInteger)left).Value;
-                float rVal = (right is YiniFloat rf) ? rf.Value : ((YiniInteger)right).Value;
-                 switch(expr.Op)
-                {
-                    case TokenType.Plus: return new YiniFloat(lVal + rVal);
-                    case TokenType.Minus: return new YiniFloat(lVal - rVal);
-                    case TokenType.Multiply: return new YiniFloat(lVal * rVal);
-                    case TokenType.Divide: return new YiniFloat(lVal / rVal);
-                    // Modulo on float?
-                    case TokenType.Modulo: return new YiniFloat(lVal % rVal);
-                }
-            }
-
-            throw new Exception($"Cannot apply operator {expr.Op} to {left} and {right}");
-        }
-
-        private YiniValue EvaluateUnary(YiniUnaryExpression expr, YiniSection context)
-        {
-            var operand = ResolveValue(expr.Operand, context);
-             if (operand is YiniInteger i)
-            {
-                if (expr.Op == TokenType.Minus) return new YiniInteger(-i.Value);
-            }
-            if (operand is YiniFloat f)
-            {
-                if (expr.Op == TokenType.Minus) return new YiniFloat(-f.Value);
-            }
-            throw new Exception($"Cannot apply unary operator {expr.Op} to {operand}");
         }
     }
 }
