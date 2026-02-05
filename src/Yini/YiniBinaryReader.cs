@@ -93,6 +93,8 @@ namespace Yini
                     var rType = (ReferenceType)reader.ReadInt32();
                     var rRef = reader.ReadString();
                     return new YiniReference(rRef, rType);
+                case 13:
+                    return new YiniDyna(reader.ReadString());
                 default:
                     throw new Exception($"Unknown value type: {type}");
             }

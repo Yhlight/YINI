@@ -96,7 +96,7 @@ namespace Yini.Model
         public YiniPath(string path) => Path = path;
         public override object GetRawValue() => Path;
         public override YiniValue Clone() { var c = new YiniPath(Path); CopySpanTo(c); return c; }
-        public override string ToString() => $"Path({Path})";
+        public override string ToString() => $"Path(\"{Path}\")";
     }
 
     public enum ReferenceType
@@ -118,6 +118,15 @@ namespace Yini.Model
         }
         public override object GetRawValue() => $"Ref({Type}:{Reference})";
         public override YiniValue Clone() { var c = new YiniReference(Reference, Type); CopySpanTo(c); return c; }
-        public override string ToString() => GetRawValue().ToString();
+        public override string ToString()
+        {
+            switch(Type)
+            {
+                case ReferenceType.Macro: return $"@{Reference}";
+                case ReferenceType.Environment: return $"${{{Reference}}}";
+                case ReferenceType.CrossSection: return $"@{{{Reference}}}";
+                default: return GetRawValue().ToString();
+            }
+        }
     }
 }

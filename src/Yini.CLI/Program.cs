@@ -25,6 +25,8 @@ namespace Yini.CLI
                         return Validate(args);
                     case "format":
                         return Format(args);
+                    case "gen-meta":
+                        return GenMeta(args);
                     default:
                         Console.WriteLine($"Unknown command: {command}");
                         PrintHelp();
@@ -55,6 +57,7 @@ namespace Yini.CLI
             Console.WriteLine("  yini build <file>    Compile YINI file to JSON (debug output)");
             Console.WriteLine("  yini validate <file> Validate YINI file against schemas");
             Console.WriteLine("  yini format <file>   Format/Normalize YINI file");
+            Console.WriteLine("  yini gen-meta <file> Generate .ymeta cache file");
         }
 
         static int Build(string[] args)
@@ -171,6 +174,35 @@ namespace Yini.CLI
             {
                 Console.WriteLine(output);
             }
+            return 0;
+        }
+
+        static int GenMeta(string[] args)
+        {
+            if (args.Length < 2)
+            {
+                Console.WriteLine("Usage: yini gen-meta <file>");
+                return 1;
+            }
+
+            string file = args[1];
+            if (!File.Exists(file))
+            {
+                Console.WriteLine($"File not found: {file}");
+                return 1;
+            }
+
+            var loader = new PhysicalFileLoader(Path.GetDirectoryName(Path.GetFullPath(file)));
+            var compiler = new Compiler(loader);
+            var doc = compiler.Compile(File.ReadAllText(file), Path.GetDirectoryName(file));
+
+            string metaFile = file + ".ymeta"; // e.g. config.yini.ymeta
+            using (var fs = File.Create(metaFile))
+            {
+                var generator = new MetaGenerator();
+                generator.Generate(doc, fs);
+            }
+            Console.WriteLine($"Generated {metaFile}");
             return 0;
         }
     }

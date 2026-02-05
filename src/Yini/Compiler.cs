@@ -226,6 +226,8 @@ namespace Yini
                 return EvaluateUnary(unary, context);
             }
 
+            if (value is YiniDyna) return value; // Don't resolve Dyna
+
             if (value is YiniArray arr)
             {
                 var newItems = new List<YiniValue>();

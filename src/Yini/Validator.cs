@@ -103,6 +103,7 @@ namespace Yini
                 case "array": valid = value is YiniArray; break;
                 case "list": valid = value is YiniList; break;
                 case "map": valid = value is YiniMap; break;
+                case "dyna": valid = value is YiniDyna; break;
                 default:
                     // Complex types like array[int]
                     if (expected.StartsWith("array[") && expected.EndsWith("]"))

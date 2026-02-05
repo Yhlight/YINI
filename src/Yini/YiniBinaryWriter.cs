@@ -99,6 +99,11 @@ namespace Yini
                  writer.Write((int)r.Type);
                  writer.Write(r.Reference);
             }
+            else if (value is YiniDyna d)
+            {
+                writer.Write((byte)13);
+                writer.Write(d.Expression);
+            }
             else
             {
                 throw new Exception($"Unsupported type for binary serialization: {value.GetType().Name}");

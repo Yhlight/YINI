@@ -522,6 +522,13 @@ namespace Yini
                     return new YiniList(args);
                 case "Array":
                     return new YiniArray(args);
+                case "Dyna":
+                    // Dyna takes a single expression, but as string?
+                    // Or raw tokens?
+                    // For now, let's reconstruct the expression string from the arg.
+                    // This is a simplification. Ideally we store the expression AST.
+                    if (args.Count != 1) throw new YiniException("Dyna expects exactly 1 argument", Current.Span);
+                    return new YiniDyna(args[0].ToString());
                 default:
                     throw new Exception($"Unknown type constructor: {type}");
             }
