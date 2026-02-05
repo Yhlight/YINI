@@ -5,8 +5,11 @@ namespace Yini.Model
     public class YiniSection
     {
         public string Name { get; set; }
+        public SourceSpan NameSpan { get; set; }
         public List<string> Parents { get; } = new List<string>();
         public Dictionary<string, YiniValue> Properties { get; } = new Dictionary<string, YiniValue>();
+        public Dictionary<string, SourceSpan> KeyLocations { get; } = new Dictionary<string, SourceSpan>();
+
         // Quick registration list (+=)
         public List<YiniValue> Registry { get; } = new List<YiniValue>();
 

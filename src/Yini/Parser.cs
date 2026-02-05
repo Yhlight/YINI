@@ -110,8 +110,10 @@ namespace Yini
             }
             else
             {
+                _isSchemaMode = false; // Reset schema mode for normal sections
                 var nameToken = Consume(TokenType.Identifier, "Expected Section Name");
                 var section = new YiniSection(nameToken.Value);
+                section.NameSpan = nameToken.Span;
 
                 Consume(TokenType.RBracket, "Expected ']'");
 
@@ -146,6 +148,13 @@ namespace Yini
         {
             while (Current.Type != TokenType.LBracket && Current.Type != TokenType.EndOfFile)
             {
+                // Check if it's a comment line (handled in Lexer, but maybe empty lines remain?)
+                // Lexer swallows comments.
+                // If we see Identifier, it's a key.
+                // If we see PlusAssign, it's registry.
+                // If we see something else, it's error.
+                // HOWEVER: `[Config]` is LBracket. Loop terminates.
+
                 if (Match(TokenType.PlusAssign))
                 {
                     var value = ParseExpression();
@@ -153,23 +162,20 @@ namespace Yini
                 }
                 else if (Current.Type == TokenType.Identifier)
                 {
-                    // Check if it's actually a start of a section that missed bracket? No, assume key.
-                    // But wait, what if we have `key` without `=`?
-                    // Spec: `key = value`.
-                    var keyToken = _tokens[_position]; // Don't consume yet, handled in loop
-                    Consume(TokenType.Identifier, "Expected key");
-
+                    var keyToken = Consume(TokenType.Identifier, "Expected key");
                     Consume(TokenType.Assign, "Expected '='");
 
                     if (_isSchemaMode)
                     {
                         var schemaDef = ParseSchemaDefinition();
                         section.Properties[keyToken.Value] = schemaDef;
+                        section.KeyLocations[keyToken.Value] = keyToken.Span;
                     }
                     else
                     {
                         var value = ParseExpression();
                         section.Properties[keyToken.Value] = value;
+                        section.KeyLocations[keyToken.Value] = keyToken.Span;
                     }
                 }
                 else

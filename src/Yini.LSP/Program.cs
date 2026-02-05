@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Yini;
+using Yini.Model;
 
 namespace Yini.LSP
 {
@@ -195,47 +196,55 @@ namespace Yini.LSP
             }
         }
 
+        // Cache the last valid doc for intelligence
+        private YiniDocument _lastDoc;
+
         private void HandleCompletion(LspMessage message)
         {
-            // Simple logic: Suggest keywords or properties if inside a section?
-            // Without a full AST lookup at current position, hard to do context-aware.
-            // But we can return list of all known schemas properties?
+            if (_lastDoc == null || !message.Params.TryGetProperty("position", out var pos))
+            {
+                WriteMessage(new System.Collections.Generic.List<object>(), message.Id);
+                return;
+            }
 
+            int line = pos.GetProperty("line").GetInt32() + 1;
+            int col = pos.GetProperty("character").GetInt32() + 1;
+
+            var suggestions = LspHelper.GetCompletion(_lastDoc, line, col);
             var items = new System.Collections.Generic.List<object>();
-            items.Add(new { label = "true", kind = 21 }); // Constant
-            items.Add(new { label = "false", kind = 21 });
-            items.Add(new { label = "Coord", kind = 3 }); // Function
-            items.Add(new { label = "Color", kind = 3 });
+            foreach(var s in suggestions)
+            {
+                items.Add(new { label = s, kind = 10 }); // Property
+            }
 
-            // TODO: If we had the parsed doc, we could find which section we are in
-            // and suggest schema keys. For now, this proves the endpoint works.
+            if (items.Count == 0)
+            {
+                items.Add(new { label = "true", kind = 21 });
+                items.Add(new { label = "false", kind = 21 });
+            }
 
             WriteMessage(items, message.Id);
         }
 
         private void HandleHover(LspMessage message)
         {
-            // Parse params
-            // "textDocument": { "uri": ... }, "position": { "line": ..., "character": ... }
-            if (message.Params.TryGetProperty("textDocument", out var doc) &&
-                message.Params.TryGetProperty("position", out var pos))
+            if (_lastDoc != null && message.Params.TryGetProperty("position", out var pos))
             {
-                // Logic: Find token at position. If Key, look up Schema.
-                // For simplicity in this demo, we return a fixed "YINI Property" hover.
-                // A real implementation requires mapping Line/Col -> Token -> AST Node -> Schema.
+                int line = pos.GetProperty("line").GetInt32() + 1;
+                int col = pos.GetProperty("character").GetInt32() + 1;
 
-                var contents = new { kind = "markdown", value = "**YINI Property**\n\nType: `Dynamic`" };
-
-                var result = new
+                string text = LspHelper.GetHover(_lastDoc, line, col);
+                if (text != null)
                 {
-                    contents = contents
-                };
-                WriteMessage(result, message.Id);
+                    var result = new
+                    {
+                        contents = new { kind = "markdown", value = text }
+                    };
+                    WriteMessage(result, message.Id);
+                    return;
+                }
             }
-            else
-            {
-                WriteMessage(null, message.Id);
-            }
+            WriteMessage(null, message.Id);
         }
 
         private void ValidateDocument(JsonElement paramsEl)
@@ -268,13 +277,10 @@ namespace Yini.LSP
             var diagnostics = new System.Collections.Generic.List<Diagnostic>();
             try
             {
-                var compiler = new Compiler(); // No file loader for LSP buffer check? Or partial check?
-                // For LSP, we might not be able to resolve includes if we don't know workspace path easily.
-                // Just Parse for now to check syntax.
-                // Or try Compile with dummy path?
+                var compiler = new Compiler();
                 var res = compiler.Compile(text);
+                _lastDoc = res; // Cache successful parse
 
-                // Also validate schemas
                 var validator = new Validator();
                 validator.Validate(res);
             }
