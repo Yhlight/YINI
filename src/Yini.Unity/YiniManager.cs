@@ -44,6 +44,14 @@ namespace Yini.Unity
             _doc = compiler.Compile(source);
         }
 
+        public void ApplyPatch(string patchContent)
+        {
+            if (_doc == null) return;
+            var compiler = new Compiler();
+            var patchDoc = compiler.Compile(patchContent);
+            ConfigPatcher.ApplyPatch(_doc, patchDoc);
+        }
+
         public T Get<T>(string section, string key, T defaultValue = default)
         {
             if (_doc == null || !_doc.Sections.ContainsKey(section)) return defaultValue;

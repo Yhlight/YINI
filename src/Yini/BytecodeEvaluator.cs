@@ -34,14 +34,12 @@ namespace Yini.Bytecode
             EmitNode(ast);
             Emit(OpCode.Halt);
 
-            // Format: [CountConsts (4b)] [Consts...] [Code...]
-            // For simplicity, let's just return code and assume self-contained or use a container class.
-            // Let's make a BytecodeProgram container?
-            // For now, let's just serialize everything into the byte array.
-
             using (var ms = new MemoryStream())
             using (var writer = new BinaryWriter(ms))
             {
+                // Magic
+                writer.Write(new char[] { 'Y', 'B', 'C', '1' }); // Yini Byte Code v1
+
                 writer.Write(_constants.Count);
                 foreach(var c in _constants)
                 {
@@ -50,6 +48,7 @@ namespace Yini.Bytecode
                     else if (c is string s) { writer.Write((byte)3); writer.Write(s); }
                     else if (c is bool b) { writer.Write((byte)4); writer.Write(b); }
                 }
+                writer.Write(_code.Count);
                 writer.Write(_code.ToArray());
                 return ms.ToArray();
             }
@@ -125,6 +124,19 @@ namespace Yini.Bytecode
             using (var ms = new MemoryStream(program))
             using (var reader = new BinaryReader(ms))
             {
+                // Verify magic if present, or legacy?
+                // Assuming new format.
+                char[] magic = reader.ReadChars(4);
+                if (magic[0] != 'Y' || magic[1] != 'B' || magic[2] != 'C' || magic[3] != '1')
+                {
+                    // Fallback to old format (no magic, starts with const count int32)
+                    // Reset position and hope it's not starting with 'YBC1' by chance (unlikely for int count)
+                    // Actually, if we just changed Writer, we must change Reader.
+                    // But for test compatibility with old tests?
+                    // Let's assume we update tests too.
+                    throw new Exception("Invalid bytecode header");
+                }
+
                 int constCount = reader.ReadInt32();
                 var consts = new object[constCount];
                 for(int k=0; k<constCount; k++)
@@ -136,34 +148,38 @@ namespace Yini.Bytecode
                     else if (type == 4) consts[k] = reader.ReadBoolean();
                 }
 
-                // Code starts here
-                var stack = new Stack<YiniValue>();
+                int codeLength = reader.ReadInt32();
+                byte[] code = reader.ReadBytes(codeLength);
 
-                while (ms.Position < ms.Length)
+                // VM Loop over 'code' array
+                var stack = new Stack<YiniValue>();
+                int ip = 0;
+
+                while (ip < code.Length)
                 {
-                    OpCode op = (OpCode)reader.ReadByte();
+                    OpCode op = (OpCode)code[ip++];
                     if (op == OpCode.Halt) break;
 
                     switch(op)
                     {
                         case OpCode.PushInt:
                         {
-                            int idx = reader.ReadByte() | (reader.ReadByte() << 8);
+                            int idx = code[ip++] | (code[ip++] << 8);
                             stack.Push(new YiniInteger((int)consts[idx]));
                             break;
                         }
                         case OpCode.PushFloat:
                         {
-                            int idx = reader.ReadByte() | (reader.ReadByte() << 8);
+                            int idx = code[ip++] | (code[ip++] << 8);
                             stack.Push(new YiniFloat((float)consts[idx]));
                             break;
                         }
                         case OpCode.PushVar:
                         {
-                            int idx = reader.ReadByte() | (reader.ReadByte() << 8);
+                            int idx = code[ip++] | (code[ip++] << 8);
                             string name = (string)consts[idx];
                             // Try resolve
-                            var val = _ctx.ResolveVariable(name);
+                            var val = _ctx?.ResolveVariable(name);
                             if (val != null) stack.Push(val);
                             else stack.Push(new YiniString(name)); // Fallback literal
                             break;
@@ -182,6 +198,20 @@ namespace Yini.Bytecode
                             stack.Push(Mul(l, r));
                             break;
                         }
+                        case OpCode.Sub:
+                        {
+                            var r = stack.Pop();
+                            var l = stack.Pop();
+                            stack.Push(Sub(l, r));
+                            break;
+                        }
+                        case OpCode.Div:
+                        {
+                            var r = stack.Pop();
+                            var l = stack.Pop();
+                            stack.Push(Div(l, r));
+                            break;
+                        }
                         // Implement others...
                     }
                 }
@@ -189,6 +219,19 @@ namespace Yini.Bytecode
                 return stack.Count > 0 ? stack.Pop() : null;
             }
         }
+
+        // Helpers
+        private YiniValue Sub(YiniValue l, YiniValue r)
+        {
+             if (l is YiniInteger li && r is YiniInteger ri) return new YiniInteger(li.Value - ri.Value);
+             return new YiniFloat(GetFloat(l) - GetFloat(r));
+        }
+        private YiniValue Div(YiniValue l, YiniValue r)
+        {
+             if (l is YiniInteger li && r is YiniInteger ri) return new YiniInteger(li.Value / ri.Value);
+             return new YiniFloat(GetFloat(l) / GetFloat(r));
+        }
+
 
         private YiniValue Add(YiniValue l, YiniValue r)
         {

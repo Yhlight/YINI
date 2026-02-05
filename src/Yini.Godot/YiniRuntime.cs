@@ -32,6 +32,14 @@ namespace Yini.Godot
              _doc = compiler.Compile(content);
         }
 
+        public void ApplyPatch(string patchContent)
+        {
+            if (_doc == null) return;
+            var compiler = new Compiler();
+            var patchDoc = compiler.Compile(patchContent);
+            ConfigPatcher.ApplyPatch(_doc, patchDoc);
+        }
+
         public Variant Get(string section, string key, Variant defaultValue = default)
         {
              if (_doc == null || !_doc.Sections.ContainsKey(section)) return defaultValue;
