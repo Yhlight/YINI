@@ -1,7 +1,7 @@
 # YINI Compiler Progress Report
 
 ## Overview
-A complete, native C# implementation of the YINI configuration language compiler and toolchain has been developed. The project targets `.NET 8.0` and includes a core library, a command-line interface (CLI), and a comprehensive test suite.
+A complete, native C# implementation of the YINI configuration language compiler and toolchain has been developed. The project targets `.NET 8.0` and includes a core library, a command-line interface (CLI), a Language Server (LSP), and a comprehensive test suite.
 
 ## Implemented Features
 
@@ -11,6 +11,8 @@ A complete, native C# implementation of the YINI configuration language compiler
   - Basic: `int`, `float`, `bool`, `string`
   - Collections: `Array [...]`, `Map {...}`, `Set (...)`, `List(...)`
   - Game Types: `Color (#Hex or Color(r,g,b))`, `Coord(x,y,z)`, `Path("...")`
+  - **Dynamic:** `Dyna(expr)` type for runtime evaluation.
+  - **Structures:** `Struct {k:v}` (strict) vs `Map {k:v,}` (dynamic) differentiation.
 - **Expressions:** Arithmetic operations (`+ - * / %`) with precedence handling.
 - **Macros:** `[#define]` blocks and `@macro` references.
 - **Environment Variables:** `${ENV_VAR}` expansion.
@@ -26,20 +28,26 @@ A complete, native C# implementation of the YINI configuration language compiler
   - Default values and Empty behavior (`~`, `e`, `=val`)
 - **Serializer:** `Serializer` class for pretty-printing `YiniDocument` objects.
 - **Binary Format:** High-performance `.ybin` binary serialization (Reader/Writer).
-- **CLI:** `Yini.CLI` tool with `build`, `validate`, and `format` commands.
+- **Meta Generation:** `MetaGenerator` for creating `.ymeta` cache files.
+- **CLI:** `Yini.CLI` tool with `build` (parallel), `validate`, `format`, and `gen-meta` commands.
+- **LSP Server:** `Yini.LSP` implementation providing:
+  - **Hover:** Property type/doc from Schema.
+  - **Completion:** Context-aware key suggestions.
+  - **Diagnostics:** Real-time error reporting with source spans.
 - **Error Handling:** Precise error reporting with file, line, and column information (`SourceSpan`).
 
-### Compliance Notes
-- **Struct vs Map:** The parser currently treats `{key: value}` (Struct) and `{key: value,}` (Map) identically as `YiniMap`. This simplifies the implementation without breaking syntax compatibility.
-- **Dyna Type:** The `Dyna(value)` type mentioned in some contexts is not implemented as it was not present in the primary `YINI.md` specification provided.
-- **Hex Colors:** Parsing logic strictly enforces `#RRGGBB` format to avoid ambiguity with identifiers on new lines.
+### Ecosystem
+- **Bindings:** Reference implementations for Unity (`YiniLoader.cs`) and Godot (`YiniResource.cs`).
+- **Optimization:** `LexerFast` (Span-based) and Parallel Build.
 
 ## Project Structure
-- `src/Yini`: Core Class Library.
+- `src/Yini`: Core Class Library (NuGet ready).
 - `src/Yini.CLI`: Command Line Tool.
-- `tests/Yini.Tests`: xUnit Test Suite (Unit, Integration, and Binary Round-Trip tests).
+- `src/Yini.LSP`: Language Server Protocol implementation.
+- `src/Yini.Unity` / `src/Yini.Godot`: Game engine bindings.
+- `tests/Yini.Tests`: xUnit Test Suite (22 Unit, Integration, and Binary Round-Trip tests).
 
 ## Status
 - **Build:** Passing (`dotnet build`).
-- **Tests:** All 14 tests passing (`dotnet test`).
-- **Review:** Codebase has been reviewed and refactored for proper error handling and architecture.
+- **Tests:** All 22 tests passing (`dotnet test`).
+- **Review:** Codebase verified for spec compliance and robustness.

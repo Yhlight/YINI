@@ -1,18 +1,17 @@
 # Future Development Roadmap
 
-## 1. Feature Completeness
-- **Dyna Type:** Implement `Dyna(value)` dynamic type if required by updated specs.
-- **YMETA Generation:** Implement a build step to generate `.ymeta` cache files (separate from `.ybin` cooked assets) containing metadata for fast loading/reflection.
-- **Struct Optimization:** Differentiate between `Struct` (fixed schema, high perf) and `Map` (dynamic keys) in the internal representation for optimization.
+## 1. Tooling Integration & UI
+- **VSCode Extension UI:** Integrate the C# `Yini.LSP` executable with the VSCode extension client. Add syntax highlighting grammar (TextMate) to match the LSP features.
+- **Game Engine Editors:** Create Editor Windows for Unity and Godot to visually edit `.ybin` files or inspect loaded configs.
 
-## 2. Tooling Integration
-- **LSP Server:** Adapt the current Compiler/Validator logic into a Language Server Protocol (LSP) implementation. This will power the VSCode extension with real-time error reporting, autocomplete (based on schemas), and hover information.
-- **VSCode Extension:** Integrate the C# LSP with the existing VSCode client.
+## 2. Advanced Analysis
+- **Roslyn Analyzer:** Create a NuGet package `Yini.Analyzer` that runs `Yini.Validator` during the C# build process if `.yini` files are included in the project, preventing build on invalid config.
+- **Unused Key Detection:** Analyze codebases (C#) to find `yini["key"]` usages and report config keys that are defined but never used in code.
 
-## 3. Performance
-- **Zero-Allocation Parsing:** Investigate `Span<T>` and `ref struct` optimizations for the Lexer to reduce memory pressure during large builds.
-- **Parallel Compilation:** Update `Yini.CLI` to process multiple files in parallel for large projects.
+## 3. Performance & Scale
+- **Incremental Compilation:** Update `Yini.CLI` to only rebuild `.ybin` files if the source `.yini` (or its includes) has changed since last build.
+- **Memory Optimization:** Fully migrate `Parser` to use `LexerFast` and `Span<T>` to reduce GC pressure for massive configuration files (100MB+).
 
-## 4. Ecosystem
-- **Unity/Godot Plugins:** Create specific bindings for game engines to load `.ybin` assets directly into engine-native objects.
-- **Nuget Package:** Publish `Yini.Core` to NuGet for easy consumption by other .NET tools.
+## 4. Ecosystem Growth
+- **Localization Support:** Add native support for localization keys (e.g., `text = @i18n:welcome`) within the compiler resolution pipeline.
+- **Remote Config:** Implement a feature to patch `.ybin` files at runtime from a remote server delta.
