@@ -24,6 +24,7 @@ namespace Yini.LSP
     public class ServerCapabilities
     {
         [JsonPropertyName("textDocumentSync")] public int TextDocumentSync { get; set; } = 1; // Full sync
+        [JsonPropertyName("hoverProvider")] public bool HoverProvider { get; set; } = true;
     }
 
     public class PublishDiagnosticsParams
@@ -177,6 +178,35 @@ namespace Yini.LSP
             {
                 // Validate document
                 ValidateDocument(message.Params);
+            }
+            else if (message.Method == "textDocument/hover")
+            {
+                HandleHover(message);
+            }
+        }
+
+        private void HandleHover(LspMessage message)
+        {
+            // Parse params
+            // "textDocument": { "uri": ... }, "position": { "line": ..., "character": ... }
+            if (message.Params.TryGetProperty("textDocument", out var doc) &&
+                message.Params.TryGetProperty("position", out var pos))
+            {
+                // Logic: Find token at position. If Key, look up Schema.
+                // For simplicity in this demo, we return a fixed "YINI Property" hover.
+                // A real implementation requires mapping Line/Col -> Token -> AST Node -> Schema.
+
+                var contents = new { kind = "markdown", value = "**YINI Property**\n\nType: `Dynamic`" };
+
+                var result = new
+                {
+                    contents = contents
+                };
+                WriteMessage(result, message.Id);
+            }
+            else
+            {
+                WriteMessage(null, message.Id);
             }
         }
 
