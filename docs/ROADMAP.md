@@ -9,9 +9,14 @@
 - **Unused Key Detection:** Analyze codebases (C#) to find `yini["key"]` usages and report config keys that are defined but never used in code.
 
 ## 3. Performance & Scale
-- **Incremental Compilation:** Update `Yini.CLI` to only rebuild `.ybin` files if the source `.yini` (or its includes) has changed since last build.
+- **Bytecode VM for Dyna:** Currently `Dyna` expressions are evaluated by walking the AST. For per-frame evaluation in games, compiling these to a compact bytecode (or C# delegates) would significantly improve performance.
 - **Memory Optimization:** Fully migrate `Parser` to use `LexerFast` and `Span<T>` to reduce GC pressure for massive configuration files (100MB+).
 
 ## 4. Ecosystem Growth
-- **Localization Support:** Add native support for localization keys (e.g., `text = @i18n:welcome`) within the compiler resolution pipeline.
 - **Remote Config:** Implement a feature to patch `.ybin` files at runtime from a remote server delta.
+- **Strongly Typed Code Gen:** Enhance `gen-cs` to automatically generate C# `structs` or `ScriptableObjects` (Unity) / `Resources` (Godot) that map 1:1 with defined Schemas, removing string-based lookups entirely.
+
+## Completed Items
+- **Incremental Compilation:** `Yini.CLI` now supports `BuildCache` to skip unchanged files.
+- **Localization Support:** Native support for `@i18n:key` reference resolution.
+- **Evaluator:** Runtime AST evaluation for expressions and `Dyna` types.
