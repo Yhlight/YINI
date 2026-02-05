@@ -19,6 +19,11 @@ A complete, native C# implementation of the YINI configuration language compiler
 - **Cross-Section References:** `@{Section.Key}` dynamic resolution.
 - **File Inclusion:** Recursive `[#include]` support with cycle detection.
 
+### Runtime & Evaluation
+- **Evaluator:** Dedicated `Evaluator` class allowing runtime resolution of values.
+- **Dyna Support:** `EvaluateDyna(string)` method parses and evaluates expressions at runtime (e.g., `Speed * Time`).
+- **Context:** `IEvaluationContext` interface for injecting runtime variables (e.g., game time, player stats).
+
 ### Tooling & API
 - **Compiler:** `Compiler` class with `Compile(source, basePath)` API.
 - **Validator:** `Validator` class enforcing `[#schema]` rules:
@@ -36,18 +41,25 @@ A complete, native C# implementation of the YINI configuration language compiler
   - **Diagnostics:** Real-time error reporting with source spans.
 - **Error Handling:** Precise error reporting with file, line, and column information (`SourceSpan`).
 
-### Ecosystem
-- **Bindings:** Reference implementations for Unity (`YiniLoader.cs`) and Godot (`YiniResource.cs`).
+### Ecosystem Integration
+- **Unity:** `Yini.Unity` package featuring:
+  - `YiniManager`: Singleton handling config loading and runtime evaluation.
+  - `YiniAsset`: ScriptableObject for editor integration.
+  - Runtime variable injection (e.g., `Time`, `DeltaTime`).
+- **Godot:** `Yini.Godot` package featuring:
+  - `YiniRuntime`: Autoload Node for global config access.
+  - `FileAccess` based loading.
 - **Optimization:** `LexerFast` (Span-based) and Parallel Build.
 
 ## Project Structure
 - `src/Yini`: Core Class Library (NuGet ready).
 - `src/Yini.CLI`: Command Line Tool.
 - `src/Yini.LSP`: Language Server Protocol implementation.
-- `src/Yini.Unity` / `src/Yini.Godot`: Game engine bindings.
-- `tests/Yini.Tests`: xUnit Test Suite (22 Unit, Integration, and Binary Round-Trip tests).
+- `src/Yini.Unity`: Unity integration assets.
+- `src/Yini.Godot`: Godot integration files.
+- `tests/Yini.Tests`: xUnit Test Suite.
 
 ## Status
 - **Build:** Passing (`dotnet build`).
-- **Tests:** All 22 tests passing (`dotnet test`).
+- **Tests:** All 28 tests passing (`dotnet test`), covering Core, LSP, Integrations, and Evaluator logic.
 - **Review:** Codebase verified for spec compliance and robustness.
